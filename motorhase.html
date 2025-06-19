@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- Chosen Palette: Dark Slate & Vibrant Accents (from Pitch Deck) -->
-    <!-- Application Structure Plan: Se ha diseñado una SPA con navegación por pestañas para segmentar la complejidad del informe HASE en áreas temáticas y digeribles: 1) Visión General (KPIs y filosofía), 2) Foso de Datos (visualización de placas y campos requeridos), 3) Arquitectura y Rendimiento (diagrama de flujo interactivo y especificaciones técnicas, gestión de proveedores), 4) Simulador de Riesgo (demostración interactiva del modelo HASE), 5) Procesos Clave (simulaciones de onboarding y protección Rodando), 6) Monitoreo y Dashboards (visualización de KPIs de flota, tendencias, PMA, salud de datos y deriva del modelo) y 7) Roadmap (timeline visual). Esta estructura no lineal prioriza la exploración y el entendimiento del usuario sobre el orden del documento original, permitiendo a diferentes perfiles (estratégicos, técnicos) acceder directamente a la información de su interés. -->
+    <!-- Application Structure Plan: Se ha diseñado una SPA con navegación por pestañas para segmentar la complejidad del informe HASE en áreas temáticas y digeribles: 1) Visión General (KPIs y filosofía), 2) Foso de Datos (visualización de placas y campos requeridos, ingeniería de features), 3) Arquitectura y Rendimiento (diagrama de flujo interactivo y especificaciones técnicas, gestión de proveedores, MLOps), 4) Simulador de Riesgo (demostración interactiva del modelo HASE), 5) Procesos Clave (simulaciones de onboarding y protección Rodando), 6) Monitoreo y Dashboards (visualización de KPIs de flota, tendencias, PMA, salud de datos y deriva del modelo) y 7) Roadmap (timeline visual, inferencia causal). Esta estructura no lineal prioriza la exploración y el entendimiento del usuario sobre el orden del documento original, permitiendo a diferentes perfiles (estratégicos, técnicos) acceder directamente a la información de su interés. -->
     <!-- Visualization & Content Choices:
         - Evolución de Placas: Reporte Info (Formatos de placas a lo largo del tiempo) -> Goal (Mostrar cambio y complejidad) -> Viz (Línea de tiempo interactiva HTML/CSS) -> Interaction (Click en cada hito para ver detalles) -> Justification (Más atractivo y claro que una tabla estática).
         - Arquitectura de Datos: Reporte Info (Flujo Kafka -> Flink -> HASE) -> Goal (Explicar el flujo de datos) -> Viz (Diagrama de flujo con HTML/Tailwind) -> Interaction (Hover sobre cada componente para mostrar descripción) -> Justification (Evita el uso de MermaidJS/SVG y es más interactivo).
@@ -22,6 +22,7 @@
         - Gestión de Proveedores: Reporte Info (Criterios de selección de proveedores) -> Goal (Mostrar la rigurosidad en la selección) -> Viz (Lista expandible/Acordeón) -> Interaction (Expandir para ver detalles) -> Justification (Organiza información densa de manera interactiva).
         - Integración PMA: Reporte Info (Rol del PMA) -> Goal (Destacar su importancia) -> Viz (Texto descriptivo y ejemplo) -> Interaction (N/A) -> Justification (Aclara la función del tercer pilar de IA).
         - Salud de Datos y Drift: Reporte Info (Calidad de datos, deriva del modelo) -> Goal (Demostrar monitoreo proactivo) -> Viz (Texto conceptual, placeholders para gráficos) -> Interaction (N/A) -> Justification (Visualiza conceptos clave de gobernanza de datos).
+        - MLOps: Report Info (MLOps tools) -> Goal (Show operational maturity) -> Viz (Text explanation) -> Interaction (N/A) -> Justification (Explains how models are managed and maintained).
     -->
     <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
     <style>
@@ -133,7 +134,7 @@
                     <p class="text-slate-300 mb-6">La ventaja competitiva de HASE se construye sobre un "foso de datos" único, que fusiona datos operativos en tiempo real con un profundo conocimiento del sector. Unificar la información, comenzando por la nomenclatura histórica de las placas, es el primer paso crítico para construir una visión 360° de cada vehículo y operador.</p>
                     
                     <h3 class="text-xl font-semibold mb-4 mt-8 text-white">Evolución de la Nomenclatura de Placas (TP Edo. de México)</h3>
-                    <p class="text-slate-300 mb-4">Los formatos de placas para el transporte público en el Estado de México son definidos por la SEMOVI a lo largo del tiempo. Es crucial que los sistemas como Consware y GPS registren las placas según el formato vigente en el año correspondiente. **Consware y SEMOVI comparten históricamente los mismos formatos de placa en sus respectivos periodos.** La tarea principal ahora es asegurar la validación y el **filtrado estricto de las placas para incluir solo vagonetas (TP)**, excluyendo otras modalidades como taxis (TX). Haz clic en cada hito para ver los detalles de los formatos y su origen.</p>
+                    <p class="text-slate-300 mb-4">Los formatos de placas para el transporte público en el Estado de México son definidos por la SEMOVI a lo largo del tiempo. Es crucial que los sistemas como Consware y GPS registren las placas según el formato vigente en el año correspondiente. **Consware y SEMOVI comparten históricamente los mismos formatos de placa en sus respectivos periodos.** La tarea principal ahora es asegurar la validación y el **filtrado estricto de las placas para incluir solo vagonetas (TP)**, excluyendo otras modalidades como taxis (TX). Este proceso se gestionará a través de un **Sistema de Gestión de Datos Maestros (MDM)**. Haz clic en cada hito para ver los detalles de los formatos y su origen.</p>
                     <div id="timeline-placas" class="relative w-full">
                         <div class="absolute left-1/2 h-full w-0.5 bg-slate-700"></div>
                     </div>
@@ -183,6 +184,7 @@
                         </div>
                      </div>
                      <p class="text-slate-300 mt-6">La <strong>"carta aval de ruta"</strong> es un documento culturalmente relevante que, emitido por el líder de la ruta, funciona como un poderoso colateral social y un valioso predictor de riesgo que los modelos crediticios tradicionales suelen ignorar por completo. Su integración en el foso de datos es una ventaja competitiva única para HASE.</p>
+                     <p class="text-slate-300 mt-4">**Ingeniería de Características Avanzada:** Además de los campos base, Flink calculará **ratios derivados en tiempo real** (ej., <code>consumo_gnv_por_km</code>, <code>frecuencia_cambios_ruta</code>, <code>patrones_recarga_anómalos</code>) para enriquecer el análisis predictivo de HASE.</p>
                 </div>
             </section>
 
@@ -208,6 +210,17 @@
                     <div id="providers-accordion-container" class="space-y-2">
                         <!-- Providers accordion items will be injected here by JS -->
                     </div>
+                </div>
+                <div class="card-dark mt-8">
+                    <h3 class="text-xl font-semibold mb-4 text-white">Principios MLOps: Operación y Mejora Continua de IA a Escala</h3>
+                    <p class="text-slate-300 mb-4">MLOps (Machine Learning Operations) es nuestra metodología para la gestión del ciclo de vida de los modelos de IA de HASE en producción. Asegura que nuestros modelos sean robustos, escalables y se adapten continuamente.</p>
+                    <ul class="list-disc list-inside text-sm text-slate-300 space-y-2">
+                        <li>**Versionamiento de Modelos (con MLflow):** Trazamos cada iteración del modelo HASE, sus parámetros y rendimiento, garantizando la reproducibilidad y la auditoría.</li>
+                        <li>**Gestión de Experimentos:** Utilizamos plataformas para comparar el rendimiento de diferentes versiones del modelo y nuevas características, acelerando la investigación y el desarrollo.</li>
+                        <li>**Despliegue Continuo (CI/CD para Modelos):** Automatizamos el proceso de llevar los modelos validados desde el desarrollo a producción de forma segura y eficiente.</li>
+                        <li>**Monitoreo en Producción:** Vigilamos constantemente la precisión, el *recall* y otros KPIs del modelo para detectar degradaciones (deriva) y activar reentrenamientos.</li>
+                    </ul>
+                    <p class="text-slate-300 mt-4">Estos principios, habilitados por herramientas como **MLflow** y **Kubeflow**, son esenciales para la evolución de HASE hacia modelos híbridos y la integración de la inferencia causal.</p>
                 </div>
             </section>
 
@@ -432,7 +445,7 @@
                                 <li>**Consistencia:** % de `placas` unificadas y sin duplicados.</li>
                                 <li>**Puntualidad:** Latencia promedio de ingesta (`GPS`, `GNV`).</li>
                             </ul>
-                            <p class="text-slate-400 text-xs mt-2"><em>(Aquí se mostrarían gráficos de tendencia para cada KPI de calidad de datos.)</em></p>
+                            <p class="text-slate-400 text-xs mt-2"><em>(Aquí se mostrarían gráficos de tendencia para cada KPI de calidad de datos y cumplimiento de Data Contracts.)</em></p>
                         </div>
                         <div class="bg-slate-800 p-4 rounded-lg border border-slate-700">
                             <h4 class="font-bold text-lg mb-2 text-sky-400">📉 Monitoreo de Deriva del Modelo (Model Drift)</h4>
@@ -441,7 +454,7 @@
                                 <li>**Deriva de Datos (Data Drift):** Cambios en la distribución de `consumo_gnv` o `patrones_ruta`.</li>
                                 <li>**Deriva de Concepto (Concept Drift):** El modelo `P_default(t)` comienza a predecir menos preciso debido a cambios en el comportamiento del operador no anticipados.</li>
                             </ul>
-                            <p class="text-slate-400 text-xs mt-2"><em>(Aquí se visualizarían gráficos de monitoreo de deriva, activando alertas para reentrenamiento.)</em></p>
+                            <p class="text-slate-400 text-xs mt-2"><em>(Aquí se visualizarían gráficos de monitoreo de deriva, disparando alertas para reentrenamiento o recalibración de modelos.)</em></p>
                         </div>
                     </div>
                 </div>
@@ -509,7 +522,7 @@
                  roadmap: [
                     { phase: "Fase 1: Preparación del Foso de Datos Históricos", period: "Meses 1-3", goal: "Ingestar, limpiar y estandarizar la totalidad de los datos históricos de Consware. Realizar el entrenamiento inicial del modelo HASE con esta base de datos completa, incluyendo periodos de estrés.", components: "Adquisición e ingesta de datos históricos Consware. Limpieza y estandarización de placas. Configuración de TimescaleDB para datos históricos. Entrenamiento inicial de HASE (v0.8) y validación *offline*.", kpis: "Completitud de datos Consware (>95%), Precisión del modelo HASE off-line (AUC, F1-score), Calidad de datos históricos." },
                     { phase: "Fase 2: Integración en Tiempo Real y MVP Operativo", period: "Meses 4-6", goal: "Integrar GPS y GNV en tiempo real. Desplegar una versión funcional de HASE para alertas básicas y validación en entorno de producción.", components: "Ingesta de datos GPS y GNV en tiempo real (Kafka). Enriquecimiento de datos en stream. Despliegue HASE (v1.0) para scoring en tiempo real. PIA (mensajes de alerta básicos vía WhatsApp).", kpis: "Latencia de datos GPS/GNV (<500ms), Tasa de detección de anomalías en tiempo real, Eficiencia del pipeline de datos." },
-                    { phase: "Fase 3: Optimización de Protección Rodando y Escala Empresarial", period: "Meses 7+", goal: "Integrar HASE con el Algoritmo de Equilibrio de TIR para optimizar la rentabilidad y escalar la plataforma a gran volumen.", components: "Integración con 'Protección Rodando'. Adopción de Flink (si no se hizo antes) y herramientas MLOps (MLflow). Monitoreo avanzado de deriva del modelo.", kpis: "TIR de cartera (≥22.8%), Tasa de morosidad (<8%), Escalabilidad de la plataforma (>1000 vehículos activos)." }
+                    { phase: "Fase 3: Optimización de Protección Rodando y Escala Empresarial", period: "Meses 7+", goal: "Integrar HASE con el Algoritmo de Equilibrio de TIR para optimizar la rentabilidad y escalar la plataforma a gran volumen.", components: "Integración con 'Protección Rodando'. Adopción de Flink (si no se hizo antes) y herramientas MLOps (MLflow, Kubeflow) para versionamiento, gestión de experimentos, despliegue continuo y monitoreo. Habilitación de Inferencia Causal para cuantificar impacto.", kpis: "TIR de cartera (≥22.8%), Tasa de morosidad (<8%), Escalabilidad de la plataforma (>1000 vehículos activos)." }
                 ]
             };
 
