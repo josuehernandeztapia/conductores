@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Explorador Interactivo: Motor HASE</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Neutrals & Subtle Accents -->
+    <!-- Application Structure Plan: Se ha diseñado una SPA con navegación por pestañas para segmentar la complejidad del informe HASE en áreas temáticas y digeribles: 1) Visión General (KPIs y filosofía), 2) Foso de Datos (visualización de placas y campos requeridos), 3) Arquitectura y Rendimiento (diagrama de flujo interactivo y especificaciones técnicas), 4) Simulador de Riesgo (demostración interactiva del modelo HASE), y 5) Roadmap (timeline visual). Esta estructura no lineal prioriza la exploración y el entendimiento del usuario sobre el orden del documento original, permitiendo a diferentes perfiles (estratégicos, técnicos) acceder directamente a la información de su interés. -->
+    <!-- Visualization & Content Choices: 
+        - Evolución de Placas: Reporte Info (Formatos de placas a lo largo del tiempo) -> Goal (Mostrar cambio y complejidad) -> Viz (Línea de tiempo interactiva HTML/CSS) -> Interaction (Click en cada hito para ver detalles) -> Justification (Más atractivo y claro que una tabla estática).
+        - Arquitectura de Datos: Reporte Info (Flujo Kafka -> Flink -> HASE) -> Goal (Explicar el flujo de datos) -> Viz (Diagrama de flujo con HTML/Tailwind) -> Interaction (Hover sobre cada componente para mostrar descripción) -> Justification (Evita el uso de MermaidJS/SVG y es más interactivo).
+        - Simulador de Riesgo: Reporte Info (Fórmula P_default y variables) -> Goal (Demostrar cómo HASE evalúa el riesgo) -> Viz (Sliders HTML y Gráfico de Gauge con Chart.js) -> Interaction (Mover sliders para actualizar el score de riesgo y la acción de PIA en tiempo real) -> Justification (Convierte un concepto abstracto en una experiencia tangible y memorable; el "wow factor").
+        - Requerimientos Técnicos: Reporte Info (Listas de SLA, seguridad, etc.) -> Goal (Presentar información densa de forma organizada) -> Viz (Acordeón colapsable HTML/JS) -> Interaction (Click para expandir/colapsar secciones) -> Justification (Mantiene la UI limpia y evita abrumar al usuario).
+        - Roadmap: Reporte Info (Fases 1, 2, 3) -> Goal (Visualizar el plan de implementación) -> Viz (Línea de tiempo horizontal HTML/CSS) -> Interaction (Click para resaltar detalles de cada fase) -> Justification (Más visual y fácil de seguir que una lista).
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #FDFBF8; }
+        .tab-active { border-color: #4A5568; color: #2D3748; background-color: #F7FAFC; }
+        .tab-inactive { border-color: transparent; color: #718096; }
+        .section { display: none; }
+        .section-active { display: block; }
+        .accordion-content { max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out; }
+        .roadmap-item-active .roadmap-content { max-height: 500px; opacity: 1; transform: translateY(0); }
+        .roadmap-content { max-height: 0; overflow: hidden; transition: all 0.5s ease-in-out; opacity: 0; transform: translateY(-10px); }
+        .chart-container { position: relative; width: 100%; max-width: 600px; margin-left: auto; margin-right: auto; height: 300px; max-height: 350px; }
+        @media (min-width: 768px) { .chart-container { height: 350px; } }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8">
+        
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-800">Explorador Interactivo del Motor HASE</h1>
+            <p class="text-lg text-gray-600 mt-2">Una visión dinámica de la estrategia de "Resiliencia como Servicio" de Rodando a Gas.</p>
+        </header>
+
+        <nav class="mb-8 flex flex-wrap justify-center border-b border-gray-200">
+            <button data-tab="vision-general" class="nav-tab text-sm md:text-base font-medium py-3 px-3 sm:px-6 border-b-2 transition-all duration-300">Visión General</button>
+            <button data-tab="foso-datos" class="nav-tab text-sm md:text-base font-medium py-3 px-3 sm:px-6 border-b-2 transition-all duration-300">Foso de Datos</button>
+            <button data-tab="arquitectura" class="nav-tab text-sm md:text-base font-medium py-3 px-3 sm:px-6 border-b-2 transition-all duration-300">Arquitectura y Rendimiento</button>
+            <button data-tab="simulador" class="nav-tab text-sm md:text-base font-medium py-3 px-3 sm:px-6 border-b-2 transition-all duration-300">Simulador de Riesgo</button>
+            <button data-tab="roadmap" class="nav-tab text-sm md:text-base font-medium py-3 px-3 sm:px-6 border-b-2 transition-all duration-300">Roadmap</button>
+        </nav>
+
+        <main>
+            <section id="vision-general" class="section">
+                <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+                    <h2 class="text-2xl font-bold mb-4">Misión: El Cerebro Predictivo y Proactivo</h2>
+                    <p class="text-gray-700 mb-6">HASE (Hyper-Adaptive Scoring Engine) es el núcleo inteligente de Rodando a Gas. Su misión es transformar la gestión de riesgo crediticio de un modelo estático a uno dinámico y predictivo. Al analizar datos operativos en tiempo real, HASE anticipa dificultades financieras y activa proactivamente "Protección Rodando", un paquete de flexibilidad que apoya al operador antes de un posible impago. Este enfoque "humanamente tecnológico" convierte el riesgo en resiliencia, fomentando una relación de colaboración y asegurando la sostenibilidad del ecosistema.</p>
+                
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                        <div class="bg-blue-50 p-4 rounded-lg">
+                            <h3 class="text-lg font-semibold text-blue-800">TIR de Cartera</h3>
+                            <p class="text-3xl font-bold text-blue-600 mt-1">&ge;22.8%</p>
+                            <p class="text-sm text-blue-700">Objetivo de Rentabilidad</p>
+                        </div>
+                        <div class="bg-green-50 p-4 rounded-lg">
+                            <h3 class="text-lg font-semibold text-green-800">Tasa de Morosidad</h3>
+                            <p class="text-3xl font-bold text-green-600 mt-1">&lt;8%</p>
+                            <p class="text-sm text-green-700">vs. 15-20% del Sector</p>
+                        </div>
+                        <div class="bg-purple-50 p-4 rounded-lg">
+                            <h3 class="text-lg font-semibold text-purple-800">Escalabilidad</h3>
+                            <p class="text-3xl font-bold text-purple-600 mt-1">1,000+</p>
+                            <p class="text-sm text-purple-700">Vehículos Simultáneos</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="foso-datos" class="section">
+                <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+                    <h2 class="text-2xl font-bold mb-4">El Foso de Datos: Un Activo Propietario</h2>
+                    <p class="text-gray-700 mb-6">La ventaja competitiva de HASE se construye sobre un "foso de datos" único, que fusiona datos operativos en tiempo real con un profundo conocimiento del sector. Unificar la información, comenzando por la nomenclatura histórica de las placas, es el primer paso crítico para construir una visión 360° de cada vehículo y operador.</p>
+                    
+                    <h3 class="text-xl font-semibold mb-4 mt-8">Evolución de la Nomenclatura de Placas (TP Edo. de México)</h3>
+                    <p class="text-gray-600 mb-6">La estandarización de múltiples formatos históricos a uno solo es clave para la integridad de los datos. Haz clic en cada hito para ver los detalles.</p>
+                    <div id="timeline-placas" class="relative w-full">
+                        <div class="absolute left-1/2 h-full w-0.5 bg-gray-300"></div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100 mt-8">
+                     <h3 class="text-xl font-semibold mb-4">Campos de Datos Obligatorios</h3>
+                     <p class="text-gray-700 mb-6">HASE se nutre de un conjunto de datos rico y diverso para construir su visión 360. Cada fuente de datos aporta piezas críticas al rompecabezas del riesgo.</p>
+                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                            <h4 class="font-bold text-lg text-blue-700">🛰️ GPS</h4>
+                            <ul class="mt-2 space-y-1 text-gray-700 list-disc list-inside">
+                                <li><code>placa</code> (Común)</li>
+                                <li><code>timestamp</code> (Común)</li>
+                                <li><code>id_financiamiento</code> (Común)</li>
+                                <li><code>latitud</code></li>
+                                <li><code>longitud</code></li>
+                                <li><code>odómetro</code></li>
+                                <li><code>estado_motor</code></li>
+                                <li><code>velocidad</code></li>
+                            </ul>
+                        </div>
+                        <div class="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                            <h4 class="font-bold text-lg text-green-700">⛽ GNV</h4>
+                             <ul class="mt-2 space-y-1 text-gray-700 list-disc list-inside">
+                                <li><code>placa</code> (Común)</li>
+                                <li><code>timestamp</code> (Común)</li>
+                                <li><code>id_financiamiento</code> (Común)</li>
+                                <li><code>litros_cargados</code></li>
+                                <li><code>precio_por_litro</code></li>
+                                <li><code>sobreprecio_por_litro</code></li>
+                                <li><code>id_estacion</code></li>
+                            </ul>
+                        </div>
+                        <div class="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                            <h4 class="font-bold text-lg text-yellow-700">🗂️ Consware (Históricos)</h4>
+                             <ul class="mt-2 space-y-1 text-gray-700 list-disc list-inside">
+                                <li><code>fecha</code></li>
+                                <li><code>consumo_gnv_diario</code></li>
+                                <li><code>municipio</code>, <code>ruta</code></li>
+                                <li><code>tipo_financiamiento</code></li>
+                                <li><code>nombre_financiera</code></li>
+                                <li><code>recaudo_por_litro</code></li>
+                                <li><code>marca</code>, <code>modelo</code>, <code>año</code></li>
+                                <li><code>eventos_criticos</code></li>
+                            </ul>
+                        </div>
+                     </div>
+                </div>
+            </section>
+
+            <section id="arquitectura" class="section">
+                 <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+                    <h2 class="text-2xl font-bold mb-4">Arquitectura de Datos y Rendimiento</h2>
+                    <p class="text-gray-700 mb-6">El sistema se basa en una arquitectura Kappa, diseñada para procesar datos como un flujo de eventos inmutables. Esto garantiza consistencia, escalabilidad y baja latencia, permitiendo que HASE actúe en tiempo real. Pasa el cursor sobre cada componente para más detalles.</p>
+                    
+                    <div id="architecture-diagram" class="flex flex-col md:flex-row items-center justify-center space-y-4 md:space-y-0 md:space-x-4 my-8 p-4 bg-gray-50 rounded-lg">
+                        <!-- Diagram elements will be injected here by JS -->
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100 mt-8">
+                     <h3 class="text-xl font-semibold mb-4">Requerimientos de Plataforma</h3>
+                     <p class="text-gray-700 mb-6">Para garantizar un servicio de misión crítica, la plataforma HASE debe cumplir con estrictos estándares de rendimiento, confiabilidad y seguridad.</p>
+                     <div id="accordion-container" class="space-y-2">
+                        <!-- Accordion items will be injected here by JS -->
+                     </div>
+                </div>
+            </section>
+
+            <section id="simulador" class="section">
+                 <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+                    <h2 class="text-2xl font-bold mb-4">HASE en Acción: Simulador de Riesgo</h2>
+                    <p class="text-gray-700 mb-6">Experimenta cómo HASE evalúa el riesgo dinámicamente. Ajusta las variables operativas clave para ver cómo afectan el score de riesgo del operador y qué acción proactiva desencadenaría el Agente de Intervención Proactiva (PIA). La fórmula conceptual es: <br> <code class="bg-gray-200 text-sm p-1 rounded">P_default(t) = f(Factores_Estáticos, Score_Conductual(t-1), Flag_Intervención(t))</code></p>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                        <div class="space-y-6">
+                            <div>
+                                <label for="gnv-slider" class="block font-medium mb-1">Consumo de GNV (vs. Promedio Histórico)</label>
+                                <input id="gnv-slider" type="range" min="-50" max="10" value="0" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                                <div class="flex justify-between text-xs text-gray-500 mt-1">
+                                    <span>-50%</span>
+                                    <span>Normal</span>
+                                    <span>+10%</span>
+                                </div>
+                            </div>
+                             <div>
+                                <label for="ruta-slider" class="block font-medium mb-1">Desviación de Ruta</label>
+                                <input id="ruta-slider" type="range" min="0" max="40" value="5" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                                 <div class="flex justify-between text-xs text-gray-500 mt-1">
+                                    <span>Sin desviación</span>
+                                    <span>Alta desviación (40%)</span>
+                                </div>
+                            </div>
+                             <div>
+                                <label for="proteccion-slider" class="block font-medium mb-1">Uso de "Protección Rodando" (últimos 3 meses)</label>
+                                <input id="proteccion-slider" type="range" min="0" max="3" value="0" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                                 <div class="flex justify-between text-xs text-gray-500 mt-1">
+                                    <span>0 veces</span>
+                                    <span>3 veces</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex flex-col items-center">
+                            <div class="chart-container w-full h-64 md:h-80">
+                                <canvas id="riskGaugeChart"></canvas>
+                            </div>
+                             <div id="pia-action" class="mt-4 text-center p-4 rounded-lg w-full transition-all duration-300">
+                                <h4 class="font-bold text-lg">Acción PIA</h4>
+                                <p class="text-md"></p>
+                            </div>
+                        </div>
+                    </div>
+                 </div>
+            </section>
+            
+            <section id="roadmap" class="section">
+                 <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+                    <h2 class="text-2xl font-bold mb-4">Roadmap de Implementación</h2>
+                    <p class="text-gray-700 mb-6">La implementación de HASE se ha estructurado en un roadmap por fases, permitiendo una gestión de capital eficiente y mitigando riesgos a través de un desarrollo iterativo y validado.</p>
+                     <div id="roadmap-container" class="space-y-8">
+                        <!-- Roadmap items will be injected here by JS -->
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const tabs = document.querySelectorAll('.nav-tab');
+            const sections = document.querySelectorAll('.section');
+
+            const appData = {
+                placas: [
+                    { year: "2010-2015", format: "ABC-12-34", source: "SEMOVI", desc: "Placas alfanuméricas convencionales, sin especificación para Transporte Público (TP)." },
+                    { year: "2010-2016", format: "XXX-EM-TP", source: "Consware", desc: "Formato histórico registrado por Consware para TP. Requiere estandarización." },
+                    { year: "2016-2020", format: "TP-EDOMEX-123A", source: "SEMOVI", desc: "Transición a placas únicas para TP, incluyendo un código de municipio." },
+                    { year: "2017-Ahora", format: "EM·XXX·TP", source: "Consware", desc: "Formato actual registrado por Consware. Es el formato objetivo para la estandarización." },
+                    { year: "2021-Presente", format: "Digital (QR, RFID)", source: "SEMOVI", desc: "Placas digitales (NOM-001-SCT) con Código QR y Chip RFID para monitoreo automatizado." }
+                ],
+                architecture: [
+                    { name: 'Fuentes de Datos', desc: 'GPS, GNV y Consware envían datos históricos y en tiempo real.', icon: '📡' },
+                    { name: 'Apache Kafka', desc: 'Actúa como el bus de eventos central. Ingiere y persiste todos los flujos de datos de forma tolerante a fallos.', icon: '🔄' },
+                    { name: 'Apache Flink', desc: 'Procesa y enriquece los datos en tiempo real (ej. cruce de placa con ID de financiamiento).', icon: '✨' },
+                    { name: 'Motor HASE', desc: 'Calcula el score de riesgo dinámico (P_default) utilizando modelos de IA (ej. XGBoost).', icon: '🧠' },
+                    { name: 'PIA: Agente Proactivo', desc: 'Recibe triggers de HASE ante anomalías y activa la comunicación empática con el operador vía WhatsApp.', icon: '🤖' },
+                    { name: 'TimescaleDB', desc: 'Base de datos optimizada para almacenar las series temporales de datos operativos y scores de riesgo.', icon: '💾' }
+                ],
+                accordion: [
+                    { title: "Rendimiento y Confiabilidad", content: "<strong>Disponibilidad (SLA):</strong> 99.9%.<br><strong>Latencia Máxima (GPS/GNV):</strong> < 500 ms.<br><strong>Tolerancia a Fallos:</strong> Reintentos automáticos (exponential backoff) y colas de mensajes con Apache Kafka para prevenir pérdida de datos.<br><strong>Escalabilidad:</strong> Soporte para más de 1,000 vehículos simultáneos." },
+                    { title: "Seguridad y Privacidad", content: "<strong>Cifrado en Tránsito:</strong> TLS 1.3+.<br><strong>Cifrado en Reposo:</strong> AES-256.<br><strong>Autenticación:</strong> API Keys, JWT y OAuth 2.0 para GNV.<br><strong>Privacidad:</strong> Anonimización de la 'placa' con hash SHA-256.<br><strong>Cumplimiento:</strong> Adherencia a normativas como LGPD (México) y GDPR." },
+                    { title: "Endpoints Críticos", content: "<strong>GNV:</strong> <code>POST /api/v1/transactions</code> (envío de recargas).<br><strong>GPS:</strong> <code>POST /api/v1/telemetry</code> (streaming de ubicación).<br><strong>Consware:</strong> <code>GET /api/v1/historical?fecha=YYYY-MM-DD</code> (extracción diaria)." }
+                ],
+                 roadmap: [
+                    { phase: "Fase 1: MVP", period: "Meses 1-3", goal: "Integrar GPS + GNV en tiempo real para alertas básicas y validar el modelo de negocio con mínima inversión.", components: "Ingesta en Kafka, HASE v0.5 (scoring básico), PIA (alertas).", kpis: "Tasa de detección de anomalías, Latencia de alerta." },
+                    { phase: "Fase 2: Refinamiento", period: "Meses 4-6", goal: "Incorporar datos históricos de Consware para refinar el modelo HASE.", components: "Migración a TimescaleDB, Despliegue HASE v1.0, Entrenamiento con datos históricos.", kpis: "Precisión del modelo, Reducción de falsos positivos." },
+                    { phase: "Fase 3: Optimización y Escala", period: "Meses 7+", goal: "Vincular HASE con 'Protección Rodando' para optimizar la TIR y escalar a nivel empresarial.", components: "Integración con Algoritmo de Equilibrio de TIR, Adopción de Flink y MLOps (MLflow).", kpis: "TIR de cartera (≥22.8%), Tasa de morosidad (<8%)." }
+                ]
+            };
+
+            function setActiveTab(tabId) {
+                tabs.forEach(tab => {
+                    const isTabActive = tab.dataset.tab === tabId;
+                    tab.classList.toggle('tab-active', isTabActive);
+                    tab.classList.toggle('tab-inactive', !isTabActive);
+                });
+                sections.forEach(section => {
+                    section.classList.toggle('section-active', section.id === tabId);
+                });
+            }
+
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    setActiveTab(tab.dataset.tab);
+                });
+            });
+
+            setActiveTab('vision-general');
+            
+            const timelineContainer = document.getElementById('timeline-placas');
+            appData.placas.forEach((item, index) => {
+                const side = index % 2 === 0 ? 'left' : 'right';
+                const timelineItem = document.createElement('div');
+                timelineItem.className = `relative mb-8 timeline-placa-item`;
+                
+                let content = `
+                    <div class="absolute ${side}-0 ${side === 'left' ? 'ml-[-2.75rem]' : 'mr-[-2.75rem]'} top-1/2 -translate-y-1/2 w-10 h-10 bg-white border-2 border-gray-400 rounded-full flex items-center justify-center cursor-pointer hover:bg-gray-100 transition-colors">
+                        <span class="text-sm font-bold text-gray-600">${index + 1}</span>
+                    </div>
+                    <div class="p-4 bg-white rounded-lg shadow-md border border-gray-200 w-5/12 ${side === 'left' ? 'float-left' : 'float-right'} text-${side === 'left' ? 'right' : 'left'}">
+                        <p class="font-bold text-gray-700">${item.year}</p>
+                        <p class="text-sm text-gray-500">Fuente: ${item.source}</p>
+                        <div class="placa-details hidden mt-2 text-sm text-gray-600">
+                            <p><strong>Formato:</strong> <code class="bg-gray-200 text-xs p-1 rounded">${item.format}</code></p>
+                            <p>${item.desc}</p>
+                        </div>
+                    </div>
+                    <div class="clear-both"></div>
+                `;
+                 if(side === 'right') {
+                   content = `
+                    <div class="absolute left-1/2 -translate-x-1/2 w-10 h-10 bg-white border-2 border-gray-400 rounded-full flex items-center justify-center cursor-pointer hover:bg-gray-100 transition-colors">
+                         <span class="text-sm font-bold text-gray-600">${index + 1}</span>
+                    </div>
+                    <div class="ml-[58.333333%] p-4 bg-white rounded-lg shadow-md border border-gray-200 w-5/12 text-left">
+                        <p class="font-bold text-gray-700">${item.year}</p>
+                        <p class="text-sm text-gray-500">Fuente: ${item.source}</p>
+                        <div class="placa-details hidden mt-2 text-sm text-gray-600">
+                            <p><strong>Formato:</strong> <code class="bg-gray-200 text-xs p-1 rounded">${item.format}</code></p>
+                            <p>${item.desc}</p>
+                        </div>
+                    </div>
+                   `;
+                } else {
+                     content = `
+                     <div class="absolute left-1/2 -translate-x-1/2 w-10 h-10 bg-white border-2 border-gray-400 rounded-full flex items-center justify-center cursor-pointer hover:bg-gray-100 transition-colors">
+                         <span class="text-sm font-bold text-gray-600">${index + 1}</span>
+                    </div>
+                    <div class="mr-[58.333333%] p-4 bg-white rounded-lg shadow-md border border-gray-200 w-5/12 text-right">
+                       <p class="font-bold text-gray-700">${item.year}</p>
+                        <p class="text-sm text-gray-500">Fuente: ${item.source}</p>
+                        <div class="placa-details hidden mt-2 text-sm text-gray-600">
+                            <p><strong>Formato:</strong> <code class="bg-gray-200 text-xs p-1 rounded">${item.format}</code></p>
+                            <p>${item.desc}</p>
+                        </div>
+                    </div>
+                     `;
+                }
+                
+                timelineContainer.innerHTML += `
+                <div class="timeline-event cursor-pointer">
+                    <div class="absolute w-4 h-4 bg-gray-400 rounded-full mt-3 -ml-2 left-1/2"></div>
+                    <div class="w-full text-center py-4">
+                        <div class="inline-block relative w-10/12 md:w-5/12">
+                             <div class="p-4 bg-white rounded-lg shadow-md border border-gray-200">
+                                <p class="font-bold text-gray-700">${item.year}</p>
+                                <p class="text-sm text-gray-500">Fuente: ${item.source}</p>
+                                <div class="placa-details hidden mt-2 text-sm text-gray-600 text-left">
+                                    <p><strong>Formato:</strong> <code class="bg-gray-200 text-xs p-1 rounded">${item.format}</code></p>
+                                    <p>${item.desc}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                `;
+            });
+            
+            document.querySelectorAll('.timeline-event').forEach(item => {
+                item.addEventListener('click', () => {
+                    item.querySelector('.placa-details').classList.toggle('hidden');
+                });
+            });
+
+            const accordionContainer = document.getElementById('accordion-container');
+            appData.accordion.forEach(item => {
+                const accordionItem = document.createElement('div');
+                accordionItem.className = 'border border-gray-200 rounded-lg';
+                accordionItem.innerHTML = `
+                    <button class="accordion-header w-full flex justify-between items-center p-4 text-left font-semibold text-gray-700 bg-gray-50 hover:bg-gray-100 transition-colors">
+                        <span>${item.title}</span>
+                        <span class="accordion-icon text-xl text-gray-500 transform transition-transform duration-300">+</span>
+                    </button>
+                    <div class="accordion-content p-4 pt-0 text-gray-600 bg-white">
+                        <p>${item.content}</p>
+                    </div>
+                `;
+                accordionContainer.appendChild(accordionItem);
+            });
+            
+            document.querySelectorAll('.accordion-header').forEach(button => {
+                button.addEventListener('click', () => {
+                    const content = button.nextElementSibling;
+                    const icon = button.querySelector('.accordion-icon');
+                    const isOpen = content.style.maxHeight;
+                    
+                    document.querySelectorAll('.accordion-content').forEach(c => c.style.maxHeight = null);
+                    document.querySelectorAll('.accordion-icon').forEach(i => i.textContent = '+');
+                    
+                    if (!isOpen) {
+                        content.style.maxHeight = content.scrollHeight + "px";
+                        icon.textContent = '-';
+                    }
+                });
+            });
+
+            const architectureDiagram = document.getElementById('architecture-diagram');
+            appData.architecture.forEach((item, index) => {
+                const node = document.createElement('div');
+                node.className = 'architecture-node relative flex flex-col items-center text-center p-3 border-2 border-gray-300 rounded-lg bg-white shadow-sm w-40 h-28 justify-center';
+                node.innerHTML = `
+                    <span class="text-3xl mb-1">${item.icon}</span>
+                    <p class="font-semibold text-sm">${item.name}</p>
+                    <div class="absolute bottom-full mb-2 w-64 bg-gray-800 text-white text-xs rounded py-2 px-3 opacity-0 invisible transition-opacity duration-300 z-10">
+                        ${item.desc}
+                    </div>
+                `;
+                architectureDiagram.appendChild(node);
+
+                if (index < appData.architecture.length - 1) {
+                    const arrow = document.createElement('div');
+                    arrow.className = 'text-gray-400 text-2xl font-bold transform md:rotate-0 rotate-90 mx-2';
+                    arrow.innerHTML = `&rarr;`;
+                    architectureDiagram.appendChild(arrow);
+                }
+            });
+            
+            document.querySelectorAll('.architecture-node').forEach(node => {
+                const tooltip = node.querySelector('div');
+                node.addEventListener('mouseenter', () => {
+                    tooltip.classList.remove('invisible');
+                    tooltip.classList.add('opacity-100');
+                });
+                node.addEventListener('mouseleave', () => {
+                    tooltip.classList.remove('opacity-100');
+                    tooltip.classList.add('invisible');
+                });
+            });
+            
+            const roadmapContainer = document.getElementById('roadmap-container');
+            appData.roadmap.forEach((item, index) => {
+                const roadmapItem = document.createElement('div');
+                roadmapItem.className = 'roadmap-item cursor-pointer';
+                roadmapItem.innerHTML = `
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0 w-12 h-12 rounded-full bg-indigo-500 text-white flex items-center justify-center font-bold text-lg">${index + 1}</div>
+                        <div class="ml-4">
+                            <h4 class="text-xl font-bold">${item.phase}</h4>
+                            <p class="text-sm text-gray-500">${item.period}</p>
+                        </div>
+                    </div>
+                    <div class="roadmap-content pl-16 mt-2">
+                        <p class="text-gray-700"><strong>Objetivo:</strong> ${item.goal}</p>
+                        <p class="text-gray-700 mt-1"><strong>Componentes:</strong> ${item.components}</p>
+                        <p class="text-gray-700 mt-1"><strong>KPIs de Éxito:</strong> ${item.kpis}</p>
+                    </div>
+                `;
+                roadmapContainer.appendChild(roadmapItem);
+            });
+
+            document.querySelectorAll('.roadmap-item').forEach(item => {
+                item.addEventListener('click', () => {
+                     document.querySelectorAll('.roadmap-item').forEach(i => i.classList.remove('roadmap-item-active'));
+                     item.classList.add('roadmap-item-active');
+                });
+            });
+
+
+            const riskGaugeCtx = document.getElementById('riskGaugeChart').getContext('2d');
+            const gnvSlider = document.getElementById('gnv-slider');
+            const rutaSlider = document.getElementById('ruta-slider');
+            const proteccionSlider = document.getElementById('proteccion-slider');
+            const piaAction = document.getElementById('pia-action');
+            const piaActionTitle = piaAction.querySelector('h4');
+            const piaActionText = piaAction.querySelector('p');
+            
+            const riskGaugeChart = new Chart(riskGaugeCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Riesgo', 'Seguridad'],
+                    datasets: [{
+                        data: [10, 90],
+                        backgroundColor: ['#E07A5F', '#81B29A'],
+                        borderColor: ['#FDFBF8'],
+                        borderWidth: 4,
+                        circumference: 180,
+                        rotation: 270,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    aspectRatio: 2,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: false }
+                    },
+                    cutout: '70%',
+                }
+            });
+
+            function updateRiskScore() {
+                const gnvValue = parseInt(gnvSlider.value); // from -50 to 10
+                const rutaValue = parseInt(rutaSlider.value); // from 0 to 40
+                const proteccionValue = parseInt(proteccionSlider.value); // from 0 to 3
+
+                const gnvScore = ((gnvValue - (-50)) / (10 - (-50))) * 100; // normalize 0-100, lower is worse
+                const rutaScore = 100 - ((rutaValue / 40) * 100); // normalize 0-100, lower is worse
+                const proteccionScore = 100 - ((proteccionValue / 3) * 100); // normalize 0-100, lower is worse
+
+                const finalScore = (0.5 * (100 - gnvScore)) + (0.3 * (100-rutaScore)) + (0.2 * (100-proteccionScore));
+                
+                const riskValue = Math.min(100, Math.max(0, finalScore));
+
+                riskGaugeChart.data.datasets[0].data = [riskValue, 100 - riskValue];
+
+                if (riskValue < 20) {
+                    riskGaugeChart.data.datasets[0].backgroundColor = ['#81B29A', '#E5E7EB'];
+                    piaAction.className = 'mt-4 text-center p-4 rounded-lg w-full transition-all duration-300 bg-green-100 text-green-800';
+                    piaActionTitle.textContent = 'Estado Normal';
+                    piaActionText.textContent = 'El operador muestra un comportamiento estable. No se requiere intervención.';
+                } else if (riskValue < 50) {
+                    riskGaugeChart.data.datasets[0].backgroundColor = ['#FCD34D', '#E5E7EB'];
+                     piaAction.className = 'mt-4 text-center p-4 rounded-lg w-full transition-all duration-300 bg-yellow-100 text-yellow-800';
+                    piaActionTitle.textContent = 'Alerta Temprana';
+                    piaActionText.textContent = 'Se detectan ligeras anomalías. Monitorear de cerca. PIA prepara comunicación de seguimiento.';
+                } else {
+                    riskGaugeChart.data.datasets[0].backgroundColor = ['#E07A5F', '#E5E7EB'];
+                     piaAction.className = 'mt-4 text-center p-4 rounded-lg w-full transition-all duration-300 bg-red-100 text-red-800';
+                    piaActionTitle.textContent = '¡Riesgo Alto!';
+                    piaActionText.textContent = 'Caída significativa en indicadores. PIA envía mensaje de apoyo para activar "Protección Rodando".';
+                }
+
+                riskGaugeChart.update();
+            }
+
+            gnvSlider.addEventListener('input', updateRiskScore);
+            rutaSlider.addEventListener('input', updateRiskScore);
+            proteccionSlider.addEventListener('input', updateRiskScore);
+            
+            updateRiskScore();
+        });
+    </script>
+</body>
+</html>
