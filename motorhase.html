@@ -9,22 +9,22 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Chosen Palette: Warm Neutrals & Subtle Accents -->
+    <!-- Chosen Palette: Dark Slate & Vibrant Accents (from Pitch Deck) -->
     <!-- Application Structure Plan: Se ha diseñado una SPA con navegación por pestañas para segmentar la complejidad del informe HASE en áreas temáticas y digeribles: 1) Visión General (KPIs y filosofía), 2) Foso de Datos (visualización de placas y campos requeridos), 3) Arquitectura y Rendimiento (diagrama de flujo interactivo y especificaciones técnicas), 4) Simulador de Riesgo (demostración interactiva del modelo HASE), 5) Procesos Clave (simulaciones de onboarding y protección Rodando), 6) Monitoreo y Dashboards (visualización de KPIs de flota y tendencias) y 7) Roadmap (timeline visual). Esta estructura no lineal prioriza la exploración y el entendimiento del usuario sobre el orden del documento original, permitiendo a diferentes perfiles (estratégicos, técnicos) acceder directamente a la información de su interés. -->
     <!-- Visualization & Content Choices:
         - Evolución de Placas: Reporte Info (Formatos de placas a lo largo del tiempo) -> Goal (Mostrar cambio y complejidad) -> Viz (Línea de tiempo interactiva HTML/CSS) -> Interaction (Click en cada hito para ver detalles) -> Justification (Más atractivo y claro que una tabla estática).
         - Arquitectura de Datos: Reporte Info (Flujo Kafka -> Flink -> HASE) -> Goal (Explicar el flujo de datos) -> Viz (Diagrama de flujo con HTML/Tailwind) -> Interaction (Hover sobre cada componente para mostrar descripción) -> Justification (Evita el uso de MermaidJS/SVG y es más interactivo).
         - Simulador de Riesgo: Reporte Info (Fórmula P_default y variables) -> Goal (Demostrar cómo HASE evalúa el riesgo) -> Viz (Sliders HTML y Gráfico de Gauge con Chart.js) -> Interaction (Mover sliders para actualizar el score de riesgo y la acción de PIA en tiempo real) -> Justification (Convierte un concepto abstracto en una experiencia tangible y memorable; el "wow factor").
-        - Requerimientos Técnicos: Reporte Info (Listas de SLA, seguridad, etc.) -> Goal (Presentar información densa de forma organizada) -> Viz (Acordeón colapsable HTML/JS) -> Interaction (Click para expandir/colapsar secciones) -> Justificación (Mantiene la UI limpia y evita abrumar al usuario).
+        - Requerimientos Técnicos: Reporte Info (Listas de SLA, seguridad, etc.) -> Goal (Presentar información densa de forma organizada) -> Viz (Acordeón colapsable HTML/JS) -> Interaction (Click para expandir/colapsar secciones) -> Justification (Mantiene la UI limpia y evita abrumar al usuario).
         - Roadmap: Reporte Info (Fases 1, 2, 3) -> Goal (Visualizar el plan de implementación) -> Viz (Línea de tiempo horizontal HTML/CSS) -> Interaction (Click para resaltar detalles de cada fase) -> Justification (Más visual y fácil de seguir que una lista).
         - Procesos Clave (Onboarding/Protección Rodando): Reporte Info (Descripciones de wireframes) -> Goal (Demostrar flujos de usuario) -> Viz (Descripciones HTML estructuradas como mockups) -> Interaction (N/A for mockups) -> Justification (Visualiza interacciones clave del operador y del agente).
         - Monitoreo y Dashboards: Reporte Info (Descripciones de wireframes para dashboards) -> Goal (Proporcionar vista de KPIs y tendencias) -> Viz (HTML/CSS layout con Chart.js para gráficos) -> Interaction (Click en segmentos de mapa simulado, filtros de tiempo) -> Justification (Presenta visualmente los datos críticos de monitoreo de flota).
     -->
     <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #FDFBF8; }
-        .tab-active { border-color: #4A5568; color: #2D3748; background-color: #F7FAFC; }
-        .tab-inactive { border-color: transparent; color: #718096; }
+        body { font-family: 'Inter', sans-serif; background-color: #020617; color: #e2e8f0; } /* slate-950, slate-200 */
+        .tab-active { border-color: #0ea5e9; color: #e2e8f0; background-color: #1e293b; } /* sky-500, slate-200, slate-800 */
+        .tab-inactive { border-color: transparent; color: #94a3b8; } /* slate-400 */
         .section { display: none; }
         .section-active { display: block; }
         .accordion-content { max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out; }
@@ -44,31 +44,51 @@
             overflow: hidden;
         }
         .map-cell {
-            background-color: #e2e8f0; /* Light gray */
+            background-color: #1e293b; /* slate-800 */
             border-radius: 4px;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 0.75rem;
-            color: #475569;
+            color: #94a3b8; /* slate-400 */
             cursor: pointer;
             transition: background-color 0.3s ease;
         }
-        .map-cell.risk-low { background-color: #d1fae5; } /* Green-50 */
-        .map-cell.risk-medium { background-color: #fef3c7; } /* Yellow-100 */
-        .map-cell.risk-high { background-color: #fee2e2; } /* Red-100 */
+        .map-cell.risk-low { background-color: #0f172a; border: 1px solid #047857; color: #34d399;} /* slate-950, emerald-700, emerald-300 */
+        .map-cell.risk-medium { background-color: #0f172a; border: 1px solid #d97706; color: #fbbf24;} /* slate-950, amber-700, amber-400 */
+        .map-cell.risk-high { background-color: #0f172a; border: 1px solid #be123c; color: #f87171;} /* slate-950, rose-700, rose-400 */
+
+        .card-dark {
+            background-color: #0f172a; /* slate-900 */
+            padding: 1.5rem;
+            border-radius: 1rem; /* rounded-2xl */
+            border: 1px solid #1e293b; /* slate-800 */
+            backdrop-filter: blur(5px);
+            height: 100%;
+        }
+        .highlight-text {
+            background: -webkit-linear-gradient(45deg, #22d3ee, #0ea5e9); /* cyan-400 to sky-500 */
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .slider-thumb::-webkit-slider-thumb {
+            background-color: #0ea5e9; /* sky-500 */
+        }
+        .slider-thumb::-moz-range-thumb {
+            background-color: #0ea5e9; /* sky-500 */
+        }
     </style>
 </head>
-<body class="text-gray-800">
+<body class="antialiased">
 
     <div class="container mx-auto p-4 md:p-8">
         
         <header class="text-center mb-8">
-            <h1 class="text-4xl font-bold text-gray-800">Explorador Interactivo del Motor HASE</h1>
-            <p class="text-lg text-gray-600 mt-2">Una visión dinámica de la estrategia de "Resiliencia como Servicio" de Rodando a Gas.</p>
+            <h1 class="text-4xl font-bold text-white">Explorador Interactivo del Motor HASE</h1>
+            <p class="text-lg text-slate-400 mt-2">Una visión dinámica de la estrategia de "Resiliencia como Servicio" de Rodando a Gas.</p>
         </header>
 
-        <nav class="mb-8 flex flex-wrap justify-center border-b border-gray-200">
+        <nav class="mb-8 flex flex-wrap justify-center border-b border-slate-700">
             <button data-tab="vision-general" class="nav-tab text-sm md:text-base font-medium py-3 px-3 sm:px-6 border-b-2 transition-all duration-300">Visión General</button>
             <button data-tab="foso-datos" class="nav-tab text-sm md:text-base font-medium py-3 px-3 sm:px-6 border-b-2 transition-all duration-300">Foso de Datos</button>
             <button data-tab="arquitectura" class="nav-tab text-sm md:text-base font-medium py-3 px-3 sm:px-6 border-b-2 transition-all duration-300">Arquitectura y Rendimiento</button>
@@ -80,49 +100,49 @@
 
         <main>
             <section id="vision-general" class="section">
-                <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-                    <h2 class="text-2xl font-bold mb-4">Misión: El Cerebro Predictivo y Proactivo</h2>
-                    <p class="text-gray-700 mb-6">HASE (Hyper-Adaptive Scoring Engine) es el núcleo inteligente de Rodando a Gas. Su misión es transformar la gestión de riesgo crediticio de un modelo estático a uno dinámico y predictivo. Al analizar datos operativos en tiempo real, HASE anticipa dificultades financieras y activa proactivamente "Protección Rodando", un paquete de flexibilidad que apoya al operador antes de un posible impago. Este enfoque "humanamente tecnológico" convierte el riesgo en resiliencia, fomentando una relación de colaboración y asegurando la sostenibilidad del ecosistema.</p>
+                <div class="card-dark">
+                    <h2 class="text-2xl font-bold mb-4 text-white">Misión: El Cerebro Predictivo y Proactivo</h2>
+                    <p class="text-slate-300 mb-6">HASE (Hyper-Adaptive Scoring Engine) es el núcleo inteligente de Rodando a Gas. Su misión es transformar la gestión de riesgo crediticio de un modelo estático a uno dinámico y predictivo. Al analizar datos operativos en tiempo real, HASE anticipa dificultades financieras y activa proactivamente "Protección Rodando", un paquete de flexibilidad que apoya al operador antes de un posible impago. Este enfoque "humanamente tecnológico" convierte el riesgo en resiliencia, fomentando una relación de colaboración y asegurando la sostenibilidad del ecosistema.</p>
                 
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
-                        <div class="bg-blue-50 p-4 rounded-lg">
-                            <h3 class="text-lg font-semibold text-blue-800">TIR de Cartera</h3>
-                            <p class="text-3xl font-bold text-blue-600 mt-1">&ge;22.8%</p>
-                            <p class="text-sm text-blue-700">Objetivo de Rentabilidad</p>
+                        <div class="bg-slate-800 p-4 rounded-lg border border-slate-700">
+                            <h3 class="text-lg font-semibold text-sky-400">TIR de Cartera</h3>
+                            <p class="text-3xl font-bold text-white mt-1 highlight-text">&ge;22.8%</p>
+                            <p class="text-sm text-slate-400">Objetivo de Rentabilidad</p>
                         </div>
-                        <div class="bg-green-50 p-4 rounded-lg">
-                            <h3 class="text-lg font-semibold text-green-800">Tasa de Morosidad</h3>
-                            <p class="text-3xl font-bold text-green-600 mt-1">&lt;8%</p>
-                            <p class="text-sm text-green-700">vs. 15-20% del Sector</p>
+                        <div class="bg-slate-800 p-4 rounded-lg border border-slate-700">
+                            <h3 class="text-lg font-semibold text-emerald-400">Tasa de Morosidad</h3>
+                            <p class="text-3xl font-bold text-white mt-1 highlight-text">&lt;8%</p>
+                            <p class="text-sm text-slate-400">vs. 15-20% del Sector</p>
                         </div>
-                        <div class="bg-purple-50 p-4 rounded-lg">
-                            <h3 class="text-lg font-semibold text-purple-800">Escalabilidad</h3>
-                            <p class="text-3xl font-bold text-purple-600 mt-1">1,000+</p>
-                            <p class="text-sm text-purple-700">Vehículos Simultáneos</p>
+                        <div class="bg-slate-800 p-4 rounded-lg border border-slate-700">
+                            <h3 class="text-lg font-semibold text-purple-400">Escalabilidad</h3>
+                            <p class="text-3xl font-bold text-white mt-1 highlight-text">1,000+</p>
+                            <p class="text-sm text-slate-400">Vehículos Simultáneos</p>
                         </div>
                     </div>
                 </div>
             </section>
 
             <section id="foso-datos" class="section">
-                <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-                    <h2 class="text-2xl font-bold mb-4">El Foso de Datos: Un Activo Propietario</h2>
-                    <p class="text-gray-700 mb-6">La ventaja competitiva de HASE se construye sobre un "foso de datos" único, que fusiona datos operativos en tiempo real con un profundo conocimiento del sector. Unificar la información, comenzando por la nomenclatura histórica de las placas, es el primer paso crítico para construir una visión 360° de cada vehículo y operador.</p>
+                <div class="card-dark">
+                    <h2 class="text-2xl font-bold mb-4 text-white">El Foso de Datos: Un Activo Propietario</h2>
+                    <p class="text-slate-300 mb-6">La ventaja competitiva de HASE se construye sobre un "foso de datos" único, que fusiona datos operativos en tiempo real con un profundo conocimiento del sector. Unificar la información, comenzando por la nomenclatura histórica de las placas, es el primer paso crítico para construir una visión 360° de cada vehículo y operador.</p>
                     
-                    <h3 class="text-xl font-semibold mb-4 mt-8">Evolución de la Nomenclatura de Placas (TP Edo. de México)</h3>
-                    <p class="text-gray-700 mb-4">Los formatos de placas para el transporte público en el Estado de México son definidos por la SEMOVI a lo largo del tiempo. Es crucial que los sistemas como Consware y GPS registren las placas según el formato vigente en el año correspondiente. **Consware y SEMOVI comparten históricamente los mismos formatos de placa en sus respectivos periodos.** La tarea principal ahora es asegurar la validación y el **filtrado estricto de las placas para incluir solo vagonetas (TP)**, excluyendo otras modalidades como taxis (TX). Haz clic en cada hito para ver los detalles de los formatos y su origen.</p>
+                    <h3 class="text-xl font-semibold mb-4 mt-8 text-white">Evolución de la Nomenclatura de Placas (TP Edo. de México)</h3>
+                    <p class="text-slate-300 mb-4">Los formatos de placas para el transporte público en el Estado de México son definidos por la SEMOVI a lo largo del tiempo. Es crucial que los sistemas como Consware y GPS registren las placas según el formato vigente en el año correspondiente. **Consware y SEMOVI comparten históricamente los mismos formatos de placa en sus respectivos periodos.** La tarea principal ahora es asegurar la validación y el **filtrado estricto de las placas para incluir solo vagonetas (TP)**, excluyendo otras modalidades como taxis (TX). Haz clic en cada hito para ver los detalles de los formatos y su origen.</p>
                     <div id="timeline-placas" class="relative w-full">
-                        <div class="absolute left-1/2 h-full w-0.5 bg-gray-300"></div>
+                        <div class="absolute left-1/2 h-full w-0.5 bg-slate-700"></div>
                     </div>
                 </div>
 
-                <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100 mt-8">
-                     <h3 class="text-xl font-semibold mb-4">Campos de Datos Obligatorios</h3>
-                     <p class="text-gray-700 mb-6">HASE se nutre de un conjunto de datos rico y diverso para construir su visión 360. Cada fuente de datos aporta piezas críticas al rompecabezas del riesgo.</p>
+                <div class="card-dark mt-8">
+                     <h3 class="text-xl font-semibold mb-4 text-white">Campos de Datos Obligatorios</h3>
+                     <p class="text-slate-300 mb-6">HASE se nutre de un conjunto de datos rico y diverso para construir su visión 360. Cada fuente de datos aporta piezas críticas al rompecabezas del riesgo.</p>
                      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div class="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                            <h4 class="font-bold text-lg text-blue-700">🛰️ GPS</h4>
-                            <ul class="mt-2 space-y-1 text-gray-700 list-disc list-inside">
+                        <div class="bg-slate-800 p-4 rounded-lg border border-slate-700">
+                            <h4 class="font-bold text-lg text-sky-400">🛰️ GPS</h4>
+                            <ul class="mt-2 space-y-1 text-slate-300 list-disc list-inside">
                                 <li><code>placa</code> (Común)</li>
                                 <li><code>timestamp</code> (Común)</li>
                                 <li><code>id_financiamiento</code> (Común)</li>
@@ -133,9 +153,9 @@
                                 <li><code>velocidad</code></li>
                             </ul>
                         </div>
-                        <div class="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                            <h4 class="font-bold text-lg text-green-700">⛽ GNV</h4>
-                             <ul class="mt-2 space-y-1 text-gray-700 list-disc list-inside">
+                        <div class="bg-slate-800 p-4 rounded-lg border border-slate-700">
+                            <h4 class="font-bold text-lg text-emerald-400">⛽ GNV</h4>
+                             <ul class="mt-2 space-y-1 text-slate-300 list-disc list-inside">
                                 <li><code>placa</code> (Común)</li>
                                 <li><code>timestamp</code> (Común)</li>
                                 <li><code>id_financiamiento</code> (Común)</li>
@@ -145,9 +165,9 @@
                                 <li><code>id_estacion</code></li>
                             </ul>
                         </div>
-                        <div class="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                            <h4 class="font-bold text-lg text-yellow-700">🗂️ Consware (Históricos)</h4>
-                             <ul class="mt-2 space-y-1 text-gray-700 list-disc list-inside">
+                        <div class="bg-slate-800 p-4 rounded-lg border border-slate-700">
+                            <h4 class="font-bold text-lg text-amber-400">🗂️ Consware (Históricos)</h4>
+                             <ul class="mt-2 space-y-1 text-slate-300 list-disc list-inside">
                                 <li><code>fecha</code></li>
                                 <li><code>consumo_gnv_diario</code></li>
                                 <li><code>municipio</code>, <code>ruta</code></li>
@@ -159,22 +179,22 @@
                             </ul>
                         </div>
                      </div>
-                     <p class="text-gray-700 mt-6">La <strong>"carta aval de ruta"</strong> es un documento culturalmente relevante que, emitido por el líder de la ruta, funciona como un poderoso colateral social y un valioso predictor de riesgo que los modelos crediticios tradicionales suelen ignorar por completo. Su integración en el foso de datos es una ventaja competitiva única para HASE.</p>
+                     <p class="text-slate-300 mt-6">La <strong>"carta aval de ruta"</strong> es un documento culturalmente relevante que, emitido por el líder de la ruta, funciona como un poderoso colateral social y un valioso predictor de riesgo que los modelos crediticios tradicionales suelen ignorar por completo. Su integración en el foso de datos es una ventaja competitiva única para HASE.</p>
                 </div>
             </section>
 
             <section id="arquitectura" class="section">
-                 <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-                    <h2 class="text-2xl font-bold mb-4">Arquitectura de Datos y Rendimiento</h2>
-                    <p class="text-gray-700 mb-6">El sistema se basa en una arquitectura Kappa, diseñada para procesar datos como un flujo de eventos inmutables. Esto garantiza consistencia, escalabilidad y baja latencia, permitiendo que HASE actúe en tiempo real. Pasa el cursor sobre cada componente para más detalles.</p>
+                 <div class="card-dark">
+                    <h2 class="text-2xl font-bold mb-4 text-white">Arquitectura de Datos y Rendimiento</h2>
+                    <p class="text-slate-300 mb-6">El sistema se basa en una arquitectura Kappa, diseñada para procesar datos como un flujo de eventos inmutables. Esto garantiza consistencia, escalabilidad y baja latencia, permitiendo que HASE actúe en tiempo real. Pasa el cursor sobre cada componente para más detalles.</p>
                     
-                    <div id="architecture-diagram" class="flex flex-col md:flex-row items-center justify-center space-y-4 md:space-y-0 md:space-x-4 my-8 p-4 bg-gray-50 rounded-lg">
+                    <div id="architecture-diagram" class="flex flex-col md:flex-row items-center justify-center space-y-4 md:space-y-0 md:space-x-4 my-8 p-4 bg-slate-800 rounded-lg border border-slate-700">
                         <!-- Diagram elements will be injected here by JS -->
                     </div>
                 </div>
-                <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100 mt-8">
-                     <h3 class="text-xl font-semibold mb-4">Requerimientos de Plataforma</h3>
-                     <p class="text-gray-700 mb-6">Para garantizar un servicio de misión crítica, la plataforma HASE debe cumplir con estrictos estándares de rendimiento, confiabilidad y seguridad.</p>
+                <div class="card-dark mt-8">
+                     <h3 class="text-xl font-semibold mb-4 text-white">Requerimientos de Plataforma</h3>
+                     <p class="text-slate-300 mb-6">Para garantizar un servicio de misión crítica, la plataforma HASE debe cumplir con estrictos estándares de rendimiento, confiabilidad y seguridad.</p>
                      <div id="accordion-container" class="space-y-2">
                         <!-- Accordion items will be injected here by JS -->
                      </div>
@@ -182,33 +202,33 @@
             </section>
 
             <section id="simulador" class="section">
-                 <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-                    <h2 class="text-2xl font-bold mb-4">HASE en Acción: Simulador de Riesgo</h2>
-                    <p class="text-gray-700 mb-6">Experimenta cómo HASE evalúa el riesgo dinámicamente. Ajusta las variables operativas clave para ver cómo afectan el score de riesgo del operador y qué acción proactiva desencadenaría el Agente de Intervención Proactiva (PIA). La fórmula conceptual es: <br> <code class="bg-gray-200 text-sm p-1 rounded">P_default(t) = f(Factores_Estáticos, Score_Conductual(t-1), Flag_Intervención(t))</code></p>
+                 <div class="card-dark">
+                    <h2 class="text-2xl font-bold mb-4 text-white">HASE en Acción: Simulador de Riesgo</h2>
+                    <p class="text-slate-300 mb-6">Experimenta cómo HASE evalúa el riesgo dinámicamente. Ajusta las variables operativas clave para ver cómo afectan el score de riesgo del operador y qué acción proactiva desencadenaría el Agente de Intervención Proactiva (PIA). La fórmula conceptual es: <br> <code class="bg-slate-800 text-sm p-1 rounded text-white">P_default(t) = f(Factores_Estáticos, Score_Conductual(t-1), Flag_Intervención(t))</code></p>
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
                         <div class="space-y-6">
                             <div>
-                                <label for="gnv-slider" class="block font-medium mb-1">Consumo de GNV (vs. Promedio Histórico)</label>
-                                <input id="gnv-slider" type="range" min="-50" max="10" value="0" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
-                                <div class="flex justify-between text-xs text-gray-500 mt-1">
+                                <label for="gnv-slider" class="block font-medium mb-1 text-slate-300">Consumo de GNV (vs. Promedio Histórico)</label>
+                                <input id="gnv-slider" type="range" min="-50" max="10" value="0" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer slider-thumb">
+                                <div class="flex justify-between text-xs text-slate-400 mt-1">
                                     <span>-50%</span>
                                     <span>Normal</span>
                                     <span>+10%</span>
                                 </div>
                             </div>
                              <div>
-                                <label for="ruta-slider" class="block font-medium mb-1">Desviación de Ruta</label>
-                                <input id="ruta-slider" type="range" min="0" max="40" value="5" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
-                                 <div class="flex justify-between text-xs text-gray-500 mt-1">
+                                <label for="ruta-slider" class="block font-medium mb-1 text-slate-300">Desviación de Ruta</label>
+                                <input id="ruta-slider" type="range" min="0" max="40" value="5" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer slider-thumb">
+                                 <div class="flex justify-between text-xs text-slate-400 mt-1">
                                     <span>Sin desviación</span>
                                     <span>Alta desviación (40%)</span>
                                 </div>
                             </div>
                              <div>
-                                <label for="proteccion-slider" class="block font-medium mb-1">Uso de "Protección Rodando" (últimos 3 meses)</label>
-                                <input id="proteccion-slider" type="range" min="0" max="3" value="0" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
-                                 <div class="flex justify-between text-xs text-gray-500 mt-1">
+                                <label for="proteccion-slider" class="block font-medium mb-1 text-slate-300">Uso de "Protección Rodando" (últimos 3 meses)</label>
+                                <input id="proteccion-slider" type="range" min="0" max="3" value="0" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer slider-thumb">
+                                 <div class="flex justify-between text-xs text-slate-400 mt-1">
                                     <span>0 veces</span>
                                     <span>3 veces</span>
                                 </div>
@@ -219,8 +239,8 @@
                                 <canvas id="riskGaugeChart"></canvas>
                             </div>
                              <div id="pia-action" class="mt-4 text-center p-4 rounded-lg w-full transition-all duration-300">
-                                <h4 class="font-bold text-lg">Acción PIA</h4>
-                                <p class="text-md"></p>
+                                <h4 class="font-bold text-lg text-white">Acción PIA</h4>
+                                <p class="text-md text-slate-300"></p>
                             </div>
                         </div>
                     </div>
@@ -228,77 +248,77 @@
             </section>
 
             <section id="procesos-clave" class="section">
-                <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-                    <h2 class="text-2xl font-bold mb-4">Procesos Clave: Onboarding y Protección Rodando</h2>
-                    <p class="text-gray-700 mb-6">Explora cómo Rodando a Gas facilita la experiencia del operador a través de procesos ágiles y proactivos, diseñados con una filosofía "digital-first" y un profundo entendimiento de sus necesidades.</p>
+                <div class="card-dark">
+                    <h2 class="text-2xl font-bold mb-4 text-white">Procesos Clave: Onboarding y Protección Rodando</h2>
+                    <p class="text-slate-300 mb-6">Explora cómo Rodando a Gas facilita la experiencia del operador a través de procesos ágiles y proactivos, diseñados con una filosofía "digital-first" y un profundo entendimiento de sus necesidades.</p>
 
-                    <h3 class="text-xl font-semibold mb-4 mt-8">1. Proceso de Onboarding</h3>
-                    <p class="text-gray-700 mb-4">El onboarding está diseñado para completarse en menos de 72 horas, priorizando una experiencia fluida para el operador.</p>
+                    <h3 class="text-xl font-semibold mb-4 mt-8 text-white">1. Proceso de Onboarding</h3>
+                    <p class="text-slate-300 mb-4">El onboarding está diseñado para completarse en menos de 72 horas, priorizando una experiencia fluida para el operador.</p>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                        <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                            <h4 class="font-bold text-lg mb-2">📱 Pantalla de Carga de Documentos (Operador)</h4>
-                            <p class="text-gray-700 text-sm mb-2">Interfaz móvil limpia para cargar documentos. El campo para la "carta de antigüedad de ruta" se destaca por su importancia estratégica.</p>
-                            <div class="border border-dashed border-gray-300 p-4 rounded-md text-center text-gray-500 text-xs">
+                        <div class="bg-slate-800 p-4 rounded-lg border border-slate-700">
+                            <h4 class="font-bold text-lg mb-2 text-sky-400">📱 Pantalla de Carga de Documentos (Operador)</h4>
+                            <p class="text-slate-300 text-sm mb-2">Interfaz móvil limpia para cargar documentos. El campo para la "carta de antigüedad de ruta" se destaca por su importancia estratégica.</p>
+                            <div class="border border-dashed border-slate-600 p-4 rounded-md text-center text-slate-400 text-xs">
                                 <p class="mb-1"><strong>Simulación de UI:</strong></p>
                                 <p>Título: Carga tus Documentos</p>
                                 <p>Carga INE: [Botón Subir Archivo] ✅</p>
                                 <p>Comprobante Domicilio: [Botón Subir Archivo] ✅</p>
                                 <p>Concesión/Tarj. Circulación: [Botón Subir Archivo] ⏳</p>
-                                <p class="font-bold text-blue-600">Carta de Antigüedad de Ruta: [Botón Subir Archivo]</p>
-                                <p class="text-gray-600"><em>(Un valioso filtro de riesgo social)</em></p>
-                                <button class="mt-3 px-4 py-2 bg-blue-600 text-white rounded-md">Enviar Solicitud</button>
-                                <p class="mt-2 text-gray-500 text-xs">Progreso: 75% completado</p>
+                                <p class="font-bold text-sky-400">Carta de Antigüedad de Ruta: [Botón Subir Archivo]</p>
+                                <p class="text-slate-400"><em>(Un valioso filtro de riesgo social)</em></p>
+                                <button class="mt-3 px-4 py-2 bg-sky-600 text-white rounded-md hover:bg-sky-500">Enviar Solicitud</button>
+                                <p class="mt-2 text-slate-400 text-xs">Progreso: 75% completado</p>
                             </div>
                         </div>
-                        <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                            <h4 class="font-bold text-lg mb-2">💻 Dashboard de Revisión (Agente Interno)</h4>
-                            <p class="text-gray-700 text-sm mb-2">Vista para agentes internos para revisar y validar solicitudes, con scoring inicial de HASE.</p>
-                            <div class="border border-dashed border-gray-300 p-4 rounded-md text-center text-gray-500 text-xs">
+                        <div class="bg-slate-800 p-4 rounded-lg border border-slate-700">
+                            <h4 class="font-bold text-lg mb-2 text-sky-400">💻 Dashboard de Revisión (Agente Interno)</h4>
+                            <p class="text-slate-300 text-sm mb-2">Vista para agentes internos para revisar y validar solicitudes, con scoring inicial de HASE.</p>
+                            <div class="border border-dashed border-slate-600 p-4 rounded-md text-center text-slate-400 text-xs">
                                 <p class="mb-1"><strong>Simulación de UI:</strong></p>
                                 <p>Título: Revisión de Solicitudes Pendientes</p>
-                                <ul class="list-disc list-inside text-left mb-2">
+                                <ul class="list-disc list-inside text-left mb-2 text-slate-300">
                                     <li>Solicitud #12345 (Operador Juan P.) - Status: Pendiente</li>
                                     <li>Solicitud #12346 (Operador Ana R.) - Status: En Revisión</li>
                                 </ul>
-                                <p class="text-left font-semibold">Detalle Solicitud #12345:</p>
-                                <p class="text-left">INE: Validado ✅</p>
-                                <p class="text-left">Carta Aval Ruta: Pendiente de Revisión ⏳</p>
-                                <p class="text-left font-semibold mt-1">Score HASE Inicial: <span class="text-green-600">Bajo Riesgo</span></p>
-                                <p class="text-left">Notas: [Campo de texto]</p>
+                                <p class="text-left font-semibold text-white">Detalle Solicitud #12345:</p>
+                                <p class="text-left text-slate-300">INE: Validado ✅</p>
+                                <p class="text-left text-slate-300">Carta Aval Ruta: Pendiente de Revisión ⏳</p>
+                                <p class="text-left font-semibold mt-1 text-white">Score HASE Inicial: <span class="text-emerald-400">Bajo Riesgo</span></p>
+                                <p class="text-left text-slate-300">Notas: [Campo de texto]</p>
                                 <div class="flex justify-around mt-3">
-                                    <button class="px-3 py-1 bg-green-600 text-white rounded-md">Aprobar</button>
-                                    <button class="px-3 py-1 bg-red-600 text-white rounded-md">Rechazar</button>
-                                    <button class="px-3 py-1 bg-yellow-600 text-white rounded-md">Solicitar Más Info</button>
+                                    <button class="px-3 py-1 bg-emerald-600 text-white rounded-md hover:bg-emerald-500">Aprobar</button>
+                                    <button class="px-3 py-1 bg-rose-600 text-white rounded-md hover:bg-rose-500">Rechazar</button>
+                                    <button class="px-3 py-1 bg-amber-600 text-white rounded-md hover:bg-amber-500">Solicitar Más Info</button>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <h3 class="text-xl font-semibold mb-4 mt-8">2. Activación de "Protección Rodando"</h3>
-                    <p class="text-gray-700 mb-4">Un proceso automatizado y empático en cuatro pasos: Disparador de Datos, Intervención Proactiva, Activación Flexible y Equilibrio de TIR.</p>
+                    <h3 class="text-xl font-semibold mb-4 mt-8 text-white">2. Activación de "Protección Rodando"</h3>
+                    <p class="text-slate-300 mb-4">Un proceso automatizado y empático en cuatro pasos: Disparador de Datos, Intervención Proactiva, Activación Flexible y Equilibrio de TIR.</p>
                      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                            <h4 class="font-bold text-lg mb-2">💬 Notificación Proactiva de PIA (WhatsApp)</h4>
-                            <p class="text-gray-700 text-sm mb-2">Mensaje de WhatsApp enviado por PIA cuando HASE detecta una anomalía (ej. caída 30% GNV).</p>
-                            <div class="border border-dashed border-gray-300 p-4 rounded-md text-center text-gray-500 text-xs">
+                        <div class="bg-slate-800 p-4 rounded-lg border border-slate-700">
+                            <h4 class="font-bold text-lg mb-2 text-sky-400">💬 Notificación Proactiva de PIA (WhatsApp)</h4>
+                            <p class="text-slate-300 text-sm mb-2">Mensaje de WhatsApp enviado por PIA cuando HASE detecta una anomalía (ej. caída 30% GNV).</p>
+                            <div class="border border-dashed border-slate-600 p-4 rounded-md text-center text-slate-400 text-xs">
                                 <p class="mb-1"><strong>Simulación de Chat:</strong></p>
-                                <div class="bg-green-100 p-2 rounded-lg text-left mb-2">
-                                    <p class="font-semibold text-green-800">Rodando a Gas</p>
-                                    <p class="text-green-700 text-xs">Hola Juan, vimos que tu van recorrió menos km. ¿Hay algún problema? ¿Necesitas usar Protección Rodando? Estamos para apoyarte. Responde 'Sí' para activar.</p>
+                                <div class="bg-emerald-800 p-2 rounded-lg text-left mb-2">
+                                    <p class="font-semibold text-emerald-300">Rodando a Gas</p>
+                                    <p class="text-emerald-200 text-xs">Hola Juan, vimos que tu van recorrió menos km. ¿Hay algún problema? ¿Necesitas usar Protección Rodando? Estamos para apoyarte. Responde 'Sí' para activar.</p>
                                 </div>
-                                <p class="text-right text-gray-800 text-xs mt-1">"Sí" [Operador]</p>
+                                <p class="text-right text-slate-300 text-xs mt-1">"Sí" [Operador]</p>
                             </div>
                         </div>
-                        <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                            <h4 class="font-bold text-lg mb-2">✅ Confirmación de Activación y Resumen (WhatsApp)</h4>
-                            <p class="text-gray-700 text-sm mb-2">Respuesta de confirmación a través de WhatsApp, indicando el ajuste realizado y que no habrá multas.</p>
-                            <div class="border border-dashed border-gray-300 p-4 rounded-md text-center text-gray-500 text-xs">
+                        <div class="bg-slate-800 p-4 rounded-lg border border-slate-700">
+                            <h4 class="font-bold text-lg mb-2 text-sky-400">✅ Confirmación de Activación y Resumen (WhatsApp)</h4>
+                            <p class="text-slate-300 text-sm mb-2">Respuesta de confirmación a través de WhatsApp, indicando el ajuste realizado y que no habrá multas.</p>
+                            <div class="border border-dashed border-slate-600 p-4 rounded-md text-center text-slate-400 text-xs">
                                 <p class="mb-1"><strong>Simulación de Chat:</strong></p>
-                                <div class="bg-blue-100 p-2 rounded-lg text-left mb-2">
-                                    <p class="font-semibold text-blue-800">Rodando a Gas</p>
-                                    <p class="text-blue-700 text-xs">¡Excelente! Protección Rodando ha sido activada. Tu plazo se extenderá 5 días. Sin multas ni intereses adicionales. Revisa tu app para el nuevo plan de pagos.</p>
+                                <div class="bg-sky-800 p-2 rounded-lg text-left mb-2">
+                                    <p class="font-semibold text-sky-300">Rodando a Gas</p>
+                                    <p class="text-sky-200 text-xs">¡Excelente! Protección Rodando ha sido activada. Tu plazo se extenderá 5 días. Sin multas ni intereses adicionales. Revisa tu app para el nuevo plan de pagos.</p>
                                 </div>
-                                <p class="text-right text-gray-800 text-xs mt-1">"Gracias!" [Operador]</p>
+                                <p class="text-right text-slate-300 text-xs mt-1">"Gracias!" [Operador]</p>
                             </div>
                         </div>
                     </div>
@@ -306,34 +326,34 @@
             </section>
 
             <section id="monitoreo-dashboards" class="section">
-                <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-                    <h2 class="text-2xl font-bold mb-4">Monitoreo y Dashboards: Visión en Tiempo Real de la Flota</h2>
-                    <p class="text-gray-700 mb-6">El dashboard de HASE transforma los datos crudos en inteligencia accionable, permitiendo a Rodando a Gas monitorear la salud operativa de la flota, anticipar riesgos y asegurar la calidad del "foso de datos".</p>
+                <div class="card-dark">
+                    <h2 class="text-2xl font-bold mb-4 text-white">Monitoreo y Dashboards: Visión en Tiempo Real de la Flota</h2>
+                    <p class="text-slate-300 mb-6">El dashboard de HASE transforma los datos crudos en inteligencia accionable, permitiendo a Rodando a Gas monitorear la salud operativa de la flota, anticipar riesgos y asegurar la calidad del "foso de datos".</p>
 
-                    <h3 class="text-xl font-semibold mb-4 mt-8">1. Dashboard Principal de HASE (Vista de Flota)</h3>
-                    <p class="text-gray-700 mb-4">Una visión consolidada del rendimiento y riesgo de toda la flota, con capacidad de drill-down.</p>
+                    <h3 class="text-xl font-semibold mb-4 mt-8 text-white">1. Dashboard Principal de HASE (Vista de Flota)</h3>
+                    <p class="text-slate-300 mb-4">Una visión consolidada del rendimiento y riesgo de toda la flota, con capacidad de drill-down.</p>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                        <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                            <h4 class="font-bold text-lg mb-2">📊 KPIs de Riesgo y Alertas</h4>
+                        <div class="bg-slate-800 p-4 rounded-lg border border-slate-700">
+                            <h4 class="font-bold text-lg mb-2 text-sky-400">📊 KPIs de Riesgo y Alertas</h4>
                             <div class="flex justify-around items-center mb-4">
                                 <div>
-                                    <p class="text-sm text-gray-600">Tasa de Morosidad</p>
-                                    <p class="text-2xl font-bold text-red-600">8.5% <span class="text-xs text-gray-500">(Obj: &lt;8%)</span></p>
+                                    <p class="text-sm text-slate-400">Tasa de Morosidad</p>
+                                    <p class="text-2xl font-bold text-rose-400">8.5% <span class="text-xs text-slate-500">(Obj: &lt;8%)</span></p>
                                 </div>
                                 <div>
-                                    <p class="text-sm text-gray-600">TIR de Cartera</p>
-                                    <p class="text-2xl font-bold text-green-600">23.1% <span class="text-xs text-gray-500">(Obj: &ge;22.8%)</span></p>
+                                    <p class="text-sm text-slate-400">TIR de Cartera</p>
+                                    <p class="text-2xl font-bold text-emerald-400">23.1% <span class="text-xs text-slate-500">(Obj: &ge;22.8%)</span></p>
                                 </div>
                             </div>
                             <div class="text-center">
-                                <p class="text-lg font-semibold text-gray-700">Alertas Activas: <span class="text-red-500">12</span></p>
-                                <p class="text-sm text-gray-600">(Caída GNV: 8, Desviación Ruta: 4)</p>
+                                <p class="text-lg font-semibold text-white">Alertas Activas: <span class="text-rose-400">12</span></p>
+                                <p class="text-sm text-slate-400">(Caída GNV: 8, Desviación Ruta: 4)</p>
                             </div>
                         </div>
-                        <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                            <h4 class="font-bold text-lg mb-2">📍 Mapa de Flota Simulado</h4>
-                            <p class="text-gray-700 text-sm mb-2">Visualización de vehículos por nivel de riesgo o estado (Ej: Verde = Bajo Riesgo, Amarillo = Riesgo Moderado, Rojo = Alto Riesgo)</p>
-                            <div class="simulated-map shadow-inner bg-gray-100">
+                        <div class="bg-slate-800 p-4 rounded-lg border border-slate-700">
+                            <h4 class="font-bold text-lg mb-2 text-sky-400">📍 Mapa de Flota Simulado</h4>
+                            <p class="text-slate-300 text-sm mb-2">Visualización de vehículos por nivel de riesgo o estado (Ej: Verde = Bajo Riesgo, Amarillo = Riesgo Moderado, Rojo = Alto Riesgo)</p>
+                            <div class="simulated-map shadow-inner bg-slate-900">
                                 <div class="map-cell risk-low">TP-A1</div>
                                 <div class="map-cell risk-low">TP-A2</div>
                                 <div class="map-cell risk-medium">TP-B1</div>
@@ -358,19 +378,19 @@
                         </div>
                     </div>
 
-                    <h3 class="text-xl font-semibold mb-4 mt-8">2. Análisis de Tendencias de Consumo GNV (Flota)</h3>
-                    <p class="text-gray-700 mb-4">Gráfico que representa el consumo total de GNV de la flota a lo largo del tiempo, esencial para identificar patrones y anomalías.</p>
-                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 chart-container">
+                    <h3 class="text-xl font-semibold mb-4 mt-8 text-white">2. Análisis de Tendencias de Consumo GNV (Flota)</h3>
+                    <p class="text-slate-300 mb-4">Gráfico que representa el consumo total de GNV de la flota a lo largo del tiempo, esencial para identificar patrones y anomalías.</p>
+                    <div class="bg-slate-800 p-4 rounded-lg border border-slate-700 chart-container">
                         <canvas id="fleetGnvTrendChart"></canvas>
                     </div>
 
-                    <h3 class="text-xl font-semibold mb-4 mt-8">3. Vista Detallada de Vehículo</h3>
-                    <p class="text-gray-700 mb-4">Información granular sobre un vehículo individual, incluyendo su score de riesgo, historial de consumo y telemetría clave.</p>
-                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                        <h4 class="font-bold text-lg mb-2">🔎 Ejemplo de Detalle de Vehículo (Placa: EM·153·TP)</h4>
-                        <ul class="list-disc list-inside text-sm text-gray-700 space-y-1">
+                    <h3 class="text-xl font-semibold mb-4 mt-8 text-white">3. Vista Detallada de Vehículo</h3>
+                    <p class="text-slate-300 mb-4">Información granular sobre un vehículo individual, incluyendo su score de riesgo, historial de consumo y telemetría clave.</p>
+                    <div class="bg-slate-800 p-4 rounded-lg border border-slate-700">
+                        <h4 class="font-bold text-lg mb-2 text-sky-400">🔎 Ejemplo de Detalle de Vehículo (Placa: EM·153·TP)</h4>
+                        <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
                             <li><strong>Modelo:</strong> Nissan Urvan 2020, <strong>Financiamiento ID:</strong> FIN-2023-001</li>
-                            <li><strong>Score de Riesgo Actual:</strong> <span class="text-green-600 font-semibold">Bajo (15%)</span></li>
+                            <li><strong>Score de Riesgo Actual:</strong> <span class="text-emerald-400 font-semibold">Bajo (15%)</span></li>
                             <li><strong>Historial Consumo GNV:</strong> Gráfico de líneas con picos y valles, marcadores de sobreprecio y activaciones de Protección Rodando.</li>
                             <li><strong>Patrón de Ruta:</strong> Mapa que muestra el recorrido con posibles desviaciones resaltadas.</li>
                             <li><strong>Telemetría Clave:</strong> Odómetro (125,450 km), Estado Motor (Encendido: 8 hrs/día).</li>
@@ -381,9 +401,9 @@
             </section>
             
             <section id="roadmap" class="section">
-                 <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-                    <h2 class="text-2xl font-bold mb-4">Roadmap de Implementación</h2>
-                    <p class="text-gray-700 mb-6">Hemos ajustado el roadmap para optimizar el desarrollo y aprovechar la disponibilidad temprana de los datos históricos de Consware. Ahora, nuestra primera fase se enfocará en sentar una base de datos sólida para que HASE pueda ser entrenado con un contexto completo de riesgo desde el inicio.</p>
+                 <div class="card-dark">
+                    <h2 class="text-2xl font-bold mb-4 text-white">Roadmap de Implementación</h2>
+                    <p class="text-slate-300 mb-6">Hemos ajustado el roadmap para optimizar el desarrollo y aprovechar la disponibilidad temprana de los datos históricos de Consware. Ahora, nuestra primera fase se enfocará en sentar una base de datos sólida para que HASE pueda ser entrenado con un contexto completo de riesgo desde el inicio.</p>
                      <div id="roadmap-container" class="space-y-8">
                         <!-- Roadmap items will be injected here by JS -->
                     </div>
@@ -414,7 +434,7 @@
                     { name: 'TimescaleDB', desc: 'Base de datos optimizada para almacenar las series temporales de datos operativos y scores de riesgo.', icon: '💾' }
                 ],
                 accordion: [
-                    { title: "Rendimiento y Confiabilidad", content: "<strong>Disponibilidad (SLA):</strong> 99.9%.<br><strong>Latencia Máxima (GPS/GNV):</strong> < 500 ms.<br><strong>Tolerancia a Fallos:</strong> Reintentos automáticos (exponential backoff) y colas de mensajes con Apache Kafka para prevenir pérdida de datos.<br><strong>Escalabilidad:</strong> Soporte para más de 1,000 vehículos simultáneos." },
+                    { title: "Rendimiento y Confiabilidad", content: "<strong>Disponibilidad (SLA):</strong> 99.9%.<br><strong>Latencia Máxima (GPS/GNV):</strong> &lt; 500 ms.<br><strong>Tolerancia a Fallos:</strong> Reintentos automáticos (exponential backoff) y colas de mensajes con Apache Kafka para prevenir pérdida de datos.<br><strong>Escalabilidad:</strong> Soporte para más de 1,000 vehículos simultáneos." },
                     { title: "Seguridad y Privacidad", content: "<strong>Cifrado en Tránsito:</strong> TLS 1.3+.<br><strong>Cifrado en Reposo:</strong> AES-256.<br><strong>Autenticación:</strong> API Keys, JWT y OAuth 2.0 para GNV.<br><strong>Privacidad:</strong> Anonimización de la 'placa' con hash SHA-256.<br><strong>Cumplimiento:</strong> Adherencia a normativas como LGPD (México) y GDPR." },
                     { title: "Endpoints Críticos", content: "<strong>GNV:</strong> <code>POST /api/v1/transactions</code> (envío de recargas).<br><strong>GPS:</strong> <code>POST /api/v1/telemetry</code> (streaming de ubicación).<br><strong>Consware:</strong> <code>GET /api/v1/historical?fecha=YYYY-MM-DD</code> (extracción diaria)." }
                 ],
@@ -451,14 +471,14 @@
                 
                 timelineContainer.innerHTML += `
                 <div class="timeline-event cursor-pointer">
-                    <div class="absolute w-4 h-4 bg-gray-400 rounded-full mt-3 -ml-2 left-1/2"></div>
+                    <div class="absolute w-4 h-4 bg-slate-500 rounded-full mt-3 -ml-2 left-1/2"></div>
                     <div class="w-full text-center py-4">
                         <div class="inline-block relative w-10/12 md:w-5/12">
-                             <div class="p-4 bg-white rounded-lg shadow-md border border-gray-200">
-                                <p class="font-bold text-gray-700">${item.year}</p>
-                                <p class="text-sm text-gray-500">Fuente: ${item.source}</p>
-                                <div class="placa-details hidden mt-2 text-sm text-gray-600 text-left">
-                                    <p><strong>Formato:</strong> <code class="bg-gray-200 text-xs p-1 rounded">${item.format}</code></p>
+                             <div class="bg-slate-800 p-4 rounded-lg shadow-md border border-slate-700">
+                                <p class="font-bold text-white">${item.year}</p>
+                                <p class="text-sm text-slate-400">Fuente: ${item.source}</p>
+                                <div class="placa-details hidden mt-2 text-sm text-slate-300 text-left">
+                                    <p><strong>Formato:</strong> <code class="bg-slate-700 text-xs p-1 rounded text-white">${item.format}</code></p>
                                     <p>${item.desc}</p>
                                 </div>
                             </div>
@@ -478,13 +498,13 @@
             accordionContainer.innerHTML = ''; // Clear existing content
             appData.accordion.forEach(item => {
                 const accordionItem = document.createElement('div');
-                accordionItem.className = 'border border-gray-200 rounded-lg';
+                accordionItem.className = 'border border-slate-700 rounded-lg bg-slate-900';
                 accordionItem.innerHTML = `
-                    <button class="accordion-header w-full flex justify-between items-center p-4 text-left font-semibold text-gray-700 bg-gray-50 hover:bg-gray-100 transition-colors">
+                    <button class="accordion-header w-full flex justify-between items-center p-4 text-left font-semibold text-white bg-slate-800 hover:bg-slate-700 transition-colors">
                         <span>${item.title}</span>
-                        <span class="accordion-icon text-xl text-gray-500 transform transition-transform duration-300">+</span>
+                        <span class="accordion-icon text-xl text-slate-400 transform transition-transform duration-300">+</span>
                     </button>
-                    <div class="accordion-content p-4 pt-0 text-gray-600 bg-white">
+                    <div class="accordion-content p-4 pt-0 text-slate-300 bg-slate-900">
                         <p>${item.content}</p>
                     </div>
                 `;
@@ -511,11 +531,11 @@
             architectureDiagram.innerHTML = ''; // Clear existing content
             appData.architecture.forEach((item, index) => {
                 const node = document.createElement('div');
-                node.className = 'architecture-node relative flex flex-col items-center text-center p-3 border-2 border-gray-300 rounded-lg bg-white shadow-sm w-40 h-28 justify-center';
+                node.className = 'architecture-node relative flex flex-col items-center text-center p-3 border-2 border-slate-700 rounded-lg bg-slate-800 shadow-sm w-40 h-28 justify-center';
                 node.innerHTML = `
-                    <span class="text-3xl mb-1">${item.icon}</span>
-                    <p class="font-semibold text-sm">${item.name}</p>
-                    <div class="absolute bottom-full mb-2 w-64 bg-gray-800 text-white text-xs rounded py-2 px-3 opacity-0 invisible transition-opacity duration-300 z-10">
+                    <span class="text-3xl mb-1 text-sky-400">${item.icon}</span>
+                    <p class="font-semibold text-sm text-white">${item.name}</p>
+                    <div class="absolute bottom-full mb-2 w-64 bg-slate-900 text-white text-xs rounded py-2 px-3 opacity-0 invisible transition-opacity duration-300 z-10 border border-slate-700">
                         ${item.desc}
                     </div>
                 `;
@@ -523,7 +543,7 @@
 
                 if (index < appData.architecture.length - 1) {
                     const arrow = document.createElement('div');
-                    arrow.className = 'text-gray-400 text-2xl font-bold transform md:rotate-0 rotate-90 mx-2';
+                    arrow.className = 'text-slate-400 text-2xl font-bold transform md:rotate-0 rotate-90 mx-2';
                     arrow.innerHTML = `&rarr;`;
                     architectureDiagram.appendChild(arrow);
                 }
@@ -548,16 +568,16 @@
                 roadmapItem.className = 'roadmap-item cursor-pointer';
                 roadmapItem.innerHTML = `
                     <div class="flex items-center">
-                        <div class="flex-shrink-0 w-12 h-12 rounded-full bg-indigo-500 text-white flex items-center justify-center font-bold text-lg">${index + 1}</div>
+                        <div class="flex-shrink-0 w-12 h-12 rounded-full bg-sky-600 text-white flex items-center justify-center font-bold text-lg">${index + 1}</div>
                         <div class="ml-4">
-                            <h4 class="text-xl font-bold">${item.phase}</h4>
-                            <p class="text-sm text-gray-500">${item.period}</p>
+                            <h4 class="text-xl font-bold text-white">${item.phase}</h4>
+                            <p class="text-sm text-slate-400">${item.period}</p>
                         </div>
                     </div>
                     <div class="roadmap-content pl-16 mt-2">
-                        <p class="text-gray-700"><strong>Objetivo:</strong> ${item.goal}</p>
-                        <p class="text-gray-700 mt-1"><strong>Componentes:</strong> ${item.components}</p>
-                        <p class="text-gray-700 mt-1"><strong>KPIs de Éxito:</strong> ${item.kpis}</p>
+                        <p class="text-slate-300"><strong>Objetivo:</strong> ${item.goal}</p>
+                        <p class="text-slate-300 mt-1"><strong>Componentes:</strong> ${item.components}</p>
+                        <p class="text-slate-300 mt-1"><strong>KPIs de Éxito:</strong> ${item.kpis}</p>
                     </div>
                 `;
                 roadmapContainer.appendChild(roadmapItem);
@@ -585,8 +605,8 @@
                     labels: ['Riesgo', 'Seguridad'],
                     datasets: [{
                         data: [10, 90],
-                        backgroundColor: ['#E07A5F', '#81B29A'],
-                        borderColor: ['#FDFBF8'],
+                        backgroundColor: ['#f43f5e', '#34d399'], /* rose-500, emerald-400 */
+                        borderColor: ['#020617'], /* slate-950 */
                         borderWidth: 4,
                         circumference: 180,
                         rotation: 270,
@@ -598,7 +618,25 @@
                     aspectRatio: 2,
                     plugins: {
                         legend: { display: false },
-                        tooltip: { enabled: false }
+                        tooltip: {
+                            backgroundColor: '#1e293b', /* slate-800 */
+                            titleFont: { size: 16, weight: 'bold' },
+                            bodyFont: { size: 14 },
+                            padding: 12,
+                            cornerRadius: 8,
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed !== null) {
+                                        label += context.parsed.toFixed(0) + '%';
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
                     },
                     cutout: '70%',
                 }
@@ -620,18 +658,18 @@
                 riskGaugeChart.data.datasets[0].data = [riskValue, 100 - riskValue];
 
                 if (riskValue < 20) {
-                    riskGaugeChart.data.datasets[0].backgroundColor = ['#81B29A', '#E5E7EB'];
-                    piaAction.className = 'mt-4 text-center p-4 rounded-lg w-full transition-all duration-300 bg-green-100 text-green-800';
+                    riskGaugeChart.data.datasets[0].backgroundColor = ['#34d399', '#1e293b']; /* emerald-400, slate-800 */
+                    piaAction.className = 'mt-4 text-center p-4 rounded-lg w-full transition-all duration-300 bg-emerald-900 text-emerald-300 border border-emerald-700';
                     piaActionTitle.textContent = 'Estado Normal';
                     piaActionText.textContent = 'El operador muestra un comportamiento estable. No se requiere intervención.';
                 } else if (riskValue < 50) {
-                    riskGaugeChart.data.datasets[0].backgroundColor = ['#FCD34D', '#E5E7EB'];
-                     piaAction.className = 'mt-4 text-center p-4 rounded-lg w-full transition-all duration-300 bg-yellow-100 text-yellow-800';
+                    riskGaugeChart.data.datasets[0].backgroundColor = ['#fbbf24', '#1e293b']; /* amber-400, slate-800 */
+                     piaAction.className = 'mt-4 text-center p-4 rounded-lg w-full transition-all duration-300 bg-amber-900 text-amber-300 border border-amber-700';
                     piaActionTitle.textContent = 'Alerta Temprana';
                     piaActionText.textContent = 'Se detectan ligeras anomalías. Monitorear de cerca. PIA prepara comunicación de seguimiento.';
                 } else {
-                    riskGaugeChart.data.datasets[0].backgroundColor = ['#E07A5F', '#E5E7EB'];
-                     piaAction.className = 'mt-4 text-center p-4 rounded-lg w-full transition-all duration-300 bg-red-100 text-red-800';
+                    riskGaugeChart.data.datasets[0].backgroundColor = ['#f43f5e', '#1e293b']; /* rose-500, slate-800 */
+                     piaAction.className = 'mt-4 text-center p-4 rounded-lg w-full transition-all duration-300 bg-rose-900 text-rose-300 border border-rose-700';
                     piaActionTitle.textContent = '¡Riesgo Alto!';
                     piaActionText.textContent = 'Caída significativa en indicadores. PIA envía mensaje de apoyo para activar "Protección Rodando".';
                 }
@@ -655,8 +693,8 @@
                     datasets: [{
                         label: 'Consumo Total GNV (Litros)',
                         data: [5000, 5200, 4800, 5500, 4900, 5300, 4700, 5100],
-                        borderColor: '#4A5568',
-                        backgroundColor: 'rgba(74, 85, 104, 0.2)',
+                        borderColor: '#0ea5e9', /* sky-500 */
+                        backgroundColor: 'rgba(14, 165, 233, 0.2)', /* sky-500 with opacity */
                         fill: true,
                         tension: 0.3
                     }]
@@ -667,8 +705,14 @@
                     plugins: {
                         legend: {
                             position: 'top',
+                            labels: { color: '#94a3b8' } /* slate-400 */
                         },
                         tooltip: {
+                            backgroundColor: '#1e293b', /* slate-800 */
+                            titleFont: { size: 16, weight: 'bold' },
+                            bodyFont: { size: 14 },
+                            padding: 12,
+                            cornerRadius: 8,
                             callbacks: {
                                 label: function(context) {
                                     let label = context.dataset.label || '';
@@ -687,15 +731,21 @@
                         x: {
                             title: {
                                 display: true,
-                                text: 'Período'
-                            }
+                                text: 'Período',
+                                color: '#94a3b8' /* slate-400 */
+                            },
+                            ticks: { color: '#94a3b8' }, /* slate-400 */
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
                         },
                         y: {
                             title: {
                                 display: true,
-                                text: 'Litros de GNV'
+                                text: 'Litros de GNV',
+                                color: '#94a3b8' /* slate-400 */
                             },
-                            beginAtZero: true
+                            beginAtZero: true,
+                            ticks: { color: '#94a3b8' }, /* slate-400 */
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
                         }
                     }
                 }
