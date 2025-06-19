@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Explorador Interactivo: Motor HASE Mejorado</title>
+    <title>Explorador Interactivo: Motor HASE Mejorado y Ampliado</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- Chosen Palette: Dark Slate & Vibrant Accents (from Pitch Deck) -->
-    <!-- Application Structure Plan: Se ha diseñado una SPA con navegación por pestañas para segmentar la complejidad del informe HASE en áreas temáticas y digeribles: 1) Visión General (KPIs y filosofía), 2) Foso de Datos (visualización de placas y campos requeridos), 3) Arquitectura y Rendimiento (diagrama de flujo interactivo y especificaciones técnicas), 4) Simulador de Riesgo (demostración interactiva del modelo HASE), 5) Procesos Clave (simulaciones de onboarding y protección Rodando), 6) Monitoreo y Dashboards (visualización de KPIs de flota y tendencias) y 7) Roadmap (timeline visual). Esta estructura no lineal prioriza la exploración y el entendimiento del usuario sobre el orden del documento original, permitiendo a diferentes perfiles (estratégicos, técnicos) acceder directamente a la información de su interés. -->
+    <!-- Application Structure Plan: Se ha diseñado una SPA con navegación por pestañas para segmentar la complejidad del informe HASE en áreas temáticas y digeribles: 1) Visión General (KPIs y filosofía), 2) Foso de Datos (visualización de placas y campos requeridos), 3) Arquitectura y Rendimiento (diagrama de flujo interactivo y especificaciones técnicas, gestión de proveedores), 4) Simulador de Riesgo (demostración interactiva del modelo HASE), 5) Procesos Clave (simulaciones de onboarding y protección Rodando), 6) Monitoreo y Dashboards (visualización de KPIs de flota, tendencias, PMA, salud de datos y deriva del modelo) y 7) Roadmap (timeline visual). Esta estructura no lineal prioriza la exploración y el entendimiento del usuario sobre el orden del documento original, permitiendo a diferentes perfiles (estratégicos, técnicos) acceder directamente a la información de su interés. -->
     <!-- Visualization & Content Choices:
         - Evolución de Placas: Reporte Info (Formatos de placas a lo largo del tiempo) -> Goal (Mostrar cambio y complejidad) -> Viz (Línea de tiempo interactiva HTML/CSS) -> Interaction (Click en cada hito para ver detalles) -> Justification (Más atractivo y claro que una tabla estática).
         - Arquitectura de Datos: Reporte Info (Flujo Kafka -> Flink -> HASE) -> Goal (Explicar el flujo de datos) -> Viz (Diagrama de flujo con HTML/Tailwind) -> Interaction (Hover sobre cada componente para mostrar descripción) -> Justification (Evita el uso de MermaidJS/SVG y es más interactivo).
@@ -19,6 +19,9 @@
         - Roadmap: Reporte Info (Fases 1, 2, 3) -> Goal (Visualizar el plan de implementación) -> Viz (Línea de tiempo horizontal HTML/CSS) -> Interaction (Click para resaltar detalles de cada fase) -> Justification (Más visual y fácil de seguir que una lista).
         - Procesos Clave (Onboarding/Protección Rodando): Reporte Info (Descripciones de wireframes) -> Goal (Demostrar flujos de usuario) -> Viz (Descripciones HTML estructuradas como mockups) -> Interaction (N/A for mockups) -> Justification (Visualiza interacciones clave del operador y del agente).
         - Monitoreo y Dashboards: Reporte Info (Descripciones de wireframes para dashboards) -> Goal (Proporcionar vista de KPIs y tendencias) -> Viz (HTML/CSS layout con Chart.js para gráficos) -> Interaction (Click en segmentos de mapa simulado, filtros de tiempo) -> Justification (Presenta visualmente los datos críticos de monitoreo de flota).
+        - Gestión de Proveedores: Reporte Info (Criterios de selección de proveedores) -> Goal (Mostrar la rigurosidad en la selección) -> Viz (Lista expandible/Acordeón) -> Interaction (Expandir para ver detalles) -> Justification (Organiza información densa de manera interactiva).
+        - Integración PMA: Reporte Info (Rol del PMA) -> Goal (Destacar su importancia) -> Viz (Texto descriptivo y ejemplo) -> Interaction (N/A) -> Justification (Aclara la función del tercer pilar de IA).
+        - Salud de Datos y Drift: Reporte Info (Calidad de datos, deriva del modelo) -> Goal (Demostrar monitoreo proactivo) -> Viz (Texto conceptual, placeholders para gráficos) -> Interaction (N/A) -> Justification (Visualiza conceptos clave de gobernanza de datos).
     -->
     <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
     <style>
@@ -198,6 +201,13 @@
                      <div id="accordion-container" class="space-y-2">
                         <!-- Accordion items will be injected here by JS -->
                      </div>
+                </div>
+                <div class="card-dark mt-8">
+                    <h3 class="text-xl font-semibold mb-4 text-white">Gestión Estratégica de Proveedores</h3>
+                    <p class="text-slate-300 mb-6">La debida diligencia y la gestión continua de proveedores externos son fundamentales para asegurar la calidad de los datos, la capacidad de integración y el cumplimiento normativo. Esto minimiza riesgos y fortalece nuestro "Foso Operacional".</p>
+                    <div id="providers-accordion-container" class="space-y-2">
+                        <!-- Providers accordion items will be injected here by JS -->
+                    </div>
                 </div>
             </section>
 
@@ -398,6 +408,43 @@
                         </ul>
                     </div>
                 </div>
+                <div class="card-dark mt-8">
+                    <h3 class="text-xl font-semibold mb-4 text-white">4. Integración del PMA (Predictive Maintenance Advisor)</h3>
+                    <p class="text-slate-300 mb-4">El PMA es el tercer pilar de la inteligencia artificial de Rodando a Gas, enfocado en la **prevención proactiva de fallas mecánicas** y la optimización de la vida útil de las vagonetas. Al igual que HASE, el PMA se nutre de datos operativos en tiempo real para anticipar problemas de mantenimiento.</p>
+                    <div class="bg-slate-800 p-4 rounded-lg border border-slate-700">
+                        <h4 class="font-bold text-lg mb-2 text-sky-400">🔧 Ejemplo de Detección PMA</h4>
+                        <p class="text-slate-300 text-sm mb-2">El PMA analiza la telemetría del vehículo (ej., `temperatura_motor`, `presion_aceite`, `vibracion`) en busca de patrones anómalos o desviaciones de los umbrales esperados. Al detectar una posible anomalía, genera una alerta y sugiere una acción.</p>
+                        <ul class="list-disc list-inside text-sm text-slate-300 space-y-1 mt-2">
+                            <li><strong>Alerta:</strong> Lectura consistente de `temperatura_motor` un 15% por encima del promedio normal para `Modelo_A` en ruta `Ruta_X`.</li>
+                            <li><strong>Acción Sugerida:</strong> Notificación automática al operador para agendar revisión preventiva en un taller aliado. Esto evita una falla mayor y un posible impago.</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="card-dark mt-8">
+                    <h3 class="text-xl font-semibold mb-4 text-white">5. Salud del Foso de Datos y Monitoreo de Deriva del Modelo</h3>
+                    <p class="text-slate-300 mb-4">La vitalidad de HASE depende directamente de la calidad y la relevancia continua de su foso de datos. Monitoreamos activamente la salud de los datos y la "deriva" de nuestros modelos para asegurar precisión constante.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div class="bg-slate-800 p-4 rounded-lg border border-slate-700">
+                            <h4 class="font-bold text-lg mb-2 text-sky-400">✨ KPIs de Calidad de Datos</h4>
+                            <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                                <li>**Completitud:** % de campos sin valores nulos (Objetivo: >95%).</li>
+                                <li>**Validez:** % de datos dentro de rangos esperados (Ej: `consumo_gnv` > 0).</li>
+                                <li>**Consistencia:** % de `placas` unificadas y sin duplicados.</li>
+                                <li>**Puntualidad:** Latencia promedio de ingesta (`GPS`, `GNV`).</li>
+                            </ul>
+                            <p class="text-slate-400 text-xs mt-2"><em>(Aquí se mostrarían gráficos de tendencia para cada KPI de calidad de datos.)</em></p>
+                        </div>
+                        <div class="bg-slate-800 p-4 rounded-lg border border-slate-700">
+                            <h4 class="font-bold text-lg mb-2 text-sky-400">📉 Monitoreo de Deriva del Modelo (Model Drift)</h4>
+                            <p class="text-slate-300 text-sm mb-2">Monitoreamos continuamente cómo las características de entrada y el rendimiento del modelo cambian con el tiempo.</p>
+                            <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                                <li>**Deriva de Datos (Data Drift):** Cambios en la distribución de `consumo_gnv` o `patrones_ruta`.</li>
+                                <li>**Deriva de Concepto (Concept Drift):** El modelo `P_default(t)` comienza a predecir menos preciso debido a cambios en el comportamiento del operador no anticipados.</li>
+                            </ul>
+                            <p class="text-slate-400 text-xs mt-2"><em>(Aquí se visualizarían gráficos de monitoreo de deriva, activando alertas para reentrenamiento.)</em></p>
+                        </div>
+                    </div>
+                </div>
             </section>
             
             <section id="roadmap" class="section">
@@ -437,6 +484,27 @@
                     { title: "Rendimiento y Confiabilidad", content: "<strong>Disponibilidad (SLA):</strong> 99.9%.<br><strong>Latencia Máxima (GPS/GNV):</strong> &lt; 500 ms.<br><strong>Tolerancia a Fallos:</strong> Reintentos automáticos (exponential backoff) y colas de mensajes con Apache Kafka para prevenir pérdida de datos.<br><strong>Escalabilidad:</strong> Soporte para más de 1,000 vehículos simultáneos." },
                     { title: "Seguridad y Privacidad", content: "<strong>Cifrado en Tránsito:</strong> TLS 1.3+.<br><strong>Cifrado en Reposo:</strong> AES-256.<br><strong>Autenticación:</strong> API Keys, JWT y OAuth 2.0 para GNV.<br><strong>Privacidad:</strong> Anonimización de la 'placa' con hash SHA-256.<br><strong>Cumplimiento:</strong> Adherencia a normativas como LGPD (México) y GDPR." },
                     { title: "Endpoints Críticos", content: "<strong>GNV:</strong> <code>POST /api/v1/transactions</code> (envío de recargas).<br><strong>GPS:</strong> <code>POST /api/v1/telemetry</code> (streaming de ubicación).<br><strong>Consware:</strong> <code>GET /api/v1/historical?fecha=YYYY-MM-DD</code> (extracción diaria)." }
+                ],
+                providers: [
+                    { category: "Seguridad", questions: [
+                        { q: "¿Soportan autenticación OAuth 2.0 y/o API Keys?", justification: "Asegura métodos de acceso seguros y controlados.", requirement: "OAuth 2.0 para GNV, API Keys + JWT para otros." },
+                        { q: "¿Cómo manejan el cifrado de datos en tránsito y en reposo?", justification: "Protege la confidencialidad de la información sensible.", requirement: "TLS 1.3+ en tránsito, AES-256 en reposo." },
+                        { q: "¿Cómo manejan la anonimización de datos sensibles como la placa?", justification: "Crucial para la privacidad del operador y el cumplimiento normativo.", requirement: "Anonimización de placa con hash SHA-256." }
+                    ]},
+                    { category: "Rendimiento", questions: [
+                        { q: "¿Cuál es su SLA para disponibilidad y latencia?", justification: "Vital para la operación en tiempo real y la proactividad de HASE.", requirement: "Disponibilidad 99.9%, latencia <500ms para GPS/GNV." },
+                        { q: "¿Cuál es su capacidad de throughput (transmisiones simultáneas)?", justification: "Asegura la escalabilidad para la flota creciente de Rodando a Gas.", requirement: "Soporte para 1,000+ vehículos simultáneos." }
+                    ]},
+                    { category: "Datos", questions: [
+                        { q: "¿Mantienen registros históricos de datos? ¿Por cuánto tiempo?", justification: "Necesario para el entrenamiento y ajuste de los modelos de HASE en periodos de crisis.", requirement: "Cobertura temporal extensa (ej. 2013-2022 para Consware/GPS)." },
+                        { q: "¿Permiten acceso a metadatos de vehículos (año, modelo, número de serie)?", justification: "Enriquece el scoring de HASE y el análisis de mantenimiento predictivo.", requirement: "Acceso a metadatos de vehículos (año, modelo, número de serie)." },
+                        { q: "¿Cómo manejan la conciliación de datos en caso de fallos de red?", justification: "Esencial para la tolerancia a fallos y la prevención de pérdida de datos.", requirement: "Mecanismos de reintento, colas de mensajes (Kafka)." },
+                        { q: "¿Cómo aseguran la calidad de los datos (ej. valores nulos, rangos)?", justification: "Impacta directamente la precisión del modelo HASE.", requirement: "Máximo 5% de valores nulos por campo, auditoría de rangos." },
+                        { q: "¿Pueden entregar datos en los formatos y frecuencias requeridos?", justification: "Asegura la compatibilidad con la arquitectura de ingesta de HASE.", requirement: "Parquet/CSV, actualizaciones mensuales incrementales para Consware." }
+                    ]},
+                    { category: "Cumplimiento", questions: [
+                        { q: "¿Cumplen con estándares de protección de datos (LGPD/GDPR)?", justification: "Garantiza la privacidad y el cumplimiento legal de los datos personales.", requirement: "Cumplimiento con LGPD (México) y GDPR." }
+                    ]}
                 ],
                  roadmap: [
                     { phase: "Fase 1: Preparación del Foso de Datos Históricos", period: "Meses 1-3", goal: "Ingestar, limpiar y estandarizar la totalidad de los datos históricos de Consware. Realizar el entrenamiento inicial del modelo HASE con esta base de datos completa, incluyendo periodos de estrés.", components: "Adquisición e ingesta de datos históricos Consware. Limpieza y estandarización de placas. Configuración de TimescaleDB para datos históricos. Entrenamiento inicial de HASE (v0.8) y validación *offline*.", kpis: "Completitud de datos Consware (>95%), Precisión del modelo HASE off-line (AUC, F1-score), Calidad de datos históricos." },
@@ -519,6 +587,47 @@
                     
                     document.querySelectorAll('.accordion-content').forEach(c => c.style.maxHeight = null);
                     document.querySelectorAll('.accordion-icon').forEach(i => i.textContent = '+');
+                    
+                    if (!isOpen) {
+                        content.style.maxHeight = content.scrollHeight + "px";
+                        icon.textContent = '-';
+                    }
+                });
+            });
+
+            const providersAccordionContainer = document.getElementById('providers-accordion-container');
+            providersAccordionContainer.innerHTML = ''; // Clear existing content
+            appData.providers.forEach(category => {
+                const categoryItem = document.createElement('div');
+                categoryItem.className = 'border border-slate-700 rounded-lg bg-slate-900';
+                categoryItem.innerHTML = `
+                    <button class="accordion-header w-full flex justify-between items-center p-4 text-left font-semibold text-white bg-slate-800 hover:bg-slate-700 transition-colors">
+                        <span>${category.category}</span>
+                        <span class="accordion-icon text-xl text-slate-400 transform transition-transform duration-300">+</span>
+                    </button>
+                    <div class="accordion-content p-4 pt-0 bg-slate-900">
+                        <ul class="space-y-4">
+                            ${category.questions.map(q => `
+                                <li>
+                                    <p class="font-bold text-sky-400 text-sm mb-1">${q.q}</p>
+                                    <p class="text-slate-300 text-xs"><strong>Justificación:</strong> ${q.justification}</p>
+                                    <p class="text-slate-300 text-xs"><strong>Requerimiento HASE:</strong> ${q.requirement}</p>
+                                </li>
+                            `).join('')}
+                        </ul>
+                    </div>
+                `;
+                providersAccordionContainer.appendChild(categoryItem);
+            });
+
+            document.querySelectorAll('#providers-accordion-container .accordion-header').forEach(button => {
+                button.addEventListener('click', () => {
+                    const content = button.nextElementSibling;
+                    const icon = button.querySelector('.accordion-icon');
+                    const isOpen = content.style.maxHeight;
+                    
+                    document.querySelectorAll('#providers-accordion-container .accordion-content').forEach(c => c.style.maxHeight = null);
+                    document.querySelectorAll('#providers-accordion-container .accordion-icon').forEach(i => i.textContent = '+');
                     
                     if (!isOpen) {
                         content.style.maxHeight = content.scrollHeight + "px";
