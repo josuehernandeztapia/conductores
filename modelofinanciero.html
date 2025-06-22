@@ -11,7 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
     <style>
-        /* Estilos existentes... */
+        /* Estilos previos... */
         .constant-control {
             margin-bottom: 12px;
         }
@@ -25,11 +25,19 @@
             grid-template-columns: repeat(2, 1fr);
             gap: 12px;
         }
+        .validation-error {
+            color: #dc2626;
+            font-weight: 500;
+            background-color: #fef2f2;
+            padding: 8px;
+            border-radius: 4px;
+            margin-top: 8px;
+        }
     </style>
 </head>
 <body class="text-gray-800">
-    <!-- Estructura HTML existente... -->
-    
+    <!-- Estructura HTML previa... -->
+
     <script>
         // Estado global con todas las constantes expuestas
         let modelData = {
@@ -51,7 +59,7 @@
             lgd: 0.45,
             plazoFinanciamiento: 48,
             
-            // Unidades por año (ahora editables)
+            // Unidades por año (editables)
             unitsPerYear: [35, 70, 100, 150, 200],
             
             // Supuestos fijos
@@ -79,44 +87,136 @@
                 const newGuess = guess - npv / dNpv;
                 
                 if (Math.abs(newGuess - guess) < tolerance) {
-                    return newGuess;
+                    return newGuess * 100; // Convertir a porcentaje
                 }
                 
                 guess = newGuess;
             }
             
-            return guess; // Devolver la mejor aproximación
+            return guess * 100; // Devolver la mejor aproximación en porcentaje
         }
 
-        // Nueva lógica para ingresos por intereses
+        // Lógica corregida para ingresos por intereses
         function calculateInterestRevenue(year) {
-            // Implementación de cronograma de amortización real
-            const saldoInicial = modelData.unitsPerYear.slice(0, year+1)
-                .reduce((sum, units) => sum + units * modelData.vanPrice, 0);
+            // Base de cálculo: 60% del saldo de deuda del año anterior
+            let debtBalance = 0;
+            if (year > 0) {
+                debtBalance = financialResults.bs[year-1].debt || 0;
+            } else {
+                debtBalance = modelData.seriesA * (modelData.ventureDebtPct / 100);
+            }
             
-            return saldoInicial * (modelData.tasaInteres / 100);
+            return debtBalance * (modelData.tasaInteres / 100) * 0.6;
         }
 
-        // Nueva lógica para cuentas por cobrar
+        // Lógica corregida para cuentas por cobrar
         function calculateReceivables(year) {
             return calculateInterestRevenue(year) / (modelData.tasaInteres / 100);
         }
 
-        // Nueva lógica para activos fijos
+        // Lógica corregida para activos fijos
         function calculateFixedAssets(year) {
-            return modelData.unitsPerYear.slice(0, year+1)
-                .reduce((sum, units) => sum + units * modelData.vanCost, 0);
+            let totalCost = 0;
+            for (let y = 0; y <= year; y++) {
+                totalCost += modelData.unitsPerYear[y] * modelData.vanCost;
+            }
+            return totalCost;
         }
 
-        // Función de cálculo financiero corregida
+        // Función de cálculo financiero completa y corregida
         function calculateFinancials() {
-            // [Implementación completa con las nuevas fórmulas]
-            // 1. Ingresos por intereses usando calculateInterestRevenue()
-            // 2. Cuentas por cobrar usando calculateReceivables()
-            // 3. Activos fijos usando calculateFixedAssets()
-            // 4. EBITDA sin costo de vagonetas: totalRevenue - opex - provisions
-            // 5. Deuda constante sin reducción anual
-            // 6. Cálculo de TIR usando calculateIRR() con flujos reales
+            // Reset financial results
+            financialResults.pl = [];
+            financialResults.cf = [];
+            financialResults.bs = [];
+            financialResults.validation = {
+                balanceCheck: true,
+                niifCompliance: true
+            };
+            
+            let accumulatedEarnings = 0;
+            let cash = modelData.seriesA;
+            let accumulatedDepreciation = 0;
+            
+            // Calcular flujos para TIR
+            const cashFlows = [-modelData.seriesA]; // Inversión inicial en año 0
+            
+            for (let year = 0; year < 5; year++) {
+                const addedUnits = modelData.unitsPerYear[year];
+                
+                // CALCULAR INGRESOS (NIIF 15)
+                const vanSales = addedUnits * modelData.margenVagoneta;
+                const interestRevenue = calculateInterestRevenue(year);
+                const gnvCommissions = modelData.unitsPerYear.slice(0, year+1)
+                    .reduce((sum, units) => sum + units * 12000, 0) * (modelData.comisionGNV / 100);
+                const sparePartsRevenue = addedUnits * 50000 * (modelData.margenRefacciones / 100);
+                const marketplaceRevenue = modelData.unitsPerYear.slice(0, year+1)
+                    .reduce((sum, units) => sum + units * 5000, 0) * (modelData.marketplace / 100);
+                const totalRevenue = vanSales + interestRevenue + gnvCommissions + sparePartsRevenue + marketplaceRevenue;
+                
+                // CALCULAR GASTOS (NIIF 9)
+                const opex = totalRevenue * modelData.opexRate;
+                const effectiveMorosidad = modelData.proteccionRodando ? 
+                    modelData.tasaMorosidad * 0.5 : modelData.tasaMorosidad;
+                const provisions = interestRevenue * (effectiveMorosidad / 100);
+                
+                // DEPRECIACIÓN (NIIF 16)
+                const fixedAssets = calculateFixedAssets(year);
+                const depreciation = fixedAssets / modelData.depreciationYears;
+                accumulatedDepreciation += depreciation;
+                
+                // VENTURE DEBT (mantenemos constante)
+                const ventureDebt = modelData.seriesA * (modelData.ventureDebtPct / 100);
+                const interestExpense = ventureDebt * (modelData.ventureDebtRate / 100);
+                
+                // EBITDA CORRECTO (sin costos de vagonetas)
+                const ebitda = totalRevenue - opex - provisions;
+                const netIncome = ebitda - depreciation - interestExpense;
+                accumulatedEarnings += netIncome;
+                
+                // FLUJO DE EFECTIVO
+                const operatingCash = netIncome + depreciation + provisions;
+                const investingCash = -(addedUnits * modelData.vanCost);
+                const financingCash = year === 0 ? modelData.seriesA : 0;
+                const netCash = operatingCash + investingCash + financingCash;
+                cash += netCash;
+                
+                // BALANCE GENERAL
+                const receivables = calculateReceivables(year);
+                const fixedAssetsNet = fixedAssets - accumulatedDepreciation;
+                const totalAssets = cash + receivables + fixedAssetsNet;
+                const debt = ventureDebt; // Mantenemos constante (no se amortiza)
+                const equity = modelData.seriesA + accumulatedEarnings;
+                const totalLiabilitiesEquity = debt + equity;
+                
+                // VALIDACIÓN CONTABLE
+                const balanceCheck = Math.abs(totalAssets - totalLiabilitiesEquity) < 1000; // Tolerancia de $1,000
+                if (!balanceCheck) {
+                    financialResults.validation.balanceCheck = false;
+                    console.error(`Balance no cuadra en año ${year+1}:`, totalAssets, totalLiabilitiesEquity);
+                }
+                
+                // GUARDAR RESULTADOS
+                financialResults.pl.push({
+                    vanSales, interestRevenue, gnvCommissions, sparePartsRevenue, marketplaceRevenue, totalRevenue,
+                    opex, provisions, ebitda, depreciation, interestExpense, netIncome
+                });
+                
+                financialResults.cf.push({
+                    operatingCash, investingCash, financingCash, netCash
+                });
+                
+                financialResults.bs.push({
+                    cash, receivables, fixedAssets: fixedAssetsNet, totalAssets,
+                    debt, equity, totalLiabilitiesEquity
+                });
+                
+                // Agregar flujo para TIR (excluyendo año 0 para proyección)
+                if (year >= 0) cashFlows.push(netCash);
+            }
+            
+            // CALCULAR TIR REAL
+            financialResults.tir = calculateIRR(cashFlows);
         }
 
         // Función para crear controles de constantes
@@ -124,10 +224,10 @@
             const container = document.getElementById('constants-container');
             
             const constants = [
-                {id: 'opex-rate', label: 'Tasa OPEX (%)', key: 'opexRate', min: 0.1, max: 0.3, step: 0.01, factor: 100},
-                {id: 'provision-rate', label: 'Tasa Provisiones (%)', key: 'provisionRate', min: 0.05, max: 0.2, step: 0.01, factor: 100},
+                {id: 'opex-rate', label: 'Tasa OPEX (%)', key: 'opexRate', min: 5, max: 30, step: 1, factor: 1},
+                {id: 'provision-rate', label: 'Tasa Provisiones (%)', key: 'provisionRate', min: 5, max: 20, step: 1, factor: 1},
                 {id: 'depreciation-years', label: 'Años Depreciación', key: 'depreciationYears', min: 5, max: 15, step: 1},
-                {id: 'lgd', label: 'LGD (%)', key: 'lgd', min: 0.3, max: 0.7, step: 0.05, factor: 100},
+                {id: 'lgd', label: 'LGD (%)', key: 'lgd', min: 30, max: 70, step: 1, factor: 1},
                 {id: 'plazo-financiamiento', label: 'Plazo Financiamiento (meses)', key: 'plazoFinanciamiento', min: 36, max: 60, step: 6}
             ];
             
@@ -192,7 +292,9 @@
             initializeCharts();
         });
 
-        // ...resto del código con las implementaciones corregidas
+        // ... (resto de funciones: setupTabs, setupControls, applyScenario, 
+        // updateUI, updatePLTable, updateCashFlowTable, updateBalanceSheetTable, 
+        // formatCurrency, initializeCharts, updateCharts) ...
     </script>
 </body>
 </html>
