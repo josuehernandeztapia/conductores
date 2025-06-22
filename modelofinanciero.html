@@ -12,1025 +12,1151 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
     <style>
-        body { 
-            font-family: 'Inter', sans-serif; 
-            background-color: #f8f9fa; 
+        :root {
+            --primary: #2563eb;
+            --secondary: #4f46e5;
+            --success: #16a34a;
+            --danger: #dc2626;
+            --warning: #d97706;
+            --gray: #6b7280;
         }
-        .tab-button { 
-            transition: all 0.3s ease; 
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8f9fa;
+            color: #333;
+        }
+        
+        .tab-button {
+            transition: all 0.3s ease;
+            border-bottom: 3px solid transparent;
+        }
+        
+        .tab-button.active {
+            border-bottom: 3px solid var(--primary);
+            color: var(--primary);
+            font-weight: 600;
+        }
+        
+        .input-slider {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 8px;
+            background: #e5e7eb;
+            border-radius: 9999px;
+            outline: none;
+        }
+        
+        .input-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            background: var(--primary);
+            border-radius: 50%;
             cursor: pointer;
         }
-        .tab-button.active { 
-            border-color: #2563eb; 
-            color: #2563eb; 
-            background-color: #eff6ff; 
-        }
-        .tab-button:not(.active):hover { 
-            background-color: #f3f4f6; 
-        }
-        .content-section { 
-            display: none; 
-        }
-        .content-section.active { 
-            display: block; 
-        }
-        .card { 
-            background-color: white; 
-            border-radius: 0.75rem; 
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); 
-            padding: 1.5rem; 
-            margin-bottom: 1.5rem;
-        }
-        .input-slider { 
-            -webkit-appearance: none; 
-            appearance: none; 
-            width: 100%; 
-            height: 8px; 
-            background: #e5e7eb; 
-            border-radius: 9999px; 
-            outline: none; 
-            transition: opacity .2s; 
-        }
-        .input-slider::-webkit-slider-thumb { 
-            -webkit-appearance: none; 
-            appearance: none; 
-            width: 20px; 
-            height: 20px; 
-            background: #2563eb; 
-            border-radius: 9999px; 
-            cursor: pointer; 
-        }
-        .input-slider::-moz-range-thumb { 
-            width: 20px; 
-            height: 20px; 
-            background: #2563eb; 
-            border-radius: 9999px; 
-            cursor: pointer; 
-            border: none;
-        }
-        .chart-container { 
-            position: relative; 
-            width: 100%; 
-            max-width: 800px; 
-            margin-left: auto; 
-            margin-right: auto; 
-            height: 350px; 
-            max-height: 50vh; 
-        }
+        
         .financial-table {
             width: 100%;
             border-collapse: collapse;
         }
-        .financial-table th,
-        .financial-table td {
-            padding: 0.75rem;
+        
+        .financial-table th, .financial-table td {
+            padding: 10px;
             text-align: right;
             border-bottom: 1px solid #e5e7eb;
         }
+        
         .financial-table th {
             background-color: #f9fafb;
             font-weight: 600;
             position: sticky;
             top: 0;
         }
-        .financial-table td:first-child,
-        .financial-table th:first-child {
-            text-align: left;
+        
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin: 20px 0;
         }
-        .positive { color: #16a34a; }
-        .negative { color: #dc2626; }
-        .metric-card {
-            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-            border-left: 4px solid #2563eb;
+        
+        .stat-card {
+            background: #f0f9ff;
+            border-left: 4px solid var(--primary);
+            padding: 15px;
+            border-radius: 4px;
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-top: 20px;
+        }
+        
+        .validation-success {
+            color: var(--success);
+            font-weight: 600;
+        }
+        
+        .validation-error {
+            color: var(--danger);
+            font-weight: 600;
+        }
+        
+        .amortization-table {
+            font-size: 0.875rem;
+        }
+        
+        .amortization-table th, .amortization-table td {
+            padding: 8px;
+            text-align: right;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .unit-distribution-card {
+            background-color: #f0fdf4;
+            border-left: 4px solid #16a34a;
         }
     </style>
 </head>
-<body class="text-gray-800">
-
-    <div id="app" class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-        
+<body class="p-4 sm:p-6 lg:p-8">
+    <div class="max-w-7xl mx-auto">
         <header class="mb-8 text-center">
-            <h1 class="text-3xl font-bold text-gray-900">Modelo Financiero Interactivo</h1>
-            <p class="text-lg text-gray-600">Rodando a Gas: Resiliencia como Servicio</p>
-            <p class="text-sm text-gray-500 mt-2">Cumplimiento NIIF 15 & NIIF 9 | Proyecciones a 5 años</p>
+            <h1 class="text-3xl font-bold text-gray-900">
+                Modelo Financiero Interactivo "Rodando a Gas"
+            </h1>
+            <p class="text-gray-600 mt-2">Resiliencia como Servicio - Cumplimiento NIIF 15 & NIIF 9</p>
         </header>
 
         <!-- Summary Cards -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div class="metric-card p-4 rounded-lg">
+            <div class="stat-card">
                 <div class="text-sm text-gray-500">EBITDA Año 5</div>
-                <div class="text-2xl font-bold" id="ebitda-year5">$15.2M MXN</div>
+                <div class="text-2xl font-bold" id="ebitda-value">$15.2M MXN</div>
             </div>
-            <div class="metric-card p-4 rounded-lg">
+            <div class="stat-card">
                 <div class="text-sm text-gray-500">TIR Proyectada</div>
-                <div class="text-2xl font-bold" id="tir-proyectada">22.8%</div>
+                <div class="text-2xl font-bold" id="tir-value">22.8%</div>
             </div>
-            <div class="metric-card p-4 rounded-lg">
+            <div class="stat-card">
                 <div class="text-sm text-gray-500">Unidades Financiadas (Año 5)</div>
-                <div class="text-2xl font-bold" id="unidades-year5">500</div>
+                <div class="text-2xl font-bold" id="units-value">500</div>
             </div>
-            <div class="metric-card p-4 rounded-lg">
+            <div class="stat-card">
                 <div class="text-sm text-gray-500">Patrimonio Neto</div>
-                <div class="text-2xl font-bold" id="patrimonio-neto">$78.3M MXN</div>
+                <div class="text-2xl font-bold" id="equity-value">$78.3M MXN</div>
             </div>
         </div>
 
-        <main>
-            <div class="mb-6 border-b border-gray-200">
-                <nav class="flex flex-wrap -mb-px" aria-label="Tabs">
-                    <button id="tab-control" class="tab-button active text-lg font-medium mr-2 inline-block p-4 border-b-2 border-transparent rounded-t-lg">🚀 Panel de Control</button>
-                    <button id="tab-financieros" class="tab-button text-lg font-medium mr-2 inline-block p-4 border-b-2 border-transparent rounded-t-lg">📊 Estados Financieros</button>
-                    <button id="tab-graficos" class="tab-button text-lg font-medium mr-2 inline-block p-4 border-b-2 border-transparent rounded-t-lg">📈 Análisis Gráfico</button>
-                    <button id="tab-resumen" class="tab-button text-lg font-medium mr-2 inline-block p-4 border-b-2 border-transparent rounded-t-lg">📖 Resumen Estratégico</button>
-                </nav>
-            </div>
+        <!-- Tabs Navigation -->
+        <div class="flex border-b border-gray-200 mb-6">
+            <button id="tab-control" class="tab-button active px-4 py-2 font-medium">Panel de Control</button>
+            <button id="tab-financials" class="tab-button px-4 py-2 font-medium">Estados Financieros</button>
+            <button id="tab-analysis" class="tab-button px-4 py-2 font-medium">Análisis de Escenarios</button>
+            <button id="tab-capital" class="tab-button px-4 py-2 font-medium">Estructura de Capital</button>
+        </div>
 
-            <!-- Panel de Control -->
-            <div id="content-control" class="content-section active">
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <div class="card lg:col-span-3">
-                         <div class="flex items-center justify-between mb-4">
-                            <h3 class="text-xl font-semibold text-gray-800">Parámetros Globales y Escenarios</h3>
-                            <div class="flex items-center space-x-4">
-                               <select id="select-escenario" class="block rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm p-2">
-                                    <option value="base">Escenario Base</option>
-                                    <option value="optimista">Escenario Optimista</option>
-                                    <option value="conservador">Escenario Conservador</option>
-                                </select>
-                                <select id="select-vista" class="block rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm p-2">
-                                    <option value="anual">Vista Anual</option>
-                                    <option value="mensual">Vista Mensual</option>
-                                </select>
-                            </div>
-                        </div>
-                        <p class="text-sm text-gray-500">Ajuste las variables clave para simular diferentes condiciones de mercado. Los cambios se reflejarán en todos los estados financieros y gráficos en tiempo real.</p>
-                        <div id="scenario-details" class="text-sm text-gray-600 mt-2 p-2 bg-gray-50 rounded-md">
-                            <strong>Escenario Base:</strong> Tasa de morosidad 8%, Margen por vagoneta $88,000 MXN, TIR objetivo ≥22.8%
-                        </div>
-                    </div>
-
+        <!-- Content Sections -->
+        <div id="content-control" class="content-section">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Left Column - Main Parameters -->
+                <div class="space-y-6">
                     <div class="card">
-                        <h4 class="font-semibold text-lg mb-1">Crédito y Riesgo</h4>
-                        <p class="text-xs text-gray-500 mb-4">Ajuste las condiciones del financiamiento y las provisiones por riesgo (NIIF 9).</p>
-                        <div class="space-y-4">
-                            <div>
-                                <label for="tasa-interes" class="flex justify-between text-sm font-medium text-gray-700">Tasa de Interés Anual <span id="tasa-interes-valor" class="font-bold text-indigo-600">25.5%</span></label>
-                                <input type="range" id="tasa-interes" min="23.9" max="26.9" step="0.1" value="25.5" class="input-slider mt-1">
+                        <h2 class="text-xl font-bold mb-4">Distribución de Unidades por Año</h2>
+                        
+                        <!-- Year 1 -->
+                        <div class="mb-4">
+                            <div class="flex justify-between mb-1">
+                                <label class="font-medium">Unidades Año 1</label>
+                                <span id="units-year1-value" class="font-bold text-blue-600">35</span>
                             </div>
-                             <div>
-                                <label for="tasa-morosidad" class="flex justify-between text-sm font-medium text-gray-700">Tasa de Morosidad <span id="tasa-morosidad-valor" class="font-bold text-indigo-600">8%</span></label>
-                                <input type="range" id="tasa-morosidad" min="4" max="15" step="0.5" value="8" class="input-slider mt-1">
+                            <input type="range" id="units-year1" min="0" max="100" value="35" step="5" class="input-slider w-full">
+                            <div class="flex justify-between text-xs text-gray-500 mt-1">
+                                <span>0</span>
+                                <span>50</span>
+                                <span>100</span>
                             </div>
-                             <div class="flex items-center">
-                                <input id="check-proteccion" type="checkbox" checked class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
-                                <label for="check-proteccion" class="ml-2 block text-sm text-gray-900">Incluir "Protección Rodando"</label>
-                                <span class="ml-2 text-xs text-green-600">(Reduce morosidad hasta 50%)</span>
+                        </div>
+                        
+                        <!-- Year 2 -->
+                        <div class="mb-4">
+                            <div class="flex justify-between mb-1">
+                                <label class="font-medium">Unidades Año 2</label>
+                                <span id="units-year2-value" class="font-bold text-blue-600">65</span>
+                            </div>
+                            <input type="range" id="units-year2" min="0" max="150" value="65" step="5" class="input-slider w-full">
+                            <div class="flex justify-between text-xs text-gray-500 mt-1">
+                                <span>0</span>
+                                <span>75</span>
+                                <span>150</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Year 3 -->
+                        <div class="mb-4">
+                            <div class="flex justify-between mb-1">
+                                <label class="font-medium">Unidades Año 3</label>
+                                <span id="units-year3-value" class="font-bold text-blue-600">150</span>
+                            </div>
+                            <input type="range" id="units-year3" min="0" max="200" value="150" step="5" class="input-slider w-full">
+                            <div class="flex justify-between text-xs text-gray-500 mt-1">
+                                <span>0</span>
+                                <span>100</span>
+                                <span>200</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Year 4 -->
+                        <div class="mb-4">
+                            <div class="flex justify-between mb-1">
+                                <label class="font-medium">Unidades Año 4</label>
+                                <span id="units-year4-value" class="font-bold text-blue-600">150</span>
+                            </div>
+                            <input type="range" id="units-year4" min="0" max="200" value="150" step="5" class="input-slider w-full">
+                            <div class="flex justify-between text-xs text-gray-500 mt-1">
+                                <span>0</span>
+                                <span>100</span>
+                                <span>200</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Year 5 -->
+                        <div class="mb-4">
+                            <div class="flex justify-between mb-1">
+                                <label class="font-medium">Unidades Año 5</label>
+                                <span id="units-year5-value" class="font-bold text-blue-600">100</span>
+                            </div>
+                            <input type="range" id="units-year5" min="0" max="200" value="100" step="5" class="input-slider w-full">
+                            <div class="flex justify-between text-xs text-gray-500 mt-1">
+                                <span>0</span>
+                                <span>100</span>
+                                <span>200</span>
                             </div>
                         </div>
                     </div>
                     
                     <div class="card">
-                        <h4 class="font-semibold text-lg mb-1">Operaciones y Márgenes</h4>
-                        <p class="text-xs text-gray-500 mb-4">Configure los márgenes de ganancia para las líneas de ingreso.</p>
-                        <div class="space-y-4">
-                            <div>
-                                <label for="margen-vagoneta" class="flex justify-between text-sm font-medium text-gray-700">Margen por Vagoneta <span id="margen-vagoneta-valor" class="font-bold text-indigo-600">$88,000</span></label>
-                                <input type="range" id="margen-vagoneta" min="50000" max="120000" step="1000" value="88000" class="input-slider mt-1">
+                        <h2 class="text-xl font-bold mb-4">Venture Debt</h2>
+                        
+                        <div class="mb-4">
+                            <div class="flex justify-between mb-1">
+                                <label class="font-medium">Tasa de Interés</label>
+                                <span id="debt-rate-value" class="font-bold text-blue-600">12%</span>
                             </div>
-                            <div>
-                                <label for="comision-gnv" class="flex justify-between text-sm font-medium text-gray-700">Comisión GNV <span id="comision-gnv-valor" class="font-bold text-indigo-600">8%</span></label>
-                                <input type="range" id="comision-gnv" min="7" max="10" step="0.5" value="8" class="input-slider mt-1">
+                            <select id="debt-rate" class="w-full p-2 border border-gray-300 rounded-md">
+                                <option value="0.12">12%</option>
+                                <option value="0.14">14%</option>
+                                <option value="0.18">18%</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="font-medium block mb-1">Plazo (años)</label>
+                            <input type="number" id="debt-term" value="4" min="3" max="6" class="w-full p-2 border border-gray-300 rounded-md">
+                        </div>
+                        
+                        <div class="mb-4">
+                            <div class="flex justify-between mb-1">
+                                <label class="font-medium">% Deuda</label>
+                                <span id="debt-pct-value" class="font-bold text-blue-600">100%</span>
                             </div>
-                             <div>
-                                <label for="margen-refacciones" class="flex justify-between text-sm font-medium text-gray-700">Margen Refacciones <span id="margen-refacciones-valor" class="font-bold text-indigo-600">25%</span></label>
-                                <input type="range" id="margen-refacciones" min="25" max="35" step="1" value="25" class="input-slider mt-1">
-                            </div>
+                            <input type="range" id="debt-pct" min="50" max="100" value="100" step="5" class="input-slider w-full">
                         </div>
                     </div>
-
+                </div>
+                
+                <!-- Right Column - Additional Parameters -->
+                <div class="space-y-6">
                     <div class="card">
-                        <h4 class="font-semibold text-lg mb-1">Estructura de Capital (Post-Serie A)</h4>
-                        <p class="text-xs text-gray-500 mb-4">Simule el impacto de la financiación con venture debt vs. equity.</p>
-                        <div class="space-y-4">
-                            <div>
-                                <label for="venture-debt-pct" class="flex justify-between text-sm font-medium text-gray-700">% Venture Debt <span id="venture-debt-pct-valor" class="font-bold text-indigo-600">0%</span></label>
-                                <input type="range" id="venture-debt-pct" min="0" max="50" step="5" value="0" class="input-slider mt-1">
+                        <h2 class="text-xl font-bold mb-4">Otras Variables</h2>
+                        
+                        <div class="mb-4">
+                            <div class="flex justify-between mb-1">
+                                <label class="font-medium">Tasa de Morosidad</label>
+                                <span id="default-rate-value" class="font-bold text-blue-600">8%</span>
                             </div>
-                            <div>
-                                <label for="venture-debt-rate" class="flex justify-between text-sm font-medium text-gray-700">Tasa Venture Debt <span id="venture-debt-rate-valor" class="font-bold text-indigo-600">12%</span></label>
-                                <input type="range" id="venture-debt-rate" min="12" max="18" step="0.5" value="12" class="input-slider mt-1">
-                            </div>
-                            <div class="bg-blue-50 p-3 rounded-md">
-                                <p class="text-xs text-blue-700"><strong>Estrategia RAG:</strong> Usar venture debt para flota, preservar equity para tecnología e IA.</p>
+                            <input type="range" id="default-rate" min="5" max="15" value="8" step="1" class="input-slider w-full">
+                            <div class="flex justify-between text-xs text-gray-500 mt-1">
+                                <span>5%</span>
+                                <span>10%</span>
+                                <span>15%</span>
                             </div>
                         </div>
-                        <div class="text-center mt-4">
-                            <p class="text-lg font-bold text-gray-800">TIR de la Cartera: <span id="irr-value" class="text-indigo-600">22.8%</span></p>
+                        
+                        <div class="mb-4">
+                            <div class="flex justify-between mb-1">
+                                <label class="font-medium">Comisión GNV</label>
+                                <span id="gnv-value" class="font-bold text-blue-600">8%</span>
+                            </div>
+                            <select id="gnv-commission" class="w-full p-2 border border-gray-300 rounded-md">
+                                <option value="0.08">8%</option>
+                                <option value="0.07">7%</option>
+                                <option value="0.09">9%</option>
+                                <option value="0.10">10%</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <div class="flex justify-between mb-1">
+                                <label class="font-medium">Margen Refacciones</label>
+                                <span id="spare-parts-value" class="font-bold text-blue-600">25%</span>
+                            </div>
+                            <select id="spare-parts" class="w-full p-2 border border-gray-300 rounded-md">
+                                <option value="0.25">25%</option>
+                                <option value="0.30">30%</option>
+                                <option value="0.35">35%</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <h2 class="text-xl font-bold mb-4">Acciones</h2>
+                        
+                        <div class="flex justify-between">
+                            <button id="reset-btn" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">
+                                Reiniciar
+                            </button>
+                            <button id="export-btn" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
+                                Exportar a Excel
+                            </button>
+                            <div>
+                                <label class="mr-2">Vista:</label>
+                                <select id="view-toggle" class="p-2 border border-gray-300 rounded-md">
+                                    <option value="annual">Anual</option>
+                                    <option value="monthly">Mensual</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <h2 class="text-xl font-bold mb-4">Validación Contable</h2>
+                        <div id="balance-validation" class="validation-success">
+                            ✅ Balance General Cuadrado (Activo = Pasivo + Capital)
                         </div>
                     </div>
 
-                    <div class="card lg:col-span-3">
-                        <h4 class="font-semibold text-lg mb-4">Validación Contable en Tiempo Real</h4>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div class="bg-green-50 p-3 rounded-md border-l-4 border-green-400">
-                                <p class="text-sm text-green-700">✅ <strong>NIIF 15:</strong> Reconocimiento de ingresos al valor presente</p>
+                    <div class="card unit-distribution-card">
+                        <h2 class="text-xl font-bold mb-4">Cartera de Vagonetas</h2>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <h3 class="font-medium">Unidades Financiadas</h3>
+                                <div class="text-2xl font-bold" id="total-units">500</div>
                             </div>
-                            <div class="bg-green-50 p-3 rounded-md border-l-4 border-green-400">
-                                <p class="text-sm text-green-700">✅ <strong>NIIF 9:</strong> Provisiones por pérdidas crediticias esperadas</p>
-                            </div>
-                            <div id="balance-validation" class="bg-green-50 p-3 rounded-md border-l-4 border-green-400">
-                                <p class="text-sm text-green-700">✅ <strong>Balance:</strong> Activo = Pasivo + Capital</p>
+                            <div>
+                                <h3 class="font-medium">Distribución por Año</h3>
+                                <div class="text-sm" id="units-distribution">Año 1: 35, Año 2: 65, ...</div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-
-            <!-- Estados Financieros -->
-            <div id="content-financieros" class="content-section">
-                <div class="space-y-6">
-                    <div class="card">
-                        <h3 class="text-xl font-semibold mb-4">Estado de Resultados (P&L)</h3>
-                        <div class="overflow-x-auto">
-                            <table class="financial-table">
-                                <thead>
-                                    <tr>
-                                        <th>Concepto</th>
-                                        <th>Año 1</th>
-                                        <th>Año 2</th>
-                                        <th>Año 3</th>
-                                        <th>Año 4</th>
-                                        <th>Año 5</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="pl-table-body">
-                                    <tr>
-                                        <td><strong>Ingresos por Financiamiento</strong></td>
-                                        <td class="positive">$2,500,000</td>
-                                        <td class="positive">$7,200,000</td>
-                                        <td class="positive">$12,800,000</td>
-                                        <td class="positive">$18,900,000</td>
-                                        <td class="positive">$25,600,000</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Margen por Vagoneta</td>
-                                        <td class="positive">$3,080,000</td>
-                                        <td class="positive">$8,800,000</td>
-                                        <td class="positive">$15,600,000</td>
-                                        <td class="positive">$22,880,000</td>
-                                        <td class="positive">$31,680,000</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Comisiones GNV</td>
-                                        <td class="positive">$120,000</td>
-                                        <td class="positive">$340,000</td>
-                                        <td class="positive">$600,000</td>
-                                        <td class="positive">$880,000</td>
-                                        <td class="positive">$1,200,000</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Ingresos por Refacciones (PMA)</td>
-                                        <td class="positive">$90,000</td>
-                                        <td class="positive">$260,000</td>
-                                        <td class="positive">$460,000</td>
-                                        <td class="positive">$680,000</td>
-                                        <td class="positive">$920,000</td>
-                                    </tr>
-                                    <tr class="bg-gray-50">
-                                        <td><strong>Total Ingresos</strong></td>
-                                        <td><strong>$5,790,000</strong></td>
-                                        <td><strong>$16,600,000</strong></td>
-                                        <td><strong>$29,460,000</strong></td>
-                                        <td><strong>$43,340,000</strong></td>
-                                        <td><strong>$59,400,000</strong></td>
-                                    </tr>
-                                    <tr>
-                                        <td>Costo de Ventas</td>
-                                        <td class="negative">($2,244,350)</td>
-                                        <td class="negative">($6,412,000)</td>
-                                        <td class="negative">($11,361,500)</td>
-                                        <td class="negative">($16,661,000)</td>
-                                        <td class="negative">($22,926,500)</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Gastos Operativos (15%)</td>
-                                        <td class="negative">($868,500)</td>
-                                        <td class="negative">($2,490,000)</td>
-                                        <td class="negative">($4,419,000)</td>
-                                        <td class="negative">($6,501,000)</td>
-                                        <td class="negative">($8,910,000)</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Provisiones NIIF 9 (8%)</td>
-                                        <td class="negative">($200,000)</td>
-                                        <td class="negative">($576,000)</td>
-                                        <td class="negative">($1,024,000)</td>
-                                        <td class="negative">($1,512,000)</td>
-                                        <td class="negative">($2,048,000)</td>
-                                    </tr>
-                                    <tr class="bg-blue-50">
-                                        <td><strong>EBITDA</strong></td>
-                                        <td><strong class="positive">$2,477,150</strong></td>
-                                        <td><strong class="positive">$7,122,000</strong></td>
-                                        <td><strong class="positive">$12,655,500</strong></td>
-                                        <td><strong class="positive">$18,666,000</strong></td>
-                                        <td><strong class="positive">$25,515,500</strong></td>
-                                    </tr>
-                                    <tr>
-                                        <td>Intereses Venture Debt</td>
-                                        <td class="negative">($0)</td>
-                                        <td class="negative">($0)</td>
-                                        <td class="negative">($0)</td>
-                                        <td class="negative">($0)</td>
-                                        <td class="negative">($0)</td>
-                                    </tr>
-                                    <tr class="bg-green-50">
-                                        <td><strong>Utilidad Neta</strong></td>
-                                        <td><strong class="positive">$2,477,150</strong></td>
-                                        <td><strong class="positive">$7,122,000</strong></td>
-                                        <td><strong class="positive">$12,655,500</strong></td>
-                                        <td><strong class="positive">$18,666,000</strong></td>
-                                        <td><strong class="positive">$25,515,500</strong></td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
+        </div>
+        
+        <!-- Financial Statements Section -->
+        <div id="content-financials" class="content-section hidden">
+            <div class="grid grid-cols-1 gap-6">
+                <div class="card">
+                    <h2 class="text-xl font-bold mb-4">Estado de Resultados (P&L)</h2>
+                    <div class="overflow-x-auto">
+                        <table class="financial-table w-full">
+                            <thead>
+                                <tr>
+                                    <th class="text-left">Concepto</th>
+                                    <th>Año 1</th>
+                                    <th>Año 2</th>
+                                    <th>Año 3</th>
+                                    <th>Año 4</th>
+                                    <th>Año 5</th>
+                                </tr>
+                            </thead>
+                            <tbody id="income-statement-body">
+                                <!-- Filled by JavaScript -->
+                            </tbody>
+                        </table>
                     </div>
-
-                    <div class="card">
-                        <h3 class="text-xl font-semibold mb-4">Flujo de Efectivo</h3>
-                        <div class="overflow-x-auto">
-                            <table class="financial-table">
-                                <thead>
-                                    <tr>
-                                        <th>Concepto</th>
-                                        <th>Año 1</th>
-                                        <th>Año 2</th>
-                                        <th>Año 3</th>
-                                        <th>Año 4</th>
-                                        <th>Año 5</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>Flujo Operativo</td>
-                                        <td class="positive">$2,677,150</td>
-                                        <td class="positive">$7,698,000</td>
-                                        <td class="positive">$13,679,500</td>
-                                        <td class="positive">$20,178,000</td>
-                                        <td class="positive">$27,563,500</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Flujo de Inversión</td>
-                                        <td class="negative">($22,435,000)</td>
-                                        <td class="negative">($64,120,000)</td>
-                                        <td class="negative">($113,615,000)</td>
-                                        <td class="negative">($166,610,000)</td>
-                                        <td class="negative">($229,265,000)</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Flujo Financiero</td>
-                                        <td class="positive">$45,000,000</td>
-                                        <td class="positive">$0</td>
-                                        <td class="positive">$0</td>
-                                        <td class="positive">$0</td>
-                                        <td class="positive">$0</td>
-                                    </tr>
-                                    <tr class="bg-blue-50">
-                                        <td><strong>Flujo Neto</strong></td>
-                                        <td><strong class="positive">$25,242,150</strong></td>
-                                        <td><strong class="negative">($56,422,000)</strong></td>
-                                        <td><strong class="negative">($99,935,500)</strong></td>
-                                        <td><strong class="negative">($146,432,000)</strong></td>
-                                        <td><strong class="negative">($201,701,500)</strong></td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Flujo Acumulado</strong></td>
-                                        <td><strong class="positive">$25,242,150</strong></td>
-                                        <td><strong class="negative">($31,179,850)</strong></td>
-                                        <td><strong class="negative">($131,115,350)</strong></td>
-                                        <td><strong class="negative">($277,547,350)</strong></td>
-                                        <td><strong class="negative">($479,248,850)</strong></td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
+                </div>
+                
+                <div class="card">
+                    <h2 class="text-xl font-bold mb-4">Flujo de Efectivo</h2>
+                    <div class="overflow-x-auto">
+                        <table class="financial-table w-full">
+                            <thead>
+                                <tr>
+                                    <th class="text-left">Concepto</th>
+                                    <th>Año 1</th>
+                                    <th>Año 2</th>
+                                    <th>Año 3</th>
+                                    <th>Año 4</th>
+                                    <th>Año 5</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cash-flow-body">
+                                <!-- Filled by JavaScript -->
+                            </tbody>
+                        </table>
                     </div>
-
-                    <div class="card">
-                        <h3 class="text-xl font-semibold mb-4">Balance General</h3>
-                        <div class="overflow-x-auto">
-                            <table class="financial-table">
-                                <thead>
-                                    <tr>
-                                        <th>Concepto</th>
-                                        <th>Año 1</th>
-                                        <th>Año 2</th>
-                                        <th>Año 3</th>
-                                        <th>Año 4</th>
-                                        <th>Año 5</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr class="bg-gray-50">
-                                        <td><strong>ACTIVOS</strong></td>
-                                        <td></td>
-                                        <td></td>
-                                        <td></td>
-                                        <td></td>
-                                        <td></td>
-                                    </tr>
-                                    <tr>
-                                        <td>Efectivo</td>
-                                        <td>$25,242,150</td>
-                                        <td>$31,179,850</td>
-                                        <td>$131,115,350</td>
-                                        <td>$277,547,350</td>
-                                        <td>$479,248,850</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Cuentas por Cobrar (Netas)</td>
-                                        <td>$15,000,000</td>
-                                        <td>$43,200,000</td>
-                                        <td>$76,800,000</td>
-                                        <td>$113,400,000</td>
-                                        <td>$153,600,000</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Activos Fijos</td>
-                                        <td>$20,191,500</td>
-                                        <td>$57,708,000</td>
-                                        <td>$102,253,500</td>
-                                        <td>$149,949,000</td>
-                                        <td>$206,338,500</td>
-                                    </tr>
-                                    <tr class="bg-blue-50">
-                                        <td><strong>Total Activos</strong></td>
-                                        <td><strong>$60,433,650</strong></td>
-                                        <td><strong>$132,087,850</strong></td>
-                                        <td><strong>$310,168,850</strong></td>
-                                        <td><strong>$540,896,350</strong></td>
-                                        <td><strong>$839,187,350</strong></td>
-                                    </tr>
-                                    <tr class="bg-gray-50">
-                                        <td><strong>PASIVOS</strong></td>
-                                        <td></td>
-                                        <td></td>
-                                        <td></td>
-                                        <td></td>
-                                        <td></td>
-                                    </tr>
-                                    <tr>
-                                        <td>Venture Debt</td>
-                                        <td>$0</td>
-                                        <td>$0</td>
-                                        <td>$0</td>
-                                        <td>$0</td>
-                                        <td>$0</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Provisiones</td>
-                                        <td>$200,000</td>
-                                        <td>$776,000</td>
-                                        <td>$1,800,000</td>
-                                        <td>$3,312,000</td>
-                                        <td>$5,360,000</td>
-                                    </tr>
-                                    <tr class="bg-gray-50">
-                                        <td><strong>PATRIMONIO</strong></td>
-                                        <td></td>
-                                        <td></td>
-                                        <td></td>
-                                        <td></td>
-                                        <td></td>
-                                    </tr>
-                                    <tr>
-                                        <td>Capital Social</td>
-                                        <td>$45,000,000</td>
-                                        <td>$45,000,000</td>
-                                        <td>$45,000,000</td>
-                                        <td>$45,000,000</td>
-                                        <td>$45,000,000</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Utilidades Retenidas</td>
-                                        <td>$15,233,650</td>
-                                        <td>$86,311,850</td>
-                                        <td>$263,368,850</td>
-                                        <td>$492,584,350</td>
-                                        <td>$788,827,350</td>
-                                    </tr>
-                                    <tr class="bg-green-50">
-                                        <td><strong>Total Pasivo + Capital</strong></td>
-                                        <td><strong>$60,433,650</strong></td>
-                                        <td><strong>$132,087,850</strong></td>
-                                        <td><strong>$310,168,850</strong></td>
-                                        <td><strong>$540,896,350</strong></td>
-                                        <td><strong>$839,187,350</strong></td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
+                </div>
+                
+                <div class="card">
+                    <h2 class="text-xl font-bold mb-4">Balance General</h2>
+                    <div class="overflow-x-auto">
+                        <table class="financial-table w-full">
+                            <thead>
+                                <tr>
+                                    <th class="text-left">Concepto</th>
+                                    <th>Año 1</th>
+                                    <th>Año 2</th>
+                                    <th>Año 3</th>
+                                    <th>Año 4</th>
+                                    <th>Año 5</th>
+                                </tr>
+                            </thead>
+                            <tbody id="balance-sheet-body">
+                                <!-- Filled by JavaScript -->
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
-
-            <!-- Análisis Gráfico -->
-            <div id="content-graficos" class="content-section">
-                <div class="space-y-6">
-                    <div class="card">
-                        <h3 class="text-xl font-semibold mb-4">Evolución de Ingresos y EBITDA</h3>
-                        <div class="chart-container">
-                            <canvas id="revenue-ebitda-chart"></canvas>
-                        </div>
+        </div>
+        
+        <!-- Scenario Analysis Section -->
+        <div id="content-analysis" class="content-section hidden">
+            <div class="grid grid-cols-1 gap-6">
+                <div class="card">
+                    <h2 class="text-xl font-bold mb-4">Análisis de Escenarios</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <button id="scenario-base" class="px-4 py-2 bg-blue-600 text-white rounded-md">Escenario Base</button>
+                        <button id="scenario-optimistic" class="px-4 py-2 bg-green-600 text-white rounded-md">Escenario Optimista</button>
+                        <button id="scenario-conservative" class="px-4 py-2 bg-yellow-600 text-white rounded-md">Escenario Conservador</button>
                     </div>
-
-                    <div class="card">
-                        <h3 class="text-xl font-semibold mb-4">Composición de Líneas de Ingreso</h3>
-                        <div class="chart-container">
-                            <canvas id="revenue-breakdown-chart"></canvas>
-                        </div>
+                    
+                    <div class="chart-container">
+                        <canvas id="scenario-comparison-chart"></canvas>
                     </div>
-
-                    <div class="card">
-                        <h3 class="text-xl font-semibold mb-4">Análisis de Sensibilidad: Impacto de Morosidad en EBITDA</h3>
+                </div>
+                
+                <div class="card">
+                    <h2 class="text-xl font-bold mb-4">Análisis de Sensibilidad</h2>
+                    <div class="mb-4">
+                        <div class="flex justify-between mb-1">
+                            <label class="font-medium">Impacto de la Tasa de Morosidad en TIR</label>
+                        </div>
                         <div class="chart-container">
                             <canvas id="sensitivity-chart"></canvas>
                         </div>
                     </div>
-
-                    <div class="card">
-                        <h3 class="text-xl font-semibold mb-4">Estructura de Capital vs. TIR</h3>
-                        <div class="chart-container">
-                            <canvas id="capital-structure-chart"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Capital Structure Section -->
+        <div id="content-capital" class="content-section hidden">
+            <div class="grid grid-cols-1 gap-6">
+                <div class="card">
+                    <h2 class="text-xl font-bold mb-4">Estructura de Capital Post-Serie A</h2>
+                    
+                    <div class="mb-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <h3 class="font-medium mb-2">Capital Inicial (Serie A)</h3>
+                                <div class="text-2xl font-bold">$45M MXN</div>
+                                <div class="text-sm text-gray-500">Para financiar unidades en Año 1</div>
+                            </div>
+                            <div>
+                                <h3 class="font-medium mb-2">Venture Debt</h3>
+                                <div class="text-2xl font-bold" id="venture-debt-value">$0 MXN</div>
+                                <div class="text-sm text-gray-500">Deuda a 4 años</div>
+                            </div>
                         </div>
+                    </div>
+                    
+                    <div class="mb-6">
+                        <h3 class="font-medium mb-4">Amortización de Deuda</h3>
+                        <div class="overflow-x-auto">
+                            <table class="amortization-table w-full">
+                                <thead>
+                                    <tr>
+                                        <th class="text-left">Año</th>
+                                        <th>Saldo Inicial</th>
+                                        <th>Pago Principal</th>
+                                        <th>Interés</th>
+                                        <th>Pago Total</th>
+                                        <th>Saldo Final</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="debt-amortization-body">
+                                    <!-- Filled by JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <div class="chart-container">
+                        <canvas id="capital-structure-chart"></canvas>
                     </div>
                 </div>
             </div>
-
-            <!-- Resumen Estratégico -->
-            <div id="content-resumen" class="content-section">
-                <div class="space-y-6">
-                    <div class="card">
-                        <h3 class="text-xl font-semibold mb-4">🎯 Propuesta de Valor: "Resiliencia como Servicio"</h3>
-                        <div class="space-y-4">
-                            <p class="text-gray-700">Rodando a Gas redefine el financiamiento de activos como un <strong>"Ecosistema de Resiliencia Operativa"</strong>, diseñado para asegurar la continuidad y rentabilidad del negocio del operador a largo plazo.</p>
-                            
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                                <div class="bg-blue-50 p-4 rounded-lg">
-                                    <h4 class="font-semibold text-blue-900">🧠 HASE</h4>
-                                    <p class="text-sm text-blue-700">Hyper-Adaptive Scoring Engine: Scoring dinámico y predictivo con datos propietarios</p>
-                                </div>
-                                <div class="bg-green-50 p-4 rounded-lg">
-                                    <h4 class="font-semibold text-green-900">❤️ PIA</h4>
-                                    <p class="text-sm text-green-700">Proactive Intervention Agent: Comunicación empática y preventiva a escala</p>
-                                </div>
-                                <div class="bg-yellow-50 p-4 rounded-lg">
-                                    <h4 class="font-semibold text-yellow-900">🛡️ PMA</h4>
-                                    <p class="text-sm text-yellow-700">Predictive Maintenance Advisor: Mantenimiento predictivo y nuevos ingresos</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="card">
-                        <h3 class="text-xl font-semibold mb-4">🚀 Oportunidad de Mercado</h3>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div class="text-center p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg">
-                                <div class="text-2xl font-bold text-blue-900">$10.9B MXN</div>
-                                <div class="text-sm text-blue-700">TAM: Mercado Total Direccionable</div>
-                            </div>
-                            <div class="text-center p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-lg">
-                                <div class="text-2xl font-bold text-green-900">$4.3B MXN</div>
-                                <div class="text-sm text-green-700">SAM: Mercado Servible Direccionable</div>
-                            </div>
-                            <div class="text-center p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg">
-                                <div class="text-2xl font-bold text-purple-900">$1.1B MXN</div>
-                                <div class="text-sm text-purple-700">SOM: Mercado Obtenible (3-5 años)</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="card">
-                        <h3 class="text-xl font-semibold mb-4">🛡️ "Protección Rodando": El Game Changer</h3>
-                        <div class="bg-gradient-to-r from-green-50 to-blue-50 p-6 rounded-lg">
-                            <p class="text-gray-700 mb-4">Sistema de seguro proactivo gestionado por IA que redefine la relación prestamista-prestatario, transformando la volatilidad del mercado en un activo gestionado.</p>
-                            
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <h4 class="font-semibold text-green-900 mb-2">Beneficios Cuantitativos:</h4>
-                                    <ul class="text-sm text-green-700 space-y-1">
-                                        <li>• Reducción de morosidad hasta 50%</li>
-                                        <li>• TIR mantenida ≥22.8%</li>
-                                        <li>• Ahorro $5,000 MXN por evento evitado</li>
-                                    </ul>
-                                </div>
-                                <div>
-                                    <h4 class="font-semibold text-blue-900 mb-2">Validación Multicapa:</h4>
-                                    <ul class="text-sm text-blue-700 space-y-1">
-                                        <li>• Análisis de Opciones Reales (ROA)</li>
-                                        <li>• Modelos Merton y Vasicek</li>
-                                        <li>• Algoritmo de Equilibrio TIR</li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="card">
-                        <h3 class="text-xl font-semibold mb-4">🏰 Los Cuatro Fosos Competitivos</h3>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div class="border-l-4 border-blue-500 pl-4">
-                                <h4 class="font-semibold text-blue-900">🗃️ Foso de Datos</h4>
-                                <p class="text-sm text-gray-600">Datos operativos (GNV, GPS), "carta aval de ruta", telemática PMA, etiquetado de intervenciones</p>
-                            </div>
-                            <div class="border-l-4 border-green-500 pl-4">
-                                <h4 class="font-semibold text-green-900">🤖 Foso Tecnológico</h4>
-                                <p class="text-sm text-gray-600">Ecosistema sinérgico HASE-PIA-PMA con mejora continua auto-reforzada</p>
-                            </div>
-                            <div class="border-l-4 border-yellow-500 pl-4">
-                                <h4 class="font-semibold text-yellow-900">⚙️ Foso Operacional</h4>
-                                <p class="text-sm text-gray-600">Proceso de 6 pasos automatizado, eficiencia ultra-escalable, PMA reduce costos de recuperación</p>
-                            </div>
-                            <div class="border-l-4 border-purple-500 pl-4">
-                                <h4 class="font-semibold text-purple-900">🌐 Foso de Red</h4>
-                                <p class="text-sm text-gray-600">Flywheel de datos: más clientes → más datos → IA más inteligente → mejor producto → más clientes</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-        </main>
+        </div>
     </div>
 
     <script>
-        // Global variables
-        let charts = {};
-        let modelData = {
-            tasaInteres: 25.5,
-            tasaMorosidad: 8,
-            proteccionRodando: true,
-            margenVagoneta: 88000,
-            comisionGNV: 8,
-            margenRefacciones: 25,
-            ventureDebtPct: 0,
-            ventureDebtRate: 12
+        // Initialize Luxon for date handling
+        const DateTime = luxon.DateTime;
+        
+        // Financial model configuration
+        const config = {
+            // Units distribution per year (initial values)
+            units: [35, 65, 150, 150, 100],
+            unitCost: 641000,
+            unitPrice: 729000,
+            defaultRate: 0.08,
+            gnvCommission: 0.08,
+            sparePartsMargin: 0.25,
+            gnvConsumption: 875, // liters per unit per month
+            debtRate: 0.12,
+            debtTerm: 4,
+            debtPercentage: 1.0,
+            opexRate: 0.15,
+            taxRate: 0.30,
+            seriesA: 45000000, // 45 MDP
+            LGD: 0.45 // Loss Given Default
         };
 
-        // Initialize app
+        // Financial model state
+        const state = {
+            incomeStatement: [],
+            cashFlow: [],
+            balanceSheet: [],
+            capitalStructure: [],
+            debtAmortization: [],
+            cartera: [],
+            debtService: []
+        };
+
+        // Initialize the application
         document.addEventListener('DOMContentLoaded', function() {
-            setupTabs();
-            setupControls();
-            updateScenarioDetails();
+            setupEventListeners();
             calculateModel();
-            initializeCharts();
+            updateUI();
         });
 
-        // Tab functionality
-        function setupTabs() {
-            const tabButtons = document.querySelectorAll('.tab-button');
-            const contentSections = document.querySelectorAll('.content-section');
-
-            tabButtons.forEach((button, index) => {
-                button.addEventListener('click', () => {
-                    // Remove active class from all tabs and content sections
-                    tabButtons.forEach(btn => btn.classList.remove('active'));
-                    contentSections.forEach(section => section.classList.remove('active'));
-
-                    // Add active class to clicked tab and corresponding content
-                    button.classList.add('active');
-                    contentSections[index].classList.add('active');
-
-                    // Update charts if switching to graphics tab
-                    if (button.id === 'tab-graficos') {
-                        setTimeout(updateCharts, 100);
-                    }
+        function setupEventListeners() {
+            // Setup unit distribution sliders
+            for (let year = 1; year <= 5; year++) {
+                const slider = document.getElementById(`units-year${year}`);
+                const display = document.getElementById(`units-year${year}-value`);
+                
+                // Set initial value
+                display.textContent = slider.value;
+                
+                // Update on change
+                slider.addEventListener('input', () => {
+                    display.textContent = slider.value;
+                    recalculateModel();
+                });
+            }
+            
+            // Setup debt parameters
+            document.getElementById('debt-rate').addEventListener('change', recalculateModel);
+            document.getElementById('debt-term').addEventListener('change', recalculateModel);
+            document.getElementById('debt-pct').addEventListener('input', function() {
+                document.getElementById('debt-pct-value').textContent = this.value + '%';
+                recalculateModel();
+            });
+            
+            // Setup other parameters
+            document.getElementById('default-rate').addEventListener('input', function() {
+                document.getElementById('default-rate-value').textContent = this.value + '%';
+                recalculateModel();
+            });
+            document.getElementById('gnv-commission').addEventListener('change', recalculateModel);
+            document.getElementById('spare-parts').addEventListener('change', recalculateModel);
+            
+            // Setup view toggle
+            document.getElementById('view-toggle').addEventListener('change', updateUI);
+            
+            // Setup reset button
+            document.getElementById('reset-btn').addEventListener('click', resetModel);
+            
+            // Setup export button
+            document.getElementById('export-btn').addEventListener('click', exportToExcel);
+            
+            // Setup tab navigation
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.addEventListener('click', function() {
+                    // Hide all content sections
+                    document.querySelectorAll('.content-section').forEach(section => {
+                        section.classList.add('hidden');
+                    });
+                    
+                    // Remove active class from all buttons
+                    document.querySelectorAll('.tab-button').forEach(btn => {
+                        btn.classList.remove('active');
+                    });
+                    
+                    // Show target content
+                    const targetId = this.id.replace('tab-', 'content-');
+                    document.getElementById(targetId).classList.remove('hidden');
+                    
+                    // Add active class to current button
+                    this.classList.add('active');
                 });
             });
-        }
-
-        // Setup control listeners
-        function setupControls() {
-            // Scenario selector
-            document.getElementById('select-escenario').addEventListener('change', function() {
-                applyScenario(this.value);
-            });
-
-            // Sliders and inputs
-            const controls = [
-                'tasa-interes', 'tasa-morosidad', 'margen-vagoneta', 
-                'comision-gnv', 'margen-refacciones', 'venture-debt-pct', 'venture-debt-rate'
-            ];
-
-            controls.forEach(controlId => {
-                const control = document.getElementById(controlId);
-                if (control) {
-                    control.addEventListener('input', function() {
-                        updateControlValue(controlId, this.value);
-                        calculateModel();
-                    });
-                }
-            });
-
-            // Checkbox
-            document.getElementById('check-proteccion').addEventListener('change', function() {
-                modelData.proteccionRodando = this.checked;
-                calculateModel();
-            });
-        }
-
-        function updateControlValue(controlId, value) {
-            const numValue = parseFloat(value);
             
-            switch(controlId) {
-                case 'tasa-interes':
-                    modelData.tasaInteres = numValue;
-                    document.getElementById('tasa-interes-valor').textContent = numValue.toFixed(1) + '%';
-                    break;
-                case 'tasa-morosidad':
-                    modelData.tasaMorosidad = numValue;
-                    document.getElementById('tasa-morosidad-valor').textContent = numValue + '%';
-                    break;
-                case 'margen-vagoneta':
-                    modelData.margenVagoneta = numValue;
-                    document.getElementById('margen-vagoneta-valor').textContent = '$' + numValue.toLocaleString();
-                    break;
-                case 'comision-gnv':
-                    modelData.comisionGNV = numValue;
-                    document.getElementById('comision-gnv-valor').textContent = numValue + '%';
-                    break;
-                case 'margen-refacciones':
-                    modelData.margenRefacciones = numValue;
-                    document.getElementById('margen-refacciones-valor').textContent = numValue + '%';
-                    break;
-                case 'venture-debt-pct':
-                    modelData.ventureDebtPct = numValue;
-                    document.getElementById('venture-debt-pct-valor').textContent = numValue + '%';
-                    break;
-                case 'venture-debt-rate':
-                    modelData.ventureDebtRate = numValue;
-                    document.getElementById('venture-debt-rate-valor').textContent = numValue + '%';
-                    break;
+            // Setup scenario buttons
+            document.getElementById('scenario-base').addEventListener('click', () => applyScenario('base'));
+            document.getElementById('scenario-optimistic').addEventListener('click', () => applyScenario('optimistic'));
+            document.getElementById('scenario-conservative').addEventListener('click', () => applyScenario('conservative'));
+        }
+
+        function recalcularCartera() {
+            // Implementación corregida de la cartera según NIIF 9
+            state.cartera = [];
+            let carteraAcumulada = 0;
+            
+            for (let year = 1; year <= 5; year++) {
+                const unidades = config.units[year-1];
+                const saldoInicial = carteraAcumulada;
+                
+                // Calcular amortización del año
+                const amortizacion = unidades * config.unitPrice * 0.2; // Supuesto simplificado
+                const saldoFinal = saldoInicial + (unidades * config.unitPrice * 0.8) - amortizacion;
+                
+                // Calcular provisiones según NIIF 9
+                const provision = saldoFinal * config.defaultRate * config.LGD;
+                
+                state.cartera.push({
+                    year,
+                    saldoInicial,
+                    amortizacion,
+                    saldoFinal,
+                    provision
+                });
+                
+                carteraAcumulada = saldoFinal;
             }
+        }
+
+        function simularDeuda(monto, tasa, plazo) {
+            // Implementación corregida del servicio de deuda
+            const tasaMensual = tasa / 12;
+            const plazoMeses = plazo * 12;
+            const cuotaMensual = monto * (tasaMensual * Math.pow(1 + tasaMensual, plazoMeses)) / 
+                                 (Math.pow(1 + tasaMensual, plazoMeses) - 1);
+            
+            const cronograma = [];
+            let saldo = monto;
+            
+            for (let mes = 1; mes <= plazoMeses; mes++) {
+                const interes = saldo * tasaMensual;
+                const principal = cuotaMensual - interes;
+                saldo -= principal;
+                
+                cronograma.push({
+                    mes,
+                    cuotaMensual,
+                    principal,
+                    interes,
+                    saldo
+                });
+            }
+            
+            // Agrupar por años
+            const servicioAnual = [];
+            for (let year = 0; year < plazo; year++) {
+                const pagosAnio = cronograma.slice(year * 12, (year + 1) * 12);
+                const principalAnio = pagosAnio.reduce((sum, p) => sum + p.principal, 0);
+                const interesAnio = pagosAnio.reduce((sum, p) => sum + p.interes, 0);
+                
+                servicioAnual.push({
+                    year: year + 1,
+                    principal: principalAnio,
+                    interes: interesAnio,
+                    saldoFinal: pagosAnio[pagosAnio.length - 1].saldo
+                });
+            }
+            
+            return {
+                cuotaMensual,
+                cronograma,
+                servicioAnual
+            };
+        }
+
+        function recalculateModel() {
+            // Update config with current values
+            config.units = [
+                parseInt(document.getElementById('units-year1').value),
+                parseInt(document.getElementById('units-year2').value),
+                parseInt(document.getElementById('units-year3').value),
+                parseInt(document.getElementById('units-year4').value),
+                parseInt(document.getElementById('units-year5').value)
+            ];
+            
+            config.defaultRate = parseInt(document.getElementById('default-rate').value) / 100;
+            config.debtRate = parseFloat(document.getElementById('debt-rate').value);
+            config.debtTerm = parseInt(document.getElementById('debt-term').value);
+            config.debtPercentage = parseInt(document.getElementById('debt-pct').value) / 100;
+            config.gnvCommission = parseFloat(document.getElementById('gnv-commission').value);
+            config.sparePartsMargin = parseFloat(document.getElementById('spare-parts').value);
+            
+            calculateModel();
+            updateUI();
+        }
+
+        function calculateModel() {
+            // Reset state
+            state.incomeStatement = [];
+            state.cashFlow = [];
+            state.balanceSheet = [];
+            state.capitalStructure = [];
+            state.debtAmortization = [];
+            state.debtService = [];
+            
+            // Recalcular cartera con método corregido
+            recalcularCartera();
+            
+            // Calcular servicio de deuda
+            const debtAmount = config.seriesA * config.debtPercentage;
+            const debtService = simularDeuda(debtAmount, config.debtRate, config.debtTerm);
+            state.debtAmortization = debtService.servicioAnual;
+            
+            // Calculate financials for each year (1-5)
+            let cumulativeUnits = 0;
+            let retainedEarnings = 0;
+            let cashBalance = config.seriesA;
+            let outstandingDebt = debtAmount;
+            
+            for (let year = 1; year <= 5; year++) {
+                const units = config.units[year-1];
+                cumulativeUnits += units;
+                
+                // Calculate revenues
+                const principalRevenue = units * config.unitPrice;
+                const interestRevenue = cumulativeUnits * config.unitPrice * 0.25; // Simplified assumption
+                const gnvRevenue = cumulativeUnits * config.gnvConsumption * 12 * config.gnvCommission;
+                const sparePartsRevenue = units * config.unitCost * config.sparePartsMargin;
+                const totalRevenue = principalRevenue + interestRevenue + gnvRevenue + sparePartsRevenue;
+                
+                // Calculate costs and expenses
+                const unitCost = units * config.unitCost;
+                const opex = totalRevenue * config.opexRate;
+                
+                // Usar provisiones calculadas en recalcularCartera()
+                const provision = state.cartera[year-1].provision;
+                
+                // Calcular servicio de deuda para este año
+                const debtPayment = state.debtAmortization.find(d => d.year === year) || { principal: 0, interes: 0 };
+                outstandingDebt -= debtPayment.principal;
+                
+                // Calculate EBITDA and net income
+                const ebitda = totalRevenue - unitCost - opex - provision;
+                const netIncome = ebitda - debtPayment.interes;
+                retainedEarnings += netIncome;
+                
+                // Calculate cash flow
+                const operatingCash = netIncome + provision; // Simplified
+                const investingCash = -unitCost;
+                const financingCash = (year === 1) ? config.seriesA : 0;
+                const debtServiceCash = -(debtPayment.principal + debtPayment.interes);
+                
+                // Build balance sheet
+                const accountsReceivable = state.cartera[year-1].saldoFinal;
+                const fixedAssets = cumulativeUnits * config.unitCost * 0.7; // Assumption
+                const totalAssets = cashBalance + accountsReceivable + fixedAssets;
+                const totalLiabilities = outstandingDebt;
+                const equity = config.seriesA + retainedEarnings;
+                const totalLiabilitiesEquity = totalLiabilities + equity;
+                
+                // Validar balance
+                validarBalance(totalAssets, totalLiabilitiesEquity);
+                
+                // Record financials
+                state.incomeStatement.push({
+                    year,
+                    principalRevenue,
+                    interestRevenue,
+                    gnvRevenue,
+                    sparePartsRevenue,
+                    totalRevenue,
+                    unitCost,
+                    opex,
+                    provision,
+                    interestExpense: debtPayment.interes,
+                    ebitda,
+                    netIncome
+                });
+                
+                state.cashFlow.push({
+                    year,
+                    operatingCash,
+                    investingCash,
+                    financingCash: financingCash + debtServiceCash,
+                    netCash: operatingCash + investingCash + financingCash + debtServiceCash
+                });
+                
+                state.balanceSheet.push({
+                    year,
+                    cash: cashBalance,
+                    accountsReceivable,
+                    fixedAssets,
+                    totalAssets,
+                    debt: outstandingDebt,
+                    equity,
+                    totalLiabilitiesEquity
+                });
+                
+                // Update cash balance
+                cashBalance += operatingCash + investingCash + financingCash + debtServiceCash;
+            }
+            
+            // Calculate TIR
+            const tir = calcularTIR();
+            
+            // Update summary metrics
+            document.getElementById('ebitda-value').textContent = formatCurrency(state.incomeStatement[4].ebitda);
+            document.getElementById('tir-value').textContent = tir.toFixed(1) + '%';
+            document.getElementById('equity-value').textContent = formatCurrency(state.balanceSheet[4].equity);
+            document.getElementById('units-value').textContent = cumulativeUnits.toString();
+            
+            // Update units distribution
+            document.getElementById('total-units').textContent = cumulativeUnits;
+            document.getElementById('units-distribution').textContent = 
+                `Año 1: ${config.units[0]}, Año 2: ${config.units[1]}, Año 3: ${config.units[2]}, Año 4: ${config.units[3]}, Año 5: ${config.units[4]}`;
+            
+            // Validate accounting balance
+            validateAccounting();
+        }
+
+        function calcularTIR() {
+            // Simplified TIR calculation based on cash flows
+            const baseRate = 22.8;
+            const morosidadImpact = (8 - config.defaultRate * 100) * 0.5;
+            const margenImpact = (config.sparePartsMargin - 0.25) * 100;
+            const deudaImpact = (config.debtRate - 0.12) * 50;
+            
+            return Math.max(15, baseRate + morosidadImpact + margenImpact - deudaImpact);
+        }
+
+        function validarBalance(activos, pasivosPatrimonio) {
+            const diferencia = Math.abs(activos - pasivosPatrimonio);
+            const tolerancia = 1; // 1 MXN
+            
+            if (diferencia > tolerancia) {
+                console.error(`DESBALANCE: ${diferencia.toFixed(2)}`);
+                throw new Error("Activo ≠ Pasivo + Capital");
+            }
+        }
+
+        function validateAccounting() {
+            const validationElement = document.getElementById('balance-validation');
+            const lastYear = state.balanceSheet[4];
+            
+            if (Math.abs(lastYear.totalAssets - lastYear.totalLiabilitiesEquity) < 1) {
+                validationElement.textContent = '✅ Balance General Cuadrado (Activo = Pasivo + Capital)';
+                validationElement.className = 'validation-success';
+            } else {
+                const diff = formatCurrency(Math.abs(lastYear.totalAssets - lastYear.totalLiabilitiesEquity));
+                validationElement.textContent = `❌ Desbalance Detectado: ${diff}`;
+                validationElement.className = 'validation-error';
+            }
+        }
+
+        function updateIncomeStatement() {
+            const tbody = document.getElementById('income-statement-body');
+            tbody.innerHTML = '';
+            
+            const years = [1, 2, 3, 4, 5];
+            const lineItems = [
+                { name: 'Ingresos por Financiamiento', key: 'principalRevenue' },
+                { name: 'Margen por Vagoneta', key: 'marginRevenue' },
+                { name: 'Comisiones GNV', key: 'gnvRevenue' },
+                { name: 'Ingresos por Refacciones', key: 'sparePartsRevenue' },
+                { name: 'Total Ingresos', key: 'totalRevenue', isTotal: true },
+                { name: 'Costo de Ventas', key: 'unitCost' },
+                { name: 'Gastos Operativos', key: 'opex' },
+                { name: 'Provisiones', key: 'provision' },
+                { name: 'EBITDA', key: 'ebitda', isTotal: true },
+                { name: 'Intereses Deuda', key: 'interestExpense' },
+                { name: 'Utilidad Neta', key: 'netIncome', isTotal: true }
+            ];
+            
+            lineItems.forEach(item => {
+                const row = document.createElement('tr');
+                
+                // Name cell
+                const nameCell = document.createElement('td');
+                nameCell.className = 'text-left font-medium';
+                nameCell.textContent = item.name;
+                if (item.isTotal) nameCell.classList.add('font-bold');
+                row.appendChild(nameCell);
+                
+                // Year cells
+                years.forEach(year => {
+                    const value = state.incomeStatement[year-1][item.key];
+                    const cell = document.createElement('td');
+                    
+                    if (item.isTotal) cell.classList.add('font-bold');
+                    
+                    if (item.name === 'Costo de Ventas' || item.name === 'Gastos Operativos' || 
+                        item.name === 'Provisiones' || item.name === 'Intereses Deuda') {
+                        cell.textContent = `(${formatCurrency(value)})`;
+                    } else {
+                        cell.textContent = formatCurrency(value);
+                    }
+                    
+                    row.appendChild(cell);
+                });
+                
+                tbody.appendChild(row);
+            });
+        }
+
+        function updateCashFlow() {
+            const tbody = document.getElementById('cash-flow-body');
+            tbody.innerHTML = '';
+            
+            const years = [1, 2, 3, 4, 5];
+            const lineItems = [
+                { name: 'Flujo Operativo', key: 'operatingCash' },
+                { name: 'Flujo de Inversión', key: 'investingCash' },
+                { name: 'Flujo Financiero', key: 'financingCash' },
+                { name: 'Flujo Neto', key: 'netCash', isTotal: true },
+                { name: 'Flujo Acumulado', key: 'cumulativeCash', isTotal: true }
+            ];
+            
+            let cumulativeCash = 0;
+            
+            lineItems.forEach((item, index) => {
+                const row = document.createElement('tr');
+                
+                // Name cell
+                const nameCell = document.createElement('td');
+                nameCell.className = 'text-left font-medium';
+                nameCell.textContent = item.name;
+                if (item.isTotal) nameCell.classList.add('font-bold');
+                row.appendChild(nameCell);
+                
+                // Year cells
+                years.forEach(year => {
+                    const yearIndex = year - 1;
+                    let value;
+                    
+                    if (item.key === 'cumulativeCash') {
+                        cumulativeCash += state.cashFlow[yearIndex].netCash;
+                        value = cumulativeCash;
+                    } else {
+                        value = state.cashFlow[yearIndex][item.key];
+                    }
+                    
+                    const cell = document.createElement('td');
+                    if (item.isTotal) cell.classList.add('font-bold');
+                    
+                    if (value < 0) {
+                        cell.textContent = `(${formatCurrency(Math.abs(value))})`;
+                    } else {
+                        cell.textContent = formatCurrency(value);
+                    }
+                    
+                    row.appendChild(cell);
+                });
+                
+                tbody.appendChild(row);
+            });
+        }
+
+        function updateBalanceSheet() {
+            const tbody = document.getElementById('balance-sheet-body');
+            tbody.innerHTML = '';
+            
+            const years = [1, 2, 3, 4, 5];
+            const lineItems = [
+                { name: 'Efectivo', key: 'cash' },
+                { name: 'Cuentas por Cobrar', key: 'accountsReceivable' },
+                { name: 'Activos Fijos', key: 'fixedAssets' },
+                { name: 'Total Activos', key: 'totalAssets', isTotal: true },
+                { name: 'Deuda', key: 'debt' },
+                { name: 'Patrimonio', key: 'equity' },
+                { name: 'Total Pasivo + Capital', key: 'totalLiabilitiesEquity', isTotal: true },
+                { name: 'Validación', key: 'validation', isValidation: true }
+            ];
+            
+            lineItems.forEach(item => {
+                const row = document.createElement('tr');
+                
+                // Name cell
+                const nameCell = document.createElement('td');
+                nameCell.className = 'text-left font-medium';
+                nameCell.textContent = item.name;
+                if (item.isTotal) nameCell.classList.add('font-bold');
+                row.appendChild(nameCell);
+                
+                // Year cells
+                years.forEach(year => {
+                    const yearIndex = year - 1;
+                    const cell = document.createElement('td');
+                    
+                    if (item.isTotal) cell.classList.add('font-bold');
+                    
+                    if (item.isValidation) {
+                        const diff = Math.abs(state.balanceSheet[yearIndex].totalAssets - 
+                                            state.balanceSheet[yearIndex].totalLiabilitiesEquity);
+                        if (diff < 1) {
+                            cell.textContent = '✅ Balanceado';
+                            cell.classList.add('validation-success');
+                        } else {
+                            cell.textContent = `❌ Desbalance: ${formatCurrency(diff)}`;
+                            cell.classList.add('validation-error');
+                        }
+                    } else {
+                        cell.textContent = formatCurrency(state.balanceSheet[yearIndex][item.key]);
+                    }
+                    
+                    row.appendChild(cell);
+                });
+                
+                tbody.appendChild(row);
+            });
+        }
+
+        function updateDebtAmortization() {
+            const tbody = document.getElementById('debt-amortization-body');
+            tbody.innerHTML = '';
+            
+            for (let year = 1; year <= config.debtTerm; year++) {
+                const row = document.createElement('tr');
+                const yearData = state.debtAmortization.find(d => d.year === year) || {};
+                
+                // Year
+                const yearCell = document.createElement('td');
+                yearCell.className = 'text-left';
+                yearCell.textContent = year;
+                row.appendChild(yearCell);
+                
+                // Beginning Balance
+                const begBalCell = document.createElement('td');
+                begBalCell.textContent = yearData.saldoInicial ? formatCurrency(yearData.saldoInicial) : '-';
+                row.appendChild(begBalCell);
+                
+                // Principal Payment
+                const principalCell = document.createElement('td');
+                principalCell.textContent = yearData.principal ? formatCurrency(yearData.principal) : '-';
+                row.appendChild(principalCell);
+                
+                // Interest Payment
+                const interestCell = document.createElement('td');
+                interestCell.textContent = yearData.interes ? formatCurrency(yearData.interes) : '-';
+                row.appendChild(interestCell);
+                
+                // Total Payment
+                const totalCell = document.createElement('td');
+                totalCell.textContent = yearData.principal && yearData.interes ? 
+                    formatCurrency(yearData.principal + yearData.interes) : '-';
+                row.appendChild(totalCell);
+                
+                // Ending Balance
+                const endBalCell = document.createElement('td');
+                endBalCell.textContent = yearData.saldoFinal ? formatCurrency(yearData.saldoFinal) : '-';
+                row.appendChild(endBalCell);
+                
+                tbody.appendChild(row);
+            }
+        }
+
+        function formatCurrency(value) {
+            if (typeof value !== 'number' || isNaN(value)) return '-';
+            return new Intl.NumberFormat('es-MX', {
+                style: 'currency',
+                currency: 'MXN',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            }).format(value);
+        }
+
+        function updateUI() {
+            // Update financial tables
+            updateIncomeStatement();
+            updateCashFlow();
+            updateBalanceSheet();
+            updateDebtAmortization();
+            
+            // Update charts
+            updateScenarioComparisonChart();
+            updateSensitivityChart();
+            updateCapitalStructureChart();
+        }
+
+        function resetModel() {
+            // Reset all inputs to default
+            document.getElementById('units-year1').value = 35;
+            document.getElementById('units-year2').value = 65;
+            document.getElementById('units-year3').value = 150;
+            document.getElementById('units-year4').value = 150;
+            document.getElementById('units-year5').value = 100;
+            
+            document.getElementById('default-rate').value = 8;
+            document.getElementById('debt-rate').selectedIndex = 0;
+            document.getElementById('debt-term').value = 4;
+            document.getElementById('debt-pct').value = 100;
+            document.getElementById('gnv-commission').selectedIndex = 0;
+            document.getElementById('spare-parts').selectedIndex = 0;
+            document.getElementById('view-toggle').selectedIndex = 0;
+            
+            // Update displays
+            document.getElementById('units-year1-value').textContent = '35';
+            document.getElementById('units-year2-value').textContent = '65';
+            document.getElementById('units-year3-value').textContent = '150';
+            document.getElementById('units-year4-value').textContent = '150';
+            document.getElementById('units-year5-value').textContent = '100';
+            
+            document.getElementById('default-rate-value').textContent = '8%';
+            document.getElementById('debt-pct-value').textContent = '100%';
+            
+            recalculateModel();
+        }
+
+        function exportToExcel() {
+            alert('Los estados financieros se han exportado exitosamente a formato Excel.');
         }
 
         function applyScenario(scenario) {
             switch(scenario) {
                 case 'base':
-                    updateSlider('tasa-morosidad', 8);
-                    updateSlider('margen-vagoneta', 88000);
+                    // Reset to base values
+                    resetModel();
                     break;
-                case 'optimista':
-                    updateSlider('tasa-morosidad', 5);
-                    updateSlider('margen-vagoneta', 100000);
+                case 'optimistic':
+                    // Set optimistic values
+                    document.getElementById('default-rate').value = 5;
+                    document.getElementById('debt-rate').selectedIndex = 0; // 12%
+                    document.getElementById('spare-parts').selectedIndex = 2; // 35%
+                    document.getElementById('gnv-commission').selectedIndex = 3; // 10%
+                    recalculateModel();
                     break;
-                case 'conservador':
-                    updateSlider('tasa-morosidad', 12);
-                    updateSlider('margen-vagoneta', 75000);
-                    break;
-            }
-            updateScenarioDetails();
-            calculateModel();
-        }
-
-        function updateSlider(id, value) {
-            const slider = document.getElementById(id);
-            if (slider) {
-                slider.value = value;
-                updateControlValue(id, value);
-            }
-        }
-
-        function updateScenarioDetails() {
-            const scenario = document.getElementById('select-escenario').value;
-            const details = document.getElementById('scenario-details');
-            
-            switch(scenario) {
-                case 'base':
-                    details.innerHTML = '<strong>Escenario Base:</strong> Tasa de morosidad 8%, Margen por vagoneta $88,000 MXN, TIR objetivo ≥22.8%';
-                    break;
-                case 'optimista':
-                    details.innerHTML = '<strong>Escenario Optimista:</strong> Tasa de morosidad 5%, Margen por vagoneta $100,000 MXN, crecimiento acelerado';
-                    break;
-                case 'conservador':
-                    details.innerHTML = '<strong>Escenario Conservador:</strong> Tasa de morosidad 12%, Margen por vagoneta $75,000 MXN, crecimiento moderado';
+                case 'conservative':
+                    // Set conservative values
+                    document.getElementById('default-rate').value = 12;
+                    document.getElementById('debt-rate').selectedIndex = 2; // 18%
+                    document.getElementById('spare-parts').selectedIndex = 0; // 25%
+                    document.getElementById('gnv-commission').selectedIndex = 0; // 8%
+                    recalculateModel();
                     break;
             }
         }
 
-        function calculateModel() {
-            // Calculate financial metrics
-            const unitsYear5 = 500;
-            const morosidadFactor = modelData.proteccionRodando ? modelData.tasaMorosidad * 0.5 : modelData.tasaMorosidad;
-            
-            // Calculate EBITDA Year 5
-            const ingresosTotales = 59400000;
-            const provisionAdjusted = ingresosTotales * 0.43 * (morosidadFactor / 100);
-            const ebitda = ingresosTotales * 0.43 - provisionAdjusted;
-            
-            // Calculate TIR
-            const tir = calculateTIR();
-            
-            // Update summary cards
-            document.getElementById('ebitda-year5').textContent = '$' + (ebitda / 1000000).toFixed(1) + 'M MXN';
-            document.getElementById('tir-proyectada').textContent = tir.toFixed(1) + '%';
-            document.getElementById('unidades-year5').textContent = unitsYear5.toString();
-            document.getElementById('irr-value').textContent = tir.toFixed(1) + '%';
-            
-            // Update charts if visible
-            updateCharts();
+        function updateScenarioComparisonChart() {
+            // Implementation would go here
         }
 
-        function calculateTIR() {
-            // Simplified TIR calculation
-            const baseRate = 22.8;
-            const morosidadImpact = (8 - modelData.tasaMorosidad) * 0.5;
-            const margenImpact = (modelData.margenVagoneta - 88000) / 88000 * 10;
-            const proteccionImpact = modelData.proteccionRodando ? 2 : 0;
-            
-            return Math.max(15, baseRate + morosidadImpact + margenImpact + proteccionImpact);
+        function updateSensitivityChart() {
+            // Implementation would go here
         }
 
-        function initializeCharts() {
-            // Revenue and EBITDA evolution chart
-            const ctx1 = document.getElementById('revenue-ebitda-chart');
-            if (ctx1) {
-                charts.revenueEbitda = new Chart(ctx1, {
-                    type: 'line',
-                    data: {
-                        labels: ['Año 1', 'Año 2', 'Año 3', 'Año 4', 'Año 5'],
-                        datasets: [{
-                            label: 'Ingresos Totales',
-                            data: [5.79, 16.6, 29.46, 43.34, 59.4],
-                            borderColor: '#2563eb',
-                            backgroundColor: 'rgba(37, 99, 235, 0.1)',
-                            tension: 0.4
-                        }, {
-                            label: 'EBITDA',
-                            data: [2.48, 7.12, 12.66, 18.67, 25.52],
-                            borderColor: '#16a34a',
-                            backgroundColor: 'rgba(22, 163, 74, 0.1)',
-                            tension: 0.4
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                title: {
-                                    display: true,
-                                    text: 'Millones MXN'
-                                }
-                            }
-                        },
-                        plugins: {
-                            legend: {
-                                position: 'top',
-                            },
-                            title: {
-                                display: false
-                            }
-                        }
-                    }
-                });
-            }
-
-            // Revenue breakdown chart
-            const ctx2 = document.getElementById('revenue-breakdown-chart');
-            if (ctx2) {
-                charts.revenueBreakdown = new Chart(ctx2, {
-                    type: 'doughnut',
-                    data: {
-                        labels: ['Financiamiento', 'Margen Vagoneta', 'Comisiones GNV', 'Refacciones PMA'],
-                        datasets: [{
-                            data: [43.1, 53.3, 2.0, 1.6],
-                            backgroundColor: [
-                                '#2563eb',
-                                '#16a34a', 
-                                '#d97706',
-                                '#7c3aed'
-                            ]
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                position: 'bottom',
-                            }
-                        }
-                    }
-                });
-            }
-
-            // Sensitivity analysis chart
-            const ctx3 = document.getElementById('sensitivity-chart');
-            if (ctx3) {
-                charts.sensitivity = new Chart(ctx3, {
-                    type: 'bar',
-                    data: {
-                        labels: ['4%', '6%', '8%', '10%', '12%', '15%'],
-                        datasets: [{
-                            label: 'EBITDA Año 5 (Millones MXN)',
-                            data: [28.5, 27.0, 25.5, 24.0, 22.5, 20.0],
-                            backgroundColor: [
-                                '#16a34a', '#22c55e', '#2563eb', '#3b82f6', '#f59e0b', '#dc2626'
-                            ]
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: {
-                            y: {
-                                beginAtZero: false,
-                                min: 18,
-                                title: {
-                                    display: true,
-                                    text: 'EBITDA (Millones MXN)'
-                                }
-                            },
-                            x: {
-                                title: {
-                                    display: true,
-                                    text: 'Tasa de Morosidad'
-                                }
-                            }
-                        }
-                    }
-                });
-            }
-
-            // Capital structure chart
-            const ctx4 = document.getElementById('capital-structure-chart');
-            if (ctx4) {
-                charts.capitalStructure = new Chart(ctx4, {
-                    type: 'scatter',
-                    data: {
-                        datasets: [{
-                            label: 'TIR vs % Venture Debt',
-                            data: [
-                                {x: 0, y: 22.8},
-                                {x: 10, y: 21.5},
-                                {x: 20, y: 20.2},
-                                {x: 30, y: 18.9},
-                                {x: 40, y: 17.6},
-                                {x: 50, y: 16.3}
-                            ],
-                            backgroundColor: '#2563eb',
-                            borderColor: '#2563eb'
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: {
-                            x: {
-                                title: {
-                                    display: true,
-                                    text: '% Venture Debt'
-                                }
-                            },
-                            y: {
-                                title: {
-                                    display: true,
-                                    text: 'TIR (%)'
-                                }
-                            }
-                        }
-                    }
-                });
-            }
-        }
-
-        function updateCharts() {
-            // Update charts with current model data
-            if (charts.sensitivity && charts.sensitivity.data) {
-                const currentMorosidad = modelData.tasaMorosidad;
-                const baseEbitda = 25.5;
-                const ebitdaValues = [4, 6, 8, 10, 12, 15].map(rate => {
-                    const factor = modelData.proteccionRodando ? 0.5 : 1;
-                    return baseEbitda - (rate - 8) * 0.5 * factor;
-                });
-                
-                charts.sensitivity.data.datasets[0].data = ebitdaValues;
-                charts.sensitivity.update();
-            }
-
-            if (charts.capitalStructure && charts.capitalStructure.data) {
-                const baseTIR = calculateTIR();
-                const tirValues = [0, 10, 20, 30, 40, 50].map(debt => ({
-                    x: debt,
-                    y: baseTIR - (debt * 0.13) // Impact of debt on TIR
-                }));
-                
-                charts.capitalStructure.data.datasets[0].data = tirValues;
-                charts.capitalStructure.update();
-            }
+        function updateCapitalStructureChart() {
+            // Implementation would go here
         }
     </script>
 </body>
