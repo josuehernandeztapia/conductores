@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Modelo Financiero Interactivo - Resiliencia como Servicio | NIIF Compliant</title>
+    <title>Modelo Financiero - Rodando a Gas | Resiliencia como Servicio</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11,329 +11,294 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
     <style>
-        /* Estilos optimizados para visualización financiera */
-        .resiliencia-badge {
-            background: linear-gradient(135deg, #0ea5e9 0%, #3b82f6 100%);
-            color: white;
-            padding: 4px 10px;
-            border-radius: 9999px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            display: inline-block;
-            margin-left: 8px;
-        }
-        .niif-compliant {
-            border-left: 4px solid #10b981;
-            background-color: #f0fdf4;
-        }
-        .proteccion-active {
-            animation: pulse 2s infinite;
-        }
-        @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.5); }
-            70% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
-        }
-        .dashboard-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 24px;
-        }
-        .risk-stage-1 { background-color: #dcfce7; }
-        .risk-stage-2 { background-color: #fef9c3; }
-        .risk-stage-3 { background-color: #fee2e2; }
+        body { font-family: 'Inter', sans-serif; background-color: #f8f9fa; }
+        .tab-button { transition: all 0.3s ease; cursor: pointer; }
+        .tab-button.active { border-color: #2563eb; color: #2563eb; background-color: #eff6ff; }
+        .content-section { display: none; }
+        .content-section.active { display: block; }
+        .card { background-color: white; border-radius: 0.75rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); padding: 1.5rem; margin-bottom: 1.5rem; }
+        .input-slider { -webkit-appearance: none; width: 100%; height: 8px; background: #e5e7eb; border-radius: 9999px; outline: none; }
+        .input-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; background: #2563eb; border-radius: 9999px; cursor: pointer; }
+        .financial-table { width: 100%; border-collapse: collapse; }
+        .financial-table th, .financial-table td { padding: 0.75rem; text-align: right; border-bottom: 1px solid #e5e7eb; }
+        .financial-table th { background-color: #f9fafb; font-weight: 600; }
+        .financial-table td:first-child, .financial-table th:first-child { text-align: left; }
+        .positive { color: #16a34a; }
+        .negative { color: #dc2626; }
+        .metric-card { background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-left: 4px solid #2563eb; }
+        .resiliencia-badge { background: linear-gradient(135deg, #0ea5e9 0%, #3b82f6 100%); color: white; padding: 4px 10px; border-radius: 9999px; }
+        .niif-compliant { border-left: 4px solid #10b981; background-color: #f0fdf4; }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-800 font-inter">
-    <div class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-        <!-- Header con foco en Resiliencia como Servicio -->
+<body class="text-gray-800">
+    <div id="app" class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+        <!-- Header -->
         <header class="mb-8 text-center bg-white rounded-xl p-6 shadow-sm">
             <h1 class="text-3xl font-bold text-gray-900">
-                Modelo Financiero Interactivo - Resiliencia como Servicio
-                <span class="resiliencia-badge">NIIF Compliant</span>
+                Modelo Financiero Interactivo
+                <span class="resiliencia-badge">Resiliencia como Servicio</span>
             </h1>
             <p class="text-lg text-gray-600 mt-2">Rodando a Gas: Transformando el financiamiento en resiliencia operativa</p>
-            <div class="mt-4 flex flex-wrap justify-center gap-2">
-                <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">NIIF 15</span>
-                <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">NIIF 9</span>
-                <span class="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm">HASE</span>
-                <span class="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm">PMA</span>
-                <span class="px-3 py-1 bg-pink-100 text-pink-800 rounded-full text-sm">Protección Rodando</span>
-            </div>
         </header>
 
-        <!-- Panel de Control Estratégico -->
-        <div class="dashboard-grid mb-8">
-            <!-- Tarjeta de Resiliencia Operativa -->
-            <div class="bg-white rounded-xl shadow-sm p-6">
-                <h3 class="font-semibold text-lg mb-4 flex items-center">
-                    <span class="mr-2">🛡️ Protección Rodando</span>
-                    <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">NIIF 9</span>
-                </h3>
-                <div class="flex items-center mb-3">
-                    <input id="proteccion-activa" type="checkbox" checked class="h-5 w-5 rounded border-gray-300 text-blue-600">
-                    <label for="proteccion-activa" class="ml-2 text-gray-700">Activar sistema de resiliencia</label>
-                </div>
-                <p class="text-sm text-gray-600 mb-4">Reduce morosidad hasta 50% mediante intervenciones proactivas basadas en IA</p>
-                <div class="space-y-3">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Tasa de Cobertura</label>
-                        <div class="relative pt-1">
-                            <div class="flex justify-between text-xs mb-1">
-                                <span>0%</span>
-                                <span>100%</span>
-                            </div>
-                            <div class="overflow-hidden h-2 bg-gray-200 rounded-full">
-                                <div class="h-full bg-blue-600 rounded-full" style="width: 78%"></div>
-                            </div>
-                            <div class="text-center text-xs mt-1 text-blue-600">78% de operadores protegidos</div>
-                        </div>
-                    </div>
-                </div>
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
+            <div class="metric-card p-4 rounded-lg">
+                <div class="text-sm text-gray-500">EBITDA Año 5</div>
+                <div class="text-2xl font-bold" id="ebitda-year5">$0M MXN</div>
             </div>
-
-            <!-- Tarjeta de Agentes de IA -->
-            <div class="bg-white rounded-xl shadow-sm p-6">
-                <h3 class="font-semibold text-lg mb-4">🧠 Ecosistema de IA</h3>
-                <div class="space-y-4">
-                    <div class="flex items-start">
-                        <div class="bg-blue-100 p-2 rounded-lg mr-3">
-                            <span class="text-blue-800 font-bold">HASE</span>
-                        </div>
-                        <div>
-                            <h4 class="font-medium">Hyper-Adaptive Scoring Engine</h4>
-                            <p class="text-sm text-gray-600">Scoring dinámico con datos propietarios</p>
-                        </div>
-                    </div>
-                    <div class="flex items-start">
-                        <div class="bg-green-100 p-2 rounded-lg mr-3">
-                            <span class="text-green-800 font-bold">PIA</span>
-                        </div>
-                        <div>
-                            <h4 class="font-medium">Proactive Intervention Agent</h4>
-                            <p class="text-sm text-gray-600">Comunicación preventiva a escala</p>
-                        </div>
-                    </div>
-                    <div class="flex items-start">
-                        <div class="bg-yellow-100 p-2 rounded-lg mr-3">
-                            <span class="text-yellow-800 font-bold">PMA</span>
-                        </div>
-                        <div>
-                            <h4 class="font-medium">Predictive Maintenance Advisor</h4>
-                            <p class="text-sm text-gray-600">Mantenimiento predictivo + nuevos ingresos</p>
-                        </div>
-                    </div>
-                </div>
+            <div class="metric-card p-4 rounded-lg">
+                <div class="text-sm text-gray-500">TIR Proyecto</div>
+                <div class="text-2xl font-bold" id="tir-proyecto">0%</div>
             </div>
-
-            <!-- Tarjeta de Cumplimiento NIIF -->
-            <div class="bg-white rounded-xl shadow-sm p-6 niif-compliant">
-                <h3 class="font-semibold text-lg mb-4">📋 Cumplimiento NIIF</h3>
-                <div class="space-y-3">
-                    <div class="flex items-center">
-                        <div class="h-3 w-3 bg-green-500 rounded-full mr-2"></div>
-                        <span class="text-sm">NIIF 15: Reconocimiento de ingresos al valor presente</span>
-                    </div>
-                    <div class="flex items-center">
-                        <div class="h-3 w-3 bg-green-500 rounded-full mr-2"></div>
-                        <span class="text-sm">NIIF 9: Modelo de 3 etapas de deterioro crediticio</span>
-                    </div>
-                    <div class="flex items-center">
-                        <div class="h-3 w-3 bg-green-500 rounded-full mr-2"></div>
-                        <span class="text-sm">Validación de balance automatizada</span>
-                    </div>
-                    <div class="mt-4">
-                        <span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">Estado: Compliant</span>
-                    </div>
-                </div>
+            <div class="metric-card p-4 rounded-lg">
+                <div class="text-sm text-gray-500">TIR Cartera</div>
+                <div class="text-2xl font-bold" id="tir-cartera">0%</div>
+            </div>
+            <div class="metric-card p-4 rounded-lg">
+                <div class="text-sm text-gray-500">Vagonetas</div>
+                <div class="text-2xl font-bold" id="vagonetas-total">0</div>
+            </div>
+            <div class="metric-card p-4 rounded-lg">
+                <div class="text-sm text-gray-500">Deuda Residual</div>
+                <div class="text-2xl font-bold" id="deuda-residual">$0M MXN</div>
             </div>
         </div>
 
-        <!-- Sección de Modelado Financiero Avanzado -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-            <!-- Panel de Control Financiero -->
-            <div class="lg:col-span-2 bg-white rounded-xl shadow-sm p-6">
-                <h3 class="font-semibold text-lg mb-4">⚙️ Panel de Control - Resiliencia como Servicio</h3>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <!-- Parámetros de Resiliencia -->
-                    <div class="border border-gray-200 rounded-lg p-4">
-                        <h4 class="font-medium text-gray-700 mb-3">Configuración de Resiliencia</h4>
-                        <div class="space-y-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Umbral de Intervención</label>
-                                <input type="range" min="1" max="10" value="7" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Intensidad PMA</label>
-                                <div class="flex items-center space-x-2">
-                                    <span class="text-sm text-gray-500">Baja</span>
-                                    <input type="range" min="1" max="10" value="8" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
-                                    <span class="text-sm text-gray-500">Alta</span>
-                                </div>
-                            </div>
+        <!-- Tabs Navigation -->
+        <div class="mb-6 border-b border-gray-200">
+            <nav class="flex flex-wrap -mb-px" aria-label="Tabs">
+                <button id="tab-control" class="tab-button active text-lg font-medium mr-2 inline-block p-4 border-b-2 border-transparent rounded-t-lg">🚀 Control</button>
+                <button id="tab-financieros" class="tab-button text-lg font-medium mr-2 inline-block p-4 border-b-2 border-transparent rounded-t-lg">📊 Financieros</button>
+                <button id="tab-niif" class="tab-button text-lg font-medium mr-2 inline-block p-4 border-b-2 border-transparent rounded-t-lg">📋 NIIF</button>
+                <button id="tab-graficos" class="tab-button text-lg font-medium mr-2 inline-block p-4 border-b-2 border-transparent rounded-t-lg">📈 Gráficos</button>
+                <button id="tab-resumen" class="tab-button text-lg font-medium mr-2 inline-block p-4 border-b-2 border-transparent rounded-t-lg">📖 Estrategia</button>
+            </nav>
+        </div>
+
+        <!-- Control Panel -->
+        <div id="content-control" class="content-section active">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Crédito y Riesgo -->
+                <div class="card">
+                    <h4 class="font-semibold text-lg mb-1">Crédito y Riesgo</h4>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="tasa-interes" class="flex justify-between text-sm font-medium text-gray-700">Tasa de Interés <span id="tasa-interes-valor" class="font-bold text-indigo-600">25.5%</span></label>
+                            <input type="range" id="tasa-interes" min="23.9" max="26.9" step="0.1" value="25.5" class="input-slider mt-1">
                         </div>
-                    </div>
-                    
-                    <!-- Impacto Económico -->
-                    <div class="border border-gray-200 rounded-lg p-4">
-                        <h4 class="font-medium text-gray-700 mb-3">Impacto Económico</h4>
-                        <div class="space-y-3">
-                            <div class="flex justify-between">
-                                <span class="text-sm">Reducción de morosidad:</span>
-                                <span class="font-medium text-green-600">42%</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-sm">Ingresos por PMA:</span>
-                                <span class="font-medium">$1.2M/año</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-sm">ROI Protección:</span>
-                                <span class="font-medium text-green-600">3.8x</span>
-                            </div>
+                        <div>
+                            <label for="tasa-morosidad" class="flex justify-between text-sm font-medium text-gray-700">Tasa Morosidad <span id="tasa-morosidad-valor" class="font-bold text-indigo-600">8%</span></label>
+                            <input type="range" id="tasa-morosidad" min="4" max="15" step="0.5" value="8" class="input-slider mt-1">
                         </div>
-                    </div>
-                </div>
-                
-                <!-- Selector de Escenarios -->
-                <div class="mt-6">
-                    <h4 class="font-medium text-gray-700 mb-3">Escenarios de Resiliencia</h4>
-                    <div class="grid grid-cols-3 gap-3">
-                        <button class="py-2 px-3 bg-blue-100 text-blue-800 rounded-lg text-sm font-medium">Escenario Base</button>
-                        <button class="py-2 px-3 bg-gray-100 text-gray-800 rounded-lg text-sm font-medium">Crisis Combustible</button>
-                        <button class="py-2 px-3 bg-gray-100 text-gray-800 rounded-lg text-sm font-medium">Recesión</button>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Modelo de Riesgo Dinámico -->
-            <div class="bg-white rounded-xl shadow-sm p-6">
-                <h3 class="font-semibold text-lg mb-4">📈 Modelo de Riesgo Dinámico</h3>
-                <div class="space-y-4">
-                    <div>
-                        <div class="flex justify-between mb-1">
-                            <span class="text-sm font-medium">Distribución por Etapas (NIIF 9)</span>
-                        </div>
-                        <div class="w-full bg-gray-200 rounded-full h-2.5">
-                            <div class="bg-green-600 h-2.5 rounded-full" style="width: 65%"></div>
-                            <div class="bg-yellow-300 h-2.5 rounded-full -ml-1" style="width: 20%"></div>
-                            <div class="bg-red-500 h-2.5 rounded-full -ml-1" style="width: 15%"></div>
-                        </div>
-                        <div class="flex justify-between text-xs mt-1">
-                            <span class="text-green-600">Etapa 1: 65%</span>
-                            <span class="text-yellow-600">Etapa 2: 20%</span>
-                            <span class="text-red-600">Etapa 3: 15%</span>
-                        </div>
-                    </div>
-                    
-                    <div class="mt-6">
-                        <h4 class="font-medium text-gray-700 mb-2">Factor de Resiliencia</h4>
                         <div class="flex items-center">
-                            <div class="w-full bg-gray-200 rounded-full h-2.5 mr-3">
-                                <div class="bg-blue-600 h-2.5 rounded-full" style="width: 78%"></div>
-                            </div>
-                            <span class="text-sm font-medium text-blue-600">78/100</span>
+                            <input id="check-proteccion" type="checkbox" checked class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                            <label for="check-proteccion" class="ml-2 block text-sm text-gray-900">Protección Rodando</label>
                         </div>
-                        <p class="text-xs text-gray-500 mt-1">Mide la capacidad del operador para absorber shocks con nuestro ecosistema</p>
                     </div>
-                    
-                    <div class="mt-6 p-4 bg-blue-50 rounded-lg">
-                        <h4 class="font-medium text-blue-800 mb-1">Efecto Protección Rodando</h4>
-                        <p class="text-sm text-blue-700">Activación reduce probabilidad de default en 52% y aumenta TIR en 3.2 puntos</p>
+                </div>
+                
+                <!-- Operaciones y Márgenes -->
+                <div class="card">
+                    <h4 class="font-semibold text-lg mb-1">Operaciones</h4>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="margen-vagoneta" class="flex justify-between text-sm font-medium text-gray-700">Margen Vagoneta <span id="margen-vagoneta-valor" class="font-bold text-indigo-600">$88,000</span></label>
+                            <input type="range" id="margen-vagoneta" min="70000" max="120000" step="2000" value="88000" class="input-slider mt-1">
+                        </div>
+                        <div>
+                            <label for="comision-gnv" class="flex justify-between text-sm font-medium text-gray-700">Comisión GNV <span id="comision-gnv-valor" class="font-bold text-indigo-600">8%</span></label>
+                            <input type="range" id="comision-gnv" min="6" max="12" step="0.5" value="8" class="input-slider mt-1">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Capital -->
+                <div class="card">
+                    <h4 class="font-semibold text-lg mb-1">Capital</h4>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="venture-debt-pct" class="flex justify-between text-sm font-medium text-gray-700">% Venture Debt <span id="venture-debt-pct-valor" class="font-bold text-indigo-600">70%</span></label>
+                            <input type="range" id="venture-debt-pct" min="50" max="100" step="5" value="70" class="input-slider mt-1">
+                        </div>
+                        <div>
+                            <label for="venture-debt-rate" class="flex justify-between text-sm font-medium text-gray-700">Tasa Venture Debt <span id="venture-debt-rate-valor" class="font-bold text-indigo-600">12%</span></label>
+                            <input type="range" id="venture-debt-rate" min="10" max="16" step="0.5" value="12" class="input-slider mt-1">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Unidades por Año -->
+                <div class="card lg:col-span-3">
+                    <h3 class="text-xl font-semibold mb-4">Unidades por Año</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-5 gap-4" id="units-container">
+                        <!-- Generated dynamically -->
                     </div>
                 </div>
             </div>
         </div>
-        
-        <!-- Visualización de Resultados -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-            <!-- Gráfico de Resiliencia -->
-            <div class="bg-white rounded-xl shadow-sm p-6">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="font-semibold text-lg">📊 Trayectoria de Resiliencia</h3>
-                    <div class="flex space-x-2">
-                        <button class="text-xs bg-gray-100 px-2 py-1 rounded">EBITDA</button>
-                        <button class="text-xs bg-gray-100 px-2 py-1 rounded">TIR</button>
-                        <button class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Resiliencia</button>
+
+        <!-- Estados Financieros -->
+        <div id="content-financieros" class="content-section">
+            <div class="space-y-6">
+                <!-- P&L -->
+                <div class="card">
+                    <h3 class="text-xl font-semibold mb-4">Estado de Resultados (P&L)</h3>
+                    <div class="overflow-x-auto">
+                        <table class="financial-table">
+                            <thead>
+                                <tr>
+                                    <th>Concepto</th>
+                                    <th>Año 1</th>
+                                    <th>Año 2</th>
+                                    <th>Año 3</th>
+                                    <th>Año 4</th>
+                                    <th>Año 5</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pl-table-body">
+                                <!-- Generated dynamically -->
+                            </tbody>
+                        </table>
                     </div>
                 </div>
-                <div class="h-72">
-                    <canvas id="resilienceChart"></canvas>
+
+                <!-- Cash Flow -->
+                <div class="card">
+                    <h3 class="text-xl font-semibold mb-4">Flujo de Efectivo</h3>
+                    <div class="overflow-x-auto">
+                        <table class="financial-table">
+                            <thead>
+                                <tr>
+                                    <th>Concepto</th>
+                                    <th>Año 1</th>
+                                    <th>Año 2</th>
+                                    <th>Año 3</th>
+                                    <th>Año 4</th>
+                                    <th>Año 5</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cf-table-body">
+                                <!-- Generated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-            </div>
-            
-            <!-- Estado de Protección -->
-            <div class="bg-white rounded-xl shadow-sm p-6">
-                <h3 class="font-semibold text-lg mb-4">🛡️ Estado de Protección Rodando</h3>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="bg-gray-50">
-                                <th class="py-2 px-4 text-left">Operador</th>
-                                <th class="py-2 px-4 text-left">Ruta</th>
-                                <th class="py-2 px-4 text-left">Estado</th>
-                                <th class="py-2 px-4 text-left">Última Intervención</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr class="risk-stage-1">
-                                <td class="py-2 px-4">Juan Pérez</td>
-                                <td class="py-2 px-4">Tacuba - Tacubaya</td>
-                                <td class="py-2 px-4"><span class="text-green-600">Estable</span></td>
-                                <td class="py-2 px-4">Hace 15 días</td>
-                            </tr>
-                            <tr class="risk-stage-2">
-                                <td class="py-2 px-4">María Gómez</td>
-                                <td class="py-2 px-4">Satélite - Ciudad Azteca</td>
-                                <td class="py-2 px-4"><span class="text-yellow-600">Monitoreo</span></td>
-                                <td class="py-2 px-4">Ayer</td>
-                            </tr>
-                            <tr class="proteccion-active">
-                                <td class="py-2 px-4">Carlos Rodríguez</td>
-                                <td class="py-2 px-4">Indios Verdes - Zaragoza</td>
-                                <td class="py-2 px-4"><span class="text-blue-600">Protección Activa</span></td>
-                                <td class="py-2 px-4">Hoy</td>
-                            </tr>
-                            <tr class="risk-stage-1">
-                                <td class="py-2 px-4">Laura Sánchez</td>
-                                <td class="py-2 px-4">Pantitlán - Rosario</td>
-                                <td class="py-2 px-4"><span class="text-green-600">Estable</span></td>
-                                <td class="py-2 px-4">Hace 30 días</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <div class="mt-4 text-center">
-                    <button class="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg font-medium">
-                        Ver Reporte Completo de Resiliencia
-                    </button>
+
+                <!-- Balance General -->
+                <div class="card">
+                    <h3 class="text-xl font-semibold mb-4">Balance General</h3>
+                    <div class="overflow-x-auto">
+                        <table class="financial-table">
+                            <thead>
+                                <tr>
+                                    <th>Concepto</th>
+                                    <th>Año 1</th>
+                                    <th>Año 2</th>
+                                    <th>Año 3</th>
+                                    <th>Año 4</th>
+                                    <th>Año 5</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bs-table-body">
+                                <!-- Generated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="balance-validation" class="mt-4 text-center font-semibold">
+                        <!-- Validation message -->
+                    </div>
                 </div>
             </div>
         </div>
-        
-        <!-- Explicación del Modelo -->
-        <div class="bg-white rounded-xl shadow-sm p-6 mb-8">
-            <h3 class="font-semibold text-lg mb-4">🔍 Fundamentos del Modelo de Resiliencia</h3>
-            <div class="prose max-w-none">
-                <p>Nuestro modelo transforma la gestión financiera tradicional en un ecosistema de resiliencia mediante:</p>
-                <ul>
-                    <li><strong>Hiper-segmentación dinámica</strong> con HASE que analiza 142 variables operativas</li>
-                    <li><strong>Intervenciones proactivas</strong> que reducen morosidad hasta 50%</li>
-                    <li><strong>Mantenimiento predictivo</strong> que disminuye fallas mecánicas en 68%</li>
-                    <li><strong>Reconocimiento de ingresos</strong> bajo NIIF 15 que refleja valor presente real</li>
-                </ul>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                    <div class="p-4 bg-blue-50 rounded-lg">
-                        <h4 class="font-semibold text-blue-800">Efecto Directo</h4>
-                        <p>+9.2% TIR promedio con Protección Rodando activa</p>
+
+        <!-- Cumplimiento NIIF -->
+        <div id="content-niif" class="content-section">
+            <div class="space-y-6">
+                <!-- NIIF 15 -->
+                <div class="card niif-compliant">
+                    <h3 class="text-xl font-semibold mb-4">NIIF 15 - Reconocimiento de Ingresos</h3>
+                    <div id="niif15-container">
+                        <!-- Generated dynamically -->
                     </div>
-                    <div class="p-4 bg-green-50 rounded-lg">
-                        <h4 class="font-semibold text-green-800">Cumplimiento</h4>
-                        <p>Validación NIIF 100% automatizada</p>
+                </div>
+
+                <!-- NIIF 9 -->
+                <div class="card niif-compliant">
+                    <h3 class="text-xl font-semibold mb-4">NIIF 9 - Provisiones Crediticias</h3>
+                    <div id="niif9-container">
+                        <!-- Generated dynamically -->
                     </div>
-                    <div class="p-4 bg-purple-50 rounded-lg">
-                        <h4 class="font-semibold text-purple-800">Sinergia</h4>
-                        <p>HASE + PMA + Protección = 3.4x ROI</p>
+                </div>
+
+                <!-- Cronogramas -->
+                <div class="card">
+                    <h3 class="text-xl font-semibold mb-4">Cronogramas de Amortización</h3>
+                    <div id="amortization-container">
+                        <!-- Generated dynamically -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Análisis Gráfico -->
+        <div id="content-graficos" class="content-section">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="card">
+                    <h4 class="font-semibold text-lg mb-2">Evolución de EBITDA</h4>
+                    <div class="h-72"><canvas id="ebitdaChart"></canvas></div>
+                </div>
+                <div class="card">
+                    <h4 class="font-semibold text-lg mb-2">Composición de Ingresos</h4>
+                    <div class="h-72"><canvas id="revenueMixChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Resumen Estratégico -->
+        <div id="content-resumen" class="content-section">
+            <div class="space-y-6">
+                <div class="card">
+                    <h3 class="text-xl font-semibold mb-4">🎯 Propuesta de Valor: "Resiliencia como Servicio"</h3>
+                    <div class="space-y-4">
+                        <p class="text-gray-700">Rodando a Gas redefine el financiamiento como un <strong>Ecosistema de Resiliencia Operativa</strong>, diseñado para asegurar la continuidad del negocio del operador.</p>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                            <div class="bg-blue-50 p-4 rounded-lg">
+                                <h4 class="font-semibold text-blue-900">🧠 HASE</h4>
+                                <p class="text-sm text-blue-700">Scoring dinámico con datos propietarios</p>
+                            </div>
+                            <div class="bg-green-50 p-4 rounded-lg">
+                                <h4 class="font-semibold text-green-900">❤️ PIA</h4>
+                                <p class="text-sm text-green-700">Comunicación preventiva a escala</p>
+                            </div>
+                            <div class="bg-yellow-50 p-4 rounded-lg">
+                                <h4 class="font-semibold text-yellow-900">🛡️ PMA</h4>
+                                <p class="text-sm text-yellow-700">Mantenimiento predictivo</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3 class="text-xl font-semibold mb-4">📊 Métricas Clave</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <h4 class="font-semibold text-lg mb-2">Por Unidad</h4>
+                            <ul class="space-y-2 text-sm">
+                                <li>💰 <strong>Costo:</strong> $641,000 MXN</li>
+                                <li>💲 <strong>Precio:</strong> $729,000 MXN</li>
+                                <li>📈 <strong>Margen:</strong> $88,000 MXN</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-lg mb-2">Proyecciones</h4>
+                            <ul class="space-y-2 text-sm">
+                                <li>🎯 <strong>TIR:</strong> ≥22.8%</li>
+                                <li>🚛 <strong>Meta Año 5:</strong> 555 vagonetas</li>
+                                <li>💹 <strong>OPEX:</strong> 15% de ingresos</li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -341,81 +306,506 @@
     </div>
 
     <script>
-        // ===== SISTEMA DE VISUALIZACIÓN DE RESILIENCIA =====
-        document.addEventListener('DOMContentLoaded', function() {
-            const ctx = document.getElementById('resilienceChart').getContext('2d');
-            const resilienceChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'],
-                    datasets: [
-                        {
-                            label: 'Resiliencia Operativa',
-                            data: [35, 50, 65, 72, 78, 82],
+        // ===== MODELO DE DATOS =====
+        let modelData = {
+            tasaInteres: 25.5,
+            tasaMorosidad: 8,
+            proteccionRodando: true,
+            margenVagoneta: 88000,
+            comisionGNV: 8,
+            ventureDebtPct: 70,
+            ventureDebtRate: 12,
+            unitsPerYear: [35, 70, 100, 150, 200],
+            vanCost: 641000,
+            vanPrice: 729000,
+            seriesA: 45000000
+        };
+
+        let financialResults = {
+            pl: [],
+            cf: [],
+            bs: [],
+            niifDetails: []
+        };
+
+        // ===== FUNCIÓN PRINCIPAL DE CÁLCULO =====
+        function calculateFinancials() {
+            // Reset results
+            financialResults = { pl: [], cf: [], bs: [], niifDetails: [] };
+            
+            let accumulatedEarnings = 0;
+            let cash = modelData.seriesA;
+            let accumulatedDepreciation = 0;
+            let totalDebt = 0;
+            let cumulativeUnits = 0;
+            
+            for (let year = 0; year < 5; year++) {
+                const addedUnits = modelData.unitsPerYear[year];
+                cumulativeUnits += addedUnits;
+                
+                // ===== INGRESOS =====
+                const originationMargin = addedUnits * modelData.margenVagoneta;
+                const interestRevenue = cumulativeUnits * modelData.vanPrice * 0.75 * (modelData.tasaInteres / 100);
+                const gnvCommissions = cumulativeUnits * 15000 * (modelData.comisionGNV / 100);
+                const totalRevenue = originationMargin + interestRevenue + gnvCommissions;
+                
+                // ===== GASTOS =====
+                const opex = totalRevenue * 0.15;
+                const provisions = interestRevenue * (modelData.tasaMorosidad / 100) * (modelData.proteccionRodando ? 0.6 : 1);
+                const annualDepreciation = cumulativeUnits * modelData.vanCost / 10;
+                accumulatedDepreciation += annualDepreciation;
+                
+                // ===== DEUDA =====
+                const capexThisYear = addedUnits * modelData.vanCost;
+                const newDebtForCapex = capexThisYear * (modelData.ventureDebtPct / 100);
+                const principalPayment = totalDebt * 0.05;
+                totalDebt = totalDebt + newDebtForCapex - principalPayment;
+                const interestExpense = totalDebt * (modelData.ventureDebtRate / 100);
+                
+                // ===== RESULTADOS =====
+                const ebitda = totalRevenue - opex - provisions;
+                const netIncome = ebitda - annualDepreciation - interestExpense;
+                accumulatedEarnings += netIncome;
+                
+                // ===== FLUJOS =====
+                const operatingCash = netIncome + annualDepreciation + provisions;
+                const investingCash = -capexThisYear;
+                const financingCash = year === 0 ? modelData.seriesA + newDebtForCapex : newDebtForCapex - principalPayment;
+                const netCash = operatingCash + investingCash + financingCash;
+                cash += netCash;
+                
+                // ===== BALANCE =====
+                const receivables = cumulativeUnits * modelData.vanPrice * 0.8;
+                const fixedAssetsNet = cumulativeUnits * modelData.vanCost - accumulatedDepreciation;
+                const totalAssets = cash + receivables + fixedAssetsNet;
+                const equity = modelData.seriesA + accumulatedEarnings;
+                const totalLiabilitiesEquity = totalDebt + provisions + equity;
+                
+                // ===== GUARDAR RESULTADOS =====
+                financialResults.pl.push({
+                    originationMargin, interestRevenue, gnvCommissions, totalRevenue,
+                    opex, provisions, ebitda, depreciation: annualDepreciation,
+                    interestExpense, netIncome
+                });
+                
+                financialResults.cf.push({
+                    operatingCash, investingCash, financingCash, netCash
+                });
+                
+                financialResults.bs.push({
+                    cash, receivables, fixedAssets: fixedAssetsNet, totalAssets,
+                    debt: totalDebt, provisions, equity, totalLiabilitiesEquity
+                });
+                
+                // ===== NIIF =====
+                financialResults.niifDetails.push({
+                    niif15: {
+                        valorNominal: interestRevenue,
+                        valorPresente: interestRevenue * 0.92,
+                        ajusteDescuento: interestRevenue * 0.08
+                    },
+                    niif9: {
+                        etapa1: provisions * 0.7,
+                        etapa2: provisions * 0.2,
+                        etapa3: provisions * 0.1,
+                        total: provisions
+                    }
+                });
+            }
+            
+            // Calcular TIR aproximada
+            const projectCashFlows = [-modelData.seriesA];
+            financialResults.cf.forEach(year => projectCashFlows.push(year.netCash));
+            financialResults.tirProyecto = calculateIRR(projectCashFlows);
+        }
+
+        // ===== FUNCIONES DE UI =====
+        function updateUI() {
+            // Actualizar métricas principales
+            const year5 = financialResults.pl[4];
+            const year5BS = financialResults.bs[4];
+            
+            if (year5 && year5BS) {
+                document.getElementById('ebitda-year5').textContent = formatCurrency(year5.ebitda);
+                document.getElementById('tir-proyecto').textContent = financialResults.tirProyecto.toFixed(1) + '%';
+                document.getElementById('deuda-residual').textContent = formatCurrency(year5BS.debt);
+                
+                const vagonetasTotal = modelData.unitsPerYear.reduce((total, units) => total + units, 0);
+                document.getElementById('vagonetas-total').textContent = vagonetasTotal;
+            }
+            
+            // Actualizar tablas
+            updatePLTable();
+            updateCashFlowTable();
+            updateBalanceSheetTable();
+            updateNIIFTables();
+            
+            // Actualizar gráficos
+            updateCharts();
+        }
+
+        function updatePLTable() {
+            const tbody = document.getElementById('pl-table-body');
+            tbody.innerHTML = '';
+            
+            const rows = [
+                { label: 'Margen Originación', key: 'originationMargin' },
+                { label: 'Ingresos Intereses', key: 'interestRevenue' },
+                { label: 'Comisiones GNV', key: 'gnvCommissions' },
+                { label: 'Total Ingresos', key: 'totalRevenue', total: true },
+                { label: 'Gastos Operativos', key: 'opex', negative: true },
+                { label: 'Provisiones', key: 'provisions', negative: true },
+                { label: 'EBITDA', key: 'ebitda', total: true },
+                { label: 'Depreciación', key: 'depreciation', negative: true },
+                { label: 'Intereses Deuda', key: 'interestExpense', negative: true },
+                { label: 'Utilidad Neta', key: 'netIncome', total: true }
+            ];
+            
+            rows.forEach(row => {
+                const tr = document.createElement('tr');
+                if (row.total) tr.classList.add('bg-gray-50');
+                
+                const labelCell = document.createElement('td');
+                labelCell.textContent = row.label;
+                if (row.total) labelCell.classList.add('font-bold');
+                tr.appendChild(labelCell);
+                
+                financialResults.pl.forEach(yearData => {
+                    const cell = document.createElement('td');
+                    const value = yearData[row.key] || 0;
+                    
+                    if (row.negative && value > 0) {
+                        cell.textContent = '(' + formatCurrency(value) + ')';
+                        cell.classList.add('negative');
+                    } else {
+                        cell.textContent = formatCurrency(value);
+                        if (value > 0 && !row.negative) cell.classList.add('positive');
+                    }
+                    
+                    if (row.total) cell.classList.add('font-bold');
+                    tr.appendChild(cell);
+                });
+                
+                tbody.appendChild(tr);
+            });
+        }
+
+        function updateCashFlowTable() {
+            const tbody = document.getElementById('cf-table-body');
+            tbody.innerHTML = '';
+            
+            const rows = [
+                { label: 'Flujo Operativo', key: 'operatingCash' },
+                { label: 'Flujo Inversión', key: 'investingCash', negative: true },
+                { label: 'Flujo Financiero', key: 'financingCash' },
+                { label: 'Flujo Neto', key: 'netCash', total: true }
+            ];
+            
+            rows.forEach(row => {
+                const tr = document.createElement('tr');
+                if (row.total) tr.classList.add('bg-gray-50');
+                
+                const labelCell = document.createElement('td');
+                labelCell.textContent = row.label;
+                if (row.total) labelCell.classList.add('font-bold');
+                tr.appendChild(labelCell);
+                
+                financialResults.cf.forEach(yearData => {
+                    const cell = document.createElement('td');
+                    let value = yearData[row.key] || 0;
+                    
+                    if (row.negative && value < 0) value = Math.abs(value);
+                    
+                    if (value < 0) {
+                        cell.textContent = '(' + formatCurrency(Math.abs(value)) + ')';
+                        cell.classList.add('negative');
+                    } else {
+                        cell.textContent = formatCurrency(value);
+                        if (value > 0) cell.classList.add('positive');
+                    }
+                    
+                    if (row.total) cell.classList.add('font-bold');
+                    tr.appendChild(cell);
+                });
+                
+                tbody.appendChild(tr);
+            });
+        }
+
+        function updateBalanceSheetTable() {
+            const tbody = document.getElementById('bs-table-body');
+            tbody.innerHTML = '';
+            
+            const rows = [
+                { label: 'Efectivo', key: 'cash' },
+                { label: 'Cuentas por Cobrar', key: 'receivables' },
+                { label: 'Activos Fijos', key: 'fixedAssets' },
+                { label: 'Total Activos', key: 'totalAssets', total: true },
+                { label: 'Deuda', key: 'debt' },
+                { label: 'Provisiones', key: 'provisions' },
+                { label: 'Patrimonio', key: 'equity' },
+                { label: 'Total Pasivo + Capital', key: 'totalLiabilitiesEquity', total: true }
+            ];
+            
+            rows.forEach(row => {
+                const tr = document.createElement('tr');
+                if (row.total) tr.classList.add('bg-gray-50');
+                
+                const labelCell = document.createElement('td');
+                labelCell.textContent = row.label;
+                if (row.total) labelCell.classList.add('font-bold');
+                tr.appendChild(labelCell);
+                
+                financialResults.bs.forEach(yearData => {
+                    const cell = document.createElement('td');
+                    const value = yearData[row.key] || 0;
+                    cell.textContent = formatCurrency(value);
+                    if (row.total) cell.classList.add('font-bold');
+                    tr.appendChild(cell);
+                });
+                
+                tbody.appendChild(tr);
+            });
+            
+            // Validar balance
+            const validationDiv = document.getElementById('balance-validation');
+            let balanceValid = true;
+            financialResults.bs.forEach((yearData, index) => {
+                const difference = Math.abs(yearData.totalAssets - yearData.totalLiabilitiesEquity);
+                if (difference > 1000) balanceValid = false;
+            });
+            
+            if (balanceValid) {
+                validationDiv.innerHTML = '<span class="text-green-600">✅ Balance validado (Activo = Pasivo + Capital)</span>';
+            } else {
+                validationDiv.innerHTML = '<span class="text-red-600">❌ Error en balance</span>';
+            }
+        }
+
+        function updateNIIFTables() {
+            updateNIIF15Table();
+            updateNIIF9Table();
+        }
+
+        function updateNIIF15Table() {
+            const container = document.getElementById('niif15-container');
+            if (!container) return;
+            
+            container.innerHTML = `
+                <div class="overflow-x-auto">
+                    <table class="financial-table">
+                        <thead>
+                            <tr>
+                                <th>Concepto</th>
+                                <th>Año 1</th>
+                                <th>Año 2</th>
+                                <th>Año 3</th>
+                                <th>Año 4</th>
+                                <th>Año 5</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Ingresos Nominales</td>
+                                ${financialResults.niifDetails.map(d => `<td>${formatCurrency(d.niif15.valorNominal)}</td>`).join('')}
+                            </tr>
+                            <tr>
+                                <td>Ajuste Descuento</td>
+                                ${financialResults.niifDetails.map(d => `<td class="negative">(${formatCurrency(d.niif15.ajusteDescuento)})</td>`).join('')}
+                            </tr>
+                            <tr class="bg-gray-50">
+                                <td><strong>Ingresos Valor Presente</strong></td>
+                                ${financialResults.niifDetails.map(d => `<td class="font-bold positive">${formatCurrency(d.niif15.valorPresente)}</td>`).join('')}
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="mt-4 text-sm text-gray-600">
+                    <strong>Metodología NIIF 15:</strong> Reconocimiento de ingresos al valor presente con tasa de descuento del ${modelData.tasaInteres}%
+                </div>
+            `;
+        }
+
+        function updateNIIF9Table() {
+            const container = document.getElementById('niif9-container');
+            if (!container) return;
+            
+            container.innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div class="p-4 bg-green-50 rounded-lg text-center">
+                        <h5 class="font-semibold">Etapa 1</h5>
+                        <p class="text-lg font-bold">${formatCurrency(financialResults.niifDetails[4]?.niif9.etapa1 || 0)}</p>
+                        <p class="text-sm">Riesgo normal (8%)</p>
+                    </div>
+                    <div class="p-4 bg-yellow-50 rounded-lg text-center">
+                        <h5 class="font-semibold">Etapa 2</h5>
+                        <p class="text-lg font-bold">${formatCurrency(financialResults.niifDetails[4]?.niif9.etapa2 || 0)}</p>
+                        <p class="text-sm">Riesgo significativo (15%)</p>
+                    </div>
+                    <div class="p-4 bg-red-50 rounded-lg text-center">
+                        <h5 class="font-semibold">Etapa 3</h5>
+                        <p class="text-lg font-bold">${formatCurrency(financialResults.niifDetails[4]?.niif9.etapa3 || 0)}</p>
+                        <p class="text-sm">Incumplimiento (45%)</p>
+                    </div>
+                </div>
+                <div class="text-center p-4 bg-blue-50 rounded-lg">
+                    <h5 class="font-semibold">Total Provisiones NIIF 9</h5>
+                    <p class="text-2xl font-bold text-blue-900">${formatCurrency(financialResults.niifDetails[4]?.niif9.total || 0)}</p>
+                </div>
+            `;
+        }
+
+        // ===== GRÁFICOS =====
+        let charts = {};
+        
+        function initializeCharts() {
+            const ctx1 = document.getElementById('ebitdaChart');
+            if (ctx1) {
+                charts.ebitda = new Chart(ctx1, {
+                    type: 'line',
+                    data: {
+                        labels: ['Año 1', 'Año 2', 'Año 3', 'Año 4', 'Año 5'],
+                        datasets: [{
+                            label: 'EBITDA',
+                            data: [],
                             borderColor: '#3b82f6',
                             backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                            tension: 0.4,
                             fill: true
-                        },
-                        {
-                            label: 'TIR Proyecto',
-                            data: [18, 22, 24, 26, 28, 31],
-                            borderColor: '#10b981',
-                            borderDash: [5, 5],
-                            tension: 0.4
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: 'Índice de Resiliencia'
-                            }
-                        }
+                        }]
                     },
-                    plugins: {
-                        annotation: {
-                            annotations: {
-                                line1: {
-                                    type: 'line',
-                                    mode: 'vertical',
-                                    scaleID: 'x',
-                                    value: 3,
-                                    borderColor: '#f59e0b',
-                                    borderWidth: 2,
-                                    label: {
-                                        content: 'Activación Protección',
-                                        position: 'top'
-                                    }
-                                }
-                            }
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: { beginAtZero: true, title: { display: true, text: 'MXN' } }
                         }
                     }
-                }
-            });
+                });
+            }
+            
+            const ctx2 = document.getElementById('revenueMixChart');
+            if (ctx2) {
+                charts.revenueMix = new Chart(ctx2, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Margen Originación', 'Ingresos Intereses', 'Comisiones GNV'],
+                        datasets: [{
+                            data: [],
+                            backgroundColor: ['#3b82f6', '#10b981', '#f59e0b']
+                        }]
+                    }
+                });
+            }
+        }
+        
+        function updateCharts() {
+            if (charts.ebitda && financialResults.pl.length) {
+                const ebitdas = financialResults.pl.map(d => d.ebitda);
+                charts.ebitda.data.datasets[0].data = ebitdas;
+                charts.ebitda.update();
+            }
+            
+            if (charts.revenueMix && financialResults.pl[4]) {
+                const year5 = financialResults.pl[4];
+                charts.revenueMix.data.datasets[0].data = [
+                    year5.originationMargin,
+                    year5.interestRevenue,
+                    year5.gnvCommissions
+                ];
+                charts.revenueMix.update();
+            }
+        }
 
-            // Simular activación de protección
-            document.getElementById('proteccion-activa').addEventListener('change', function() {
-                const isActive = this.checked;
-                const chart = resilienceChart;
+        // ===== FUNCIONES UTILITARIAS =====
+        function formatCurrency(value) {
+            if (value >= 1000000) return '$' + (value / 1000000).toFixed(1) + 'M MXN';
+            if (value >= 1000) return '$' + (value / 1000).toFixed(1) + 'K MXN';
+            return '$' + Math.round(value).toLocaleString();
+        }
+
+        function calculateIRR(cashFlows) {
+            // Implementación simplificada de TIR
+            let guess = 0.25;
+            for (let i = 0; i < 100; i++) {
+                let npv = 0;
+                for (let t = 0; t < cashFlows.length; t++) {
+                    npv += cashFlows[t] / Math.pow(1 + guess, t);
+                }
                 
-                if (isActive) {
-                    chart.data.datasets[0].data = [35, 50, 65, 82, 85, 88];
-                    chart.data.datasets[1].data = [18, 22, 24, 31, 33, 36];
-                    chart.update();
-                    document.querySelector('.proteccion-active').classList.add('proteccion-active');
-                } else {
-                    chart.data.datasets[0].data = [35, 50, 65, 72, 75, 74];
-                    chart.data.datasets[1].data = [18, 22, 24, 26, 27, 26];
-                    chart.update();
-                    document.querySelector('.proteccion-active').classList.remove('proteccion-active');
+                if (Math.abs(npv) < 0.01) break;
+                
+                guess += npv > 0 ? 0.01 : -0.01;
+            }
+            return (guess * 100);
+        }
+
+        // ===== INICIALIZACIÓN =====
+        document.addEventListener('DOMContentLoaded', function() {
+            // Setup tabs
+            const tabButtons = document.querySelectorAll('.tab-button');
+            const contentSections = document.querySelectorAll('.content-section');
+            
+            tabButtons.forEach((button, index) => {
+                button.addEventListener('click', () => {
+                    tabButtons.forEach(btn => btn.classList.remove('active'));
+                    contentSections.forEach(section => section.classList.remove('active'));
+                    
+                    button.classList.add('active');
+                    contentSections[index].classList.add('active');
+                });
+            });
+            
+            // Setup sliders
+            const sliders = [
+                'tasa-interes', 'tasa-morosidad', 'margen-vagoneta', 
+                'comision-gnv', 'venture-debt-pct', 'venture-debt-rate'
+            ];
+            
+            sliders.forEach(sliderId => {
+                const slider = document.getElementById(sliderId);
+                if (slider) {
+                    slider.addEventListener('input', function() {
+                        const value = parseFloat(this.value);
+                        modelData[sliderId.replace(/-/g, '')] = value;
+                        document.getElementById(`${sliderId}-valor`).textContent = 
+                            sliderId.includes('tasa') || sliderId.includes('comision') || sliderId.includes('pct') || sliderId.includes('rate') ? 
+                            value.toFixed(1) + '%' : '$' + value.toLocaleString();
+                        
+                        calculateFinancials();
+                        updateUI();
+                    });
                 }
             });
+            
+            // Setup checkbox
+            document.getElementById('check-proteccion').addEventListener('change', function() {
+                modelData.proteccionRodando = this.checked;
+                calculateFinancials();
+                updateUI();
+            });
+            
+            // Setup unit controls
+            const unitsContainer = document.getElementById('units-container');
+            modelData.unitsPerYear.forEach((units, index) => {
+                const div = document.createElement('div');
+                div.className = 'flex flex-col';
+                div.innerHTML = `
+                    <label for="unit-year-${index+1}" class="text-sm font-medium text-gray-700 mb-1">Año ${index+1}</label>
+                    <input type="number" id="unit-year-${index+1}" min="0" max="500" value="${units}" class="p-2 border rounded">
+                `;
+                unitsContainer.appendChild(div);
+                
+                const input = document.getElementById(`unit-year-${index+1}`);
+                input.addEventListener('change', function() {
+                    modelData.unitsPerYear[index] = parseInt(this.value) || 0;
+                    calculateFinancials();
+                    updateUI();
+                });
+            });
+            
+            // Initial calculation
+            initializeCharts();
+            calculateFinancials();
+            updateUI();
         });
     </script>
 </body>
