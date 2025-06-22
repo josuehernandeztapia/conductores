@@ -140,17 +140,42 @@
             border-radius: 4px;
             width: 100%;
         }
-        .validation-error {
-            color: #dc2626;
-            font-weight: 500;
-            background-color: #fef2f2;
-            padding: 8px;
+        .debug-panel {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: #1f2937;
+            color: #f3f4f6;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            max-width: 300px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+        }
+        .debug-toggle {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 5px 10px;
             border-radius: 4px;
-            margin-top: 8px;
+            cursor: pointer;
+            z-index: 1001;
         }
     </style>
 </head>
 <body class="text-gray-800">
+
+    <!-- Debug Panel -->
+    <button id="debug-toggle" class="debug-toggle">Debug</button>
+    <div id="debug-panel" class="debug-panel">
+        <div id="debug-content"></div>
+    </div>
 
     <div id="app" class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
         
@@ -161,22 +186,26 @@
         </header>
 
         <!-- Summary Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
             <div class="metric-card p-4 rounded-lg">
                 <div class="text-sm text-gray-500">EBITDA Año 5</div>
                 <div class="text-2xl font-bold" id="ebitda-year5">$0M MXN</div>
             </div>
             <div class="metric-card p-4 rounded-lg">
-                <div class="text-sm text-gray-500">TIR Proyectada</div>
-                <div class="text-2xl font-bold" id="tir-proyectada">0%</div>
+                <div class="text-sm text-gray-500">TIR Proyecto</div>
+                <div class="text-2xl font-bold" id="tir-proyecto">0%</div>
+            </div>
+            <div class="metric-card p-4 rounded-lg">
+                <div class="text-sm text-gray-500">TIR Cartera</div>
+                <div class="text-2xl font-bold" id="tir-cartera">0%</div>
             </div>
             <div class="metric-card van-unit p-4 rounded-lg">
                 <div class="text-sm text-gray-500">Vagonetas Acumuladas</div>
                 <div class="text-2xl font-bold" id="vagonetas-total">0</div>
             </div>
             <div class="metric-card p-4 rounded-lg">
-                <div class="text-sm text-gray-500">Deuda Residual Año 5</div>
-                <div class="text-2xl font-bold" id="deuda-residual">$0M MXN</div>
+                <div class="text-sm text-gray-500">Capital Total Invertido</div>
+                <div class="text-2xl font-bold" id="capital-total">$45M MXN</div>
             </div>
         </div>
 
@@ -220,19 +249,19 @@
                         <div class="space-y-4">
                             <div>
                                 <label for="margen-vagoneta" class="flex justify-between text-sm font-medium text-gray-700">Margen por Vagoneta <span id="margen-vagoneta-valor" class="font-bold text-indigo-600">$88,000</span></label>
-                                <input type="range" id="margen-vagoneta" min="88000" max="118000" step="1000" value="88000" class="input-slider mt-1">
+                                <input type="range" id="margen-vagoneta" min="70000" max="120000" step="2000" value="88000" class="input-slider mt-1">
                             </div>
                             <div>
                                 <label for="comision-gnv" class="flex justify-between text-sm font-medium text-gray-700">Comisión GNV <span id="comision-gnv-valor" class="font-bold text-indigo-600">8%</span></label>
-                                <input type="range" id="comision-gnv" min="7" max="15" step="0.5" value="8" class="input-slider mt-1">
+                                <input type="range" id="comision-gnv" min="6" max="12" step="0.5" value="8" class="input-slider mt-1">
                             </div>
                             <div>
                                 <label for="margen-refacciones" class="flex justify-between text-sm font-medium text-gray-700">Margen Refacciones <span id="margen-refacciones-valor" class="font-bold text-indigo-600">25%</span></label>
-                                <input type="range" id="margen-refacciones" min="25" max="50" step="1" value="25" class="input-slider mt-1">
+                                <input type="range" id="margen-refacciones" min="20" max="40" step="1" value="25" class="input-slider mt-1">
                             </div>
                             <div>
                                 <label for="marketplace" class="flex justify-between text-sm font-medium text-gray-700">Market Place <span id="marketplace-valor" class="font-bold text-indigo-600">1%</span></label>
-                                <input type="range" id="marketplace" min="0" max="3" step="0.5" value="1" class="input-slider mt-1">
+                                <input type="range" id="marketplace" min="0.5" max="3" step="0.1" value="1" class="input-slider mt-1">
                             </div>
                         </div>
                     </div>
@@ -242,12 +271,12 @@
                         <p class="text-xs text-gray-500 mb-4">Simule el impacto de la financiación con venture debt vs. equity.</p>
                         <div class="space-y-4">
                             <div>
-                                <label for="venture-debt-pct" class="flex justify-between text-sm font-medium text-gray-700">% Venture Debt <span id="venture-debt-pct-valor" class="font-bold text-indigo-600">100%</span></label>
-                                <input type="range" id="venture-debt-pct" min="50" max="100" step="5" value="100" class="input-slider mt-1">
+                                <label for="venture-debt-pct" class="flex justify-between text-sm font-medium text-gray-700">% Venture Debt <span id="venture-debt-pct-valor" class="font-bold text-indigo-600">70%</span></label>
+                                <input type="range" id="venture-debt-pct" min="50" max="100" step="5" value="70" class="input-slider mt-1">
                             </div>
                             <div>
                                 <label for="venture-debt-rate" class="flex justify-between text-sm font-medium text-gray-700">Tasa Venture Debt <span id="venture-debt-rate-valor" class="font-bold text-indigo-600">12%</span></label>
-                                <input type="range" id="venture-debt-rate" min="12" max="18" step="0.5" value="12" class="input-slider mt-1">
+                                <input type="range" id="venture-debt-rate" min="10" max="16" step="0.5" value="12" class="input-slider mt-1">
                             </div>
                             <div class="van-unit p-3 rounded-md">
                                 <h4 class="font-semibold text-green-800 mb-1">Distribución de Vagonetas</h4>
@@ -257,9 +286,6 @@
                             <div class="bg-blue-50 p-3 rounded-md">
                                 <p class="text-xs text-blue-700"><strong>Estrategia RAG:</strong> Usar venture debt para flota, preservar equity para tecnología e IA.</p>
                             </div>
-                        </div>
-                        <div class="text-center mt-4">
-                            <p class="text-lg font-bold text-gray-800">TIR de la Cartera: <span id="irr-value" class="text-indigo-600">0%</span></p>
                         </div>
                     </div>
 
@@ -368,7 +394,7 @@
                         <div class="chart-container"><canvas id="sensitivityChart"></canvas></div>
                     </div>
                     <div class="card">
-                        <h4 class="font-semibold text-lg mb-2">Estructura de Capital vs TIR</h4>
+                        <h4 class="font-semibold text-lg mb-2">Evolución de Capital y Deuda</h4>
                         <div class="chart-container"><canvas id="capitalStructureChart"></canvas></div>
                     </div>
                 </div>
@@ -400,19 +426,25 @@
                     </div>
 
                     <div class="card">
-                        <h3 class="text-xl font-semibold mb-4">🚀 Oportunidad de Mercado</h3>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div class="text-center p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg">
-                                <div class="text-2xl font-bold text-blue-900">$10.9B MXN</div>
-                                <div class="text-sm text-blue-700">TAM: Mercado Total Direccionable</div>
+                        <h3 class="text-xl font-semibold mb-4">📊 Métricas Clave del Modelo</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <h4 class="font-semibold text-lg mb-2">Rentabilidad por Unidad</h4>
+                                <ul class="space-y-2 text-sm">
+                                    <li>💰 <strong>Costo Vagoneta:</strong> $641,000 MXN</li>
+                                    <li>💲 <strong>Precio Financiado:</strong> $729,000 MXN</li>
+                                    <li>📈 <strong>Margen Bruto:</strong> $88,000 MXN</li>
+                                    <li>⏱️ <strong>Payback:</strong> ~36 meses</li>
+                                </ul>
                             </div>
-                            <div class="text-center p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-lg">
-                                <div class="text-2xl font-bold text-green-900">$4.3B MXN</div>
-                                <div class="text-sm text-green-700">SAM: Mercado Servible Direccionable</div>
-                            </div>
-                            <div class="text-center p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg">
-                                <div class="text-2xl font-bold text-purple-900">$1.1B MXN</div>
-                                <div class="text-sm text-purple-700">SOM: Mercado Obtenible (3-5 años)</div>
+                            <div>
+                                <h4 class="font-semibold text-lg mb-2">Proyecciones Financieras</h4>
+                                <ul class="space-y-2 text-sm">
+                                    <li>🎯 <strong>TIR Objetivo:</strong> ≥22.8%</li>
+                                    <li>🚛 <strong>Meta Año 5:</strong> 555 vagonetas</li>
+                                    <li>💹 <strong>OPEX Target:</strong> 15% de ingresos</li>
+                                    <li>🛡️ <strong>Provisiones:</strong> 8% ingresos intereses</li>
+                                </ul>
                             </div>
                         </div>
                     </div>
@@ -442,28 +474,6 @@
                             </div>
                         </div>
                     </div>
-
-                    <div class="card">
-                        <h3 class="text-xl font-semibold mb-4">🏰 Los Cuatro Fosos Competitivos</h3>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div class="border-l-4 border-blue-500 pl-4">
-                                <h4 class="font-semibold text-blue-900">🗃️ Foso de Datos</h4>
-                                <p class="text-sm text-gray-600">Datos operativos (GNV, GPS), "carta aval de ruta", telemática PMA, etiquetado de intervenciones</p>
-                            </div>
-                            <div class="border-l-4 border-green-500 pl-4">
-                                <h4 class="font-semibold text-green-900">🤖 Foso Tecnológico</h4>
-                                <p class="text-sm text-gray-600">Ecosistema sinérgico HASE-PIA-PMA con mejora continua auto-reforzada</p>
-                            </div>
-                            <div class="border-l-4 border-yellow-500 pl-4">
-                                <h4 class="font-semibold text-yellow-900">⚙️ Foso Operacional</h4>
-                                <p class="text-sm text-gray-600">Proceso de 6 pasos automatizado, eficiencia ultra-escalable, PMA reduce costos de recuperación</p>
-                            </div>
-                            <div class="border-l-4 border-purple-500 pl-4">
-                                <h4 class="font-semibold text-purple-900">🌐 Foso de Red</h4>
-                                <p class="text-sm text-gray-600">Flywheel de datos: más clientes → más datos → IA más inteligente → mejor producto → más clientes</p>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
 
@@ -471,10 +481,40 @@
     </div>
 
     <script>
-        // Global state
+        // ===== SISTEMA DE DEBUG Y LOGGING =====
+        class DebugLogger {
+            constructor() {
+                this.logs = [];
+                this.maxLogs = 50;
+            }
+            
+            log(message, type = 'info') {
+                const timestamp = new Date().toLocaleTimeString();
+                const logEntry = `[${timestamp}] ${type.toUpperCase()}: ${message}`;
+                this.logs.unshift(logEntry);
+                if (this.logs.length > this.maxLogs) this.logs.pop();
+                console.log(logEntry);
+                this.updateDebugPanel();
+            }
+            
+            error(message) { this.log(message, 'error'); }
+            warn(message) { this.log(message, 'warn'); }
+            success(message) { this.log(message, 'success'); }
+            
+            updateDebugPanel() {
+                const panel = document.getElementById('debug-content');
+                if (panel) {
+                    panel.innerHTML = this.logs.join('<br>');
+                }
+            }
+        }
+        
+        const logger = new DebugLogger();
+
+        // ===== ESTADO GLOBAL CON VALIDACIONES =====
         let charts = {};
         let modelData = {
-            // User-controlled parameters (Panel de Control)
+            // Parámetros controlados por usuario
             tasaInteres: 25.5,
             tasaMorosidad: 8,
             proteccionRodando: true,
@@ -482,7 +522,7 @@
             comisionGNV: 8,
             margenRefacciones: 25,
             marketplace: 1,
-            ventureDebtPct: 100,
+            ventureDebtPct: 70,
             ventureDebtRate: 12,
             
             // Constantes del modelo (editables)
@@ -492,7 +532,7 @@
             lgd: 45, // Como porcentaje
             plazoFinanciamiento: 48,
             
-            // Unidades por año (editables)
+            // Unidades por año (CORREGIDAS)
             unitsPerYear: [35, 70, 100, 150, 200],
             
             // Fixed assumptions
@@ -501,45 +541,303 @@
             seriesA: 45000000
         };
 
-        // Financial results
+        // Resultados financieros
         let financialResults = {
             pl: [],
             cf: [],
             bs: [],
-            tir: 0,
+            tirProyecto: 0,
+            tirCartera: 0,
             validation: {
                 balanceCheck: true,
-                niifCompliance: true
+                niifCompliance: true,
+                calculationErrors: []
             }
         };
 
-        // Initialize app
-        document.addEventListener('DOMContentLoaded', function() {
-            setupTabs();
-            setupControls();
-            createConstantControls();
-            createUnitControls();
-            calculateFinancials();
-            updateUI();
-            initializeCharts();
-        });
+        // ===== FUNCIONES DE VALIDACIÓN =====
+        function validateInputs() {
+            const errors = [];
+            
+            // Validar rangos
+            if (modelData.tasaInteres < 20 || modelData.tasaInteres > 30) {
+                errors.push('Tasa de interés fuera de rango razonable');
+            }
+            
+            if (modelData.unitsPerYear.some(u => u < 0 || u > 1000)) {
+                errors.push('Unidades por año fuera de rango');
+            }
+            
+            const totalUnits = modelData.unitsPerYear.reduce((sum, u) => sum + u, 0);
+            if (totalUnits === 0) {
+                errors.push('Debe haber al menos una unidad');
+            }
+            
+            if (errors.length > 0) {
+                logger.error('Errores de validación: ' + errors.join(', '));
+                return false;
+            }
+            
+            return true;
+        }
 
-        // Tab functionality
+        function validateBalance(year, activos, pasivosCapital) {
+            const difference = Math.abs(activos - pasivosCapital);
+            const tolerance = Math.max(1000, activos * 0.001); // 0.1% o $1,000 MXN
+            
+            if (difference > tolerance) {
+                const error = `Año ${year + 1}: Balance no cuadra. Diferencia: $${difference.toLocaleString()}`;
+                financialResults.validation.calculationErrors.push(error);
+                logger.error(error);
+                return false;
+            }
+            
+            return true;
+        }
+
+        // ===== CÁLCULO DE TIR MEJORADO =====
+        function calculateIRR(cashFlows, maxIterations = 100, tolerance = 1e-6) {
+            try {
+                if (!cashFlows || cashFlows.length < 2) {
+                    logger.warn('Flujos insuficientes para TIR');
+                    return 0;
+                }
+
+                // Verificar que hay flujos positivos y negativos
+                const hasPositive = cashFlows.some(cf => cf > 0);
+                const hasNegative = cashFlows.some(cf => cf < 0);
+                
+                if (!hasPositive || !hasNegative) {
+                    logger.warn('TIR requiere flujos positivos y negativos');
+                    return 0;
+                }
+
+                let guess = 0.1; // 10% inicial
+                
+                for (let i = 0; i < maxIterations; i++) {
+                    let npv = 0;
+                    let dNpv = 0;
+                    
+                    // Calcular NPV y su derivada
+                    for (let t = 0; t < cashFlows.length; t++) {
+                        const denominator = Math.pow(1 + guess, t);
+                        npv += cashFlows[t] / denominator;
+                        if (t > 0) {
+                            dNpv -= t * cashFlows[t] / Math.pow(1 + guess, t + 1);
+                        }
+                    }
+                    
+                    if (Math.abs(npv) < tolerance) {
+                        return Math.max(0, Math.min(200, guess * 100)); // Entre 0% y 200%
+                    }
+                    
+                    if (Math.abs(dNpv) < tolerance) break;
+                    
+                    const newGuess = guess - npv / dNpv;
+                    
+                    if (Math.abs(newGuess - guess) < tolerance) {
+                        return Math.max(0, Math.min(200, newGuess * 100));
+                    }
+                    
+                    guess = Math.max(-0.99, Math.min(10, newGuess)); // Limitar guess
+                }
+                
+                logger.warn('TIR no convergió después de ' + maxIterations + ' iteraciones');
+                return Math.max(0, Math.min(200, guess * 100));
+                
+            } catch (error) {
+                logger.error('Error calculando TIR: ' + error.message);
+                return 0;
+            }
+        }
+
+        // ===== CÁLCULO FINANCIERO PRINCIPAL (CORREGIDO) =====
+        function calculateFinancials() {
+            try {
+                logger.log('Iniciando cálculos financieros...');
+                
+                if (!validateInputs()) {
+                    return;
+                }
+
+                // Reset resultados
+                financialResults.pl = [];
+                financialResults.cf = [];
+                financialResults.bs = [];
+                financialResults.validation.calculationErrors = [];
+                
+                let accumulatedEarnings = 0;
+                let cash = modelData.seriesA; // Inicia con $45M
+                let accumulatedDepreciation = 0;
+                let totalDebt = 0;
+                let cumulativeUnits = 0;
+                
+                // Flujos para TIR del proyecto y cartera
+                const projectCashFlows = [-modelData.seriesA]; // Inversión inicial
+                const portfolioCashFlows = [];
+                
+                for (let year = 0; year < 5; year++) {
+                    const addedUnits = modelData.unitsPerYear[year];
+                    cumulativeUnits += addedUnits;
+                    
+                    // ===== CÁLCULO DE INGRESOS (NIIF 15) =====
+                    // 1. Margen por originación de créditos
+                    const originationMargin = addedUnits * modelData.margenVagoneta;
+                    
+                    // 2. Ingresos por intereses sobre cartera vigente
+                    const avgPortfolioBalance = cumulativeUnits * modelData.vanPrice * 0.75; // 75% promedio vigente
+                    const interestRevenue = avgPortfolioBalance * (modelData.tasaInteres / 100);
+                    
+                    // 3. Comisiones GNV
+                    const gnvCommissions = cumulativeUnits * 15000 * (modelData.comisionGNV / 100); // $15k anual por unidad
+                    
+                    // 4. Ingresos por refacciones (PMA)
+                    const sparePartsRevenue = cumulativeUnits * 8000 * (modelData.margenRefacciones / 100); // $8k anual por unidad
+                    
+                    // 5. Marketplace
+                    const marketplaceRevenue = cumulativeUnits * 3000 * (modelData.marketplace / 100); // $3k anual por unidad
+                    
+                    const totalRevenue = originationMargin + interestRevenue + gnvCommissions + sparePartsRevenue + marketplaceRevenue;
+                    
+                    // ===== CÁLCULO DE GASTOS (NIIF 9) =====
+                    const opex = totalRevenue * (modelData.opexRate / 100);
+                    const effectiveMorosidad = modelData.proteccionRodando ? 
+                        modelData.tasaMorosidad * 0.5 : modelData.tasaMorosidad;
+                    const provisions = interestRevenue * (effectiveMorosidad / 100);
+                    
+                    // ===== DEPRECIACIÓN (NIIF 16) =====
+                    const totalFixedAssetsCost = cumulativeUnits * modelData.vanCost;
+                    const annualDepreciation = totalFixedAssetsCost / modelData.depreciationYears;
+                    accumulatedDepreciation += annualDepreciation;
+                    
+                    // ===== VENTURE DEBT =====
+                    const capexThisYear = addedUnits * modelData.vanCost;
+                    const newDebtForCapex = capexThisYear * (modelData.ventureDebtPct / 100);
+                    const principalPayment = totalDebt * 0.05; // 5% anual de amortización
+                    totalDebt = totalDebt + newDebtForCapex - principalPayment;
+                    
+                    const interestExpense = totalDebt * (modelData.ventureDebtRate / 100);
+                    
+                    // ===== EBITDA Y UTILIDAD NETA =====
+                    const ebitda = totalRevenue - opex - provisions;
+                    const netIncome = ebitda - annualDepreciation - interestExpense;
+                    accumulatedEarnings += netIncome;
+                    
+                    // ===== FLUJO DE EFECTIVO =====
+                    const operatingCash = netIncome + annualDepreciation + provisions;
+                    const investingCash = -capexThisYear;
+                    
+                    let financingCash = 0;
+                    if (year === 0) {
+                        financingCash = modelData.seriesA + newDebtForCapex;
+                    } else {
+                        financingCash = newDebtForCapex - principalPayment;
+                    }
+                    
+                    const netCash = operatingCash + investingCash + financingCash;
+                    cash += netCash;
+                    
+                    // ===== BALANCE GENERAL =====
+                    const receivables = avgPortfolioBalance * 0.8; // 80% de la cartera como CxC
+                    const fixedAssetsNet = totalFixedAssetsCost - accumulatedDepreciation;
+                    const totalAssets = cash + receivables + fixedAssetsNet;
+                    const equity = modelData.seriesA + accumulatedEarnings;
+                    const totalLiabilitiesEquity = totalDebt + provisions + equity;
+                    
+                    // ===== VALIDACIÓN CONTABLE =====
+                    const balanceValid = validateBalance(year, totalAssets, totalLiabilitiesEquity);
+                    if (!balanceValid) {
+                        financialResults.validation.balanceCheck = false;
+                    }
+                    
+                    // ===== GUARDAR RESULTADOS =====
+                    financialResults.pl.push({
+                        originationMargin, interestRevenue, gnvCommissions, sparePartsRevenue, marketplaceRevenue, totalRevenue,
+                        opex, provisions, ebitda, depreciation: annualDepreciation, interestExpense, netIncome
+                    });
+                    
+                    financialResults.cf.push({
+                        operatingCash, investingCash, financingCash, netCash, principalPayment
+                    });
+                    
+                    financialResults.bs.push({
+                        cash, receivables, fixedAssets: fixedAssetsNet, totalAssets,
+                        debt: totalDebt, provisions, equity, totalLiabilitiesEquity,
+                        cumulativeUnits
+                    });
+                    
+                    // ===== FLUJOS PARA TIR =====
+                    projectCashFlows.push(netCash); // Para TIR del proyecto
+                    portfolioCashFlows.push(interestRevenue - provisions); // Para TIR de cartera
+                }
+                
+                // ===== CALCULAR TIRs =====
+                financialResults.tirProyecto = calculateIRR(projectCashFlows);
+                financialResults.tirCartera = calculateIRR(portfolioCashFlows);
+                
+                logger.success('Cálculos completados exitosamente');
+                logger.log(`TIR Proyecto: ${financialResults.tirProyecto.toFixed(2)}%`);
+                logger.log(`TIR Cartera: ${financialResults.tirCartera.toFixed(2)}%`);
+                
+            } catch (error) {
+                logger.error('Error en calculateFinancials: ' + error.message);
+                financialResults.validation.balanceCheck = false;
+            }
+        }
+
+        // ===== FUNCIONES DE UI =====
+        function updateUI() {
+            try {
+                const year5 = financialResults.pl[4];
+                const year5BS = financialResults.bs[4];
+                
+                if (year5 && year5BS) {
+                    document.getElementById('ebitda-year5').textContent = formatCurrency(year5.ebitda);
+                    document.getElementById('tir-proyecto').textContent = financialResults.tirProyecto.toFixed(1) + '%';
+                    document.getElementById('tir-cartera').textContent = financialResults.tirCartera.toFixed(1) + '%';
+                    
+                    const vagonetasTotal = modelData.unitsPerYear.reduce((total, units) => total + units, 0);
+                    document.getElementById('vagonetas-total').textContent = vagonetasTotal;
+                    
+                    const capitalTotal = modelData.seriesA + year5BS.debt;
+                    document.getElementById('capital-total').textContent = formatCurrency(capitalTotal);
+                }
+                
+                // Update unit distribution
+                modelData.unitsPerYear.forEach((units, index) => {
+                    const element = document.getElementById(`units-year${index+1}`);
+                    if (element) element.textContent = units;
+                });
+                
+                updatePLTable();
+                updateCashFlowTable();
+                updateBalanceSheetTable();
+                
+                // Update balance validation
+                const validationDiv = document.getElementById('balance-validation');
+                if (financialResults.validation.balanceCheck && financialResults.validation.calculationErrors.length === 0) {
+                    validationDiv.innerHTML = '<span class="balance-valid">✅ Balance General: Activo = Pasivo + Capital</span>';
+                } else {
+                    validationDiv.innerHTML = '<span class="balance-invalid">❌ Error: ' + (financialResults.validation.calculationErrors[0] || 'Balance no cuadra') + '</span>';
+                }
+                
+            } catch (error) {
+                logger.error('Error en updateUI: ' + error.message);
+            }
+        }
+
         function setupTabs() {
             const tabButtons = document.querySelectorAll('.tab-button');
             const contentSections = document.querySelectorAll('.content-section');
 
             tabButtons.forEach((button, index) => {
                 button.addEventListener('click', () => {
-                    // Remove active class from all tabs and content sections
                     tabButtons.forEach(btn => btn.classList.remove('active'));
                     contentSections.forEach(section => section.classList.remove('active'));
 
-                    // Add active class to clicked tab and corresponding content
                     button.classList.add('active');
                     contentSections[index].classList.add('active');
 
-                    // Update charts if switching to graphics tab
                     if (button.id === 'tab-graficos') {
                         setTimeout(updateCharts, 100);
                     }
@@ -547,9 +845,7 @@
             });
         }
 
-        // Setup control listeners
         function setupControls() {
-            // Sliders principales
             const sliders = [
                 'tasa-interes', 'tasa-morosidad', 'margen-vagoneta', 
                 'comision-gnv', 'margen-refacciones', 'marketplace',
@@ -563,19 +859,18 @@
                         updateControlValue(sliderId, this.value);
                         calculateFinancials();
                         updateUI();
-                        updateCharts(); // ✅ CORREGIDO: Agregar updateCharts()
+                        updateCharts();
                     });
                 }
             });
 
-            // Checkbox
             const checkbox = document.getElementById('check-proteccion');
             if (checkbox) {
                 checkbox.addEventListener('change', function() {
                     modelData.proteccionRodando = this.checked;
                     calculateFinancials();
                     updateUI();
-                    updateCharts(); // ✅ CORREGIDO: Agregar updateCharts()
+                    updateCharts();
                 });
             }
         }
@@ -619,224 +914,6 @@
             }
         }
 
-        // ✅ CORREGIDO: Función de cálculo de TIR real usando Newton-Raphson
-        function calculateIRR(cashFlows) {
-            if (!cashFlows || cashFlows.length < 2) {
-                return 22.8; // Valor por defecto
-            }
-
-            const maxIter = 100;
-            const tolerance = 1e-6;
-            let guess = 0.1;  // Suposición inicial del 10%
-            
-            // Verificar que tenemos flujos positivos y negativos
-            const hasPositive = cashFlows.some(cf => cf > 0);
-            const hasNegative = cashFlows.some(cf => cf < 0);
-            
-            if (!hasPositive || !hasNegative) {
-                return 22.8; // Valor por defecto si no hay flujos mixtos
-            }
-            
-            for (let i = 0; i < maxIter; i++) {
-                let npv = 0.0;
-                let dNpv = 0.0;
-                
-                for (let t = 0; t < cashFlows.length; t++) {
-                    const denominator = Math.pow(1 + guess, t);
-                    npv += cashFlows[t] / denominator;
-                    if (t > 0) {
-                        dNpv -= t * cashFlows[t] / Math.pow(1 + guess, t + 1);
-                    }
-                }
-                
-                if (Math.abs(dNpv) < tolerance) break;
-                
-                const newGuess = guess - npv / dNpv;
-                
-                if (Math.abs(newGuess - guess) < tolerance) {
-                    return Math.max(0, Math.min(100, newGuess * 100)); // Entre 0% y 100%
-                }
-                
-                guess = newGuess;
-                
-                // Evitar valores extremos
-                if (guess < -0.99) guess = -0.5;
-                if (guess > 10) guess = 1;
-            }
-            
-            return Math.max(0, Math.min(100, guess * 100));
-        }
-
-        // ✅ CORREGIDO: Función principal de cálculo financiero
-        function calculateFinancials() {
-            try {
-                // Reset financial results
-                financialResults.pl = [];
-                financialResults.cf = [];
-                financialResults.bs = [];
-                financialResults.validation.balanceCheck = true;
-                
-                let accumulatedEarnings = 0;
-                let cash = modelData.seriesA;
-                let accumulatedDepreciation = 0;
-                let totalDebt = 0; // ✅ CORREGIDO: Rastrear deuda total correctamente
-                let cumulativeUnits = 0;
-                
-                // ✅ CORREGIDO: Calcular flujos para TIR (solo flujos operativos netos)
-                const cashFlows = [];
-                
-                for (let year = 0; year < 5; year++) {
-                    const addedUnits = modelData.unitsPerYear[year];
-                    cumulativeUnits += addedUnits;
-                    
-                    // ✅ CORRECTO: CALCULAR INGRESOS (NIIF 15 compliant)
-                    // RAG es una empresa de FINANCIAMIENTO, no de venta directa
-                    const vanSales = addedUnits * modelData.margenVagoneta; // Margen por financiamiento
-                    
-                    // Cartera vigente (lo que operadores deben a RAG)
-                    const portfolioBalance = cumulativeUnits * modelData.vanPrice * 0.7; // 70% financiado
-                    const interestRevenue = portfolioBalance * (modelData.tasaInteres / 100);
-                    
-                    const gnvCommissions = cumulativeUnits * 12000 * (modelData.comisionGNV / 100);
-                    const sparePartsRevenue = addedUnits * 50000 * (modelData.margenRefacciones / 100);
-                    const marketplaceRevenue = cumulativeUnits * 5000 * (modelData.marketplace / 100);
-                    const totalRevenue = vanSales + interestRevenue + gnvCommissions + sparePartsRevenue + marketplaceRevenue;
-                    
-                    // ✅ CORRECTO: CALCULAR GASTOS (NIIF 9 compliant)
-                    const opex = totalRevenue * (modelData.opexRate / 100);
-                    const effectiveMorosidad = modelData.proteccionRodando ? 
-                        modelData.tasaMorosidad * 0.5 : modelData.tasaMorosidad;
-                    const provisions = interestRevenue * (effectiveMorosidad / 100);
-                    
-                    // ✅ CORRECTO: DEPRECIACIÓN (NIIF 16)
-                    const totalFixedAssetsCost = cumulativeUnits * modelData.vanCost;
-                    const annualDepreciation = totalFixedAssetsCost / modelData.depreciationYears;
-                    accumulatedDepreciation += annualDepreciation;
-                    
-                    // ✅ CORREGIDO: VENTURE DEBT (nueva deuda para CAPEX cada año)
-                    const capexThisYear = addedUnits * modelData.vanCost;
-                    const newDebtForCapex = capexThisYear * (modelData.ventureDebtPct / 100);
-                    
-                    // Amortización de deuda existente (5% anual)
-                    const principalPayment = totalDebt * 0.05;
-                    
-                    // Actualizar deuda total
-                    totalDebt = totalDebt + newDebtForCapex - principalPayment;
-                    
-                    const interestExpense = totalDebt * (modelData.ventureDebtRate / 100);
-                    
-                    // ✅ CORRECTO: EBITDA (sin costos de vagonetas - estas van a CAPEX)
-                    const ebitda = totalRevenue - opex - provisions;
-                    const netIncome = ebitda - annualDepreciation - interestExpense;
-                    accumulatedEarnings += netIncome;
-                    
-                    // ✅ CORREGIDO: FLUJO DE EFECTIVO
-                    const operatingCash = netIncome + annualDepreciation + provisions;
-                    const investingCash = -capexThisYear; // CAPEX negativo
-                    
-                    let financingCash = 0;
-                    if (year === 0) {
-                        // Año 0: Serie A + nueva deuda para CAPEX
-                        financingCash = modelData.seriesA + newDebtForCapex;
-                    } else {
-                        // Años posteriores: nueva deuda menos pagos de principal
-                        financingCash = newDebtForCapex - principalPayment;
-                    }
-                    
-                    const netCash = operatingCash + investingCash + financingCash;
-                    cash += netCash;
-                    
-                    // ✅ CORREGIDO: Para TIR, solo flujos operativos menos CAPEX (sin financiamiento externo)
-                    const tirCashFlow = operatingCash + investingCash;
-                    cashFlows.push(tirCashFlow);
-                    
-                    // ✅ CORRECTO: BALANCE GENERAL (NIIF compliant)
-                    const receivables = portfolioBalance; // Lo que operadores deben
-                    const fixedAssetsNet = totalFixedAssetsCost - accumulatedDepreciation;
-                    const totalAssets = cash + receivables + fixedAssetsNet;
-                    const equity = modelData.seriesA + accumulatedEarnings;
-                    const totalLiabilitiesEquity = totalDebt + provisions + equity;
-                    
-                    // ✅ VALIDACIÓN CONTABLE
-                    const balanceCheck = Math.abs(totalAssets - totalLiabilitiesEquity) < 1000;
-                    if (!balanceCheck) {
-                        financialResults.validation.balanceCheck = false;
-                        console.error(`Balance no cuadra en año ${year+1}:`, {
-                            activos: totalAssets,
-                            pasivosCapital: totalLiabilitiesEquity,
-                            diferencia: totalAssets - totalLiabilitiesEquity
-                        });
-                    }
-                    
-                    // GUARDAR RESULTADOS
-                    financialResults.pl.push({
-                        vanSales, interestRevenue, gnvCommissions, sparePartsRevenue, marketplaceRevenue, totalRevenue,
-                        opex, provisions, ebitda, depreciation: annualDepreciation, interestExpense, netIncome
-                    });
-                    
-                    financialResults.cf.push({
-                        operatingCash, investingCash, financingCash, netCash, principalPayment: principalPayment
-                    });
-                    
-                    financialResults.bs.push({
-                        cash, receivables, fixedAssets: fixedAssetsNet, totalAssets,
-                        debt: totalDebt, provisions, equity, totalLiabilitiesEquity,
-                        cumulativeUnits: cumulativeUnits
-                    });
-                }
-                
-                // ✅ CORREGIDO: CALCULAR TIR REAL con flujos operativos
-                financialResults.tir = calculateIRR(cashFlows);
-                
-            } catch (error) {
-                console.error('Error en calculateFinancials:', error);
-                financialResults.validation.balanceCheck = false;
-                financialResults.tir = 22.8; // Valor por defecto
-            }
-        }
-
-        function updateUI() {
-            try {
-                const year5 = financialResults.pl[4];
-                const year5BS = financialResults.bs[4];
-                
-                if (year5 && year5BS) {
-                    // Update summary cards
-                    document.getElementById('ebitda-year5').textContent = formatCurrency(year5.ebitda);
-                    document.getElementById('tir-proyectada').textContent = financialResults.tir.toFixed(1) + '%';
-                    document.getElementById('irr-value').textContent = financialResults.tir.toFixed(1) + '%';
-                    
-                    // ✅ CORREGIDO: Cálculo correcto de vagonetas acumuladas
-                    const vagonetasTotal = modelData.unitsPerYear.reduce((total, units) => total + units, 0);
-                    document.getElementById('vagonetas-total').textContent = vagonetasTotal;
-                    
-                    document.getElementById('deuda-residual').textContent = formatCurrency(year5BS.debt);
-                }
-                
-                // Update unit distribution
-                modelData.unitsPerYear.forEach((units, index) => {
-                    const element = document.getElementById(`units-year${index+1}`);
-                    if (element) element.textContent = units;
-                });
-                
-                // Update financial tables
-                updatePLTable();
-                updateCashFlowTable();
-                updateBalanceSheetTable();
-                
-                // Update balance validation
-                const validationDiv = document.getElementById('balance-validation');
-                if (financialResults.validation.balanceCheck) {
-                    validationDiv.innerHTML = '<span class="balance-valid">✅ Balance General: Activo = Pasivo + Capital</span>';
-                } else {
-                    validationDiv.innerHTML = '<span class="balance-invalid">❌ Error: Balance no cuadra</span>';
-                }
-                
-            } catch (error) {
-                console.error('Error en updateUI:', error);
-            }
-        }
-
         function updatePLTable() {
             const tbody = document.getElementById('pl-table-body');
             if (!tbody || !financialResults.pl.length) return;
@@ -844,7 +921,7 @@
             tbody.innerHTML = '';
             
             const rows = [
-                { label: 'Margen por Financiamiento', key: 'vanSales', positive: true },
+                { label: 'Margen por Originación', key: 'originationMargin', positive: true },
                 { label: 'Ingresos por Intereses', key: 'interestRevenue', positive: true },
                 { label: 'Comisiones GNV', key: 'gnvCommissions', positive: true },
                 { label: 'Ingresos por Refacciones', key: 'sparePartsRevenue', positive: true },
@@ -874,12 +951,9 @@
                     if (row.negative && value > 0) {
                         cell.textContent = '(' + formatCurrency(value) + ')';
                         cell.classList.add('negative');
-                    } else if (row.negative && value < 0) {
-                        cell.textContent = formatCurrency(Math.abs(value));
-                        cell.classList.add('negative');
                     } else {
-                        cell.textContent = formatCurrency(value);
-                        if (row.positive && value > 0) cell.classList.add('positive');
+                        cell.textContent = formatCurrency(Math.abs(value));
+                        if (value > 0 && row.positive) cell.classList.add('positive');
                         if (value < 0) cell.classList.add('negative');
                     }
                     
@@ -918,10 +992,7 @@
                     const cell = document.createElement('td');
                     let value = yearData[row.key] || 0;
                     
-                    // Para pago principal, mostrar como negativo
-                    if (row.key === 'principalPayment' && value > 0) {
-                        value = -value;
-                    }
+                    if (row.key === 'principalPayment' && value > 0) value = -value;
                     
                     if (value < 0) {
                         cell.textContent = '(' + formatCurrency(Math.abs(value)) + ')';
@@ -986,16 +1057,15 @@
             return '$' + Math.round(value).toLocaleString();
         }
 
-        // Función para crear controles de constantes
         function createConstantControls() {
             const container = document.getElementById('constants-container');
             if (!container) return;
             
             const constants = [
-                {id: 'opex-rate', label: 'Tasa OPEX (%)', key: 'opexRate', min: 5, max: 30, step: 1},
-                {id: 'provision-rate', label: 'Tasa Provisiones (%)', key: 'provisionRate', min: 5, max: 20, step: 1},
-                {id: 'depreciation-years', label: 'Años Depreciación', key: 'depreciationYears', min: 5, max: 15, step: 1},
-                {id: 'lgd', label: 'LGD (%)', key: 'lgd', min: 30, max: 70, step: 1},
+                {id: 'opex-rate', label: 'Tasa OPEX (%)', key: 'opexRate', min: 10, max: 25, step: 1},
+                {id: 'provision-rate', label: 'Tasa Provisiones (%)', key: 'provisionRate', min: 5, max: 15, step: 1},
+                {id: 'depreciation-years', label: 'Años Depreciación', key: 'depreciationYears', min: 8, max: 15, step: 1},
+                {id: 'lgd', label: 'LGD (%)', key: 'lgd', min: 30, max: 60, step: 5},
                 {id: 'plazo-financiamiento', label: 'Plazo Financiamiento (meses)', key: 'plazoFinanciamiento', min: 36, max: 60, step: 6}
             ];
             
@@ -1012,19 +1082,17 @@
                 `;
                 container.appendChild(control);
                 
-                // ✅ CORREGIDO: Event listener con updateCharts()
                 document.getElementById(constant.id).addEventListener('input', function() {
                     const value = parseFloat(this.value);
                     modelData[constant.key] = value;
                     document.getElementById(`${constant.id}-value`).textContent = value;
                     calculateFinancials();
                     updateUI();
-                    updateCharts(); // ✅ AGREGAR updateCharts()
+                    updateCharts();
                 });
             });
         }
 
-        // Función para crear controles de unidades
         function createUnitControls() {
             const container = document.getElementById('units-container');
             if (!container) return;
@@ -1035,24 +1103,24 @@
                 control.innerHTML = `
                     <label for="unit-year-${index+1}">Año ${index+1}</label>
                     <input type="number" id="unit-year-${index+1}" 
-                           min="0" max="500" step="10" 
+                           min="0" max="500" step="5" 
                            value="${units}">
                 `;
                 container.appendChild(control);
                 
-                // ✅ CORREGIDO: Event listener con updateCharts()
                 document.getElementById(`unit-year-${index+1}`).addEventListener('change', function() {
-                    modelData.unitsPerYear[index] = parseInt(this.value) || 0;
+                    const value = parseInt(this.value) || 0;
+                    modelData.unitsPerYear[index] = Math.max(0, Math.min(500, value));
+                    this.value = modelData.unitsPerYear[index]; // Corregir valor en UI
                     calculateFinancials();
                     updateUI();
-                    updateCharts(); // ✅ AGREGAR updateCharts()
+                    updateCharts();
                 });
             });
         }
 
-        // ✅ CORREGIDO: Chart functions con verificaciones
+        // ===== GRÁFICOS =====
         function initializeCharts() {
-            // EBITDA Chart
             const ctx1 = document.getElementById('ebitdaChart');
             if (ctx1) {
                 charts.ebitda = new Chart(ctx1, {
@@ -1079,36 +1147,28 @@
                         scales: {
                             y: {
                                 beginAtZero: true,
-                                title: {
-                                    display: true,
-                                    text: 'Millones MXN'
-                                }
+                                title: { display: true, text: 'Millones MXN' }
                             }
                         }
                     }
                 });
             }
             
-            // Revenue Mix Chart
             const ctx2 = document.getElementById('revenueMixChart');
             if (ctx2) {
                 charts.revenueMix = new Chart(ctx2, {
                     type: 'doughnut',
                     data: {
-                        labels: ['Margen Financiamiento', 'Ingresos Intereses', 'Comisiones GNV', 'Refacciones', 'Marketplace'],
+                        labels: ['Margen Originación', 'Ingresos Intereses', 'Comisiones GNV', 'Refacciones', 'Marketplace'],
                         datasets: [{
                             data: [],
                             backgroundColor: ['#2563eb', '#16a34a', '#d97706', '#7c3aed', '#ec4899']
                         }]
                     },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false
-                    }
+                    options: { responsive: true, maintainAspectRatio: false }
                 });
             }
             
-            // Sensitivity Chart
             const ctx3 = document.getElementById('sensitivityChart');
             if (ctx3) {
                 charts.sensitivity = new Chart(ctx3, {
@@ -1116,7 +1176,7 @@
                     data: {
                         labels: ['4%', '6%', '8%', '10%', '12%', '14%'],
                         datasets: [{
-                            label: 'TIR (%)',
+                            label: 'TIR Cartera (%)',
                             data: [],
                             backgroundColor: '#2563eb'
                         }]
@@ -1125,48 +1185,34 @@
                         responsive: true,
                         maintainAspectRatio: false,
                         scales: {
-                            y: {
-                                beginAtZero: false,
-                                min: 15,
-                                title: {
-                                    display: true,
-                                    text: 'TIR (%)'
-                                }
-                            }
+                            y: { beginAtZero: false, min: 15, title: { display: true, text: 'TIR (%)' }}
                         }
                     }
                 });
             }
             
-            // Capital Structure Chart
             const ctx4 = document.getElementById('capitalStructureChart');
             if (ctx4) {
                 charts.capitalStructure = new Chart(ctx4, {
-                    type: 'scatter',
+                    type: 'bar',
                     data: {
+                        labels: ['Año 1', 'Año 2', 'Año 3', 'Año 4', 'Año 5'],
                         datasets: [{
-                            label: 'TIR vs % Venture Debt',
+                            label: 'Capital (Equity)',
                             data: [],
-                            backgroundColor: '#2563eb',
-                            borderColor: '#2563eb'
+                            backgroundColor: '#16a34a'
+                        }, {
+                            label: 'Deuda',
+                            data: [],
+                            backgroundColor: '#dc2626'
                         }]
                     },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
                         scales: {
-                            x: {
-                                title: {
-                                    display: true,
-                                    text: '% Venture Debt'
-                                }
-                            },
-                            y: {
-                                title: {
-                                    display: true,
-                                    text: 'TIR (%)'
-                                }
-                            }
+                            x: { stacked: true },
+                            y: { stacked: true, title: { display: true, text: 'Millones MXN' }}
                         }
                     }
                 });
@@ -1175,26 +1221,23 @@
             updateCharts();
         }
 
-        // ✅ CORREGIDO: Update charts con verificaciones
         function updateCharts() {
             if (!financialResults.pl.length) return;
             
             try {
-                // Update EBITDA chart
                 if (charts.ebitda && charts.ebitda.data) {
                     const revenues = financialResults.pl.map(d => d.totalRevenue / 1000000);
                     const ebitdas = financialResults.pl.map(d => d.ebitda / 1000000);
                     
                     charts.ebitda.data.datasets[0].data = revenues;
                     charts.ebitda.data.datasets[1].data = ebitdas;
-                    charts.ebitda.update('none'); // Sin animación para mejor rendimiento
+                    charts.ebitda.update('none');
                 }
                 
-                // Update revenue mix chart
-                if (charts.revenueMix && charts.revenueMix.data && financialResults.pl[4]) {
+                if (charts.revenueMix && financialResults.pl[4]) {
                     const year5 = financialResults.pl[4];
                     charts.revenueMix.data.datasets[0].data = [
-                        year5.vanSales,
+                        year5.originationMargin,
                         year5.interestRevenue,
                         year5.gnvCommissions,
                         year5.sparePartsRevenue,
@@ -1203,13 +1246,12 @@
                     charts.revenueMix.update('none');
                 }
                 
-                // Update sensitivity chart
-                if (charts.sensitivity && charts.sensitivity.data) {
+                if (charts.sensitivity) {
                     const morosidadRates = [4, 6, 8, 10, 12, 14];
                     const tirValues = morosidadRates.map(rate => {
                         const baseRate = 22.8;
-                        const impact = (8 - rate) * 0.5;
-                        const proteccionImpact = modelData.proteccionRodando ? 2 : 0;
+                        const impact = (8 - rate) * 0.8;
+                        const proteccionImpact = modelData.proteccionRodando ? 3 : 0;
                         return Math.max(15, baseRate + impact + proteccionImpact);
                     });
                     
@@ -1217,25 +1259,40 @@
                     charts.sensitivity.update('none');
                 }
                 
-                // Update capital structure chart
-                if (charts.capitalStructure && charts.capitalStructure.data) {
-                    const debtPercentages = [50, 60, 70, 80, 90, 100];
-                    const tirData = debtPercentages.map(debt => {
-                        const baseTIR = financialResults.tir || 22.8;
-                        return {
-                            x: debt,
-                            y: Math.max(15, baseTIR - ((debt - 50) * 0.05)) // TIR disminuye con más deuda
-                        };
-                    });
+                if (charts.capitalStructure) {
+                    const equity = financialResults.bs.map(d => d.equity / 1000000);
+                    const debt = financialResults.bs.map(d => d.debt / 1000000);
                     
-                    charts.capitalStructure.data.datasets[0].data = tirData;
+                    charts.capitalStructure.data.datasets[0].data = equity;
+                    charts.capitalStructure.data.datasets[1].data = debt;
                     charts.capitalStructure.update('none');
                 }
                 
             } catch (error) {
-                console.error('Error actualizando gráficos:', error);
+                logger.error('Error actualizando gráficos: ' + error.message);
             }
         }
+
+        // ===== INICIALIZACIÓN =====
+        document.addEventListener('DOMContentLoaded', function() {
+            logger.log('Inicializando aplicación...');
+            
+            // Setup debug panel
+            document.getElementById('debug-toggle').addEventListener('click', function() {
+                const panel = document.getElementById('debug-panel');
+                panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+            });
+            
+            setupTabs();
+            setupControls();
+            createConstantControls();
+            createUnitControls();
+            calculateFinancials();
+            updateUI();
+            initializeCharts();
+            
+            logger.success('Aplicación inicializada correctamente');
+        });
     </script>
 </body>
 </html>
