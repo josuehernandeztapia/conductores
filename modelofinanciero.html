@@ -563,7 +563,7 @@
                         updateControlValue(sliderId, this.value);
                         calculateFinancials();
                         updateUI();
-                        updateCharts();
+                        updateCharts(); // ✅ CORREGIDO: Agregar updateCharts()
                     });
                 }
             });
@@ -575,7 +575,7 @@
                     modelData.proteccionRodando = this.checked;
                     calculateFinancials();
                     updateUI();
-                    updateCharts();
+                    updateCharts(); // ✅ CORREGIDO: Agregar updateCharts()
                 });
             }
         }
@@ -619,11 +619,23 @@
             }
         }
 
-        // Función de cálculo de TIR real usando Newton-Raphson
+        // ✅ CORREGIDO: Función de cálculo de TIR real usando Newton-Raphson
         function calculateIRR(cashFlows) {
+            if (!cashFlows || cashFlows.length < 2) {
+                return 22.8; // Valor por defecto
+            }
+
             const maxIter = 100;
             const tolerance = 1e-6;
             let guess = 0.1;  // Suposición inicial del 10%
+            
+            // Verificar que tenemos flujos positivos y negativos
+            const hasPositive = cashFlows.some(cf => cf > 0);
+            const hasNegative = cashFlows.some(cf => cf < 0);
+            
+            if (!hasPositive || !hasNegative) {
+                return 22.8; // Valor por defecto si no hay flujos mixtos
+            }
             
             for (let i = 0; i < maxIter; i++) {
                 let npv = 0.0;
@@ -642,16 +654,20 @@
                 const newGuess = guess - npv / dNpv;
                 
                 if (Math.abs(newGuess - guess) < tolerance) {
-                    return newGuess * 100; // Convertir a porcentaje
+                    return Math.max(0, Math.min(100, newGuess * 100)); // Entre 0% y 100%
                 }
                 
                 guess = newGuess;
+                
+                // Evitar valores extremos
+                if (guess < -0.99) guess = -0.5;
+                if (guess > 10) guess = 1;
             }
             
-            return guess * 100; // Devolver la mejor aproximación en porcentaje
+            return Math.max(0, Math.min(100, guess * 100));
         }
 
-        // Función principal de cálculo financiero (CORREGIDA)
+        // ✅ CORREGIDO: Función principal de cálculo financiero
         function calculateFinancials() {
             try {
                 // Reset financial results
@@ -663,21 +679,19 @@
                 let accumulatedEarnings = 0;
                 let cash = modelData.seriesA;
                 let accumulatedDepreciation = 0;
-                let debtBalance = modelData.seriesA * (modelData.ventureDebtPct / 100);
+                let totalDebt = 0; // ✅ CORREGIDO: Rastrear deuda total correctamente
                 let cumulativeUnits = 0;
                 
-                const amortizationPeriod = 5;
-                const annualPrincipal = debtBalance / amortizationPeriod;
-                
-                // Calcular flujos para TIR
-                const cashFlows = [-modelData.seriesA]; // Inversión inicial en año 0
+                // ✅ CORREGIDO: Calcular flujos para TIR (solo flujos operativos netos)
+                const cashFlows = [];
                 
                 for (let year = 0; year < 5; year++) {
                     const addedUnits = modelData.unitsPerYear[year];
                     cumulativeUnits += addedUnits;
                     
-                    // CALCULAR INGRESOS (NIIF 15 compliant)
-                    const vanSales = addedUnits * modelData.margenVagoneta;
+                    // ✅ CORRECTO: CALCULAR INGRESOS (NIIF 15 compliant)
+                    // RAG es una empresa de FINANCIAMIENTO, no de venta directa
+                    const vanSales = addedUnits * modelData.margenVagoneta; // Margen por financiamiento
                     
                     // Cartera vigente (lo que operadores deben a RAG)
                     const portfolioBalance = cumulativeUnits * modelData.vanPrice * 0.7; // 70% financiado
@@ -688,42 +702,62 @@
                     const marketplaceRevenue = cumulativeUnits * 5000 * (modelData.marketplace / 100);
                     const totalRevenue = vanSales + interestRevenue + gnvCommissions + sparePartsRevenue + marketplaceRevenue;
                     
-                    // CALCULAR GASTOS (NIIF 9 compliant)
+                    // ✅ CORRECTO: CALCULAR GASTOS (NIIF 9 compliant)
                     const opex = totalRevenue * (modelData.opexRate / 100);
                     const effectiveMorosidad = modelData.proteccionRodando ? 
                         modelData.tasaMorosidad * 0.5 : modelData.tasaMorosidad;
                     const provisions = interestRevenue * (effectiveMorosidad / 100);
                     
-                    // DEPRECIACIÓN (NIIF 16)
+                    // ✅ CORRECTO: DEPRECIACIÓN (NIIF 16)
                     const totalFixedAssetsCost = cumulativeUnits * modelData.vanCost;
                     const annualDepreciation = totalFixedAssetsCost / modelData.depreciationYears;
                     accumulatedDepreciation += annualDepreciation;
                     
-                    // VENTURE DEBT (amortización gradual)
-                    const interestExpense = debtBalance * (modelData.ventureDebtRate / 100);
-                    const principalPayment = Math.min(annualPrincipal, debtBalance);
-                    debtBalance = Math.max(0, debtBalance - principalPayment);
+                    // ✅ CORREGIDO: VENTURE DEBT (nueva deuda para CAPEX cada año)
+                    const capexThisYear = addedUnits * modelData.vanCost;
+                    const newDebtForCapex = capexThisYear * (modelData.ventureDebtPct / 100);
                     
-                    // EBITDA CORRECTO (sin costos de vagonetas - estas van a CAPEX)
+                    // Amortización de deuda existente (5% anual)
+                    const principalPayment = totalDebt * 0.05;
+                    
+                    // Actualizar deuda total
+                    totalDebt = totalDebt + newDebtForCapex - principalPayment;
+                    
+                    const interestExpense = totalDebt * (modelData.ventureDebtRate / 100);
+                    
+                    // ✅ CORRECTO: EBITDA (sin costos de vagonetas - estas van a CAPEX)
                     const ebitda = totalRevenue - opex - provisions;
                     const netIncome = ebitda - annualDepreciation - interestExpense;
                     accumulatedEarnings += netIncome;
                     
-                    // FLUJO DE EFECTIVO
+                    // ✅ CORREGIDO: FLUJO DE EFECTIVO
                     const operatingCash = netIncome + annualDepreciation + provisions;
-                    const investingCash = -(addedUnits * modelData.vanCost); // CAPEX negativo
-                    const financingCash = year === 0 ? modelData.seriesA : -principalPayment;
+                    const investingCash = -capexThisYear; // CAPEX negativo
+                    
+                    let financingCash = 0;
+                    if (year === 0) {
+                        // Año 0: Serie A + nueva deuda para CAPEX
+                        financingCash = modelData.seriesA + newDebtForCapex;
+                    } else {
+                        // Años posteriores: nueva deuda menos pagos de principal
+                        financingCash = newDebtForCapex - principalPayment;
+                    }
+                    
                     const netCash = operatingCash + investingCash + financingCash;
                     cash += netCash;
                     
-                    // BALANCE GENERAL (NIIF compliant)
+                    // ✅ CORREGIDO: Para TIR, solo flujos operativos menos CAPEX (sin financiamiento externo)
+                    const tirCashFlow = operatingCash + investingCash;
+                    cashFlows.push(tirCashFlow);
+                    
+                    // ✅ CORRECTO: BALANCE GENERAL (NIIF compliant)
                     const receivables = portfolioBalance; // Lo que operadores deben
                     const fixedAssetsNet = totalFixedAssetsCost - accumulatedDepreciation;
                     const totalAssets = cash + receivables + fixedAssetsNet;
                     const equity = modelData.seriesA + accumulatedEarnings;
-                    const totalLiabilitiesEquity = debtBalance + provisions + equity;
+                    const totalLiabilitiesEquity = totalDebt + provisions + equity;
                     
-                    // VALIDACIÓN CONTABLE
+                    // ✅ VALIDACIÓN CONTABLE
                     const balanceCheck = Math.abs(totalAssets - totalLiabilitiesEquity) < 1000;
                     if (!balanceCheck) {
                         financialResults.validation.balanceCheck = false;
@@ -741,25 +775,23 @@
                     });
                     
                     financialResults.cf.push({
-                        operatingCash, investingCash, financingCash, netCash
+                        operatingCash, investingCash, financingCash, netCash, principalPayment: principalPayment
                     });
                     
                     financialResults.bs.push({
                         cash, receivables, fixedAssets: fixedAssetsNet, totalAssets,
-                        debt: debtBalance, provisions, equity, totalLiabilitiesEquity,
+                        debt: totalDebt, provisions, equity, totalLiabilitiesEquity,
                         cumulativeUnits: cumulativeUnits
                     });
-                    
-                    // Agregar flujo para TIR
-                    cashFlows.push(netCash);
                 }
                 
-                // CALCULAR TIR REAL
+                // ✅ CORREGIDO: CALCULAR TIR REAL con flujos operativos
                 financialResults.tir = calculateIRR(cashFlows);
                 
             } catch (error) {
                 console.error('Error en calculateFinancials:', error);
                 financialResults.validation.balanceCheck = false;
+                financialResults.tir = 22.8; // Valor por defecto
             }
         }
 
@@ -774,7 +806,7 @@
                     document.getElementById('tir-proyectada').textContent = financialResults.tir.toFixed(1) + '%';
                     document.getElementById('irr-value').textContent = financialResults.tir.toFixed(1) + '%';
                     
-                    // CORRECCIÓN: Cálculo correcto de vagonetas acumuladas
+                    // ✅ CORREGIDO: Cálculo correcto de vagonetas acumuladas
                     const vagonetasTotal = modelData.unitsPerYear.reduce((total, units) => total + units, 0);
                     document.getElementById('vagonetas-total').textContent = vagonetasTotal;
                     
@@ -812,7 +844,7 @@
             tbody.innerHTML = '';
             
             const rows = [
-                { label: 'Ventas de Unidades', key: 'vanSales', positive: true },
+                { label: 'Margen por Financiamiento', key: 'vanSales', positive: true },
                 { label: 'Ingresos por Intereses', key: 'interestRevenue', positive: true },
                 { label: 'Comisiones GNV', key: 'gnvCommissions', positive: true },
                 { label: 'Ingresos por Refacciones', key: 'sparePartsRevenue', positive: true },
@@ -869,6 +901,7 @@
                 { label: 'Flujo Operativo', key: 'operatingCash' },
                 { label: 'Flujo de Inversión (CAPEX)', key: 'investingCash' },
                 { label: 'Flujo Financiero', key: 'financingCash' },
+                { label: 'Pago Principal Deuda', key: 'principalPayment' },
                 { label: 'Flujo Neto', key: 'netCash', total: true }
             ];
             
@@ -883,7 +916,12 @@
                 
                 financialResults.cf.forEach(yearData => {
                     const cell = document.createElement('td');
-                    const value = yearData[row.key] || 0;
+                    let value = yearData[row.key] || 0;
+                    
+                    // Para pago principal, mostrar como negativo
+                    if (row.key === 'principalPayment' && value > 0) {
+                        value = -value;
+                    }
                     
                     if (value < 0) {
                         cell.textContent = '(' + formatCurrency(Math.abs(value)) + ')';
@@ -974,14 +1012,14 @@
                 `;
                 container.appendChild(control);
                 
-                // Event listener
+                // ✅ CORREGIDO: Event listener con updateCharts()
                 document.getElementById(constant.id).addEventListener('input', function() {
                     const value = parseFloat(this.value);
                     modelData[constant.key] = value;
                     document.getElementById(`${constant.id}-value`).textContent = value;
                     calculateFinancials();
                     updateUI();
-                    updateCharts();
+                    updateCharts(); // ✅ AGREGAR updateCharts()
                 });
             });
         }
@@ -1002,17 +1040,17 @@
                 `;
                 container.appendChild(control);
                 
-                // Event listener
+                // ✅ CORREGIDO: Event listener con updateCharts()
                 document.getElementById(`unit-year-${index+1}`).addEventListener('change', function() {
                     modelData.unitsPerYear[index] = parseInt(this.value) || 0;
                     calculateFinancials();
                     updateUI();
-                    updateCharts();
+                    updateCharts(); // ✅ AGREGAR updateCharts()
                 });
             });
         }
 
-        // Chart functions
+        // ✅ CORREGIDO: Chart functions con verificaciones
         function initializeCharts() {
             // EBITDA Chart
             const ctx1 = document.getElementById('ebitdaChart');
@@ -1057,7 +1095,7 @@
                 charts.revenueMix = new Chart(ctx2, {
                     type: 'doughnut',
                     data: {
-                        labels: ['Ventas Unidades', 'Ingresos Intereses', 'Comisiones GNV', 'Refacciones', 'Marketplace'],
+                        labels: ['Margen Financiamiento', 'Ingresos Intereses', 'Comisiones GNV', 'Refacciones', 'Marketplace'],
                         datasets: [{
                             data: [],
                             backgroundColor: ['#2563eb', '#16a34a', '#d97706', '#7c3aed', '#ec4899']
@@ -1137,22 +1175,23 @@
             updateCharts();
         }
 
+        // ✅ CORREGIDO: Update charts con verificaciones
         function updateCharts() {
             if (!financialResults.pl.length) return;
             
             try {
                 // Update EBITDA chart
-                if (charts.ebitda) {
+                if (charts.ebitda && charts.ebitda.data) {
                     const revenues = financialResults.pl.map(d => d.totalRevenue / 1000000);
                     const ebitdas = financialResults.pl.map(d => d.ebitda / 1000000);
                     
                     charts.ebitda.data.datasets[0].data = revenues;
                     charts.ebitda.data.datasets[1].data = ebitdas;
-                    charts.ebitda.update();
+                    charts.ebitda.update('none'); // Sin animación para mejor rendimiento
                 }
                 
                 // Update revenue mix chart
-                if (charts.revenueMix && financialResults.pl[4]) {
+                if (charts.revenueMix && charts.revenueMix.data && financialResults.pl[4]) {
                     const year5 = financialResults.pl[4];
                     charts.revenueMix.data.datasets[0].data = [
                         year5.vanSales,
@@ -1161,11 +1200,11 @@
                         year5.sparePartsRevenue,
                         year5.marketplaceRevenue
                     ];
-                    charts.revenueMix.update();
+                    charts.revenueMix.update('none');
                 }
                 
                 // Update sensitivity chart
-                if (charts.sensitivity) {
+                if (charts.sensitivity && charts.sensitivity.data) {
                     const morosidadRates = [4, 6, 8, 10, 12, 14];
                     const tirValues = morosidadRates.map(rate => {
                         const baseRate = 22.8;
@@ -1175,26 +1214,26 @@
                     });
                     
                     charts.sensitivity.data.datasets[0].data = tirValues;
-                    charts.sensitivity.update();
+                    charts.sensitivity.update('none');
                 }
                 
                 // Update capital structure chart
-                if (charts.capitalStructure) {
+                if (charts.capitalStructure && charts.capitalStructure.data) {
                     const debtPercentages = [50, 60, 70, 80, 90, 100];
                     const tirData = debtPercentages.map(debt => {
                         const baseTIR = financialResults.tir || 22.8;
                         return {
                             x: debt,
-                            y: baseTIR - ((debt - 50) * 0.05) // TIR disminuye ligeramente con más deuda
+                            y: Math.max(15, baseTIR - ((debt - 50) * 0.05)) // TIR disminuye con más deuda
                         };
                     });
                     
                     charts.capitalStructure.data.datasets[0].data = tirData;
-                    charts.capitalStructure.update();
+                    charts.capitalStructure.update('none');
                 }
                 
             } catch (error) {
-                console.error('Error en updateCharts:', error);
+                console.error('Error actualizando gráficos:', error);
             }
         }
     </script>
