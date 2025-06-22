@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Modelo Financiero - Rodando a Gas | Resiliencia como Servicio</title>
+    <title>Modelo Financiero Interactivo - Resiliencia como Servicio</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -306,7 +306,7 @@
     </div>
 
     <script>
-        // ===== MODELO DE DATOS =====
+        // ===== MODELO DE DATOS CORREGIDO =====
         let modelData = {
             tasaInteres: 25.5,
             tasaMorosidad: 8,
@@ -315,51 +315,75 @@
             comisionGNV: 8,
             ventureDebtPct: 70,
             ventureDebtRate: 12,
-            unitsPerYear: [35, 70, 100, 150, 200],
+            unitsPerYear: [35, 70, 100, 150, 200], // CORREGIDO: Total = 555
             vanCost: 641000,
             vanPrice: 729000,
-            seriesA: 45000000
+            seriesA: 45000000,
+            depreciationYears: 10,
+            opexRate: 15
         };
 
         let financialResults = {
             pl: [],
             cf: [],
             bs: [],
-            niifDetails: []
+            niifDetails: [],
+            tirProyecto: 0,
+            tirCartera: 0
         };
 
-        // ===== FUNCIÓN PRINCIPAL DE CÁLCULO =====
+        // ===== FUNCIÓN PRINCIPAL DE CÁLCULO CORREGIDA =====
         function calculateFinancials() {
+            console.log('Iniciando cálculos financieros...');
+            
             // Reset results
-            financialResults = { pl: [], cf: [], bs: [], niifDetails: [] };
+            financialResults = { 
+                pl: [], 
+                cf: [], 
+                bs: [], 
+                niifDetails: [],
+                tirProyecto: 0,
+                tirCartera: 0
+            };
             
             let accumulatedEarnings = 0;
-            let cash = modelData.seriesA;
+            let cash = modelData.seriesA; // $45M inicial
             let accumulatedDepreciation = 0;
             let totalDebt = 0;
             let cumulativeUnits = 0;
+            
+            // Arrays para TIR
+            const projectCashFlows = [-modelData.seriesA]; // Inversión inicial
+            const portfolioCashFlows = [];
             
             for (let year = 0; year < 5; year++) {
                 const addedUnits = modelData.unitsPerYear[year];
                 cumulativeUnits += addedUnits;
                 
+                console.log(`Año ${year + 1}: ${addedUnits} unidades, Total acumulado: ${cumulativeUnits}`);
+                
                 // ===== INGRESOS =====
                 const originationMargin = addedUnits * modelData.margenVagoneta;
-                const interestRevenue = cumulativeUnits * modelData.vanPrice * 0.75 * (modelData.tasaInteres / 100);
+                const avgPortfolioBalance = cumulativeUnits * modelData.vanPrice * 0.75; // 75% promedio vigente
+                const interestRevenue = avgPortfolioBalance * (modelData.tasaInteres / 100);
                 const gnvCommissions = cumulativeUnits * 15000 * (modelData.comisionGNV / 100);
                 const totalRevenue = originationMargin + interestRevenue + gnvCommissions;
                 
                 // ===== GASTOS =====
-                const opex = totalRevenue * 0.15;
-                const provisions = interestRevenue * (modelData.tasaMorosidad / 100) * (modelData.proteccionRodando ? 0.6 : 1);
-                const annualDepreciation = cumulativeUnits * modelData.vanCost / 10;
-                accumulatedDepreciation += annualDepreciation;
+                const opex = totalRevenue * (modelData.opexRate / 100);
+                const baseProvisions = interestRevenue * (modelData.tasaMorosidad / 100);
+                const provisions = modelData.proteccionRodando ? baseProvisions * 0.5 : baseProvisions; // 50% reducción
                 
-                // ===== DEUDA =====
+                // ===== DEPRECIACIÓN =====
+                const totalFixedAssetsCost = cumulativeUnits * modelData.vanCost;
+                const annualDepreciation = totalFixedAssetsCost / modelData.depreciationYears;
+                accumulatedDepreciation = Math.min(accumulatedDepreciation + annualDepreciation, totalFixedAssetsCost);
+                
+                // ===== VENTURE DEBT =====
                 const capexThisYear = addedUnits * modelData.vanCost;
                 const newDebtForCapex = capexThisYear * (modelData.ventureDebtPct / 100);
-                const principalPayment = totalDebt * 0.05;
-                totalDebt = totalDebt + newDebtForCapex - principalPayment;
+                const principalPayment = totalDebt * 0.05; // 5% anual de amortización
+                totalDebt = Math.max(0, totalDebt + newDebtForCapex - principalPayment);
                 const interestExpense = totalDebt * (modelData.ventureDebtRate / 100);
                 
                 // ===== RESULTADOS =====
@@ -367,42 +391,60 @@
                 const netIncome = ebitda - annualDepreciation - interestExpense;
                 accumulatedEarnings += netIncome;
                 
-                // ===== FLUJOS =====
+                // ===== FLUJOS DE EFECTIVO =====
                 const operatingCash = netIncome + annualDepreciation + provisions;
                 const investingCash = -capexThisYear;
-                const financingCash = year === 0 ? modelData.seriesA + newDebtForCapex : newDebtForCapex - principalPayment;
+                const financingCash = year === 0 ? newDebtForCapex : newDebtForCapex - principalPayment;
                 const netCash = operatingCash + investingCash + financingCash;
                 cash += netCash;
                 
-                // ===== BALANCE =====
-                const receivables = cumulativeUnits * modelData.vanPrice * 0.8;
-                const fixedAssetsNet = cumulativeUnits * modelData.vanCost - accumulatedDepreciation;
+                // ===== BALANCE GENERAL CORREGIDO =====
+                const receivables = avgPortfolioBalance * 0.8; // 80% de la cartera como CxC
+                const fixedAssetsNet = Math.max(0, totalFixedAssetsCost - accumulatedDepreciation);
                 const totalAssets = cash + receivables + fixedAssetsNet;
                 const equity = modelData.seriesA + accumulatedEarnings;
                 const totalLiabilitiesEquity = totalDebt + provisions + equity;
                 
                 // ===== GUARDAR RESULTADOS =====
                 financialResults.pl.push({
-                    originationMargin, interestRevenue, gnvCommissions, totalRevenue,
-                    opex, provisions, ebitda, depreciation: annualDepreciation,
-                    interestExpense, netIncome
+                    originationMargin, 
+                    interestRevenue, 
+                    gnvCommissions, 
+                    totalRevenue,
+                    opex, 
+                    provisions, 
+                    ebitda, 
+                    depreciation: annualDepreciation, 
+                    interestExpense, 
+                    netIncome
                 });
                 
                 financialResults.cf.push({
-                    operatingCash, investingCash, financingCash, netCash
+                    operatingCash, 
+                    investingCash, 
+                    financingCash, 
+                    netCash,
+                    principalPayment
                 });
                 
                 financialResults.bs.push({
-                    cash, receivables, fixedAssets: fixedAssetsNet, totalAssets,
-                    debt: totalDebt, provisions, equity, totalLiabilitiesEquity
+                    cash, 
+                    receivables, 
+                    fixedAssets: fixedAssetsNet, 
+                    totalAssets,
+                    debt: totalDebt, 
+                    provisions, 
+                    equity, 
+                    totalLiabilitiesEquity
                 });
                 
-                // ===== NIIF =====
+                // ===== NIIF DETAILS =====
+                const niif15VP = interestRevenue * 0.92; // Valor presente 92% del nominal
                 financialResults.niifDetails.push({
                     niif15: {
                         valorNominal: interestRevenue,
-                        valorPresente: interestRevenue * 0.92,
-                        ajusteDescuento: interestRevenue * 0.08
+                        valorPresente: niif15VP,
+                        ajusteDescuento: interestRevenue - niif15VP
                     },
                     niif9: {
                         etapa1: provisions * 0.7,
@@ -411,41 +453,102 @@
                         total: provisions
                     }
                 });
+                
+                // ===== FLUJOS PARA TIR =====
+                projectCashFlows.push(netCash);
+                portfolioCashFlows.push(interestRevenue - provisions);
             }
             
-            // Calcular TIR aproximada
-            const projectCashFlows = [-modelData.seriesA];
-            financialResults.cf.forEach(year => projectCashFlows.push(year.netCash));
+            // ===== CALCULAR TIRs CORREGIDO =====
             financialResults.tirProyecto = calculateIRR(projectCashFlows);
+            financialResults.tirCartera = calculateIRR(portfolioCashFlows.length > 0 ? [-avgPortfolioBalance * 0.5, ...portfolioCashFlows] : [0]);
+            
+            console.log('TIR Proyecto:', financialResults.tirProyecto);
+            console.log('TIR Cartera:', financialResults.tirCartera);
+            console.log('Cálculos completados');
         }
 
-        // ===== FUNCIONES DE UI =====
+        // ===== FUNCIÓN DE TIR CORREGIDA =====
+        function calculateIRR(cashFlows, maxIterations = 100, tolerance = 1e-6) {
+            if (!cashFlows || cashFlows.length < 2) return 0;
+            
+            const hasPositive = cashFlows.some(cf => cf > 0);
+            const hasNegative = cashFlows.some(cf => cf < 0);
+            if (!hasPositive || !hasNegative) return 0;
+            
+            let guess = 0.25; // Empezar con 25%
+            
+            for (let i = 0; i < maxIterations; i++) {
+                let npv = 0;
+                let dNpv = 0;
+                
+                for (let t = 0; t < cashFlows.length; t++) {
+                    const denominator = Math.pow(1 + guess, t);
+                    npv += cashFlows[t] / denominator;
+                    if (t > 0) {
+                        dNpv -= t * cashFlows[t] / Math.pow(1 + guess, t + 1);
+                    }
+                }
+                
+                if (Math.abs(npv) < tolerance) {
+                    return Math.max(0, Math.min(100, guess * 100));
+                }
+                
+                if (Math.abs(dNpv) < tolerance) break;
+                
+                const newGuess = guess - npv / dNpv;
+                
+                if (Math.abs(newGuess - guess) < tolerance) {
+                    return Math.max(0, Math.min(100, newGuess * 100));
+                }
+                
+                guess = Math.max(-0.99, Math.min(2, newGuess));
+            }
+            
+            return Math.max(0, Math.min(100, guess * 100));
+        }
+
+        // ===== FUNCIONES DE UI CORREGIDAS =====
         function updateUI() {
-            // Actualizar métricas principales
+            console.log('Actualizando UI...');
+            
+            if (!financialResults.pl || financialResults.pl.length === 0) {
+                console.log('No hay datos para mostrar');
+                return;
+            }
+
             const year5 = financialResults.pl[4];
             const year5BS = financialResults.bs[4];
             
             if (year5 && year5BS) {
                 document.getElementById('ebitda-year5').textContent = formatCurrency(year5.ebitda);
                 document.getElementById('tir-proyecto').textContent = financialResults.tirProyecto.toFixed(1) + '%';
+                document.getElementById('tir-cartera').textContent = financialResults.tirCartera.toFixed(1) + '%';
                 document.getElementById('deuda-residual').textContent = formatCurrency(year5BS.debt);
                 
+                // CORREGIDO: Suma correcta de vagonetas
                 const vagonetasTotal = modelData.unitsPerYear.reduce((total, units) => total + units, 0);
                 document.getElementById('vagonetas-total').textContent = vagonetasTotal;
+                
+                console.log('Métricas actualizadas:', {
+                    ebitda: year5.ebitda,
+                    tirProyecto: financialResults.tirProyecto,
+                    tirCartera: financialResults.tirCartera,
+                    vagonetas: vagonetasTotal
+                });
             }
             
-            // Actualizar tablas
             updatePLTable();
             updateCashFlowTable();
             updateBalanceSheetTable();
             updateNIIFTables();
-            
-            // Actualizar gráficos
             updateCharts();
         }
 
         function updatePLTable() {
             const tbody = document.getElementById('pl-table-body');
+            if (!tbody || !financialResults.pl.length) return;
+            
             tbody.innerHTML = '';
             
             const rows = [
@@ -492,11 +595,13 @@
 
         function updateCashFlowTable() {
             const tbody = document.getElementById('cf-table-body');
+            if (!tbody || !financialResults.cf.length) return;
+            
             tbody.innerHTML = '';
             
             const rows = [
                 { label: 'Flujo Operativo', key: 'operatingCash' },
-                { label: 'Flujo Inversión', key: 'investingCash', negative: true },
+                { label: 'Flujo Inversión', key: 'investingCash' },
                 { label: 'Flujo Financiero', key: 'financingCash' },
                 { label: 'Flujo Neto', key: 'netCash', total: true }
             ];
@@ -512,9 +617,7 @@
                 
                 financialResults.cf.forEach(yearData => {
                     const cell = document.createElement('td');
-                    let value = yearData[row.key] || 0;
-                    
-                    if (row.negative && value < 0) value = Math.abs(value);
+                    const value = yearData[row.key] || 0;
                     
                     if (value < 0) {
                         cell.textContent = '(' + formatCurrency(Math.abs(value)) + ')';
@@ -534,6 +637,8 @@
 
         function updateBalanceSheetTable() {
             const tbody = document.getElementById('bs-table-body');
+            if (!tbody || !financialResults.bs.length) return;
+            
             tbody.innerHTML = '';
             
             const rows = [
@@ -567,18 +672,21 @@
                 tbody.appendChild(tr);
             });
             
-            // Validar balance
+            // CORREGIDO: Validación de balance
             const validationDiv = document.getElementById('balance-validation');
             let balanceValid = true;
+            let maxDifference = 0;
+            
             financialResults.bs.forEach((yearData, index) => {
                 const difference = Math.abs(yearData.totalAssets - yearData.totalLiabilitiesEquity);
-                if (difference > 1000) balanceValid = false;
+                maxDifference = Math.max(maxDifference, difference);
+                if (difference > 1000) balanceValid = false; // Tolerancia de $1,000
             });
             
             if (balanceValid) {
                 validationDiv.innerHTML = '<span class="text-green-600">✅ Balance validado (Activo = Pasivo + Capital)</span>';
             } else {
-                validationDiv.innerHTML = '<span class="text-red-600">❌ Error en balance</span>';
+                validationDiv.innerHTML = `<span class="text-red-600">❌ Error en balance (Diferencia máx: ${formatCurrency(maxDifference)})</span>`;
             }
         }
 
@@ -589,7 +697,7 @@
 
         function updateNIIF15Table() {
             const container = document.getElementById('niif15-container');
-            if (!container) return;
+            if (!container || !financialResults.niifDetails.length) return;
             
             container.innerHTML = `
                 <div class="overflow-x-auto">
@@ -628,34 +736,38 @@
 
         function updateNIIF9Table() {
             const container = document.getElementById('niif9-container');
-            if (!container) return;
+            if (!container || !financialResults.niifDetails.length) return;
+            
+            const year5NIIF9 = financialResults.niifDetails[4]?.niif9;
+            if (!year5NIIF9) return;
             
             container.innerHTML = `
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                     <div class="p-4 bg-green-50 rounded-lg text-center">
                         <h5 class="font-semibold">Etapa 1</h5>
-                        <p class="text-lg font-bold">${formatCurrency(financialResults.niifDetails[4]?.niif9.etapa1 || 0)}</p>
+                        <p class="text-lg font-bold">${formatCurrency(year5NIIF9.etapa1)}</p>
                         <p class="text-sm">Riesgo normal (8%)</p>
                     </div>
                     <div class="p-4 bg-yellow-50 rounded-lg text-center">
                         <h5 class="font-semibold">Etapa 2</h5>
-                        <p class="text-lg font-bold">${formatCurrency(financialResults.niifDetails[4]?.niif9.etapa2 || 0)}</p>
+                        <p class="text-lg font-bold">${formatCurrency(year5NIIF9.etapa2)}</p>
                         <p class="text-sm">Riesgo significativo (15%)</p>
                     </div>
                     <div class="p-4 bg-red-50 rounded-lg text-center">
                         <h5 class="font-semibold">Etapa 3</h5>
-                        <p class="text-lg font-bold">${formatCurrency(financialResults.niifDetails[4]?.niif9.etapa3 || 0)}</p>
+                        <p class="text-lg font-bold">${formatCurrency(year5NIIF9.etapa3)}</p>
                         <p class="text-sm">Incumplimiento (45%)</p>
                     </div>
                 </div>
                 <div class="text-center p-4 bg-blue-50 rounded-lg">
                     <h5 class="font-semibold">Total Provisiones NIIF 9</h5>
-                    <p class="text-2xl font-bold text-blue-900">${formatCurrency(financialResults.niifDetails[4]?.niif9.total || 0)}</p>
+                    <p class="text-2xl font-bold text-blue-900">${formatCurrency(year5NIIF9.total)}</p>
+                    ${modelData.proteccionRodando ? '<p class="text-sm text-green-600">✅ Protección Rodando: 50% de reducción aplicada</p>' : ''}
                 </div>
             `;
         }
 
-        // ===== GRÁFICOS =====
+        // ===== GRÁFICOS CORREGIDOS =====
         let charts = {};
         
         function initializeCharts() {
@@ -675,6 +787,7 @@
                     },
                     options: {
                         responsive: true,
+                        maintainAspectRatio: false,
                         scales: {
                             y: { beginAtZero: true, title: { display: true, text: 'MXN' } }
                         }
@@ -692,13 +805,19 @@
                             data: [],
                             backgroundColor: ['#3b82f6', '#10b981', '#f59e0b']
                         }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false
                     }
                 });
             }
         }
         
         function updateCharts() {
-            if (charts.ebitda && financialResults.pl.length) {
+            if (!financialResults.pl.length) return;
+            
+            if (charts.ebitda) {
                 const ebitdas = financialResults.pl.map(d => d.ebitda);
                 charts.ebitda.data.datasets[0].data = ebitdas;
                 charts.ebitda.update();
@@ -715,31 +834,16 @@
             }
         }
 
-        // ===== FUNCIONES UTILITARIAS =====
         function formatCurrency(value) {
             if (value >= 1000000) return '$' + (value / 1000000).toFixed(1) + 'M MXN';
             if (value >= 1000) return '$' + (value / 1000).toFixed(1) + 'K MXN';
             return '$' + Math.round(value).toLocaleString();
         }
 
-        function calculateIRR(cashFlows) {
-            // Implementación simplificada de TIR
-            let guess = 0.25;
-            for (let i = 0; i < 100; i++) {
-                let npv = 0;
-                for (let t = 0; t < cashFlows.length; t++) {
-                    npv += cashFlows[t] / Math.pow(1 + guess, t);
-                }
-                
-                if (Math.abs(npv) < 0.01) break;
-                
-                guess += npv > 0 ? 0.01 : -0.01;
-            }
-            return (guess * 100);
-        }
-
-        // ===== INICIALIZACIÓN =====
+        // ===== INICIALIZACIÓN CORREGIDA =====
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('Inicializando aplicación...');
+            
             // Setup tabs
             const tabButtons = document.querySelectorAll('.tab-button');
             const contentSections = document.querySelectorAll('.content-section');
@@ -754,34 +858,42 @@
                 });
             });
             
-            // Setup sliders
-            const sliders = [
-                'tasa-interes', 'tasa-morosidad', 'margen-vagoneta', 
-                'comision-gnv', 'venture-debt-pct', 'venture-debt-rate'
-            ];
-            
-            sliders.forEach(sliderId => {
-                const slider = document.getElementById(sliderId);
-                if (slider) {
+            // Setup sliders with CORRECTED event listeners
+            function setupSlider(id, property, formatter) {
+                const slider = document.getElementById(id);
+                const display = document.getElementById(`${id}-valor`);
+                
+                if (slider && display) {
                     slider.addEventListener('input', function() {
                         const value = parseFloat(this.value);
-                        modelData[sliderId.replace(/-/g, '')] = value;
-                        document.getElementById(`${sliderId}-valor`).textContent = 
-                            sliderId.includes('tasa') || sliderId.includes('comision') || sliderId.includes('pct') || sliderId.includes('rate') ? 
-                            value.toFixed(1) + '%' : '$' + value.toLocaleString();
+                        modelData[property] = value;
+                        display.textContent = formatter(value);
                         
+                        console.log(`${property} cambiado a:`, value);
                         calculateFinancials();
                         updateUI();
                     });
                 }
-            });
+            }
+            
+            // Setup all sliders
+            setupSlider('tasa-interes', 'tasaInteres', v => v.toFixed(1) + '%');
+            setupSlider('tasa-morosidad', 'tasaMorosidad', v => v + '%');
+            setupSlider('margen-vagoneta', 'margenVagoneta', v => '$' + v.toLocaleString());
+            setupSlider('comision-gnv', 'comisionGNV', v => v + '%');
+            setupSlider('venture-debt-pct', 'ventureDebtPct', v => v + '%');
+            setupSlider('venture-debt-rate', 'ventureDebtRate', v => v + '%');
             
             // Setup checkbox
-            document.getElementById('check-proteccion').addEventListener('change', function() {
-                modelData.proteccionRodando = this.checked;
-                calculateFinancials();
-                updateUI();
-            });
+            const checkbox = document.getElementById('check-proteccion');
+            if (checkbox) {
+                checkbox.addEventListener('change', function() {
+                    modelData.proteccionRodando = this.checked;
+                    console.log('Protección Rodando:', this.checked);
+                    calculateFinancials();
+                    updateUI();
+                });
+            }
             
             // Setup unit controls
             const unitsContainer = document.getElementById('units-container');
@@ -796,16 +908,23 @@
                 
                 const input = document.getElementById(`unit-year-${index+1}`);
                 input.addEventListener('change', function() {
-                    modelData.unitsPerYear[index] = parseInt(this.value) || 0;
+                    const value = parseInt(this.value) || 0;
+                    modelData.unitsPerYear[index] = Math.max(0, Math.min(500, value));
+                    this.value = modelData.unitsPerYear[index];
+                    
+                    console.log(`Unidades año ${index+1}:`, modelData.unitsPerYear[index]);
                     calculateFinancials();
                     updateUI();
                 });
             });
             
             // Initial calculation
+            console.log('Ejecutando cálculo inicial...');
             initializeCharts();
             calculateFinancials();
             updateUI();
+            
+            console.log('Aplicación inicializada correctamente');
         });
     </script>
 </body>
