@@ -7,7 +7,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/luxon@3.4.4/build/global/luxon.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mathjs@11.8.0/lib/browser/math.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -219,15 +218,14 @@
                             </div>
                             <div>
                                 <label for="venture-debt-rate" class="flex justify-between text-sm font-medium text-gray-700">Tasa Venture Debt <span id="venture-debt-rate-valor" class="font-bold text-indigo-600">12%</span></label>
-                                <select id="venture-debt-rate" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm p-2">
-                                    <option value="12">12%</option>
-                                    <option value="14">14%</option>
-                                    <option value="18">18%</option>
-                                </select>
+                                <input type="range" id="venture-debt-rate" min="12" max="18" step="0.5" value="12" class="input-slider mt-1">
                             </div>
                             <div class="bg-blue-50 p-3 rounded-md">
                                 <p class="text-xs text-blue-700"><strong>Estrategia RAG:</strong> Usar venture debt para flota, preservar equity para tecnología e IA.</p>
                             </div>
+                        </div>
+                        <div class="text-center mt-4">
+                            <p class="text-lg font-bold text-gray-800">TIR de la Cartera: <span id="irr-value" class="text-indigo-600">22.8%</span></p>
                         </div>
                     </div>
 
@@ -722,7 +720,7 @@
             // Sliders and inputs
             const controls = [
                 'tasa-interes', 'tasa-morosidad', 'margen-vagoneta', 
-                'comision-gnv', 'margen-refacciones', 'venture-debt-pct'
+                'comision-gnv', 'margen-refacciones', 'venture-debt-pct', 'venture-debt-rate'
             ];
 
             controls.forEach(controlId => {
@@ -738,13 +736,6 @@
             // Checkbox
             document.getElementById('check-proteccion').addEventListener('change', function() {
                 modelData.proteccionRodando = this.checked;
-                calculateModel();
-            });
-
-            // Venture debt rate select
-            document.getElementById('venture-debt-rate').addEventListener('change', function() {
-                modelData.ventureDebtRate = parseFloat(this.value);
-                document.getElementById('venture-debt-rate-valor').textContent = this.value + '%';
                 calculateModel();
             });
         }
@@ -776,6 +767,10 @@
                 case 'venture-debt-pct':
                     modelData.ventureDebtPct = numValue;
                     document.getElementById('venture-debt-pct-valor').textContent = numValue + '%';
+                    break;
+                case 'venture-debt-rate':
+                    modelData.ventureDebtRate = numValue;
+                    document.getElementById('venture-debt-rate-valor').textContent = numValue + '%';
                     break;
             }
         }
@@ -841,6 +836,7 @@
             document.getElementById('ebitda-year5').textContent = '$' + (ebitda / 1000000).toFixed(1) + 'M MXN';
             document.getElementById('tir-proyectada').textContent = tir.toFixed(1) + '%';
             document.getElementById('unidades-year5').textContent = unitsYear5.toString();
+            document.getElementById('irr-value').textContent = tir.toFixed(1) + '%';
             
             // Update charts if visible
             updateCharts();
