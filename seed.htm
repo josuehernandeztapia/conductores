@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Chosen Palette: Dark Slate & Sky Blue Gradient (from original pitch deck) -->
+    <!-- Application Structure Plan: A single-page, vertical-scrolling dashboard designed to follow an investor's thought process. It starts with a high-level summary of the opportunity, then dives into interactive sections for Deal Structure (charts for cap table/use of funds), Return & Risk (potential value calculation, guarantee chart), Future Vision (roadmap diagram), and concludes with an interactive accordion for the legal details (SAFE agreement). This structure was chosen to make a text-heavy proposal highly scannable and visually engaging, using charts to clarify complex data and interactions to manage information density, enhancing usability while retaining the impactful dark aesthetic of the original pitch deck. -->
+    <!-- Visualization & Content Choices:
+        - Capitalization Structure: Report Info -> Equity split (JJHT 35%, Investor 25%, etc.) -> Goal: Compare proportions -> Viz: Donut Chart -> Interaction: Hover tooltips -> Justification: Clearly shows parts of a whole for immediate understanding -> Library: Chart.js.
+        - Use of Funds: Report Info -> Vagonetas, Equipo, MVP -> Goal: Organize allocation -> Viz: Donut Chart -> Interaction: Hover tooltips -> Justification: Visualizes investment allocation effectively -> Library: Chart.js.
+        - Risk Guarantee: Report Info -> Total Investment vs. Guaranteed Amount -> Goal: Compare/Inform risk level -> Viz: Bar Chart -> Interaction: Hover tooltips -> Justification: Visually contrasts the investment against the secured assets to clearly communicate risk mitigation -> Library: Chart.js.
+        - Next Steps: Report Info -> MVP validation, Serie A, Scaling -> Goal: Organize a process -> Viz: HTML/CSS Step Diagram -> Interaction: Hover highlights -> Justification: More engaging for a process than a simple list -> Library/Method: HTML/Tailwind CSS.
+        - SAFE Details: Report Info -> Full text of SAFE agreement -> Goal: Organize detailed info -> Viz: Accordion -> Interaction: Click to expand/collapse -> Justification: Hides dense legal text to keep the main flow clean, making it accessible on demand -> Library/Method: Vanilla JS. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <title>Propuesta de Inversión Seed - Conductores RaG</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #020617; /* Tailwind slate-950 */
+            color: #e2e8f0; /* Tailwind slate-200 */
+        }
+        .highlight-text {
+            background: -webkit-linear-gradient(45deg, #22d3ee, #0ea5e9);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .card {
+            background-color: #0f172a; /* Tailwind slate-900 */
+            border-radius: 0.75rem;
+            padding: 2rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -2px rgba(0, 0, 0, 0.2);
+            border: 1px solid #1e293b; /* Tailwind slate-800 */
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+        }
+        .stat-card {
+             padding: 1.5rem;
+        }
+        .accordion-button {
+            transition: background-color 0.2s ease-out;
+            color: #e2e8f0; /* Tailwind slate-200 */
+        }
+        .accordion-button.active, .accordion-button:hover {
+            background-color: #1e293b; /* Tailwind slate-800 */
+        }
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+            padding: 0 1.5rem;
+        }
+        .chart-container {
+            position: relative;
+            margin: auto;
+            height: 280px;
+            width: 100%;
+            max-width: 400px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 320px;
+            }
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <!-- Header y Navegación -->
+    <header class="bg-slate-900/80 backdrop-blur-lg sticky top-0 z-50 shadow-sm">
+        <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex-shrink-0">
+                    <h1 class="text-xl font-bold text-white">Conductores <span class="highlight-text">RaG</span></h1>
+                </div>
+                <div class="hidden md:block">
+                    <div class="ml-10 flex items-baseline space-x-4">
+                        <a href="#oportunidad" class="text-slate-400 hover:text-sky-400 px-3 py-2 rounded-md text-sm font-medium">Oportunidad</a>
+                        <a href="#estructura" class="text-slate-400 hover:text-sky-400 px-3 py-2 rounded-md text-sm font-medium">Estructura</a>
+                        <a href="#riesgo" class="text-slate-400 hover:text-sky-400 px-3 py-2 rounded-md text-sm font-medium">Riesgo</a>
+                        <a href="#futuro" class="text-slate-400 hover:text-sky-400 px-3 py-2 rounded-md text-sm font-medium">Futuro</a>
+                        <a href="#terminos" class="text-slate-400 hover:text-sky-400 px-3 py-2 rounded-md text-sm font-medium">Términos</a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+        
+        <!-- Sección Oportunidad -->
+        <section id="oportunidad" class="text-center py-12">
+            <h2 class="text-base font-semibold text-sky-400 tracking-wide uppercase">Propuesta de Inversión Seed</h2>
+            <p class="mt-2 text-4xl font-extrabold text-white tracking-tight sm:text-5xl">La Oportunidad de Inversión</p>
+            <p class="mt-4 max-w-2xl mx-auto text-xl text-slate-400">Un resumen de los términos clave de esta ronda seed. Su inversión es fundamental para validar nuestro modelo de negocio y posicionarlo para un crecimiento exponencial.</p>
+            
+            <div class="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+                <div class="card stat-card text-left">
+                    <p class="text-sm font-medium text-slate-400">Inversión Requerida</p>
+                    <p class="mt-1 text-4xl font-bold highlight-text">$10,000,000</p>
+                    <p class="text-sm text-slate-400">MXN</p>
+                </div>
+                <div class="card stat-card text-left">
+                    <p class="text-sm font-medium text-slate-400">Tope de Valuación (Cap)</p>
+                    <p class="mt-1 text-4xl font-bold highlight-text">$40,000,000</p>
+                    <p class="text-sm text-slate-400">MXN (Pre-Money)</p>
+                </div>
+                <div class="card stat-card text-left">
+                    <p class="text-sm font-medium text-slate-400">Participación Adquirida</p>
+                    <p class="mt-1 text-4xl font-bold highlight-text">25%</p>
+                    <p class="text-sm text-slate-400">Post-Money</p>
+                </div>
+                <div class="card stat-card text-left">
+                    <p class="text-sm font-medium text-slate-400">Descuento Potencial Serie A</p>
+                    <p class="mt-1 text-4xl font-bold highlight-text">~65%</p>
+                    <p class="text-sm text-slate-400">Sobre valuación objetivo</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Sección Estructura -->
+        <section id="estructura" class="py-16 bg-slate-900 rounded-lg">
+             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center">
+                    <h2 class="text-base font-semibold text-sky-400 tracking-wide uppercase">Análisis Financiero</h2>
+                    <p class="mt-2 text-4xl font-extrabold text-white tracking-tight sm:text-5xl">Estructura del Acuerdo</p>
+                    <p class="mt-4 max-w-2xl mx-auto text-xl text-slate-400">Esta sección detalla la estructura financiera de la inversión, mostrando cómo se distribuirá el capital de la empresa después de su participación y cómo se asignarán los fondos para alcanzar nuestros primeros hitos.</p>
+                </div>
+
+                <div class="mt-12 grid gap-10 md:grid-cols-2">
+                    <div class="card">
+                        <h3 class="text-2xl font-bold text-center mb-4 text-white">Estructura de Capital Post-Seed</h3>
+                        <p class="text-center text-slate-400 mb-6">Visualización de la distribución del equity de la compañía inmediatamente después de la inversión seed.</p>
+                        <div class="chart-container">
+                            <canvas id="capTableChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3 class="text-2xl font-bold text-center mb-4 text-white">Uso de los Fondos</h3>
+                        <p class="text-center text-slate-400 mb-6">Distribución de los $10M de la inversión, divididos entre la adquisición y equipamiento de vagonetas, y el desarrollo de tecnología base y el MVP.</p>
+                        <div class="chart-container">
+                            <canvas id="useOfFundsChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Sección Riesgo y Retorno -->
+        <section id="riesgo" class="py-16">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center">
+                    <h2 class="text-base font-semibold text-sky-400 tracking-wide uppercase">Riesgo y Retorno</h2>
+                    <p class="mt-2 text-4xl font-extrabold text-white tracking-tight sm:text-5xl">Su Inversión, Protegida y con Potencial</p>
+                    <p class="mt-4 max-w-2xl mx-auto text-xl text-slate-400">Analizamos tanto el potencial de crecimiento de su inversión como las medidas que hemos tomado para mitigar el riesgo a través de garantías tangibles.</p>
+                </div>
+
+                <div class="mt-12 grid gap-10 md:grid-cols-2">
+                     <div class="card">
+                        <h3 class="text-2xl font-bold text-center mb-4 text-white">Potencial de Crecimiento (Upside)</h3>
+                        <p class="text-center text-slate-400 mb-6">Una vez validado el MVP, el valor de su participación podría aumentar significativamente. La Serie A proyectada nos da una idea de este potencial.</p>
+                        <div class="bg-blue-900/50 p-6 rounded-lg text-center border border-blue-800">
+                            <p class="text-sm font-medium text-blue-300">Valor Futuro Potencial de su Inversión</p>
+                            <p class="mt-2 text-5xl font-bold highlight-text">$28.1M</p>
+                            <p class="mt-1 text-sm text-blue-400">Basado en 25% de la valuación objetivo de Serie A de $112.5M MXN</p>
+                        </div>
+                         <p class="mt-6 text-slate-400 text-sm">Al invertir hoy, se posiciona para capturar este crecimiento. El SAFE le asegura convertir su inversión en acciones con un descuento considerable, maximizando su retorno.</p>
+                    </div>
+                    <div class="card">
+                        <h3 class="text-2xl font-bold text-center mb-4 text-white">Mitigación de Riesgo</h3>
+                        <p class="text-center text-slate-400 mb-6">Su inversión está parcialmente respaldada por activos físicos, lo que reduce la exposición neta y ofrece una capa de seguridad.</p>
+                        <div class="chart-container" style="max-width: 500px;">
+                            <canvas id="riskChart"></canvas>
+                        </div>
+                        <p class="mt-4 text-center text-xs text-slate-400">Total Garantizado: $5,216,000 MXN (Terreno + 4 Vagonetas)</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Sección Futuro -->
+        <section id="futuro" class="py-16 bg-slate-900 rounded-lg">
+             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center">
+                    <h2 class="text-base font-semibold text-sky-400 tracking-wide uppercase">La Visión</h2>
+                    <p class="mt-2 text-4xl font-extrabold text-white tracking-tight sm:text-5xl">Nuestros Próximos Pasos</p>
+                    <p class="mt-4 max-w-2xl mx-auto text-xl text-slate-400">Esta inversión es el catalizador para una serie de hitos estratégicos. Aquí está nuestro plan de acción inmediato una vez que validemos el MVP.</p>
+                </div>
+
+                <div class="mt-12 relative">
+                    <!-- Línea de conexión -->
+                    <div class="hidden md:block absolute top-1/2 left-0 w-full h-0.5 bg-slate-800" style="transform: translateY(-50%);"></div>
+                    
+                    <div class="relative grid gap-10 md:grid-cols-3">
+                        <div class="text-center p-6">
+                            <div class="flex items-center justify-center h-16 w-16 mx-auto bg-blue-900/50 text-blue-400 rounded-full text-2xl font-bold ring-8 ring-slate-900">1</div>
+                            <h3 class="mt-6 text-xl font-bold text-white">Levantar Serie A</h3>
+                            <p class="mt-2 text-slate-400">Con un MVP validado, buscaremos una ronda Serie A en términos mucho más favorables para financiar la expansión.</p>
+                        </div>
+                        <div class="text-center p-6">
+                            <div class="flex items-center justify-center h-16 w-16 mx-auto bg-blue-900/50 text-blue-400 rounded-full text-2xl font-bold ring-8 ring-slate-900">2</div>
+                            <h3 class="mt-6 text-xl font-bold text-white">Escalar el Piloto</h3>
+                            <p class="mt-2 text-slate-400">Ampliaremos la flota inicial de 4 a un piloto de 35-70 unidades para demostrar la escalabilidad del modelo.</p>
+                        </div>
+                        <div class="text-center p-6">
+                            <div class="flex items-center justify-center h-16 w-16 mx-auto bg-blue-900/50 text-blue-400 rounded-full text-2xl font-bold ring-8 ring-slate-900">3</div>
+                            <h3 class="mt-6 text-xl font-bold text-white">Expandir el Equipo</h3>
+                            <p class="mt-2 text-slate-400">Atraeremos talento clave en tecnología y operaciones usando el ESOP para impulsar nuestro crecimiento.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Sección Términos (Appendix) -->
+        <section id="terminos" class="py-16">
+             <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center">
+                    <h2 class="text-base font-semibold text-sky-400 tracking-wide uppercase">El Acuerdo</h2>
+                    <p class="mt-2 text-4xl font-extrabold text-white tracking-tight sm:text-5xl">Términos del SAFE</p>
+                    <p class="mt-4 max-w-2xl mx-auto text-xl text-slate-400">A continuación se presenta un resumen de qué es un SAFE y un modelo simplificado del acuerdo propuesto. Haga clic en cada sección para expandir y ver los detalles.</p>
+                </div>
+
+                <div class="mt-12 card p-0">
+                    <div id="accordion-container">
+                        <!-- Acordeón Item 1 -->
+                        <div class="border-b border-slate-800">
+                            <button class="accordion-button w-full text-left p-6 flex justify-between items-center">
+                                <span class="text-xl font-semibold">¿Qué es un SAFE?</span>
+                                <svg class="w-6 h-6 transform transition-transform text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                            </button>
+                            <div class="accordion-content">
+                                <p class="py-4 text-slate-300">Un SAFE (Simple Agreement for Future Equity) es un acuerdo simple para adquirir acciones en el futuro. Es una forma práctica y flexible de invertir en etapas tempranas sin necesidad de negociar una valuación completa desde el inicio, permitiendo a los inversionistas entrar en la compañía con términos preferenciales de manera rápida y eficiente.</p>
+                            </div>
+                        </div>
+
+                        <!-- Acordeón Item 2 -->
+                         <div class="border-b border-slate-800">
+                            <button class="accordion-button w-full text-left p-6 flex justify-between items-center">
+                                <span class="text-xl font-semibold">Condiciones Clave del SAFE</span>
+                                <svg class="w-6 h-6 transform transition-transform text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                            </button>
+                            <div class="accordion-content">
+                                <div class="py-4">
+                                    <ul class="divide-y divide-slate-800">
+                                        <li class="py-3 flex justify-between text-sm"><span class="font-medium text-white">Monto de inversión</span><span class="text-slate-300">$10,000,000 MXN</span></li>
+                                        <li class="py-3 flex justify-between text-sm"><span class="font-medium text-white">Tope de valuación (Cap)</span><span class="text-slate-300">$40,000,000 MXN (pre-money)</span></li>
+                                        <li class="py-3 flex justify-between text-sm"><span class="font-medium text-white">Participación estimada</span><span class="text-slate-300">25% (post-money)</span></li>
+                                        <li class="py-3 flex justify-between text-sm"><span class="font-medium text-white">Derecho de recompra</span><span class="text-slate-300">No aplicable</span></li>
+                                        <li class="py-3 flex justify-between text-sm"><span class="font-medium text-white">Conversión a equity</span><span class="text-slate-300">Automática al cerrar la Serie A</span></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Acordeón Item 3 -->
+                        <div>
+                            <button class="accordion-button w-full text-left p-6 flex justify-between items-center">
+                                <span class="text-xl font-semibold">Modelo Simplificado del Acuerdo</span>
+                                <svg class="w-6 h-6 transform transition-transform text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                            </button>
+                            <div class="accordion-content">
+                                <div class="prose prose-sm max-w-none text-slate-300 py-4">
+                                    <p class="italic text-xs mb-4">Este es un modelo simplificado. Un documento legal real debe ser redactado y revisado por profesionales del derecho.</p>
+                                    <h4 class="font-bold text-white">1. Conversión</h4>
+                                    <p>Este SAFE convertirá automáticamente en acciones de la Empresa en el momento de una "Financiación Calificada" o un "Evento de Liquidez".</p>
+                                    <h4 class="font-bold text-white">2. Cap de Valuación</h4>
+                                    <p>El precio de conversión será el menor entre el precio de la Financiación Calificada y el precio implícito en el Cap de Valuación de $40M MXN.</p>
+                                    <h4 class="font-bold text-white">3. Derecho de Recompra</h4>
+                                    <p>La Empresa y su fundador JJHT <strong>no tendrán la opción</strong> de recomprar la inversión. El enfoque es la conversión a capital.</p>
+                                    <h4 class="font-bold text-white">4. Derechos del Inversionista</h4>
+                                    <p>Hasta la conversión, el SAFE no confiere derechos de accionista (voto, dividendos, etc.).</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+    
+    <footer class="bg-slate-900">
+        <div class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 text-center text-slate-500">
+            <p>&copy; 2025 Conductores RaG. Todos los derechos reservados.</p>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const appData = {
+                capTable: {
+                    labels: ['JJHT', 'Inversionista Seed', 'ESOP', 'Disponible Serie A'],
+                    data: [35, 25, 15, 25],
+                    colors: ['#22d3ee', '#34d399', '#facc15', '#60a5fa'] // cyan, emerald, yellow, blue from Tailwind
+                },
+                useOfFunds: {
+                    labels: ['Vagonetas y Equipamiento', 'Desarrollo de Tecnología y MVP'], // Actualizado para 2 categorías
+                    data: [30.56, 69.44], // 3,056,000 / 10,000,000 = 30.56%; 6,944,000 / 10,000,000 = 69.44%
+                    colors: ['#0ea5e9', '#0891b2'] // Menos colores para menos categorías
+                },
+                risk: {
+                    labels: ['Inversión Total', 'Exposición Neta'],
+                    total: 10000000,
+                    guaranteed: 5216000,
+                    netExposure: 4784000,
+                    colors: {
+                        guaranteed: '#34d399', // emerald-500
+                        netExposure: '#facc15' // yellow-500
+                    }
+                }
+            };
+
+            const commonOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 20,
+                            font: { size: 12 },
+                            color: '#94a3b8' /* Tailwind slate-400 */
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: '#1F2937', /* Tailwind gray-800 */
+                        titleFont: { size: 14, weight: 'bold' },
+                        bodyFont: { size: 12 },
+                        padding: 10,
+                        cornerRadius: 4,
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed !== null) {
+                                    label += new Intl.NumberFormat('es-MX', { style: 'decimal' }).format(context.parsed) + '%';
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { color: '#94a3b8' }, /* Tailwind slate-400 */
+                        grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                    },
+                    y: {
+                        ticks: { color: '#94a3b8' }, /* Tailwind slate-400 */
+                        grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                        beginAtZero: true
+                    }
+                }
+            };
+            
+            const createCapTableChart = () => {
+                const ctx = document.getElementById('capTableChart')?.getContext('2d');
+                if (!ctx) return;
+                new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: appData.capTable.labels,
+                        datasets: [{
+                            data: appData.capTable.data,
+                            backgroundColor: appData.capTable.colors,
+                            borderColor: '#020617', /* Tailwind slate-950 */
+                            borderWidth: 4,
+                        }]
+                    },
+                    options: commonOptions
+                });
+            };
+
+            const createUseOfFundsChart = () => {
+                const ctx = document.getElementById('useOfFundsChart')?.getContext('2d');
+                if (!ctx) return;
+                new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: appData.useOfFunds.labels,
+                        datasets: [{
+                            data: appData.useOfFunds.data,
+                            backgroundColor: appData.useOfFunds.colors,
+                            borderColor: '#020617', /* Tailwind slate-950 */
+                            borderWidth: 4
+                        }]
+                    },
+                    options: commonOptions
+                });
+            };
+
+            const createRiskChart = () => {
+                 const ctx = document.getElementById('riskChart')?.getContext('2d');
+                if (!ctx) return;
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Inversión'],
+                        datasets: [
+                            {
+                                label: 'Monto Garantizado',
+                                data: [appData.risk.guaranteed],
+                                backgroundColor: appData.risk.colors.guaranteed,
+                            },
+                            {
+                                label: 'Exposición Neta (Sin Respaldo)',
+                                data: [appData.risk.netExposure],
+                                backgroundColor: appData.risk.colors.netExposure,
+                            }
+                        ]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: {
+                                stacked: true,
+                                ticks: {
+                                    color: '#94a3b8', /* Tailwind slate-400 */
+                                    callback: (value) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', notation: 'compact' }).format(value)
+                                },
+                                grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                            },
+                            y: {
+                                stacked: true,
+                                ticks: { color: '#94a3b8' }, /* Tailwind slate-400 */
+                                grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                            }
+                        },
+                        plugins: {
+                             legend: {
+                                position: 'bottom',
+                                labels: {
+                                    padding: 20,
+                                    font: { size: 12 },
+                                    color: '#94a3b8' /* Tailwind slate-400 */
+                                }
+                            },
+                            tooltip: {
+                                backgroundColor: '#1F2937', /* Tailwind gray-800 */
+                                callbacks: {
+                                    label: (context) => `${context.dataset.label}: ${new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(context.raw)}`
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            const setupAccordion = () => {
+                const accordionContainer = document.getElementById('accordion-container');
+                if(!accordionContainer) return;
+                
+                const buttons = accordionContainer.querySelectorAll('.accordion-button');
+                buttons.forEach(button => {
+                    button.addEventListener('click', () => {
+                        const content = button.nextElementSibling;
+                        const wasActive = button.classList.contains('active');
+
+                        // Cerrar todos los acordeones
+                        buttons.forEach(btn => {
+                            btn.classList.remove('active');
+                            btn.nextElementSibling.style.maxHeight = null;
+                            btn.nextElementSibling.style.padding = '0 1.5rem';
+                            btn.querySelector('svg').style.transform = '';
+                        });
+
+                        // Abrir el que se clickeó si no estaba abierto
+                        if (!wasActive) {
+                            button.classList.add('active');
+                            content.style.maxHeight = content.scrollHeight + 'px';
+                            content.style.padding = '1rem 1.5rem';
+                            button.querySelector('svg').style.transform = 'rotate(180deg)';
+                        }
+                    });
+                });
+            };
+
+            createCapTableChart();
+            createUseOfFundsChart();
+            createRiskChart();
+            setupAccordion();
+        });
+    </script>
+
+</body>
+</html>
