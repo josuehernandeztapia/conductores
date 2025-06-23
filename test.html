@@ -689,9 +689,9 @@
                     // Operating Cash Flow (Indirect Method): Net Income adjusted for non-cash items and changes in working capital (A/R)
                     const operatingCash = netIncome + annualDepreciation + provisions + impairment - deltaReceivables;
                     
-                    // Investing Cash Flow: Includes van CAPEX AND CLIENT LOAN ORIGINATION
-                    const investingCash = -capexThisYear - totalPrincipalOriginatedThisYear; // CRITICAL: Correction of the critical error!
-                    log(` Investing Cash Flow (van CAPEX + Loan Origination): ${formatCurrency(investingCash)}`);
+                    // Flujo de Inversión: Solo incluye CAPEX de vagonetas. La originación de préstamos se maneja en Op. Cash Flow via deltaReceivables.
+                    const investingCash = -capexThisYear; // CORRECCIÓN CRÍTICA: Eliminado totalPrincipalOriginatedThisYear para evitar doble conteo.
+                    log(` Flujo de Inversión (CAPEX vagonetas): ${formatCurrency(investingCash)}`);
                     
                     let financingCashThisPeriod = 0; // Represents net financing activities for *this* period
                     let principalPaymentVentureDebtThisPeriod = 0; // To store in CF results
@@ -755,15 +755,15 @@
                     const fixedAssetsNet = totalOriginalCostPPandE - totalAccumulatedDepreciationPPandE;
                     const assetsHeldForSaleNet = totalNIIF5AssetsBS; // It's the accumulated balance of IFRS 5 values in Balance
                     
-                    // Total Assets
+                    // Total Activos
                     const totalAssets = cash + currentYearEndReceivables + fixedAssetsNet + assetsHeldForSaleNet; // currentYearEndReceivables is the A/R balance
                     
-                    // Total Liabilities + Equity
+                    // Total Pasivos + Patrimonio
                     const totalLiabilitiesEquity = totalDebt + currentProvisionsBalance + contractLiabilitiesBalance + endOfYearEquity; // Add contractLiabilitiesBalance
                     
                     // Balance Sheet Validation: Compares Total Assets and Total Liabilities + Equity
                     const balanceDiff = Math.abs(totalAssets - totalLiabilitiesEquity);
-                    log(`Balance Difference Year ${year + 1}: ${formatCurrency(balanceDiff)}`);
+                    log(`Diferencia de Balance Año ${year + 1}: ${formatCurrency(balanceDiff)}`);
                     
                     // --- ANNUAL METRIC CALCULATION (ROE, ROIC) ---
                     const averageEquity = (startOfYearEquity + endOfYearEquity) / 2;
@@ -883,7 +883,6 @@
                     financialResults.tirCartera = 0; // If no flows, IRR is 0
                 }
                 log(`Calculated Portfolio IRR: ${financialResults.tirCartera.toFixed(2)}%`);
-                
                 log('Calculating Equity IRR...');
                 financialResults.tirEquity = calculateIRR(equityCashFlows);
                 log(`Calculated Equity IRR: ${financialResults.tirEquity.toFixed(2)}%`);
@@ -1155,7 +1154,7 @@
                 }
                 tr.appendChild(cell0);
                 
-                // Cells for Years 1-5
+                // Cells for Años 1-5
                 for (let i = 0; i < 5; i++) {
                     const cell = document.createElement('td');
                     let value;
@@ -1170,13 +1169,13 @@
                     } else if (row.key === 'additionalFundingRaised') {
                         value = financialResults.cf[i].additionalFundingRaised || 0;
                     } else if (row.key === 'investingCash_capex') {
-                        value = modelData.unitsPerYear[i] * modelData.vanCost; // Van CAPEX for this year
+                        value = modelData.unitsPerYear[i] * modelData.vanCost; // CAPEX de vagonetas para este año
                     } else if (row.key === 'investingCash_loans') {
-                        // totalPrincipalOriginatedThisYear is not stored annually in cf, calculate it
-                        value = modelData.unitsPerYear[i] * modelData.vanPrice; // Loan origination for this year
+                        // totalPrincipalOriginatedThisYear no está almacenado anualmente en cf, calcularlo
+                        value = 0; // Se elimina el detalle de originación de préstamos aquí ya que no es un flujo separado en este punto
                     }
                     else if (row.key === 'deltaReceivables') {
-                        // Delta A/R is special because it's calculated year-over-year.
+                        // Delta de CxC es especial porque se calcula de año a año.
                         const prevReceivables = (i === 0) ? 0 : financialResults.bs[i-1].receivables;
                         const currentReceivables = financialResults.bs[i].receivables;
                         value = currentReceivables - prevReceivables;
@@ -1195,7 +1194,7 @@
                         value = financialResults.cf[i][row.key] || 0;
                     }
                     
-                    // Format and color
+                    // Formato y color
                     if (row.negative && value > 0) {
                         cell.textContent = '(' + formatCurrency(value) + ')';
                         cell.classList.add('negative');
@@ -1215,7 +1214,7 @@
                 
                 tbody.appendChild(tr);
             });
-            log('  ✅  Cash Flow Statement table updated.');
+            log('  ✅  Tabla de Flujo de Efectivo actualizada.');
         }
         
         // Updates the Balance Sheet (BS) table
@@ -1225,7 +1224,7 @@
             
             tbody.innerHTML = ''; // Clear table
             
-            // Balance Sheet row definition
+            // Definición de las filas del Balance General
             const rows = [
                 { label: 'ACTIVOS', total: true, emphasize: true },
                 { label: '  Efectivo y Equivalentes', key: 'cash' },
@@ -1236,7 +1235,7 @@
                 { label: 'PASIVOS Y PATRIMONIO', total: true, separator: true, emphasize: true },
                 { label: '  Deuda Venture', key: 'debt' },
                 { label: '  Provisiones NIIF 9 (Acumuladas)', key: 'provisions' },
-                { label: '  Pasivos por Contrato (NIIF 15)', key: 'contractLiabilities' }, // New line for contract liabilities
+                { label: '  Pasivos por Contrato (NIIF 15)', key: 'contractLiabilities' }, // Nueva línea para pasivos por contrato
                 { label: 'TOTAL PASIVOS', key: 'totalLiabilities', total: true }, 
                 { label: '  Patrimonio', key: 'equity' },
                 { label: 'TOTAL PASIVOS + PATRIMONIO', key: 'totalLiabilitiesEquity', total: true, emphasize: true }
@@ -1256,13 +1255,13 @@
                 financialResults.bs.forEach(yearData => {
                     const cell = document.createElement('td');
                     let value;
-                    if (row.key === 'totalLiabilities') { // Specific calculation for Total Liabilities
+                    if (row.key === 'totalLiabilities') { // Cálculo específico para Total Pasivos
                         value = yearData.debt + yearData.provisions + yearData.contractLiabilities;
                     } else {
                         value = yearData[row.key] || 0;
                     }
                     
-                    // Format and color
+                    // Formato y color
                     if (row.negative && value > 0) {
                         cell.textContent = '(' + formatCurrency(value) + ')';
                         cell.classList.add('negative');
@@ -1279,7 +1278,7 @@
                 tbody.appendChild(tr);
             });
             
-            // Validate Balance (Assets = Liabilities + Equity)
+            // Validar Balance (Activos = Pasivos + Patrimonio)
             // Note: This basic balance validation is now part of the comprehensive validation system.
             // Keeping it here for quick reference but `updateValidationPanel` will show the detailed result.
             const validationDiv = document.getElementById('balance-validation');
@@ -1289,31 +1288,31 @@
             financialResults.bs.forEach(yearData => {
                 const difference = Math.abs(yearData.totalAssets - yearData.totalLiabilitiesEquity);
                 maxDifference = Math.max(maxDifference, difference);
-                if (difference > 1000) balanceValid = false; // Tolerance of $1,000 for validation
+                if (difference > 1000) balanceValid = false; // Tolerancia de $1,000 para la validación
             });
             
             if (balanceValid) {
-                validationDiv.innerHTML = '<span class="text-green-600">  ✅  Balance validated: Total Assets = Total Liabilities + Equity.</span>';
+                validationDiv.innerHTML = '<span class="text-green-600">  ✅  Balance validado: Total Activos = Total Pasivos + Patrimonio.</span>';
                 validationDiv.classList.remove('bg-red-100', 'text-red-800');
                 validationDiv.classList.add('bg-green-100', 'text-green-800');
             } else {
-                validationDiv.innerHTML = `<span class="text-red-600">  ❌  Balance error: Difference of ${formatCurrency(maxDifference)}. Review calculations.</span>`;
+                validationDiv.innerHTML = `<span class="text-red-600">  ❌  Error en balance: Diferencia de ${formatCurrency(maxDifference)}. Revise cálculos.</span>`;
                 validationDiv.classList.remove('bg-green-100', 'text-green-800');
                 validationDiv.classList.add('bg-red-100', 'text-red-800');
             }
-            log('  ✅  Balance Sheet table updated and validated.');
+            log('  ✅  Tabla de Balance General actualizada y validada.');
         }
         
-        // ===== IFRS DETAIL TABLES =====
-        // Updates IFRS 15, IFRS 9, and IFRS 5 sections
+        // ===== TABLAS DE DETALLES NIIF =====
+        // Actualiza las secciones de NIIF 15, NIIF 9 y NIIF 5
         function updateNIIFTables() {
-            log('Updating IFRS detail tables...');
+            log('Actualizando tablas de detalles NIIF...');
             if (!financialResults.niifDetails || financialResults.niifDetails.length === 0) {
-                log('  ❌  No IFRS data to display.');
+                log('  ❌  No hay datos NIIF para mostrar.');
                 return;
             }
             
-            // --- IFRS 15: Revenue Recognition ---
+            // --- NIIF 15: Reconocimiento de Ingresos ---
             const container15 = document.getElementById('niif15-container');
             if (container15) {
                 container15.innerHTML = `
@@ -1374,13 +1373,13 @@
                         <p class="mb-1">• El Balance General ahora refleja los **Pasivos por Contrato** para los ingresos de originación que han sido cobrados pero aún no reconocidos.</p>
                     </div>
                 `;
-                log('  ✅  IFRS 15 updated.');
+                log('  ✅  NIIF 15 actualizada.');
             }
             
-            // --- IFRS 9: Credit Provisions ---
+            // --- NIIF 9: Provisiones Crediticias ---
             const container9 = document.getElementById('niif9-container');
             if (container9) {
-                const year5NIIF9 = financialResults.niifDetails[4]?.niif9; // Get Year 5 data for summary
+                const year5NIIF9 = financialResults.niifDetails[4]?.niif9; // Obtener datos del Año 5 para el resumen
                 if (year5NIIF9) {
                     container9.innerHTML = `
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
@@ -1435,16 +1434,16 @@
                             <p class="mt-2 text-red-700 font-bold">Nota: En este modelo, la migración entre etapas se simula mediante una distribución porcentual fija de la cartera total para cada año, lo cual es una simplificación común para modelos agregados de alto nivel, en lugar de un seguimiento individual de cada préstamo.</p>
                         </div>
                     `;
-                    log('  ✅  IFRS 9 updated.');
+                    log('  ✅  NIIF 9 actualizada.');
                 } else {
-                     log('  ⚠️  IFRS 9 data for Year 5 incomplete.');
+                     log('  ⚠️  Datos de NIIF 9 para Año 5 incompletos.');
                 }
             }
             
-            // --- IFRS 5: Assets Held for Sale ---
+            // --- NIIF 5: Activos Mantenidos para Venta ---
             const container5 = document.getElementById('niif5-container');
             if (container5) {
-                const year5NIIF5 = financialResults.niifDetails[4]?.niif5; // Get Year 5 data for summary
+                const year5NIIF5 = financialResults.niifDetails[4]?.niif5; // Obtener datos del Año 5 para el resumen
                 if (year5NIIF5) {
                     container5.innerHTML = `
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -1481,18 +1480,18 @@
                             <p class="mb-1">• Se reconoce una pérdida por deterioro si el valor en libros excede el valor razonable neto de venta. Las ganancias por reversión de deterioro están limitadas a la pérdida original.</p>
                         </div>
                     `;
-                    log('  ✅  IFRS 5 updated.');
+                    log('  ✅  NIIF 5 actualizada.');
                 } else {
-                    log('  ⚠️  IFRS 5 data for Year 5 incomplete.');
+                    log('  ⚠️  Datos de NIIF 5 para Año 5 incompletos.');
                 }
             }
         }
         
-        // ===== CHARTS (Chart.js) =====
-        // Initializes chart instances
+        // ===== GRÁFICOS (Chart.js) =====
+        // Inicializa las instancias de los gráficos
         function initializeCharts() {
             try {
-                // EBITDA Chart
+                // Gráfico de EBITDA
                 const ctxEbitda = document.getElementById('ebitdaChart');
                 if (ctxEbitda) {
                     charts.ebitda = new Chart(ctxEbitda, {
@@ -1505,7 +1504,7 @@
                                 borderColor: '#3b82f6', // blue-500
                                 backgroundColor: 'rgba(59, 130, 246, 0.1)',
                                 fill: true,
-                                tension: 0.3 // Smooth line
+                                tension: 0.3 // Suavizar la línea
                             }]
                         },
                         options: {
@@ -1522,7 +1521,7 @@
                     });
                 }
                 
-                // Revenue Mix Chart
+                // Gráfico de Composición de Ingresos
                 const ctxRevenueMix = document.getElementById('revenueMixChart');
                 if (ctxRevenueMix) {
                     charts.revenueMix = new Chart(ctxRevenueMix, {
@@ -1531,7 +1530,7 @@
                             labels: ['Intereses', 'Originación', 'GNV', 'Refacciones', 'Marketplace'],
                             datasets: [{
                                 data: [],
-                                backgroundColor: ['#34D399', '#FBBF24', '#60A5FA', '#8B5CF6', '#EC4899'] // Tailwind colors: green, amber, blue, violet, pink
+                                backgroundColor: ['#34D399', '#FBBF24', '#60A5FA', '#8B5CF6', '#EC4899'] // Colores Tailwind: green, amber, blue, violet, pink
                             }]
                         },
                         options: {
@@ -1544,7 +1543,7 @@
                         }
                     });
                 }
-                // Balance Validation Chart
+                // Gráfico de Validación de Balance
                 const ctxBalanceValidation = document.getElementById('balanceValidationChart');
                 if (ctxBalanceValidation) {
                     charts.balanceValidation = new Chart(ctxBalanceValidation, {
@@ -1577,7 +1576,7 @@
                         }
                     });
                 }
-                // Annual Net Cash Flow Chart
+                // Gráfico de Flujo de Efectivo Neto Anual
                 const ctxNetCashFlow = document.getElementById('netCashFlowChart');
                 if (ctxNetCashFlow) {
                     charts.netCashFlow = new Chart(ctxNetCashFlow, {
@@ -1587,7 +1586,7 @@
                             datasets: [{
                                 label: 'Flujo Neto de Efectivo (M MXN)',
                                 backgroundColor: (context) => {
-                                    // Check if context.parsed and context.parsed.y exist
+                                    // Verificar si context.parsed y context.parsed.y existen
                                     if (context.parsed && typeof context.parsed.y === 'number') {
                                         const value = context.parsed.y;
                                         return value >= 0 ? '#10b981' : '#ef4444'; // green-500 for positive, red-500 for negative
@@ -1609,26 +1608,26 @@
                         }
                     });
                 }
-                log('  ✅  Charts initialized.');
+                log('  ✅  Gráficos inicializados.');
             } catch (error) {
-                log(`Error initializing charts: ${error.message}`);
-                console.error('Error initializing charts:', error);
+                log(`Error inicializando gráficos: ${error.message}`);
+                console.error('Error inicializando gráficos:', error);
             }
         }
         
-        // Updates chart data with current financial results
+        // Actualiza los datos de los gráficos con los resultados financieros actuales
         function updateCharts() {
             try {
                 if (!financialResults.pl.length) return;
                 
-                // Update EBITDA Chart
+                // Actualizar Gráfico de EBITDA
                 if (charts.ebitda) {
-                    const ebitdas = financialResults.pl.map(d => d.ebitda / 1000000); // In Millions for the chart
+                    const ebitdas = financialResults.pl.map(d => d.ebitda / 1000000); // En Millones para el gráfico
                     charts.ebitda.data.datasets[0].data = ebitdas;
                     charts.ebitda.update();
                 }
                 
-                // Update Revenue Mix Chart (Year 5)
+                // Actualizar Gráfico de Composición de Ingresos (Año 5)
                 if (charts.revenueMix && financialResults.pl[4]) { 
                     const year5 = financialResults.pl[4];
                     charts.revenueMix.data.datasets[0].data = [
@@ -1640,7 +1639,7 @@
                     ];
                     charts.revenueMix.update();
                 }
-                // Update Balance Validation Chart
+                // Actualizar Gráfico de Validación de Balance
                 if (charts.balanceValidation) {
                     const totalAssetsData = financialResults.bs.map(d => d.totalAssets / 1000000);
                     const totalLiabilitiesEquityData = financialResults.bs.map(d => d.totalLiabilitiesEquity / 1000000);
@@ -1648,28 +1647,28 @@
                     charts.balanceValidation.data.datasets[1].data = totalLiabilitiesEquityData;
                     charts.balanceValidation.update();
                 }
-                // Update Annual Net Cash Flow Chart
+                // Actualizar Gráfico de Flujo de Efectivo Neto Anual
                 if (charts.netCashFlow) {
                     const netCashFlows = financialResults.cf.map(d => d.netCash / 1000000);
                     charts.netCashFlow.data.datasets[0].data = netCashFlows;
                     charts.netCashFlow.update();
                 }
                 
-                log('  ✅  Charts updated.');
+                log('  ✅  Gráficos actualizados.');
             }
             catch (error) {
-                log(`Error updating charts: ${error.message}`);
-                console.error('Error updating charts:', error);
+                log(`Error actualizando gráficos: ${error.message}`);
+                console.error('Error actualizando gráficos:', error);
             }
         }
         
-        // ===== HELPER FUNCTIONS =====
-        // Formats a numeric value to currency format (millions, thousands, or no prefix)
+        // ===== FUNCIONES AUXILIARES =====
+        // Formatea un valor numérico a formato de moneda (millones, miles o sin prefijo)
         function formatCurrency(value, full = false) {
             if (value === null || value === undefined) return '$0 MXN';
             value = parseFloat(value);
             if (isNaN(value)) return '$0 MXN';
-            if (full) { // Full format with commas
+            if (full) { // Formato completo con comas
                 return '$' + value.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + ' MXN';
             } else if (Math.abs(value) >= 1000000) {
                 return '$' + (value / 1000000).toFixed(1) + 'M MXN';
@@ -1678,20 +1677,18 @@
             }
             return '$' + Math.round(value).toLocaleString() + ' MXN';
         }
-        
-        // Forces a manual recalculation of the model
+        // Fuerza un recálculo manual del modelo
         function forceCalculate() {
-            log('  🔄  Manual recalculation requested.');
+            log('  🔄  Recálculo manual solicitado.');
             if (calculateFinancials()) {
                 updateUI();
-                log('  ✅  Manual recalculation completed.');
+                log('  ✅  Recálculo manual completado.');
             } else {
-                log('  ❌  Manual recalculation failed.');
+                log('  ❌  Fallo en el recálculo manual.');
             }
         }
-        
-        // ===== USER CONTROL SETUP =====
-        // Generates and links "range" type inputs (sliders)
+        // ===== CONFIGURACIÓN DE CONTROLES DE USUARIO =====
+        // Genera y vincula los inputs de tipo "range" (sliders)
         function setupSliderControls() {
             const container = document.getElementById('credit-risk-controls');
             const operationsContainer = document.getElementById('operations-debt-controls');
@@ -1711,40 +1708,38 @@
                     operationsContainer.appendChild(parentDiv);
                 }
                 const slider = parentDiv.querySelector(`#${config.id}-input`);
-                const display = parentDiv.querySelector(`#${config.id}-valor`); // Corrected from parentVaria
+                const display = parentDiv.querySelector(`#${config.id}-valor`); 
                 
                 slider.addEventListener('input', function() {
                     const value = parseFloat(this.value);
                     modelData[config.id] = value;
                     display.textContent = config.format(value);
-                    log(`${config.label} changed to: ${value}`);
-                    // Recalculate and update UI on each slider change
+                    log(`${config.label} cambiado a: ${value}`);
+                    // Recalcular y actualizar UI en cada cambio de slider
                     if (calculateFinancials()) {
                         updateUI();
                     }
                 });
             });
-            // Checkbox for Protección Rodando
+            // Checkbox para Protección Rodando
             const checkbox = document.getElementById('check-proteccion');
             if (checkbox) {
-                checkbox.checked = modelData.proteccionRodando; // Set initial state
+                checkbox.checked = modelData.proteccionRodando; // Establecer estado inicial
                 checkbox.addEventListener('change', function() {
                     modelData.proteccionRodando = this.checked;
-                    log(`Protección Rodando: ${this.checked ? 'ACTIVATED' : 'DEACTIVATED'}`);
+                    log(`Protección Rodando: ${this.checked ? 'ACTIVADA' : 'DESACTIVADA'}`);
                     if (calculateFinancials()) {
                         updateUI();
                     }
                 });
             }
-            log('  ✅  Slider controls configured.');
+            log('  ✅  Controles deslizables (sliders) configurados.');
         }
-        
-        // Generates and links number inputs (model constants and units per year)
+        // Genera y vincula los inputs numéricos (constantes del modelo y unidades por año)
         function setupNumberControls() {
             const unitsContainer = document.getElementById('units-container');
             const constantsContainer = document.getElementById('constants-container');
-            
-            // Inputs for Units per Year
+            // Inputs para Unidades por Año
             modelData.unitsPerYear.forEach((units, index) => {
                 const div = document.createElement('div');
                 div.className = 'flex flex-col';
@@ -1758,18 +1753,17 @@
                 const input = document.getElementById(`unit-year-${index+1}`);
                 input.addEventListener('change', function() {
                     const value = parseInt(this.value) || 0;
-                    // Ensure value is within limits
+                    // Asegurar que el valor esté dentro de los límites
                     modelData.unitsPerYear[index] = Math.max(0, Math.min(1000, value)); 
-                    this.value = modelData.unitsPerYear[index]; // Update input if adjusted
+                    this.value = modelData.unitsPerYear[index]; // Actualizar input si se ajustó
                     
-                    log(`Units Year ${index+1} changed to: ${modelData.unitsPerYear[index]}`);
+                    log(`Unidades Año ${index+1} cambiado a: ${modelData.unitsPerYear[index]}`);
                     if (calculateFinancials()) {
                         updateUI();
                     }
                 });
             });
-            
-            // Inputs for Model Constants
+            // Inputs para Constantes del Modelo
             constantConfigs.forEach(config => {
                 const div = document.createElement('div');
                 div.className = 'flex flex-col';
@@ -1780,10 +1774,8 @@
                     <span class="text-xs text-gray-500 mt-1" id="${config.id}-display">${config.format(modelData[config.id])}</span>
                 `;
                 constantsContainer.appendChild(div);
-                
-                const input = div.querySelector(`#${config.id}-input`); // Corrected from div.getElementById
-                const display = div.querySelector(`#${config.id}-display`); // Corrected from div.getElementById
-                
+                const input = div.querySelector(`#${config.id}-input`); // Corregido de div.getElementById
+                const display = div.querySelector(`#${config.id}-display`); // Corregido de div.getElementById
                 input.addEventListener('input', function() {
                     let value = parseFloat(this.value);
                     if (isNaN(value)) value = 0; // Default to 0 if input is not a number
@@ -1795,66 +1787,64 @@
                     }
                     modelData[config.id] = value;
                     display.textContent = config.format(value);
-                    log(`${config.label} changed to: ${value}`);
+                    log(`${config.label} cambiado a: ${value}`);
                     if (calculateFinancials()) {
                         updateUI();
                     }
                 });
             });
-            log('  ✅  Number controls (constants and units) configured.');
+            log('  ✅  Controles numéricos (constantes y unidades) configurados.');
         }
-        
-        // Configures tab navigation
+        // Configura la navegación entre pestañas
         function setupTabs() {
             const tabButtons = document.querySelectorAll('.tab-button');
             const contentSections = document.querySelectorAll('.content-section');
             
             tabButtons.forEach((button, index) => {
                 button.addEventListener('click', () => {
-                    // Remove 'active' class from all buttons and sections
+                    // Remover la clase 'active' de todos los botones y secciones
                     tabButtons.forEach(btn => btn.classList.remove('active'));
                     contentSections.forEach(section => section.classList.remove('active'));
                     
                     button.classList.add('active');
                     contentSections[index].classList.add('active');
                     
-                    // Force update of tables and charts when changing tabs
-                    // This is useful if data loads slowly or a re-render is required
+                    // Forzar actualización de tablas y gráficos al cambiar de pestaña
+                    // Esto es útil si los datos se cargan lentamente o si se requiere un re-render
                     if (button.id === 'tab-financieros' || button.id === 'tab-niif' || button.id === 'tab-graficos' || button.id === 'tab-validacion') {
                         setTimeout(() => {
-                            if (calculateFinancials()) { // Recalculate before updating UI
+                            if (calculateFinancials()) { // Recalcular antes de actualizar UI
                                 updateUI();
                             }
-                        }, 50); // Small delay to ensure tab is visible
+                        }, 50); // Pequeño retraso para asegurar que la pestaña esté visible
                     }
                 });
             });
-            log('  ✅  Tab navigation configured.');
+            log('  ✅  Navegación por pestañas configurada.');
         }
-        
-        // ===== COMPREHENSIVE VALIDATION FUNCTIONS =====
-        // Object to store validation results
+        // ===== FUNCIONES DE VALIDACIÓN INTEGRAL =====
+        // Objeto para almacenar los resultados de la validación
         // { errors: [], warnings: [], info: [], passed: [] }
         function validateModelComprehensively(modelData, financialResults) {
             const validations = {
-                errors: [],      //  🔴  Critical - Require correction, model is unviable
-                warnings: [],    //  🟡  Important - Indicate possible problems or unusual results
-                info: [],        //  🔵  Informative - Suggestions or interesting data
-                passed: []       //  ✅  Successful - Meet expectations
+                errors: [],      //  🔴  Críticos - Requieren corrección, el modelo es inviable
+                warnings: [],    //  🟡  Importantes - Indican posibles problemas o resultados inusuales
+                info: [],        //  🔵  Informativos - Sugerencias o datos interesantes
+                passed: []       //  ✅  Exitosos - Cumplen con las expectativas
             };
             
-            // Level 1: Basic Input Validation
+            // Nivel 1: Validación de Inputs Básicos
             validateInputs(modelData, validations);
             
-            // Only if financial results exist and are valid to continue
+            // Solo si los resultados financieros existen y son válidos para continuar
             if (financialResults.pl.length > 0 && financialResults.cf.length > 0 && financialResults.bs.length > 0) {
-                // Level 2: Output Validation and Sanity Check
+                // Nivel 2: Validación de Outputs y Cordura
                 validateOutputs(financialResults, validations);
-                // Level 3: Consistency between Financial Statements
+                // Nivel 3: Consistencia entre Estados Financieros
                 validateConsistency(financialResults, validations);
-                // Level 4: Temporal Evolution
+                // Nivel 4: Evolución Temporal
                 validateTemporal(financialResults, validations);
-                // Level 5: Industry Benchmarks (if enough data for year 5)
+                // Nivel 5: Benchmarks de Industria (si hay datos suficientes para el año 5)
                 if (financialResults.pl.length === 5) {
                     validateIndustryBenchmarks(financialResults, validations);
                 } else {
@@ -1866,8 +1856,7 @@
             
             return validations;
         }
-        
-        // Level 1: Validate Basic Inputs
+        // Nivel 1: Validar Inputs Básicos
         function validateInputs(modelData, validations) {
             // Check basic non-negativity for key inputs
             if (modelData.seriesA <= 0) {
@@ -1888,7 +1877,6 @@
             if (modelData.periodoAmortizacionDeuda <= 0) {
                 validations.errors.push(" 🔴  Error: El Plazo de Amortización de Deuda debe ser mayor que 0. Ajuste 'Plazo Amort. Deuda' en Control.");
             }
-            
             // Check percentage inputs for reasonable range (0-100%, or 0-1 for decimals)
             const percentageInputs = [
                 { id: 'tasaInteres', min: 0, max: 100, label: 'Tasa de Interés (Clientes)' }, 
@@ -1910,7 +1898,6 @@
                     validations.warnings.push(` 🟡  Advertencia: '${p.label}' (${modelData[p.id]}%) está fuera del rango típico (${p.min}-${p.max}%). Revise en Control.`);
                 }
             });
-            
             // Check PD and LGD (which are decimals) for reasonable range
             const decimalPercentageInputs = [
                 { id: 'pdStage1', min: 0, max: 0.1, label: 'PD Etapa 1 (12M)' }, 
@@ -1923,7 +1910,6 @@
                     validations.warnings.push(` 🟡  Advertencia: '${p.label}' (${(modelData[p.id]*100).toFixed(1)}%) está fuera del rango típico. Revise en Control.`);
                 }
             });
-            
             // Check portfolio allocation sums to 100%
             const totalAllocation = modelData.portfolioAllocationStage1 + modelData.portfolioAllocationStage2 + modelData.portfolioAllocationStage3;
             if (Math.abs(totalAllocation - 1.0) > 0.001) { // Allow for small floating point inaccuracies
@@ -1931,7 +1917,6 @@
             } else {
                 validations.passed.push(` ✅  Inputs: Asignación de Portafolio NIIF 9 suma 100%.`);
             }
-            
             // Check that units per year are not negative
             modelData.unitsPerYear.forEach((units, index) => {
                 if (units < 0) {
@@ -1940,12 +1925,10 @@
             });
             validations.passed.push(" ✅  Inputs: Parámetros básicos de entrada validados correctamente.");
         }
-        
-        // Level 2: Validate Outputs and Financial Sanity
+        // Nivel 2: Validar Outputs y Cordura Financiera
         function validateOutputs(financialResults, validations) {
             const lastYear = financialResults.pl.length - 1; // Assuming 5 years, this will be 4
             if (lastYear < 0) return; // No data to validate
-            
             // Check cash balance for all years
             financialResults.bs.forEach((bsYear, index) => {
                 if (bsYear.cash < -100) { // Allow for very small negative cash, but alert for significant
@@ -1954,16 +1937,13 @@
                     validations.warnings.push(` 🟡  Advertencia: El Saldo de Efectivo al final del Año ${index + 1} es ligeramente negativo (${formatCurrency(bsYear.cash)}). Considere ajustar la financiación.`);
                 }
             });
-            
             // Only add passed if no critical errors found for cash
             if (!validations.errors.some(e => e.includes("Efectivo negativo")) && !validations.warnings.some(e => e.includes("Efectivo ligeramente negativo"))) {
                  validations.passed.push(" ✅  Outputs: Saldo de efectivo es positivo en todos los años.");
             }
-            
             const year5PL = financialResults.pl[lastYear];
             const year5BS = financialResults.bs[lastYear];
-            
-            // EBITDA Margin: -50% to +100% (as percentage of revenue)
+            // Margen EBITDA: -50% to +100% (as percentage of revenue)
             if (year5PL.totalRevenue !== 0) {
                 const ebitdaMargin = (year5PL.ebitda / year5PL.totalRevenue) * 100;
                 if (ebitdaMargin < -50 || ebitdaMargin > 100) {
@@ -1974,8 +1954,7 @@
             } else {
                  validations.info.push(` 🔵  Info: Ingresos Totales del Año ${lastYear + 1} son cero, no se puede calcular Margen EBITDA.`);
             }
-            
-            // ROE: -100% to +200%
+            // ROE: -100% a +200%
             if (financialResults.roe.length > lastYear && year5BS.equity !== 0) {
                 const roe = financialResults.roe[lastYear];
                 if (roe < -100 || roe > 200) {
@@ -1986,8 +1965,7 @@
             } else if (financialResults.roe.length > lastYear) { // If equity is zero
                 validations.warnings.push(` 🟡  Advertencia: Patrimonio del Año ${lastYear + 1} es cero o negativo, no se puede calcular ROE significativo.`);
             }
-            
-            // A/R / Revenue: 0.1x to 5x
+            // CxC/Ingresos: 0.1x a 5x
             if (year5PL.totalRevenue !== 0) {
                 const cxcToRevenueRatio = year5BS.receivables / year5PL.totalRevenue;
                 if (cxcToRevenueRatio < 0.1 || cxcToRevenueRatio > 5) {
@@ -1998,8 +1976,7 @@
             } else {
                 validations.info.push(` 🔵  Info: Ingresos Totales del Año ${lastYear + 1} son cero, no se puede calcular Ratio CxC/Ingresos.`);
             }
-            
-            // Debt/Equity: 0x to 20x
+            // Debt/Equity: 0x a 20x
             if (year5BS.equity !== 0) {
                 const debtToEquityRatio = year5BS.debt / year5BS.equity;
                 if (debtToEquityRatio < 0 || debtToEquityRatio > 20) {
@@ -2011,8 +1988,7 @@
                  validations.info.push(` 🔵  Info: Patrimonio del Año ${lastYear + 1} es cero o negativo, no se puede calcular Ratio Deuda/Patrimonio significativo.`);
             }
         }
-        
-        // Level 3: Consistency between Financial Statements
+        // Nivel 3: Consistencia entre Estados Financieros
         function validateConsistency(financialResults, validations) {
             const tolerance = 1000; // Tolerance for monetary differences ($1,000 MXN)
             const largeTolerance = 50000; // A larger tolerance for some calculated vs accumulated fields that might drift
@@ -2020,11 +1996,9 @@
                 const pl = financialResults.pl[i];
                 const cf = financialResults.cf[i];
                 const bs = financialResults.bs[i];
-                
                 // For Year 1 (index 0), previous BS values are initial fundings
                 const prevBsCash = (i === 0) ? (modelData.seriesA + (modelData.seriesA * (modelData.ventureDebtPct / 100))) : financialResults.bs[i-1].cash;
                 const prevBsEquity = (i === 0) ? modelData.seriesA : financialResults.bs[i-1].equity;
-
                 // Check Balance Sheet equation A = P + E
                 const balanceDiff = Math.abs(bs.totalAssets - bs.totalLiabilitiesEquity);
                 if (balanceDiff > tolerance) {
@@ -2032,8 +2006,7 @@
                 } else {
                     validations.passed.push(` ✅  Consistencia: Balance General del Año ${i + 1} cuadra.`);
                 }
-                
-                // Net Cash Flow = Change in Cash
+                // Flujo neto = Cambio en efectivo
                 const cashChangeCF = cf.netCash;
                 const cashChangeBS = bs.cash - prevBsCash;
                 if (Math.abs(cashChangeCF - cashChangeBS) > tolerance) {
@@ -2041,9 +2014,7 @@
                 } else {
                     validations.passed.push(` ✅  Consistencia: Flujo Neto y cambio en Efectivo del Año ${i + 1} concuerdan.`);
                 }
-                
-                // Depreciation P&L = Depreciation CF (as non-cash adjustment)
-                // Note: The CF table currently uses the PL depreciation directly. This check ensures the source value is consistent.
+                // Depreciación P&L = Depreciación CF (como ajuste no monetario)
                 if (pl.depreciation !== undefined && financialResults.cf[i].depreciation !== undefined) { // Check if keys exist in both
                     if (Math.abs(pl.depreciation - financialResults.cf[i].depreciation) > tolerance) { // Assuming CF contains depreciation from PL for simplicity here
                         validations.warnings.push(` 🟡  Advertencia de Consistencia: Depreciación en P&L (${formatCurrency(pl.depreciation)}) no coincide con el ajuste en Flujo de Efectivo (${formatCurrency(financialResults.cf[i].depreciation)}) para el Año ${i + 1}.`);
@@ -2051,10 +2022,9 @@
                         validations.passed.push(` ✅  Consistencia: Depreciación en P&L y Flujo de Efectivo del Año ${i + 1} concuerdan.`);
                     }
                 }
-
-                // Net Income = Delta Retained Earnings (considering new capital and dividends if any)
+                // Utilidad neta = Delta utilidades retenidas (considerando nuevo capital y dividendos si los hubiera)
                 const deltaEquity = bs.equity - prevBsEquity;
-                // Sum net income, plus additional funding from liquidity plug, plus Series B and C for the corresponding year
+                // Suma la utilidad neta, más el funding adicional del plug de liquidez, más las series B y C del año correspondiente
                 const netIncomePlusNewEquity = pl.netIncome + (financialResults.cf[i].additionalFundingRaised || 0) + 
                                                (i + 1 === modelData.seriesB_year ? modelData.seriesB_funding : 0) + 
                                                (i + 1 === modelData.seriesC_year ? modelData.seriesC_funding : 0);
@@ -2067,16 +2037,14 @@
                 }
             }
         }
-        
-        // Level 4: Temporal Evolution
+        // Nivel 4: Evolución Temporal
         function validateTemporal(financialResults, validations) {
             for (let i = 1; i < financialResults.pl.length; i++) { // Start from Year 2 to compare with Year 1
                 const prevPl = financialResults.pl[i-1];
                 const currentPl = financialResults.pl[i];
                 const prevBs = financialResults.bs[i-1];
                 const currentBs = financialResults.bs[i];
-                
-                // Revenue growth <1000% annually
+                // Crecimiento ingresos <1000% anual
                 if (prevPl.totalRevenue !== 0) {
                     const revenueGrowth = (currentPl.totalRevenue / prevPl.totalRevenue - 1) * 100;
                     if (revenueGrowth > 1000) { // If revenue grows more than 1000% (10x) in a year
@@ -2085,8 +2053,7 @@
                 } else if (currentPl.totalRevenue > 0) { // If prev year revenue was 0 but current is positive, it's a new ramp-up, not an "explosive" growth anomaly
                      validations.info.push(` 🔵  Info Temporal: Ingresos de Año ${i + 1} inician ramp-up desde cero/bajo. Crecimiento porcentual no significativo.`);
                 }
-                
-                // Ratios do not change >500% between years (e.g., EBITDA Margin)
+                // Ratios no cambian >500% entre años (ej. Margen EBITDA)
                 if (prevPl.totalRevenue !== 0 && currentPl.totalRevenue !== 0) {
                     const prevEbitdaMargin = (prevPl.ebitda / prevPl.totalRevenue) * 100;
                     const currentEbitdaMargin = (currentPl.ebitda / currentPl.totalRevenue) * 100;
@@ -2097,18 +2064,15 @@
             }
             validations.passed.push(" ✅  Evolución Temporal: Tendencias de crecimiento y ratios anuales parecen razonables.");
         }
-        
-        // Level 5: Industry Benchmarks
+        // Nivel 5: Benchmarks de Industria
         function validateIndustryBenchmarks(financialResults, validations) {
             const lastYear = financialResults.pl.length - 1;
             if (lastYear < 4) return; // Need at least 5 years of data for year 5 benchmarks
-            
             const year5PL = financialResults.pl[lastYear];
             const year5BS = financialResults.bs[lastYear];
             const year5ROE = financialResults.roe[lastYear];
             const year5ROIC = financialResults.roic[lastYear];
-            
-            // Fintech EBITDA Margin: 10-40%
+            // Margen EBITDA fintech: 10-40%
             if (year5PL.totalRevenue !== 0) {
                 const ebitdaMargin = (year5PL.ebitda / year5PL.totalRevenue) * 100;
                 if (ebitdaMargin < 10 || ebitdaMargin > 40) {
@@ -2117,8 +2081,7 @@
                     validations.passed.push(` ✅  Benchmarks: Margen EBITDA del Año ${lastYear + 1} (${ebitdaMargin.toFixed(1)}%) está en línea con el benchmark.`);
                 }
             }
-            
-            // Financial Services ROE: 15-35%
+            // ROE servicios financieros: 15-35%
             if (year5BS.equity !== 0) {
                 if (year5ROE < 15 || year5ROE > 35) {
                     validations.info.push(` 🔵  Info: ROE del Año ${lastYear + 1} (${year5ROE.toFixed(1)}%) está fuera del benchmark típico de servicios financieros (15-35%).`);
@@ -2128,8 +2091,7 @@
             } else {
                  validations.info.push(` 🔵  Info: Patrimonio del Año ${lastYear + 1} es cero o negativo, no se puede comparar ROE con benchmark.`);
             }
-            
-            // A/R / Revenue financing: 0.5-3x
+            // CxC/Ingresos financiamiento: 0.5-3x
             if (year5PL.totalRevenue !== 0) {
                 const cxcToRevenueRatio = year5BS.receivables / year5PL.totalRevenue;
                 if (cxcToRevenueRatio < 0.5 || cxcToRevenueRatio > 3) {
@@ -2141,13 +2103,11 @@
                 validations.info.push(` 🔵  Info: Ingresos Totales del Año ${lastYear + 1} son cero, no se puede comparar Ratio CxC/Ingresos con benchmark.`);
             }
         }
-        
-        // Function to update the validation panel in the UI
+        // Función para actualizar el panel de validación en la UI
         function updateValidationPanel(validations) {
             const container = document.getElementById('validation-results-container');
             if (!container) return;
             container.innerHTML = ''; // Clear previous results
-            
             // Display messages by type, ensuring errors/warnings are prominent
             const types = ['error', 'warning', 'info', 'passed'];
             types.forEach(type => {
@@ -2168,7 +2128,6 @@
                     console.warn(`Validation type '${type}' is not an array:`, validations[type]);
                 }
             });
-            
             // Add a summary
             const summaryDiv = document.createElement('div');
             summaryDiv.className = 'validation-summary mt-4 p-2 rounded-lg';
@@ -2184,38 +2143,37 @@
             }
             container.appendChild(summaryDiv);
         }
-        
-        // ===== APPLICATION INITIALIZATION =====
-        // Executes when the DOM is fully loaded
+        // ===== APLICACIÓN LISTA Y FUNCIONANDO =====
+        // Se ejecuta cuando el DOM está completamente cargado
         document.addEventListener('DOMContentLoaded', function() {
-            log('  🚀  INITIATING FINANCIAL MODEL APPLICATION');
+            log('  🚀  INICIANDO APLICACIÓN DEL MODELO FINANCIERO');
             
             try {
-                // Set up all interactive elements and UI
+                // Configurar todos los elementos interactivos y la UI
                 setupTabs();
-                setupSliderControls(); // Configure sliders
-                setupNumberControls(); // Configure number inputs (constants and units)
+                setupSliderControls(); // Configurar sliders
+                setupNumberControls(); // Configurar inputs numéricos (constantes y unidades)
                 
-                // Perform initial model calculation and update UI
+                // Realizar el cálculo inicial del modelo y actualizar la UI
                 if (calculateFinancials()) {
                     updateUI();
-                    log('  ✅  Initialization successful: Calculations and UI updated.');
+                    log('  ✅  Inicialización exitosa: Cálculos y UI actualizados.');
                 } else {
-                    log('  ❌  Error during initialization: Initial calculations failed.');
+                    log('  ❌  Error durante la inicialización: Fallo en los cálculos iniciales.');
                 }
                 
-                // Initialize and update charts after a brief delay
-                // This ensures the canvas is ready in the DOM
+                // Inicializar y actualizar gráficos después de un breve retraso
+                // Esto asegura que el canvas esté listo en el DOM
                 setTimeout(() => {
                     initializeCharts();
                     updateCharts();
-                }, 500); // 500ms delay
+                }, 500); // Retraso de 500ms
                 
-                log('  🎉  APPLICATION READY AND RUNNING');
+                log('  🎉  APLICACIÓN LISTA Y FUNCIONANDO');
                 
             } catch (error) {
-                log(`  ❌  CRITICAL ERROR DURING INITIALIZATION: ${error.message}`);
-                console.error('Critical error in initialization:', error);
+                log(`  ❌  ERROR CRÍTICO DURANTE LA INICIALIZACIÓN: ${error.message}`);
+                console.error('Error crítico en inicialización:', error);
             }
         });
     </script>
