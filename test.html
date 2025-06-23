@@ -331,7 +331,7 @@
             comisionGNVPorcentaje: 10,          // Rango: 7-15% (reemplaza comisionGNV anterior)
 
             // NUEVOS PARÁMETROS: Marketplace transaccional
-            gnvPromedioMensualMensualPorUnidad: 8000, // Rango: 5000-15000 MXN (ventas brutas de GNV para marketplace)
+            gmvPromedioMensualPorUnidad: 8000, // Rango: 5000-15000 MXN (ventas brutas de GNV para marketplace) - RENOMBRADO
             takeRateMarketplace: 1.5,                 // Rango: 1.0-2.0% (comisión sobre ventas brutas del marketplace)
             
             // NUEVOS PARÁMETROS: Venture Debt Contingente
@@ -384,7 +384,7 @@
             // NUEVOS CONTROLES NUMÉRICOS
             { id: 'litrosPromedioMensualPorUnidad', label: 'Litros GNV/Unidad (Mensual)', min: 800, max: 1000, step: 10, type: 'number', format: val => val.toFixed(0) + ' L' },
             { id: 'precioLitroGNV', label: 'Precio Litro GNV (MXN)', min: 12.00, max: 13.99, step: 0.01, type: 'number', format: val => '$' + val.toFixed(2) + ' MXN' },
-            { id: 'gnvPromedioMensualMensualPorUnidad', label: 'Ventas Brutas Marketplace/Unidad (Mensual)', min: 5000, max: 15000, step: 100, type: 'number', format: val => formatCurrency(val, true) },
+            { id: 'gmvPromedioMensualPorUnidad', label: 'Ventas Brutas Marketplace/Unidad (Mensual)', min: 5000, max: 15000, step: 100, type: 'number', format: val => formatCurrency(val, true) }, // RENOMBRADO
             { id: 'ventureDebtLineMax', label: 'Línea Máx. Venture Debt', min: 0, max: 100000000, step: 5000000, type: 'number', format: val => formatCurrency(val, true) }
         ];
         
@@ -442,6 +442,42 @@
             } else { // Préstamos de 3 años o más (más riesgo, se asignan a Stage 3)
                 return modelData.pdStage3; // PD de por vida (para etapa 3)
             }
+        }
+
+        // NUEVA FUNCIÓN (agregar antes del loop anual):
+        // calculateTimeWeightedAverage: Calcula un promedio ponderado por tiempo para balances,
+        // considerando eventos de capital que ocurren durante el año.
+        function calculateTimeWeightedAverage(startBalance, endBalance, capitalEvents = []) {
+            // Si no hay eventos de capital durante el año o el balance inicial y final son muy similares, usar promedio simple
+            if (!capitalEvents.length || Math.abs(startBalance - endBalance) < 0.01) {
+                return (startBalance + endBalance) / 2;
+            }
+                
+            let weightedSum = startBalance * 12; // Saldo inicial multiplicado por los 12 meses si no hay cambios
+            let totalMonths = 12;
+
+            // Ordenar eventos por mes para procesar cronológicamente
+            capitalEvents.sort((a, b) => a.month - b.month);
+
+            let currentBalance = startBalance;
+            let lastMonth = 0;
+
+            capitalEvents.forEach(event => {
+                // Meses en los que el balance anterior estuvo activo
+                const monthsInPeriod = event.month - lastMonth;
+                if (monthsInPeriod > 0) {
+                    weightedSum += currentBalance * monthsInPeriod;
+                }
+                currentBalance += event.amount; // Aplicar el cambio de capital
+                lastMonth = event.month;
+            });
+
+            // Sumar el periodo restante del año si lo hay
+            if (lastMonth < 12) {
+                weightedSum += currentBalance * (12 - lastMonth);
+            }
+            
+            return weightedSum / totalMonths;
         }
 
         // ===== CÁLCULO FINANCIERO PRINCIPAL =====
@@ -658,8 +694,14 @@
                     
                     // Iterar sobre todas las cohortes activas (las que aún tienen saldo pendiente)
                     loanCohorts.forEach(cohort => {
+                        let monthlyWeightedExposure = 0; // Para el cálculo de IFRS 9
+                        let tempPrincipalForECL = cohort.startOfYearPrincipal; // Usar una variable temporal para simular la amortización mensual para ECL
+
                         // Simulate 12 months of payments for each cohort
                         for (let m = 0; m < 12; m++) {
+                            // Acumular exposición para el cálculo ponderado por tiempo de IFRS 9
+                            monthlyWeightedExposure += tempPrincipalForECL;
+                            
                             if (cohort.remainingPrincipal <= 0 || cohort.paymentsMadeMonths >= cohort.totalLoanTermMonths) {
                                 break; // Cohorte totalmente amortizada
                             }
@@ -674,19 +716,38 @@
                             cohort.remainingPrincipal -= principalThisMonth;
                             cohort.paymentsMadeMonths++;
 
+                            // Simular reducción de principal para el cálculo de ECL
+                            if (tempPrincipalForECL > 0 && cohort.monthlyPayment > 0) {
+                                const tempMonthlyInterest = tempPrincipalForECL * cohort.monthlyInterestRate;
+                                const tempMonthlyPrincipalPayment = Math.min(
+                                    cohort.monthlyPayment - tempMonthlyInterest, 
+                                    tempPrincipalForECL
+                                );
+                                tempPrincipalForECL -= tempMonthlyPrincipalPayment;
+                            }
+
                             // NIIF 15: Reconocimiento de Margen por Originación basado en amortización de principal
                             if (cohort.originalPrincipal > 0) { // Evitar división por cero
                                 const recognitionRatioThisMonth = principalThisMonth / cohort.originalPrincipal;
                                 const recognizedRevenueThisMonthFromOrigination = cohort.originationCommissionInitial * recognitionRatioThisMonth;
                                 
-                                annualOriginationCommissionRecognized += recognizedRevenueThisMonthFromOrigination;
+                                // CRÍTICO: Asegurar que el reconocimiento no exceda el saldo pendiente
+                                const maxRecognizableThisMonth = Math.min(
+                                    recognizedRevenueThisMonthFromOrigination,
+                                    cohort.remainingOriginationCommission
+                                );
+                                annualOriginationCommissionRecognized += maxRecognizableThisMonth;
                                 
-                                cohort.remainingOriginationCommission -= recognizedRevenueThisMonthFromOrigination;
-                                cohort.remainingOriginationCommission = Math.max(0, cohort.remainingOriginationCommission); // Asegurar que no sea negativo
+                                cohort.remainingOriginationCommission -= maxRecognizableThisMonth;
+                                // CRÍTICO: Asegurar que remainingOriginationCommission nunca sea negativo
+                                cohort.remainingOriginationCommission = Math.max(0, cohort.remainingOriginationCommission); 
                             }
                         }
                         // Sumar el saldo restante de esta cohorte al total de CxC al final del año
                         currentYearEndReceivables += Math.max(0, cohort.remainingPrincipal);
+
+                        // Calcular exposición promedio ponderada por tiempo para esta cohorte (IFRS 9)
+                        cohort.avgExposureDuringYear = monthlyWeightedExposure / 12;
                     });
                     
                     // Calculate total ECL for the year based on average exposure per cohort (IFRS 9)
@@ -696,13 +757,12 @@
                     loanCohorts.forEach(cohort => {
                         // Only calculate ECL for cohorts that are active (have remaining principal or had at start of year)
                         if (cohort.remainingPrincipal > 0 || cohort.startOfYearPrincipal > 0) {
-                            const avgExposureDuringYear = (cohort.startOfYearPrincipal + cohort.remainingPrincipal) / 2;
                             const cohortAge = (year + 1) - cohort.yearOriginated; // Antigüedad del préstamo en años
 
                             // Calcular el PD ajustado según la antigüedad
                             const adjustedPD = calculatePDBasedOnAge(cohortAge);
 
-                            const cohortECL = avgExposureDuringYear * adjustedPD * modelData.lgd;
+                            const cohortECL = cohort.avgExposureDuringYear * adjustedPD * modelData.lgd;
                             totalECLForYear += cohortECL;
                         }
                         // Accumulate remaining contract liabilities for the Balance Sheet from all cohorts
@@ -712,7 +772,7 @@
                     let annualECLProvision = totalECLForYear;
                     annualECLProvision *= modelData.economicAdjustmentFactor; // Apply economic adjustment factor
                     const provisions = annualECLProvision * (modelData.proteccionRodando ? 0.5 : 1.0); // Apply "Protección Rodando"
-                    currentProvisionsBalance += provisions; // Accumulate for Balance Sheet
+                    currentProvisionsBalance += provisions; // Acumulate for Balance Sheet
                     log(` Provisiones NIIF 9 (ECL) este año: ${formatCurrency(provisions)}. Base outstanding: ${formatCurrency(currentYearEndReceivables)}`); // Corrected variable
                     
                     // --- ESTADO DE RESULTADOS (P&L) ---
@@ -728,7 +788,7 @@
                     const sparePartsRevenue = addedUnits * modelData.refaccionesRevPerUnit * (modelData.margenRefacciones / 100);
                     
                     // NUEVO MODELO MARKETPLACE
-                    const marketplaceRevenue = totalActiveUnits * modelData.gnvPromedioMensualMensualPorUnidad * 12 * (modelData.takeRateMarketplace / 100);
+                    const marketplaceRevenue = totalActiveUnits * modelData.gmvPromedioMensualPorUnidad * 12 * (modelData.takeRateMarketplace / 100); // USAR gmvPromedioMensualPorUnidad
                     
                     const totalRevenue = interestRevenue + originationCommission + gnvCommissions + sparePartsRevenue + marketplaceRevenue;
                     log(`Ingresos: Intereses=${formatCurrency(interestRevenue)}, Originación=${formatCurrency(originationCommission)}, GNV=${formatCurrency(gnvCommissions)}, Refacciones=${formatCurrency(sparePartsRevenue)}, Marketplace=${formatCurrency(marketplaceRevenue)}`);
@@ -846,8 +906,24 @@
                     log(`Diferencia de Balance Año ${year + 1}: ${formatCurrency(balanceDiff)}`);
                     
                     // --- CÁLCULO DE MÉTRICAS ANUALES (ROE, ROIC) ---
-                    const averageEquity = (startOfYearEquity + endOfYearEquity) / 2;
-                    const averageInvestedCapital = (startOfYearEquity + startOfYearTotalDebt + endOfYearEquity + totalDebt) / 2; // Average Equity + Average Debt
+                    // Identificar eventos de capital este año para ROE/ROIC Time-Weighted Average
+                    const capitalEvents = [];
+                    if (year + 1 === modelData.seriesB_year && modelData.seriesB_funding > 0) {
+                        capitalEvents.push({ month: 6, amount: modelData.seriesB_funding }); // Asumir mitad de año
+                    }
+                    if (year + 1 === modelData.seriesC_year && modelData.seriesC_funding > 0) {
+                        capitalEvents.push({ month: 6, amount: modelData.seriesC_funding });
+                    }
+                    if (additionalFundingRaised > 0) {
+                        capitalEvents.push({ month: 12, amount: additionalFundingRaised }); // Al final del año
+                    }
+
+                    const averageEquity = calculateTimeWeightedAverage(startOfYearEquity, endOfYearEquity, capitalEvents);
+                    const averageInvestedCapital = calculateTimeWeightedAverage(
+                        startOfYearEquity + startOfYearTotalDebt, 
+                        endOfYearEquity + totalDebt, 
+                        capitalEvents
+                    );
                     
                     let annualROE = 0;
                     if (averageEquity !== 0) annualROE = (netIncome / averageEquity) * 100;
@@ -870,7 +946,8 @@
                         operatingCash, investingCash, financingCash: financingCashThisPeriod, netCash,
                         principalPaymentVentureDebt: principalPaymentVentureDebtThisPeriod, // Pago de principal de Venture Debt
                         clientPrincipalPaymentsReceived: annualPrincipalReceived, // Pagos de principal de clientes
-                        additionalFundingRaised: additionalFundingRaised // Plug de liquidez
+                        additionalFundingRaised: additionalFundingRaised, // Plug de liquidez
+                        currentYearVentureDebtDraw: currentYearVentureDebtDraw // Almacenar el draw de VD de este año
                     });
                     financialResults.bs.push({
                         cash, receivables: currentYearEndReceivables, fixedAssets: fixedAssetsNet, 
@@ -938,7 +1015,7 @@
                 // Se calcula el valor de los activos al final del periodo de proyección (Año 5)
                 const totalFixedAssetsAtEnd = fixedAssetsCohorts.reduce((sum, cohort) => sum + (cohort.totalOriginalCost - cohort.accumulatedDepreciation), 0);
                 const totalReceivablesAtEnd = financialResults.bs[4].receivables;
-                const totalAssetsHeldForSaleAtEnd = financialResults.bs[4].assetsHeldForSale;
+                const totalAssetsHeldForSaleAtEnd = heldForSaleAssets.reduce((sum, asset) => sum + asset.currentFairValueLessCosts, 0); // Correcto uso de heldForSaleAssets
                 const terminalValue = totalFixedAssetsAtEnd + totalReceivablesAtEnd + totalAssetsHeldForSaleAtEnd;
                 projectCashFlows[projectCashFlows.length - 1] += terminalValue; // Añadir al último flujo de projectCashFlows
                 log(` Valor Residual de Activos (Año 5): ${formatCurrency(terminalValue)} (añadido a TIR Proyecto)`);
