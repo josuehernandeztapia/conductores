@@ -653,6 +653,7 @@
                 currentProvisionsBalance: 0,
                 currentTotalOriginalAssetsCost: 0, // Costo original acumulado de activos fijos en balance
                 currentTotalAccumulatedDepreciationBS: 0, // Depreciación acumulada para el balance
+                accumulatedAssetsHeldForSaleValue: 0, // Nuevo: Valor acumulado de activos mantenidos para la venta
                 projectCashFlows: [],
                 portfolioCashFlows: [],
                 assetsInService: [] // [{ cost, units, remainingLife, accumulatedDepreciationForThisCohort }]
@@ -662,8 +663,6 @@
         // Función para calcular CAPEX y gestionar la adición de activos fijos
         function calculateCapexAndAssets(addedUnits, state) {
             const capexThisYear = addedUnits * modelData.costoVagoneta;
-            // Solo se acumula al costo original si el activo se va a poner en servicio
-            // La remoción de reposesionados se maneja en calculateDepreciationAndFixedAssets
             
             if (addedUnits > 0) {
                 state.assetsInService.push({
@@ -684,67 +683,59 @@
             let repossessedCarryingAmount = 0; // Valor en libros de los reposesionados
 
             // --- 1. Reposesión de unidades ---
-            // Asumimos que las unidades reposesionadas se sacan del total de unidades activas
-            // Para simplificar, las reposesiones se aplican sobre el total de unidades que *existen*
             const totalUnitsInServiceBeforeRepossession = state.assetsInService.reduce((sum, asset) => sum + asset.units, 0);
             repossessedUnitsThisYear = Math.round(totalUnitsInServiceBeforeRepossession * (modelData.tasaReposicion / 100));
 
             let unitsToRepossess = repossessedUnitsThisYear;
-            let tempAssetsInServiceAfterRepossession = [];
+            let newAssetsInService = []; 
 
-            for (let i = 0; i < state.assetsInService.length && unitsToRepossess > 0; i++) {
+            for (let i = 0; i < state.assetsInService.length; i++) {
                 let asset = state.assetsInService[i];
-                let unitsFromThisCohort = Math.min(unitsToRepossess, asset.units);
+                if (unitsToRepossess > 0 && asset.units > 0) { // Si hay unidades por reposesionar y en esta cohorte
+                    let unitsFromThisCohortToRepossess = Math.min(unitsToRepossess, asset.units);
 
-                const costOfRepossessedUnits = unitsFromThisCohort * asset.cost;
-                // Calcular la depreciación acumulada para las unidades reposesionadas hasta AHORA
-                const originalDepreciatedYears = modelData.depreciationYears - asset.remainingLife;
-                const accumulatedDepreciationOfRepossessedUnits = (asset.cost / modelData.depreciationYears) * originalDepreciatedYears * unitsFromThisCohort;
-                
-                // Calcular el valor en libros de las unidades reposesionadas
-                let carryingAmountOfTheseRepossessedUnits = costOfRepossessedUnits - accumulatedDepreciationOfRepossessedUnits;
-                repossessedCarryingAmount += carryingAmountOfTheseRepossessedUnits; // Sumar al total reposesionado
+                    const costOfRepossessedUnits = unitsFromThisCohortToRepossess * asset.cost;
+                    const yearsAlreadyDepreciated = modelData.depreciationYears - asset.remainingLife;
+                    const accumulatedDepreciationOfRepossessedUnits = (asset.cost / modelData.depreciationYears) * yearsAlreadyDepreciated * unitsFromThisCohortToRepossess;
+                    
+                    const carryingAmountOfTheseRepossessedUnits = costOfRepossessedUnits - accumulatedDepreciationOfRepossessedUnits;
+                    repossessedCarryingAmount += carryingAmountOfTheseRepossessedUnits; // Acumular el VL de los reposesionados
 
-                // NIIF 5: Suspender depreciación y reclasificar
-                // Ajustar los totales brutos de activos fijos por las unidades reposesionadas
-                state.currentTotalOriginalAssetsCost -= costOfRepossessedUnits;
-                state.currentTotalAccumulatedDepreciationBS -= accumulatedDepreciationOfRepossessedUnits;
+                    // NIIF 5: Remover del total de activos fijos y su depreciación acumulada
+                    state.currentTotalOriginalAssetsCost -= costOfRepossessedUnits;
+                    state.currentTotalAccumulatedDepreciationBS -= accumulatedDepreciationOfRepossessedUnits;
 
-                // Reducir las unidades de la cohorte actual
-                asset.units -= unitsFromThisCohort;
-                // Ajustar la depreciación acumulada del resto de la cohorte
-                if (asset.units > 0) {
-                    asset.accumulatedDepreciationForThisCohort = (asset.accumulatedDepreciationForThisCohort / (unitsFromThisCohort + asset.units)) * asset.units;
-                    tempAssetsInServiceAfterRepossession.push(asset);
+                    asset.units -= unitsFromThisCohortToRepossess; // Reducir unidades de la cohorte
+                    unitsToRepossess -= unitsFromThisCohortToRepossess;
                 }
-                unitsToRepossess -= unitsFromThisCohort;
+                if (asset.units > 0) { // Si quedan unidades en esta cohorte, se mantienen en servicio
+                    newAssetsInService.push(asset);
+                }
             }
-            state.assetsInService = tempAssetsInServiceAfterRepossession; // Actualizar activos en servicio sin los reposesionados
+            state.assetsInService = newAssetsInService; // Actualizar la lista de activos en servicio
 
-
-            // --- 2. Calcular depreciación anual para el P&L de los activos *restantes* ---
-            let annualDepreciationThisYear = 0;
+            // --- 2. Calcular depreciación anual para el P&L de los activos *restantes* en servicio ---
             state.assetsInService.forEach(asset => {
                 if (asset.remainingLife > 0) {
                     const depreciationForThisCohort = (asset.cost / modelData.depreciationYears) * asset.units;
-                    annualDepreciationThisYear += depreciationForThisCohort;
-                    asset.remainingLife--; // Reducir la vida útil para el próximo año
-                    asset.accumulatedDepreciationForThisCohort += depreciationForThisCohort; // Acumular en la cohorte
+                    annualDepreciationForPnl += depreciationForThisCohort;
+                    asset.remainingLife--; 
+                    asset.accumulatedDepreciationForThisCohort += depreciationForThisCohort;
                 }
             });
-            annualDepreciationForPnl = annualDepreciationThisYear; // Depreciación para P&L
+            
+            // Sumar la depreciación del periodo al acumulado del Balance General
+            state.currentTotalAccumulatedDepreciationBS += annualDepreciationForPnl;
 
-            // Actualizar la depreciación acumulada total para el Balance General
-            // Se suma la depreciación de este año (annualDepreciationThisYear) a la acumulada que no fue de reposesionados.
-            state.currentTotalAccumulatedDepreciationBS += annualDepreciationThisYear;
-
+            // NIIF 5: Actualizar el valor acumulado de activos mantenidos para la venta
+            state.accumulatedAssetsHeldForSaleValue += repossessedCarryingAmount; // Estos activos se acumulan hasta su venta
+            // El modelo actual no simula la venta de estos activos, por lo que su valor se mantiene.
 
             return { annualDepreciation: annualDepreciationForPnl, repossessedUnitsThisYear, repossessedCarryingAmount };
         }
 
         // Función para gestionar la deuda Venture
         function manageVentureDebt(currentYear, capexThisYear, state) {
-            // Nueva Deuda Venture se asocia al CAPEX del año actual (AÑO 1 en adelante)
             const newVentureDebtAmountForCapex = capexThisYear * (modelData.ventureDebtPct / 100);
             const newCapitalCall = capexThisYear * (1 - modelData.ventureDebtPct / 100);
 
@@ -760,16 +751,15 @@
             
             let ventureDebtPrincipalPayment = 0;
             let ventureDebtInterestExpense = 0;
-            let totalDebtBalance = 0; // Saldo total de deuda para el balance
+            let totalDebtBalance = 0;
 
             financialResults.ventureDebtTranches = financialResults.ventureDebtTranches.filter(tranche => {
                 if (tranche.remainingPrincipal > 0) {
                     const annualInterest = tranche.remainingPrincipal * (tranche.interestRate / 100);
-                    // Amortización lineal sobre el término original del tramo
                     const annualPrincipalPayment = tranche.originalAmount / tranche.term; 
 
                     ventureDebtInterestExpense += annualInterest;
-                    ventureDebtPrincipalPayment += Math.min(annualPrincipalPayment, tranche.remainingPrincipal); // No pagar más de lo que se debe
+                    ventureDebtPrincipalPayment += Math.min(annualPrincipalPayment, tranche.remainingPrincipal);
                     tranche.remainingPrincipal -= annualPrincipalPayment;
                     
                     if (tranche.remainingPrincipal < 0) {
@@ -787,15 +777,15 @@
         function manageClientLoans(currentYear, addedUnits, loanAmountPerUnit, state) {
             let interestRevenue = 0;
             let clientPrincipalPayments = 0;
-            let loanPortfolioBalance = 0; // Saldo de cuentas por cobrar para el balance
+            let loanPortfolioBalance = 0;
 
             if (addedUnits > 0) {
                 financialResults.clientLoanCohorts.push({
                     units: addedUnits,
-                    originalLoanAmountPerUnit: loanAmountPerUnit, // Monto del préstamo por unidad
-                    remainingPrincipalPerUnit: loanAmountPerUnit, // Principal restante por unidad
+                    originalLoanAmountPerUnit: loanAmountPerUnit,
+                    remainingPrincipalPerUnit: loanAmountPerUnit,
                     interestRate: modelData.tasaInteres,
-                    term: 5, // Término de amortización del préstamo al cliente (años)
+                    term: 5,
                     originalYear: currentYear
                 });
             }
@@ -853,8 +843,6 @@
 
         // Función para calcular deterioro NIIF 5
         function calculateNiif5Impairment(repossessedCarryingAmount) {
-            // NIIF 5: Se valúa al menor entre valor en libros y valor razonable menos costos de venta.
-            // Si el carryingAmount es cero (no hay reposesionadas), el impairment es cero.
             if (repossessedCarryingAmount <= 0) {
                 return { fairValue: 0, costsToSellNIIF5: 0, fairValueLessCosts: 0, impairment: 0 };
             }
@@ -863,7 +851,6 @@
             const costsToSellNIIF5 = fairValue * (modelData.costosVenta / 100);
             const fairValueLessCosts = fairValue - costsToSellNIIF5;
             
-            // La pérdida por deterioro es si el valor en libros es mayor al valor razonable neto
             const impairment = Math.max(0, repossessedCarryingAmount - fairValueLessCosts);
             
             return { fairValue, costsToSellNIIF5, fairValueLessCosts, impairment };
@@ -887,11 +874,9 @@
 
         // Función para actualizar el Balance General
         function updateBalanceSheet(state, loanPortfolioBalance, totalDebt) {
-            // fixedAssetsNet ahora se calcula de los totales brutos y depreciación acumulada,
-            // que ya han sido ajustados por las reposesiones.
             const fixedAssetsNet = state.currentTotalOriginalAssetsCost - state.currentTotalAccumulatedDepreciationBS;
-            // totalAssets ahora también considera los Activos para Venta
-            const totalAssets = state.cash + loanPortfolioBalance + fixedAssetsNet + state.niif5Details.fairValueLessCosts;
+            // totalAssets ahora usa accumulatedAssetsHeldForSaleValue
+            const totalAssets = state.cash + loanPortfolioBalance + fixedAssetsNet + state.accumulatedAssetsHeldForSaleValue;
             
             const equity = modelData.serieA + state.accumulatedEarnings;
             const totalLiabilitiesEquity = totalDebt + state.currentProvisionsBalance + equity;
@@ -933,7 +918,8 @@
                 cash: state.cash,
                 receivables: state.loanPortfolioBalance,
                 fixedAssets: bsResults.fixedAssetsNet,
-                assetsHeldForSale: state.niif5Details.fairValueLessCosts, // Valor neto de activos para venta
+                // assetsHeldForSale ahora toma del valor acumulado de NIIF5
+                assetsHeldForSale: state.accumulatedAssetsHeldForSaleValue, 
                 totalAssets: bsResults.totalAssets,
                 debt: state.totalDebt,
                 provisions: state.currentProvisionsBalance,
@@ -956,7 +942,7 @@
                     proteccionRodando: modelData.proteccionRodando
                 },
                 niif5: {
-                    carryingAmount: state.niif5Details.repossessedCarryingAmount, // Valor en libros al reposesionar
+                    carryingAmount: state.niif5Details.repossessedCarryingAmount, // Valor en libros al reposesionar este año
                     fairValue: state.niif5Details.fairValue,
                     costsToSell: state.niif5Details.costsToSellNIIF5,
                     fairValueLessCosts: state.niif5Details.fairValueLessCosts,
@@ -985,12 +971,13 @@
             
             // Año 0: Inversión Inicial (solo Serie A)
             state.cash = modelData.serieA;
-            state.projectCashFlows.push(-modelData.serieA); // Inversión inicial de equity (salida)
+            // Flujo de caja del proyecto: Inversión inicial de equity (salida)
+            state.projectCashFlows.push(-modelData.serieA); 
 
             for (let year = 0; year < 5; year++) {
                 const currentYear = year + 1;
                 const addedUnits = modelData.unitsPerYear[year];
-                state.addedUnits = addedUnits; // Pasar al estado para uso en otras funciones
+                state.addedUnits = addedUnits; 
 
                 // Módulo 1: CAPEX y Adición de Activos Fijos
                 const capexThisYear = calculateCapexAndAssets(addedUnits, state);
@@ -998,7 +985,7 @@
                 // Módulo 2: Depreciación y Gestión de Activos Fijos (incluyendo reposesiones y NIIF 5)
                 const { annualDepreciation, repossessedUnitsThisYear, repossessedCarryingAmount } = calculateDepreciationAndFixedAssets(currentYear, state);
                 state.annualDepreciation = annualDepreciation; 
-                state.niif5Details = { repossessedUnitsThisYear, repossessedCarryingAmount }; // Almacenar para NIIF5 y BS
+                state.niif5Details = { repossessedUnitsThisYear, repossessedCarryingAmount }; 
                 
                 // Módulo 3: Gestión de Deuda Venture y Capital Calls (Venture Debt a partir de Año 1)
                 const ventureDebtDetails = manageVentureDebt(currentYear, capexThisYear, state);
@@ -1046,8 +1033,8 @@
                 // Módulo 11: Almacenar Resultados Anuales
                 storeAnnualResults(currentYear, plResults, cfResults, bsResults, state);
 
-                // Flujos para TIRs (después de que el estado `state` esté actualizado para el año)
-                state.projectCashFlows.push(cfResults.netCash - ventureDebtDetails.newCapitalCall); // Ajustado para TIR del equity
+                // Flujos para TIRs
+                state.projectCashFlows.push(cfResults.netCash - ventureDebtDetails.newCapitalCall); 
                 state.portfolioCashFlows.push((interestRevenue + clientPrincipalPayments) - (addedUnits * loanAmountPerUnit));
             }
 
