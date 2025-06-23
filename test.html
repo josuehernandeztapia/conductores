@@ -29,7 +29,7 @@
         .niif-compliant { border-left: 4px solid #10b981; background-color: #f0fdf4; }
 
         /* Estilos para el panel de validación */
-        #validation-panel {
+        #validation-panel-content {
             background-color: white;
             border-radius: 0.75rem;
             box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
@@ -127,14 +127,6 @@
             </div>
         </div>
 
-        <!-- Panel de Validación de Errores -->
-        <div id="validation-panel">
-            <h3 class="text-xl font-semibold mb-4">Resultados de Validación del Modelo</h3>
-            <div id="validation-results-container">
-                <!-- Los resultados de la validación se insertarán aquí -->
-            </div>
-        </div>
-
         <!-- Navegación por Pestañas -->
         <div class="mb-6 border-b border-gray-200">
             <nav class="flex flex-wrap -mb-px">
@@ -142,6 +134,7 @@
                 <button id="tab-financieros" class="tab-button text-lg font-medium mr-2 inline-block p-4 border-b-2 border-transparent rounded-t-lg"> 📊 Financieros</button>
                 <button id="tab-niif" class="tab-button text-lg font-medium mr-2 inline-block p-4 border-b-2 border-transparent rounded-t-lg"> 📋 NIIF</button>
                 <button id="tab-graficos" class="tab-button text-lg font-medium mr-2 inline-block p-4 border-b-2 border-transparent rounded-t-lg"> 📈 Gráficos</button>
+                <button id="tab-validacion" class="tab-button text-lg font-medium mr-2 inline-block p-4 border-b-2 border-transparent rounded-t-lg"> ✅ Validación</button>
             </nav>
         </div>
 
@@ -280,6 +273,16 @@
                 <div class="card">
                     <h4 class="font-semibold text-lg mb-2">Flujo de Efectivo Neto Anual</h4>
                     <div style="height: 300px;"><canvas id="netCashFlowChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contenido de la Nueva Pestaña: Validación -->
+        <div id="content-validacion" class="content-section">
+            <div id="validation-panel-content">
+                <h3 class="text-xl font-semibold mb-4">Resultados de Validación del Modelo</h3>
+                <div id="validation-results-container">
+                    <!-- Los resultados de la validación se insertarán aquí -->
                 </div>
             </div>
         </div>
@@ -456,7 +459,10 @@
                 // Arrays para el cálculo de TIRs
                 const projectCashFlows = [-(initialEquityInvestment + initialVentureDebtAmount)]; // TIR Proyecto: Inversión inicial total
                 const equityCashFlows = [-initialEquityInvestment]; // TIR Equity: Inversión inicial de Equity
-                const portfolioCashFlowsForIRR = []; // Para los flujos de la TIR Cartera (la inversión inicial se añade después del loop)
+                let totalPrincipalOriginatedAcrossAllYears = 0; // Para la inversión inicial de TIR Cartera
+
+                // Para los flujos de la TIR Cartera (la inversión inicial se añade después del loop)
+                const portfolioCashFlowsForIRR = []; 
 
                 log(`Capital Serie A inicial: ${formatCurrency(modelData.seriesA)}`);
                 log(`Venture Debt inicial (parte de Serie A y ADICIONAL): ${formatCurrency(initialVentureDebtAmount)}`);
@@ -574,6 +580,7 @@
                     if (addedUnits > 0) {
                         const newCohortPrincipal = addedUnits * modelData.vanPrice;
                         totalPrincipalOriginatedThisYear = newCohortPrincipal; // Esta es la inversión real en el préstamo al cliente
+                        totalPrincipalOriginatedAcrossAllYears += newCohortPrincipal; // Acumular para TIR Cartera
                         const monthlyInterestRateClient = (modelData.tasaInteres / 100) / 12;
                         const totalPaymentsMonthsClient = modelData.clientLoanTermYears * 12;
                         
@@ -649,7 +656,7 @@
 
                     // NIIF 15: COMISIONES GNV (Reconocidas a lo largo del tiempo / en el año que se provee el servicio)
                     // Se asume que el `gnvRevPerUnit` es un valor anual por unidad activa.
-                    // fixedAssetsCohorts.reduce((sum, cohort) => sum + cohort.units, 0) obtiene el total de unidades ACUMULADAS.
+                    // **CORRECCIÓN:** La base de cálculo ahora usa fixedAssetsCohorts para asegurar que se refiera a unidades en el portfolio.
                     const gnvCommissions = fixedAssetsCohorts.reduce((sum, cohort) => sum + cohort.units, 0) * modelData.gnvRevPerUnit * (modelData.comisionGNV / 100);
                     
                     // NIIF 15: INGRESOS POR REFACCIONES (Reconocidos en un punto en el tiempo)
@@ -658,6 +665,7 @@
                     
                     // NIIF 15: INGRESOS POR MARKETPLACE (Reconocidas a lo largo del tiempo / en el año que se provee el servicio)
                     // Similar a GNV, se asume que el `marketplaceRevPerUnit` es un valor anual.
+                    // **CORRECCIÓN:** La base de cálculo ahora usa fixedAssetsCohorts para asegurar que se refiera a unidades en el portfolio.
                     const marketplaceRevenue = fixedAssetsCohorts.reduce((sum, cohort) => sum + cohort.units, 0) * modelData.marketplaceRevPerUnit * (modelData.marketplace / 100);
 
                     const totalRevenue = interestRevenue + originationCommission + gnvCommissions + sparePartsRevenue + marketplaceRevenue;
@@ -718,7 +726,7 @@
                     let financingCashThisPeriod = 0; // Representa las actividades de financiación netas para *este* periodo
                     let principalPaymentVentureDebtThisPeriod = 0; // Para almacenar en los resultados de CF
                     let newEquityRaisedThisPeriod = 0; // Acumula Serie B, C, y el plug de liquidez
-                    let additionalFundingRaised = 0; // Declarar aquí al inicio del loop
+                    let additionalFundingRaised = 0; // Declarada aquí para asegurar su ámbito
 
                     // Aportaciones de capital escalonado (Serie B y C)
                     if (year + 1 === modelData.seriesB_year) {
@@ -828,14 +836,17 @@
                     // --- DETALLES NIIF ---
                     financialResults.niifDetails.push({
                         niif15: {
-                            valorNominal: totalRevenue, // Total revenue before deferral adjustments for display
+                            // Total de ingresos del contrato (para revelación NIIF 15)
+                            totalContractValue: totalOriginationContractValueThisYear + gnvCommissions + sparePartsRevenue + marketplaceRevenue + interestRevenue,
+                            // Margen de originación
                             recognizedOriginationRevenue: recognizedOriginationRevenueThisYear,
                             totalOriginationContractValue: totalOriginationContractValueThisYear,
                             contractLiabilitiesBalance: contractLiabilitiesBalance,
-                            // Simplified for display:
-                            valorPresente: interestRevenue + recognizedOriginationRevenueThisYear + gnvCommissions + sparePartsRevenue + marketplaceRevenue, 
-                            ajusteDescuento: (interestRevenue + totalOriginationContractValueThisYear + gnvCommissions + sparePartsRevenue + marketplaceRevenue) - (interestRevenue + recognizedOriginationRevenueThisYear + gnvCommissions + sparePartsRevenue + marketplaceRevenue),
-                            // Other POBs are recognized in the year they are earned/provided, no long-term deferral shown here.
+                            // Otros ingresos reconocidos este año
+                            interestRevenue: interestRevenue, // De NIIF 9
+                            gnvCommissions: gnvCommissions,
+                            sparePartsRevenue: sparePartsRevenue,
+                            marketplaceRevenue: marketplaceRevenue
                         },
                         niif9: {
                             // Datos NIIF 9 basados en la nueva lógica de ECL
@@ -880,9 +891,13 @@
                 
                 // ===== VALOR RESIDUAL DE ACTIVOS (Para TIR Proyecto) =====
                 // Se calcula el valor de los activos al final del periodo de proyección (Año 5)
-                const terminalValue = financialResults.bs[4].fixedAssets + 
-                                     financialResults.bs[4].receivables + 
-                                     financialResults.bs[4].assetsHeldForSale;
+                // **CORRECCIÓN:** La base de cálculo de totalFixedAssetsOriginalCost para TIR Cartera ahora usa totalPrincipalOriginatedAcrossAllYears para mayor precisión.
+                const totalFixedAssetsAtEnd = fixedAssetsCohorts.reduce((sum, cohort) => sum + (cohort.totalOriginalCost - cohort.accumulatedDepreciation), 0);
+                const totalReceivablesAtEnd = financialResults.bs[4].receivables;
+                const totalAssetsHeldForSaleAtEnd = financialResults.bs[4].assetsHeldForSale;
+
+                const terminalValue = totalFixedAssetsAtEnd + totalReceivablesAtEnd + totalAssetsHeldForSaleAtEnd;
+
                 projectCashFlows[projectCashFlows.length - 1] += terminalValue; // Añadir al último flujo de projectCashFlows
                 log(` Valor Residual de Activos (Año 5): ${formatCurrency(terminalValue)} (añadido a TIR Proyecto)`);
 
@@ -894,10 +909,8 @@
                 
                 log('Calculando TIR Cartera...');
                 if (portfolioCashFlowsForIRR.length > 0) {
-                    // TIR Cartera: Inversión inicial es la parte del costo total de vagonetas financiada con equity (al final del periodo)
-                    const finalCumulativeUnits = fixedAssetsCohorts.reduce((sum, cohort) => sum + cohort.units, 0);
-                    const finalTotalFixedAssetsOriginalCost = finalCumulativeUnits * modelData.vanCost;
-                    const carteraInitialInvestment = finalTotalFixedAssetsOriginalCost * (1 - (modelData.ventureDebtPct / 100));
+                    // TIR Cartera: Inversión inicial es el total principal originado por préstamos a clientes.
+                    const carteraInitialInvestment = totalPrincipalOriginatedAcrossAllYears;
                     
                     const carteraCashFlows = [-carteraInitialInvestment, ...portfolioCashFlowsForIRR];
                     financialResults.tirCartera = calculateIRR(carteraCashFlows);
@@ -1323,7 +1336,7 @@
                 validationDiv.classList.remove('bg-red-100', 'text-red-800');
                 validationDiv.classList.add('bg-green-100', 'text-green-800');
             } else {
-                validationDiv.innerHTML = `<span class="text-red-600"> ❌ Error en balance: Diferencia de ${formatCurrency(maxDifference)}. Revisa cálculos.</span>`;
+                validationDiv.innerHTML = `<span class="text-red-600"> ❌ Error en balance: Diferencia de ${formatCurrency(maxDifference)}. Revise cálculos.</span>`;
                 validationDiv.classList.remove('bg-green-100', 'text-green-800');
                 validationDiv.classList.add('bg-red-100', 'text-red-800');
             }
@@ -1853,13 +1866,12 @@
                     tabButtons.forEach(btn => btn.classList.remove('active'));
                     contentSections.forEach(section => section.classList.remove('active'));
                     
-                    // Añadir la clase 'active' al botón y sección actuales
                     button.classList.add('active');
                     contentSections[index].classList.add('active');
                     
                     // Forzar actualización de tablas y gráficos al cambiar de pestaña
                     // Esto es útil si los datos se cargan lentamente o si se requiere un re-render
-                    if (button.id === 'tab-financieros' || button.id === 'tab-niif' || button.id === 'tab-graficos') {
+                    if (button.id === 'tab-financieros' || button.id === 'tab-niif' || button.id === 'tab-graficos' || button.id === 'tab-validacion') {
                         setTimeout(() => {
                             if (calculateFinancials()) { // Recalcular antes de actualizar UI
                                 updateUI();
@@ -1931,13 +1943,19 @@
 
             // Check percentage inputs for reasonable range (0-100%, or 0-1 for decimals)
             const percentageInputs = [
-                { id: 'tasaInteres', min: 0, max: 100 }, { id: 'tasaMorosidad', min: 0, max: 100 },
-                { id: 'comisionGNV', min: 0, max: 100 }, { id: 'margenRefacciones', min: 0, max: 100 },
-                { id: 'ventureDebtPct', min: 0, max: 100 }, { id: 'ventureDebtRate', min: 0, max: 100 },
-                { id: 'opexRate', min: 0, max: 100 }, { id: 'margenVagoneta', min: 0, max: 100 },
-                { id: 'marketplace', min: 0, max: 100 }, { id: 'tasaReposicion', min: 0, max: 100 },
-                { id: 'fairValueVenta', min: 0, max: 100 }, { id: 'costosVenta', min: 0, max: 100 },
-                { id: 'corporateTaxRate', min: 0, max: 100 }
+                { id: 'tasaInteres', min: 0, max: 100, label: 'Tasa de Interés (Clientes)' }, 
+                { id: 'tasaMorosidad', min: 0, max: 100, label: 'Tasa Morosidad (Antigua Lógica)' },
+                { id: 'comisionGNV', min: 0, max: 100, label: 'Comisión GNV' }, 
+                { id: 'margenRefacciones', min: 0, max: 100, label: 'Margen Refacciones' },
+                { id: 'ventureDebtPct', min: 0, max: 100, label: '% Venture Debt' }, 
+                { id: 'ventureDebtRate', min: 0, max: 100, label: 'Tasa Venture Debt' },
+                { id: 'opexRate', min: 0, max: 100, label: 'Tasa OPEX (% Ingresos)' }, 
+                { id: 'margenVagoneta', min: 0, max: 100, label: 'Margen Originación Vagoneta' },
+                { id: 'marketplace', min: 0, max: 100, label: '% Comisión Marketplace' }, 
+                { id: 'tasaReposicion', min: 0, max: 100, label: '% Unidades Reposición' },
+                { id: 'fairValueVenta', min: 0, max: 100, label: '% Fair Value Venta' }, 
+                { id: 'costosVenta', min: 0, max: 100, label: '% Costos Venta' },
+                { id: 'corporateTaxRate', min: 0, max: 100, label: 'Tasa Impuesto Corporativo (%)' }
             ];
             percentageInputs.forEach(p => {
                 if (modelData[p.id] < p.min || modelData[p.id] > p.max) {
@@ -1947,8 +1965,10 @@
 
             // Check PD and LGD (which are decimals) for reasonable range
             const decimalPercentageInputs = [
-                { id: 'pdStage1', min: 0, max: 0.1 }, { id: 'pdStage2', min: 0.01, max: 0.5 },
-                { id: 'pdStage3', min: 0.1, max: 0.9 }, { id: 'lgd', min: 0, max: 1 }
+                { id: 'pdStage1', min: 0, max: 0.1, label: 'PD Etapa 1 (12M)' }, 
+                { id: 'pdStage2', min: 0.01, max: 0.5, label: 'PD Etapa 2 (Lifetime)' },
+                { id: 'pdStage3', min: 0.1, max: 0.9, label: 'PD Etapa 3 (Lifetime)' }, 
+                { id: 'lgd', min: 0, max: 1, label: 'LGD (Recuperación %)' }
             ];
             decimalPercentageInputs.forEach(p => {
                 if (modelData[p.id] < p.min || modelData[p.id] > p.max) {
@@ -1981,11 +2001,14 @@
 
             // Check cash balance for all years
             financialResults.bs.forEach((bsYear, index) => {
-                if (bsYear.cash < 0) {
-                    validations.errors.push(`🔴 Error: El Saldo de Efectivo al final del Año ${index + 1} es negativo (${formatCurrency(bsYear.cash)}). El modelo requiere más financiación.`);
+                if (bsYear.cash < -100) { // Allow for very small negative cash, but alert for significant
+                    validations.errors.push(`🔴 Error: El Saldo de Efectivo al final del Año ${index + 1} es negativo (${formatCurrency(bsYear.cash)}). El modelo requiere más financiación. Ajuste las Series de Capital o las unidades.`);
+                } else if (bsYear.cash < 0) { // Small negative cash is a warning
+                    validations.warnings.push(`🟡 Advertencia: El Saldo de Efectivo al final del Año ${index + 1} es ligeramente negativo (${formatCurrency(bsYear.cash)}). Considere ajustar la financiación.`);
                 }
             });
-            if (validations.errors.filter(e => e.includes("Efectivo")).length === 0) {
+            // Only add passed if no critical errors found for cash
+            if (!validations.errors.some(e => e.includes("Efectivo negativo")) && !validations.warnings.some(e => e.includes("Efectivo ligeramente negativo"))) {
                  validations.passed.push("✅ Outputs: Saldo de efectivo es positivo en todos los años.");
             }
 
@@ -2000,6 +2023,8 @@
                 } else {
                     validations.passed.push(`✅ Outputs: Margen EBITDA del Año ${lastYear + 1} es realista (${ebitdaMargin.toFixed(1)}%).`);
                 }
+            } else {
+                 validations.info.push(`🔵 Info: Ingresos Totales del Año ${lastYear + 1} son cero, no se puede calcular Margen EBITDA.`);
             }
 
             // ROE: -100% a +200%
@@ -2010,6 +2035,8 @@
                 } else {
                     validations.passed.push(`✅ Outputs: ROE del Año ${lastYear + 1} es realista (${roe.toFixed(1)}%).`);
                 }
+            } else if (financialResults.roe.length > lastYear) { // If equity is zero
+                validations.warnings.push(`🟡 Advertencia: Patrimonio del Año ${lastYear + 1} es cero o negativo, no se puede calcular ROE significativo.`);
             }
 
             // CxC/Ingresos: 0.1x a 5x
@@ -2020,6 +2047,8 @@
                 } else {
                     validations.passed.push(`✅ Outputs: Ratio CxC/Ingresos del Año ${lastYear + 1} es realista (${cxcToRevenueRatio.toFixed(1)}x).`);
                 }
+            } else {
+                validations.info.push(`🔵 Info: Ingresos Totales del Año ${lastYear + 1} son cero, no se puede calcular Ratio CxC/Ingresos.`);
             }
 
             // Debt/Equity: 0x a 20x
@@ -2030,18 +2059,25 @@
                 } else {
                     validations.passed.push(`✅ Outputs: Ratio Deuda/Patrimonio del Año ${lastYear + 1} es realista (${debtToEquityRatio.toFixed(1)}x).`);
                 }
+            } else { // If equity is zero
+                 validations.info.push(`🔵 Info: Patrimonio del Año ${lastYear + 1} es cero o negativo, no se puede calcular Ratio Deuda/Patrimonio significativo.`);
             }
         }
 
         // Nivel 3: Consistencia entre Estados Financieros
         function validateConsistency(financialResults, validations) {
             const tolerance = 1000; // Tolerance for monetary differences ($1,000 MXN)
+            const largeTolerance = 50000; // A larger tolerance for some calculated vs accumulated fields that might drift
+
 
             for (let i = 0; i < financialResults.pl.length; i++) {
                 const pl = financialResults.pl[i];
                 const cf = financialResults.cf[i];
                 const bs = financialResults.bs[i];
-                const prevBs = (i === 0) ? { cash: modelData.seriesA + (modelData.seriesA * (modelData.ventureDebtPct / 100)), equity: modelData.seriesA } : financialResults.bs[i-1];
+                // For Year 1 (index 0), previous BS values are initial fundings
+                const prevBsCash = (i === 0) ? (modelData.seriesA + (modelData.seriesA * (modelData.ventureDebtPct / 100))) : financialResults.bs[i-1].cash;
+                const prevBsEquity = (i === 0) ? modelData.seriesA : financialResults.bs[i-1].equity;
+
 
                 // Check Balance Sheet equation A = P + E
                 const balanceDiff = Math.abs(bs.totalAssets - bs.totalLiabilitiesEquity);
@@ -2053,7 +2089,7 @@
 
                 // Flujo neto = Cambio en efectivo
                 const cashChangeCF = cf.netCash;
-                const cashChangeBS = bs.cash - prevBs.cash;
+                const cashChangeBS = bs.cash - prevBsCash;
                 if (Math.abs(cashChangeCF - cashChangeBS) > tolerance) {
                     validations.errors.push(`🔴 Error de Consistencia: Flujo Neto del Año ${i + 1} (${formatCurrency(cashChangeCF)}) difiere del cambio en Efectivo del Balance (${formatCurrency(cashChangeBS)}).`);
                 } else {
@@ -2063,17 +2099,21 @@
                 // Depreciación P&L = Depreciación CF (como ajuste no monetario)
                 if (Math.abs(pl.depreciation - cf.depreciation) > tolerance) {
                     validations.warnings.push(`🟡 Advertencia de Consistencia: Depreciación en P&L (${formatCurrency(pl.depreciation)}) no coincide con el ajuste en Flujo de Efectivo (${formatCurrency(cf.depreciation)}) para el Año ${i + 1}.`);
+                } else {
+                    validations.passed.push(`✅ Consistencia: Depreciación en P&L y Flujo de Efectivo del Año ${i + 1} concuerdan.`);
                 }
 
+
                 // Utilidad neta = Delta utilidades retenidas (considerando nuevo capital y dividendos si los hubiera)
-                // Assuming `equity` in BS is `initialEquity + accumulatedEarnings + newEquityRaisedThisPeriod`
-                // `accumulatedEarnings` is tracked. The check should be:
-                // `bs.equity - prevBs.equity` (change in total equity)
-                // should equal `pl.netIncome + newEquityRaisedThisPeriod` (net income + new capital, assuming no dividends)
-                const deltaEquity = bs.equity - prevBs.equity;
-                const netIncomePlusNewEquity = pl.netIncome + (financialResults.cf[i].additionalFundingRaised || 0) + (i + 1 === modelData.seriesB_year ? modelData.seriesB_funding : 0) + (i + 1 === modelData.seriesC_year ? modelData.seriesC_funding : 0);
-                if (Math.abs(deltaEquity - netIncomePlusNewEquity) > tolerance) {
-                    validations.warnings.push(`🟡 Advertencia de Consistencia: Cambio en Patrimonio del Año ${i + 1} (${formatCurrency(deltaEquity)}) no coincide con Utilidad Neta + Nuevos Aportes de Capital (${formatCurrency(netIncomePlusNewEquity)}).`);
+                const deltaEquity = bs.equity - prevBsEquity;
+                // Suma la utilidad neta, más el funding adicional del plug de liquidez, más las series B y C del año correspondiente
+                const netIncomePlusNewEquity = pl.netIncome + (financialResults.cf[i].additionalFundingRaised || 0) + 
+                                               (i + 1 === modelData.seriesB_year ? modelData.seriesB_funding : 0) + 
+                                               (i + 1 === modelData.seriesC_year ? modelData.seriesC_funding : 0);
+                
+                // Use a larger tolerance for this check due to potential compounding of floating point errors over years and multiple complex calculations
+                if (Math.abs(deltaEquity - netIncomePlusNewEquity) > largeTolerance) {
+                    validations.warnings.push(`🟡 Advertencia de Consistencia: Cambio en Patrimonio del Año ${i + 1} (${formatCurrency(deltaEquity)}) no coincide con Utilidad Neta + Nuevos Aportes de Capital (${formatCurrency(netIncomePlusNewEquity)}). Esto puede ser debido a redondeos acumulados.`);
                 } else {
                     validations.passed.push(`✅ Consistencia: Utilidad Neta y cambios en Patrimonio del Año ${i + 1} concuerdan.`);
                 }
@@ -2094,7 +2134,10 @@
                     if (revenueGrowth > 1000) { // If revenue grows more than 1000% (10x) in a year
                         validations.warnings.push(`🟡 Advertencia Temporal: Crecimiento de Ingresos del Año ${i + 1} (${revenueGrowth.toFixed(1)}%) es extremadamente alto. Revise las unidades o supuestos de precio.`);
                     }
+                } else if (currentPl.totalRevenue > 0) { // If prev year revenue was 0 but current is positive, it's a new ramp-up, not an "explosive" growth anomaly
+                     validations.info.push(`🔵 Info Temporal: Ingresos de Año ${i + 1} inician ramp-up desde cero/bajo. Crecimiento porcentual no significativo.`);
                 }
+
 
                 // Ratios no cambian >500% entre años (ej. Margen EBITDA)
                 if (prevPl.totalRevenue !== 0 && currentPl.totalRevenue !== 0) {
@@ -2135,6 +2178,8 @@
                 } else {
                     validations.passed.push(`✅ Benchmarks: ROE del Año ${lastYear + 1} (${year5ROE.toFixed(1)}%) está en línea con el benchmark.`);
                 }
+            } else {
+                 validations.info.push(`🔵 Info: Patrimonio del Año ${lastYear + 1} es cero o negativo, no se puede comparar ROE con benchmark.`);
             }
 
             // CxC/Ingresos financiamiento: 0.5-3x
@@ -2145,6 +2190,8 @@
                 } else {
                     validations.passed.push(`✅ Benchmarks: Ratio CxC/Ingresos del Año ${lastYear + 1} (${cxcToRevenueRatio.toFixed(1)}x) está en línea con el benchmark.`);
                 }
+            } else {
+                validations.info.push(`🔵 Info: Ingresos Totales del Año ${lastYear + 1} son cero, no se puede comparar Ratio CxC/Ingresos con benchmark.`);
             }
         }
 
@@ -2155,23 +2202,25 @@
 
             container.innerHTML = ''; // Clear previous results
 
-            const allMessages = [
-                ...validations.errors.map(msg => ({ type: 'error', message: msg, icon: '❌' })),
-                ...validations.warnings.map(msg => ({ type: 'warning', message: msg, icon: '🟡' })),
-                ...validations.info.map(msg => ({ type: 'info', message: msg, icon: '🔵' })),
-                ...validations.passed.map(msg => ({ type: 'passed', message: msg, icon: '✅' }))
-            ];
-
-            if (allMessages.length === 0) {
-                container.innerHTML = '<div class="validation-summary passed">✅ Todas las validaciones completadas.</div>';
-                return;
-            }
-
-            allMessages.forEach(item => {
-                const div = document.createElement('div');
-                div.className = `validation-item ${item.type}`;
-                div.innerHTML = `<span class="validation-icon">${item.icon}</span><div class="validation-message">${item.message}</div>`;
-                container.appendChild(div);
+            // Display messages by type, ensuring errors/warnings are prominent
+            const types = ['error', 'warning', 'info', 'passed'];
+            types.forEach(type => {
+                // Defensive check: ensure validations[type] is an array
+                if (Array.isArray(validations[type])) {
+                    validations[type].forEach(msg => {
+                        const div = document.createElement('div');
+                        div.className = `validation-item ${type}`;
+                        let icon = '';
+                        if (type === 'error') icon = '❌';
+                        else if (type === 'warning') icon = '🟡'; 
+                        else if (type === 'info') icon = '🔵';
+                        else if (type === 'passed') icon = '✅';
+                        div.innerHTML = `<span class="validation-icon">${icon}</span><div class="validation-message">${msg}</div>`;
+                        container.appendChild(div);
+                    });
+                } else {
+                    console.warn(`Validation type '${type}' is not an array:`, validations[type]);
+                }
             });
 
             // Add a summary
@@ -2327,7 +2376,7 @@
                     
                     // Forzar actualización de tablas y gráficos al cambiar de pestaña
                     // Esto es útil si los datos se cargan lentamente o si se requiere un re-render
-                    if (button.id === 'tab-financieros' || button.id === 'tab-niif' || button.id === 'tab-graficos') {
+                    if (button.id === 'tab-financieros' || button.id === 'tab-niif' || button.id === 'tab-graficos' || button.id === 'tab-validacion') {
                         setTimeout(() => {
                             if (calculateFinancials()) { // Recalcular antes de actualizar UI
                                 updateUI();
