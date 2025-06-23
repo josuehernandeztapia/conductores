@@ -163,6 +163,22 @@
                                 <span id="comision-gnv-valor" class="input-value">8%</span>
                             </div>
                         </div>
+                        <!-- NUEVOS CONTROLES PARA GNV -->
+                        <div class="input-group">
+                            <label class="input-label">Litros Promedio Mensual por Unidad GNV</label>
+                            <div class="input-container">
+                                <input type="range" id="litros-gnv" min="700" max="1100" step="10" value="875" class="input-slider">
+                                <span id="litros-gnv-valor" class="input-value">875 Litros</span>
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <label class="input-label">Precio GNV por Litro (MXN)</label>
+                            <div class="input-container">
+                                <input type="range" id="precio-gnv" min="11.00" max="13.99" step="0.01" value="12.50" class="input-slider">
+                                <span id="precio-gnv-valor" class="input-value">$12.50</span>
+                            </div>
+                        </div>
+                        <!-- FIN NUEVOS CONTROLES GNV -->
                         <div class="input-group">
                             <label class="input-label">Margen Refacciones (%)</label>
                             <div class="input-container">
@@ -461,6 +477,8 @@
             proteccionRodando: true,
             margenOriginacion: 10, // Porcentaje sobre el precio financiado
             comisionGNV: 8, // Porcentaje
+            litrosPromedioMensualGNV: 875, // Nuevo: Litros promedio mensual por unidad
+            precioGNV: 12.50, // Nuevo: Precio del GNV por litro
             margenRefacciones: 25, // Porcentaje
             opexRate: 15, // Porcentaje de ingresos totales para OPEX
             engancheCliente: 100000, // Nuevo: Enganche del cliente
@@ -475,7 +493,7 @@
             costosVenta: 5, // % de costos de venta de vagonetas reposesionadas
             depreciationYears: 10, // Años de depreciación de las vagonetas
             unitsPerYear: [35, 70, 100, 150, 200], // Unidades financiadas por año
-            gnvRevPerUnit: 12000, // Ingreso anual GNV por unidad
+            gnvRevPerUnit: 12000, // Ingreso anual GNV por unidad (ahora obsoleto o de referencia)
             refaccionesRevPerUnit: 50000, // Ingreso anual Refacciones por unidad
             marketplaceRevPerUnit: 5000, // Ingreso anual Marketplace por unidad
             marketplace: 1 // Multiplicador para Marketplace (si 100% activo)
@@ -546,6 +564,9 @@
                 { id: 'pd-etapa3', prop: 'pdEtapa3', format: v => v + '%' },
                 { id: 'margen-originacion', prop: 'margenOriginacion', format: v => v + '%' },
                 { id: 'comision-gnv', prop: 'comisionGNV', format: v => v + '%' },
+                // Nuevos sliders para GNV
+                { id: 'litros-gnv', prop: 'litrosPromedioMensualGNV', format: v => v.toFixed(0) + ' Litros' },
+                { id: 'precio-gnv', prop: 'precioGNV', format: v => '$' + v.toFixed(2) },
                 { id: 'margen-refacciones', prop: 'margenRefacciones', format: v => v + '%' }, 
                 { id: 'opex-rate', prop: 'opexRate', format: v => v + '%' },
                 { id: 'enganche-cliente', prop: 'engancheCliente', format: v => (v/1000).toFixed(0) + 'K', parse: v => parseInt(v) }, 
@@ -813,7 +834,9 @@
 
         // Función para calcular las diferentes corrientes de ingresos
         function calculateRevenueStreams(addedUnits, totalActiveUnitsInPortfolio, interestRevenue, margenOriginacionUpfront) {
-            const gnvCommissions = totalActiveUnitsInPortfolio * modelData.gnvRevPerUnit * (modelData.comisionGNV / 100);
+            // Cálculo de Comisión GNV modificado
+            const gnvCommissions = totalActiveUnitsInPortfolio * (modelData.comisionGNV / 100) * modelData.litrosPromedioMensualGNV * modelData.precioGNV * 12;
+            
             const sparePartsRevenue = addedUnits * modelData.refaccionesRevPerUnit * (modelData.margenRefacciones / 100);
             const marketplaceRevenue = totalActiveUnitsInPortfolio * modelData.marketplaceRevPerUnit * modelData.marketplace;
             const totalRevenue = interestRevenue + margenOriginacionUpfront + gnvCommissions + sparePartsRevenue + marketplaceRevenue;
@@ -859,7 +882,7 @@
         // Función para calcular el P&L
         function calculatePnL(totalRevenue, opex, provisions, impairment, annualDepreciation, ventureDebtInterestExpense) {
             const ebitda = totalRevenue - opex - provisions - impairment;
-            const netIncome = ebitda - annualDepreciation - ventureDebtInterestExpense;
+            const netIncome = ebitda - annualDepreciation - ventureDebtInterestExpense; // Corregido: annualDepreciation
             return { ebitda, netIncome };
         }
 
@@ -875,7 +898,6 @@
         // Función para actualizar el Balance General
         function updateBalanceSheet(state, loanPortfolioBalance, totalDebt) {
             const fixedAssetsNet = state.currentTotalOriginalAssetsCost - state.currentTotalAccumulatedDepreciationBS;
-            // totalAssets ahora usa accumulatedAssetsHeldForSaleValue
             const totalAssets = state.cash + loanPortfolioBalance + fixedAssetsNet + state.accumulatedAssetsHeldForSaleValue;
             
             const equity = modelData.serieA + state.accumulatedEarnings;
@@ -918,7 +940,6 @@
                 cash: state.cash,
                 receivables: state.loanPortfolioBalance,
                 fixedAssets: bsResults.fixedAssetsNet,
-                // assetsHeldForSale ahora toma del valor acumulado de NIIF5
                 assetsHeldForSale: state.accumulatedAssetsHeldForSaleValue, 
                 totalAssets: bsResults.totalAssets,
                 debt: state.totalDebt,
@@ -971,8 +992,7 @@
             
             // Año 0: Inversión Inicial (solo Serie A)
             state.cash = modelData.serieA;
-            // Flujo de caja del proyecto: Inversión inicial de equity (salida)
-            state.projectCashFlows.push(-modelData.serieA); 
+            state.projectCashFlows.push(-modelData.serieA); // Flujo de caja del proyecto: Inversión inicial de equity (salida)
 
             for (let year = 0; year < 5; year++) {
                 const currentYear = year + 1;
@@ -1441,7 +1461,7 @@
                         labels: ['Intereses', 'Margen Originación', 'Comisiones GNV', 'Refacciones', 'Marketplace'],
                         datasets: [{
                             data: [],
-                            backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899']
+                            backgroundColor: ['#3b82f6', '#10b981', '##f59e0b', '#8b5cf6', '#ec4899']
                         }]
                     },
                     options: {
