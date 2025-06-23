@@ -3,21 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Modelo Financiero "Rodando a Gas" - NIIF Compliant Modularizado</title>
+    <title>Modelo Financiero "Rodando a Gas" - NIIF Compliant</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
-    <!-- Módulos del sistema -->
-    <script src="js/Utils.js"></script>
-    <script src="js/NIIFCalculations.js"></script>
-    <script src="js/FinancialCalculations.js"></script>
-    <script src="js/ChartManager.js"></script>
-    <script src="js/TableRenderer.js"></script>
-    <script src="js/UIController.js"></script>
-    <script src="js/FinancialModel.js"></script>
-    
     <style>
+        /* Estilos generales */
         body { font-family: 'Inter', sans-serif; background-color: #f8f9fa; }
         .tab-button { transition: all 0.3s ease; cursor: pointer; }
         .tab-button.active { border-color: #2563eb; color: #2563eb; background-color: #eff6ff; }
@@ -40,30 +32,28 @@
         .input-container { display: flex; align-items: center; gap: 1rem; }
         .input-value { font-weight: 600; color: #2563eb; min-width: 60px; }
         .section-header { font-size: 1.25rem; font-weight: 600; color: #1e40af; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid #dbeafe; }
+        .info-tooltip { display: inline-block; width: 16px; height: 16px; background-color: #9ca3af; color: white; border-radius: 50%; text-align: center; font-size: 12px; line-height: 16px; cursor: help; margin-left: 0.25rem; vertical-align: middle; }
         .validation-success { background-color: #dcfce7; border-left: 4px solid #22c55e; padding: 1rem; border-radius: 0.5rem; margin: 1rem 0; }
         .validation-error { background-color: #fee2e2; border-left: 4px solid #ef4444; padding: 1rem; border-radius: 0.5rem; margin: 1rem 0; }
-        .enganche-highlight { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-left: 4px solid #f59e0b; }
+        .error-message { color: #ef4444; font-weight: 500; margin-top: 0.5rem; }
+        .balance-error { background-color: #ffebee; padding: 0.5rem; margin: 0.25rem 0; border-radius: 0.25rem; }
     </style>
 </head>
 <body class="text-gray-800">
     <div class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-        <!-- Header -->
+        <!-- Encabezado de la aplicación -->
         <header class="mb-8 text-center bg-white rounded-xl p-6 shadow-sm">
             <h1 class="text-3xl font-bold text-gray-900">Modelo Financiero - Rodando a Gas</h1>
-            <p class="text-lg text-gray-600 mt-2">Financiamiento de Vagonetas con Cumplimiento NIIF - VERSIÓN MODULARIZADA</p>
+            <p class="text-lg text-gray-600 mt-2">Financiamiento de Vagonetas con Cumplimiento NIIF</p>
             <div class="mt-4">
                 <p class="text-gray-600">
                     RAG no vende vagonetas, las financia. Las vagonetas son activos fijos y
                     los ingresos provienen principalmente de intereses del financiamiento y servicios auxiliares.
                 </p>
-                <div class="mt-2 p-2 bg-blue-100 rounded">
-                    <p class="text-sm text-blue-800 font-semibold">🔧 Arquitectura modularizada para mejor mantenibilidad y escalabilidad</p>
-                </div>
             </div>
         </header>
-
-        <!-- Summary Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-6 gap-6 mb-8">
+        <!-- Tarjetas de Resumen de Métricas Clave -->
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
             <div class="metric-card p-4 rounded-lg">
                 <div class="text-sm text-gray-500">EBITDA Año 5</div>
                 <div class="text-2xl font-bold" id="ebitda-year5">$0M MXN</div>
@@ -77,33 +67,27 @@
                 <div class="text-2xl font-bold" id="tir-cartera">0%</div>
             </div>
             <div class="metric-card p-4 rounded-lg">
-                <div class="text-sm text-gray-500">Vagonetas</div>
+                <div class="text-sm text-gray-500">Vagonetas Totales</div>
                 <div class="text-2xl font-bold" id="vagonetas-total">0</div>
             </div>
             <div class="metric-card p-4 rounded-lg">
-                <div class="text-sm text-gray-500">Deuda Residual</div>
+                <div class="text-sm text-gray-500">Deuda Residual Año 5</div>
                 <div class="text-2xl font-bold" id="deuda-residual">$0M MXN</div>
             </div>
-            <div class="metric-card p-4 rounded-lg">
-                <div class="text-sm text-gray-500">Balance Status</div>
-                <div class="text-lg font-bold" id="balance-status">Verificando...</div>
-            </div>
         </div>
-
-        <!-- Tabs -->
+        <!-- Navegación por Pestañas -->
         <div class="mb-6 border-b border-gray-200">
             <nav class="flex flex-wrap -mb-px">
-                <button id="tab-control" class="tab-button active text-lg font-medium mr-2 inline-block p-4 border-b-2 border-blue-500 rounded-t-lg">🚀 Control</button>
-                <button id="tab-financieros" class="tab-button text-lg font-medium mr-2 inline-block p-4 border-b-2 border-transparent rounded-t-lg">📊 Financieros</button>
-                <button id="tab-niif" class="tab-button text-lg font-medium mr-2 inline-block p-4 border-b-2 border-transparent rounded-t-lg">📋 NIIF</button>
-                <button id="tab-graficos" class="tab-button text-lg font-medium mr-2 inline-block p-4 border-b-2 border-transparent rounded-t-lg">📈 Gráficos</button>
+                <button id="tab-control" class="tab-button active text-lg font-medium mr-2 inline-block p-4 border-b-2 border-blue-500 rounded-t-lg"> 🚀  Control</button>
+                <button id="tab-financieros" class="tab-button text-lg font-medium mr-2 inline-block p-4 border-b-2 border-transparent rounded-t-lg"> 📊  Financieros</button>
+                <button id="tab-niif" class="tab-button text-lg font-medium mr-2 inline-block p-4 border-b-2 border-transparent rounded-t-lg"> 📋  NIIF</button>
+                <button id="tab-graficos" class="tab-button text-lg font-medium mr-2 inline-block p-4 border-b-2 border-transparent rounded-t-lg"> 📈  Gráficos</button>
             </nav>
         </div>
-
-        <!-- Control Panel -->
+        <!-- Panel de Control (Pestaña Activa por defecto) -->
         <div id="content-control" class="content-section active">
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <!-- Left Column -->
+                <!-- Columna Izquierda: Crédito y Riesgo, Operaciones -->
                 <div class="space-y-6">
                     <!-- Crédito y Riesgo -->
                     <div class="card">
@@ -152,10 +136,9 @@
                         </div>
                         <div class="flex items-center mt-4">
                             <input id="check-proteccion" type="checkbox" checked class="h-4 w-4 rounded border-gray-300 text-indigo-600">
-                            <label for="check-proteccion" class="ml-2 block text-sm text-gray-900">Protección Rodando (Reducción técnica por colateral)</label>
+                            <label for="check-proteccion" class="ml-2 block text-sm text-gray-900">Protección Rodando (-50% provisiones)</label>
                         </div>
                     </div>
-
                     <!-- Operaciones -->
                     <div class="card">
                         <div class="section-header">Operaciones</div>
@@ -188,20 +171,26 @@
                             </div>
                         </div>
                         <div class="input-group">
-                            <label class="input-label">Gastos Operativos (%) - Rango 10-15%</label>
+                            <label class="input-label">Tasa Gastos Operativos (%)</label>
                             <div class="input-container">
-                                <input type="range" id="opex-rate" min="10" max="15" step="0.5" value="12.5" class="input-slider">
-                                <span id="opex-rate-valor" class="input-value">12.5%</span>
+                                <input type="range" id="opex-rate" min="5" max="30" step="1" value="15" class="input-slider">
+                                <span id="opex-rate-valor" class="input-value">15%</span>
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <label class="input-label">Enganche Cliente (MXN)</label>
+                            <div class="input-container">
+                                <input type="range" id="enganche-cliente" min="0" max="200000" step="50000" value="100000" class="input-slider">
+                                <span id="enganche-cliente-valor" class="input-value">100K</span>
                             </div>
                         </div>
                     </div>
                 </div>
-
-                <!-- Right Column -->
+                <!-- Columna Derecha: Capital, Activos y NIIF 5 -->
                 <div class="space-y-6">
                     <!-- Capital -->
                     <div class="card">
-                        <div class="section-header">Capital</div>
+                        <div class="section-header">Capital y Deuda</div>
                         <div class="input-group">
                             <label class="input-label">Serie A Capital Inicial (M MXN)</label>
                             <div class="input-container">
@@ -210,7 +199,7 @@
                             </div>
                         </div>
                         <div class="input-group">
-                            <label class="input-label">% Venture Debt sobre Inversión</label>
+                            <label class="input-label">% Venture Debt sobre CAPEX</label>
                             <div class="input-container">
                                 <input type="range" id="venture-debt-pct" min="50" max="90" step="5" value="70" class="input-slider">
                                 <span id="venture-debt-pct-valor" class="input-value">70%</span>
@@ -231,32 +220,6 @@
                             </div>
                         </div>
                     </div>
-
-                    <!-- Enganche Cliente -->
-                    <div class="card enganche-highlight">
-                        <div class="section-header">🆕 Términos del Cliente</div>
-                        <div class="niif-explanation">
-                            <div class="niif-header">Assumption 4: Enganche Cliente</div>
-                            <p class="text-sm text-gray-700">
-                                El cliente puede dar un enganche de entre 100K y 150K MXN, 
-                                reduciendo el monto a financiar y mejorando la TIR del proyecto.
-                            </p>
-                        </div>
-                        <div class="input-group">
-                            <label class="input-label">Enganche Cliente (MXN)</label>
-                            <div class="input-container">
-                                <input type="range" id="enganche-cliente" min="100000" max="150000" step="1000" value="100000" class="input-slider">
-                                <span id="enganche-cliente-valor" class="input-value">$100K</span>
-                            </div>
-                        </div>
-                        <div class="input-group">
-                            <label class="input-label">Monto Financiado Resultante</label>
-                            <div class="p-2 bg-yellow-50 rounded">
-                                <span id="monto-financiado-display" class="font-semibold text-yellow-600">$629,000 MXN</span>
-                            </div>
-                        </div>
-                    </div>
-
                     <!-- Activos y NIIF 5 -->
                     <div class="card">
                         <div class="section-header">Activos y NIIF 5</div>
@@ -272,7 +235,7 @@
                             <input type="number" id="costo-vagoneta" min="500000" max="800000" step="1000" value="641000" class="p-2 border rounded w-full">
                         </div>
                         <div class="input-group">
-                            <label class="input-label">Precio Base Financiado (MXN)</label>
+                            <label class="input-label">Precio Financiado al Cliente (MXN)</label>
                             <input type="number" id="precio-financiado" min="600000" max="900000" step="1000" value="729000" class="p-2 border rounded w-full">
                         </div>
                         <div class="input-group">
@@ -299,7 +262,6 @@
                     </div>
                 </div>
             </div>
-
             <!-- Unidades por Año -->
             <div class="card mt-6">
                 <div class="section-header">Unidades por Año</div>
@@ -333,18 +295,12 @@
                     </div>
                 </div>
                 <div class="mt-6 flex justify-between">
-                    <div>
-                        <button id="btn-base" class="bg-blue-500 text-white px-4 py-2 rounded font-medium">Escenario Base</button>
-                        <button id="btn-optimista" class="bg-green-500 text-white px-4 py-2 rounded font-medium ml-2">Optimista</button>
-                        <button id="btn-conservador" class="bg-yellow-500 text-white px-4 py-2 rounded font-medium ml-2">Conservador</button>
-                    </div>
-                    <button id="btn-recalcular" class="bg-indigo-600 text-white px-4 py-2 rounded font-medium">🔄 Recalcular Modelo</button>
+                    <button id="btn-recalcular" class="bg-indigo-600 text-white px-4 py-2 rounded font-medium"> 🔄  Recalcular Modelo</button>
                 </div>
                 <div id="error-messages" class="mt-4"></div>
             </div>
         </div>
-
-        <!-- Estados Financieros -->
+        <!-- Pestaña de Estados Financieros -->
         <div id="content-financieros" class="content-section">
             <div class="space-y-6">
                 <div class="card">
@@ -362,7 +318,7 @@
                                 </tr>
                             </thead>
                             <tbody id="pl-table-body">
-                                <!-- Content will be dynamically added -->
+                                <!-- Contenido se añadirá dinámicamente -->
                             </tbody>
                         </table>
                     </div>
@@ -383,7 +339,7 @@
                                 </tr>
                             </thead>
                             <tbody id="cf-table-body">
-                                <!-- Content will be dynamically added -->
+                                <!-- Contenido se añadirá dinámicamente -->
                             </tbody>
                         </table>
                     </div>
@@ -403,18 +359,17 @@
                                 </tr>
                             </thead>
                             <tbody id="bs-table-body">
-                                <!-- Content will be dynamically added -->
+                                <!-- Contenido se añadirá dinámicamente -->
                             </tbody>
                         </table>
                     </div>
                     <div id="balance-validation" class="mt-4">
-                        <!-- Balance validation message -->
+                        <!-- Mensaje de validación del balance -->
                     </div>
                 </div>
             </div>
         </div>
-
-        <!-- NIIF -->
+        <!-- Pestaña NIIF -->
         <div id="content-niif" class="content-section">
             <div class="space-y-6">
                 <div class="card">
@@ -429,12 +384,12 @@
                         <p class="mt-2">
                             <strong>Aplicación en RAG:</strong> Los ingresos por intereses se
                             reconocen en función del tiempo transcurrido utilizando el método
-                            del interés efectivo. El margen por originación se distribuye
-                            durante la vida del préstamo (5 años) según NIIF 15.
+                            del interés efectivo. El margen por originación se reconoce como
+                            un servicio al momento de formalizar el contrato de financiamiento.
                         </p>
                     </div>
                     <div id="niif15-container" class="mt-4">
-                        <!-- Content will be dynamically added -->
+                        <!-- Contenido se añadirá dinámicamente -->
                     </div>
                 </div>
                 <div class="card">
@@ -443,18 +398,18 @@
                         <p>
                             <strong>Objetivo:</strong> Establecer los requisitos para el
                             reconocimiento y medición de activos financieros,
-                            pasivos financieros y algunos contratos de compra o venta de activos no
+                            pasivos financieros y algunos contratos de compra o venta de artivos no
                             financieros.
                         </p>
                         <p class="mt-2">
                             <strong>Aplicación en RAG:</strong> Las cuentas por cobrar se
                             clasifican como activos financieros medidos al costo amortizado.
                             Se aplica un modelo de deterioro crediticio en tres etapas basado en el
-                            riesgo de incumplimiento con criterios técnicos específicos.
+                            riesgo de incumplimiento.
                         </p>
                     </div>
                     <div id="niif9-container" class="mt-4">
-                        <!-- Content will be dynamically added -->
+                        <!-- Contenido se añadirá dinámicamente -->
                     </div>
                 </div>
                 <div class="card">
@@ -466,21 +421,14 @@
                             y la presentación e información a revelar sobre las operaciones
                             discontinuadas.
                         </p>
-                        <p class="mt-2">
-                            <strong>Aplicación en RAG:</strong> Las vagonetas reposeídas se
-                            reclasifican como activos mantenidos para la venta.
-                            Se miden al menor valor entre su valor en libros y su valor razonable
-                            menos los costos de venta. La depreciación se suspende.
-                        </p>
                     </div>
                     <div id="niif5-container" class="mt-4">
-                        <!-- Content will be dynamically added -->
+                        <!-- Contenido se añadirá dinámicamente -->
                     </div>
                 </div>
             </div>
         </div>
-
-        <!-- Gráficos -->
+        <!-- Pestaña de Gráficos -->
         <div id="content-graficos" class="content-section">
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div class="card">
@@ -502,16 +450,1176 @@
             </div>
         </div>
     </div>
-
     <script>
-        // Inicialización de la aplicación modularizada
+        // ===== VARIABLES GLOBALES DEL MODELO =====
+        const modelData = {
+            tasaInteres: 40.0,
+            tasaMorosidad: 19.5,
+            lgd: 80,
+            pdEtapa2: 12,
+            pdEtapa3: 30,
+            proteccionRodando: true,
+            margenOriginacion: 10, // Porcentaje sobre el precio financiado
+            comisionGNV: 8, // Porcentaje
+            margenRefacciones: 25, // Porcentaje
+            opexRate: 15, // Porcentaje de ingresos totales para OPEX
+            engancheCliente: 100000, // Nuevo: Enganche del cliente
+            serieA: 45000000, // Capital inicial Serie A
+            ventureDebtPct: 70, // Porcentaje de CAPEX financiado con Venture Debt
+            ventureDebtRate: 12, // Tasa de interés de Venture Debt
+            amortizacionDeuda: 5, // Años para amortizar Venture Debt
+            costoVagoneta: 641000, // Costo de adquisición de la vagoneta
+            precioFinanciado: 729000, // Precio total financiado al cliente (antes de enganche)
+            tasaReposicion: 15, // Tasa de vagonetas reposesionadas
+            fairValue: 85, // % del valor razonable de vagonetas reposesionadas
+            costosVenta: 5, // % de costos de venta de vagonetas reposesionadas
+            depreciationYears: 10, // Años de depreciación de las vagonetas
+            unitsPerYear: [35, 70, 100, 150, 200], // Unidades financiadas por año
+            gnvRevPerUnit: 12000, // Ingreso anual GNV por unidad
+            refaccionesRevPerUnit: 50000, // Ingreso anual Refacciones por unidad
+            marketplaceRevPerUnit: 5000, // Ingreso anual Marketplace por unidad
+            marketplace: 1 // Multiplicador para Marketplace (si 100% activo)
+        };
+
+        // ===== RESULTADOS FINANCIEROS Y VARIABLES DE ESTADO =====
+        let financialResults = {
+            pl: [], // Profit & Loss
+            cf: [], // Cash Flow
+            bs: [], // Balance Sheet
+            niifDetails: [], // Detalles NIIF
+            tirProyecto: 0, // TIR del proyecto
+            tirCartera: 0, // TIR de la cartera de préstamos
+            clientLoanCohorts: [], // Array para seguir cada cohorte de préstamos a clientes
+            ventureDebtTranches: [] // Array para seguir cada tramo de deuda venture
+        };
+
+        let charts = {}; // Objeto para almacenar las instancias de Chart.js
+        let recalculationTimeout; // Para el debounce de los recálculos
+        let recalculationInProgress = false; // Bandera para evitar recálculos concurrentes
+
+        // ===== INICIALIZACIÓN DE LA APLICACIÓN =====
         document.addEventListener('DOMContentLoaded', function() {
-            // Crear instancia del modelo financiero
-            window.financialModel = new FinancialModel();
-            
-            // Inicializar la aplicación
-            financialModel.initialize();
+            setupTabs();
+            setupControls();
+            initializeCharts();
+            calculateFinancials(); // Cálculo inicial
+            updateUI(); // Actualización inicial de la interfaz
         });
+
+        // ===== CONFIGURACIÓN DE PESTAÑAS (TABS) =====
+        function setupTabs() {
+            const tabButtons = document.querySelectorAll('.tab-button');
+            const contentSections = document.querySelectorAll('.content-section');
+
+            tabButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    tabButtons.forEach(btn => btn.classList.remove('active'));
+                    contentSections.forEach(section => section.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    const tabId = this.id;
+                    let contentId;
+                    switch(tabId) {
+                        case 'tab-control': contentId = 'content-control'; break;
+                        case 'tab-financieros': contentId = 'content-financieros'; break;
+                        case 'tab-niif': contentId = 'content-niif'; break;
+                        case 'tab-graficos': contentId = 'content-graficos'; break;
+                    }
+                    
+                    if (contentId) {
+                        document.getElementById(contentId).classList.add('active');
+                        if (contentId === 'content-graficos') {
+                            updateCharts();
+                        }
+                    }
+                });
+            });
+        }
+
+        // ===== CONFIGURACIÓN DE CONTROLES DEL MODELO =====
+        function setupControls() {
+            const sliders = [
+                { id: 'tasa-interes', prop: 'tasaInteres', format: v => v.toFixed(1) + '%' },
+                { id: 'tasa-morosidad', prop: 'tasaMorosidad', format: v => v + '%' },
+                { id: 'lgd', prop: 'lgd', format: v => v + '%' },
+                { id: 'pd-etapa2', prop: 'pdEtapa2', format: v => v + '%' },
+                { id: 'pd-etapa3', prop: 'pdEtapa3', format: v => v + '%' },
+                { id: 'margen-originacion', prop: 'margenOriginacion', format: v => v + '%' },
+                { id: 'comision-gnv', prop: 'comisionGNV', format: v => v + '%' },
+                { id: 'margen-refacciones', prop: 'margenRefacciones', format: v => v + '%' }, 
+                { id: 'opex-rate', prop: 'opexRate', format: v => v + '%' },
+                { id: 'enganche-cliente', prop: 'engancheCliente', format: v => (v/1000).toFixed(0) + 'K', parse: v => parseInt(v) }, 
+                { id: 'serie-a', prop: 'serieA', format: v => (v/1000000).toFixed(0) + 'M', parse: v => parseInt(v) * 1000000 },
+                { id: 'venture-debt-pct', prop: 'ventureDebtPct', format: v => v + '%' },
+                { id: 'venture-debt-rate', prop: 'ventureDebtRate', format: v => v + '%' },
+                { id: 'amortizacion-deuda', prop: 'amortizacionDeuda', format: v => v + ' años' },
+                { id: 'tasa-reposicion', prop: 'tasaReposicion', format: v => v + '%' },
+                { id: 'fair-value', prop: 'fairValue', format: v => v + '%' },
+                { id: 'costos-venta', prop: 'costosVenta', format: v => v + '%' }
+            ];
+
+            sliders.forEach(config => {
+                const slider = document.getElementById(config.id);
+                const display = document.getElementById(`${config.id}-valor`);
+                if (slider && display) {
+                    slider.value = modelData[config.prop];
+                    display.textContent = config.format(modelData[config.prop]);
+                    
+                    slider.addEventListener('input', function() {
+                        const value = config.parse ? config.parse(this.value) : parseFloat(this.value);
+                        modelData[config.prop] = value;
+                        display.textContent = config.format(value);
+                        debouncedRecalculate();
+                    });
+                }
+            });
+
+            const numberInputs = [
+                { id: 'costo-vagoneta', prop: 'costoVagoneta' },
+                { id: 'precio-financiado', prop: 'precioFinanciado' }
+            ];
+
+            numberInputs.forEach(input => {
+                const element = document.getElementById(input.id);
+                if (element) {
+                    element.value = modelData[input.prop];
+                    element.addEventListener('change', function() {
+                        modelData[input.prop] = parseInt(this.value) || 0;
+                        debouncedRecalculate();
+                    });
+                }
+            });
+
+            const checkbox = document.getElementById('check-proteccion');
+            if (checkbox) {
+                checkbox.checked = modelData.proteccionRodando;
+                checkbox.addEventListener('change', function() {
+                    modelData.proteccionRodando = this.checked;
+                    debouncedRecalculate();
+                });
+            }
+
+            for (let year = 1; year <= 5; year++) {
+                const input = document.getElementById(`unit-year-${year}`);
+                if (input) {
+                    input.addEventListener('change', function() {
+                        const value = parseInt(this.value) || 0;
+                        modelData.unitsPerYear[year-1] = Math.max(0, Math.min(1000, value));
+                        debouncedRecalculate();
+                    });
+                }
+            }
+
+            const btnRecalcular = document.getElementById('btn-recalcular');
+            if (btnRecalcular) {
+                btnRecalcular.addEventListener('click', function() {
+                    calculateFinancials();
+                    updateUI();
+                });
+            }
+        }
+
+        function debouncedRecalculate() {
+            clearTimeout(recalculationTimeout);
+            recalculationTimeout = setTimeout(() => {
+                if (!recalculationInProgress) {
+                    recalculationInProgress = true;
+                    calculateFinancials();
+                    updateUI();
+                    recalculationInProgress = false;
+                }
+            }, 500);
+        }
+
+        function setupScenarios() {
+            // Esta función ha sido eliminada según la solicitud del usuario.
+        }
+
+        // ===========================================
+        // ===== LÓGICA FINANCIERA MODULARIZADA =====
+        // ===========================================
+
+        // Función para inicializar las variables de estado financiero para un nuevo cálculo
+        function initializeFinancialState() {
+            financialResults = {
+                pl: [], cf: [], bs: [], niifDetails: [],
+                tirProyecto: 0, tirCartera: 0, 
+                clientLoanCohorts: [],
+                ventureDebtTranches: []
+            };
+            return {
+                accumulatedEarnings: 0,
+                cash: 0,
+                currentProvisionsBalance: 0,
+                currentTotalOriginalAssetsCost: 0, // Costo original acumulado de activos fijos en balance
+                currentTotalAccumulatedDepreciationBS: 0, // Depreciación acumulada para el balance
+                projectCashFlows: [],
+                portfolioCashFlows: [],
+                assetsInService: [] // [{ cost, units, remainingLife, accumulatedDepreciationForThisCohort }]
+            };
+        }
+
+        // Función para calcular CAPEX y gestionar la adición de activos fijos
+        function calculateCapexAndAssets(addedUnits, state) {
+            const capexThisYear = addedUnits * modelData.costoVagoneta;
+            // Solo se acumula al costo original si el activo se va a poner en servicio
+            // La remoción de reposesionados se maneja en calculateDepreciationAndFixedAssets
+            
+            if (addedUnits > 0) {
+                state.assetsInService.push({
+                    cost: modelData.costoVagoneta,
+                    units: addedUnits,
+                    remainingLife: modelData.depreciationYears,
+                    accumulatedDepreciationForThisCohort: 0 // Inicia sin depreciación
+                });
+                state.currentTotalOriginalAssetsCost += capexThisYear; // Acumular el costo de los nuevos activos
+            }
+            return capexThisYear;
+        }
+
+        // Función para calcular depreciación y gestionar activos fijos (incluyendo reposesiones)
+        function calculateDepreciationAndFixedAssets(currentYear, state) {
+            let annualDepreciationForPnl = 0; // Depreciación que va al P&L este año
+            let repossessedUnitsThisYear = 0;
+            let repossessedCarryingAmount = 0; // Valor en libros de los reposesionados
+
+            // --- 1. Reposesión de unidades ---
+            // Asumimos que las unidades reposesionadas se sacan del total de unidades activas
+            // Para simplificar, las reposesiones se aplican sobre el total de unidades que *existen*
+            const totalUnitsInServiceBeforeRepossession = state.assetsInService.reduce((sum, asset) => sum + asset.units, 0);
+            repossessedUnitsThisYear = Math.round(totalUnitsInServiceBeforeRepossession * (modelData.tasaReposicion / 100));
+
+            let unitsToRepossess = repossessedUnitsThisYear;
+            let tempAssetsInServiceAfterRepossession = [];
+
+            for (let i = 0; i < state.assetsInService.length && unitsToRepossess > 0; i++) {
+                let asset = state.assetsInService[i];
+                let unitsFromThisCohort = Math.min(unitsToRepossess, asset.units);
+
+                const costOfRepossessedUnits = unitsFromThisCohort * asset.cost;
+                // Calcular la depreciación acumulada para las unidades reposesionadas hasta AHORA
+                const originalDepreciatedYears = modelData.depreciationYears - asset.remainingLife;
+                const accumulatedDepreciationOfRepossessedUnits = (asset.cost / modelData.depreciationYears) * originalDepreciatedYears * unitsFromThisCohort;
+                
+                // Calcular el valor en libros de las unidades reposesionadas
+                let carryingAmountOfTheseRepossessedUnits = costOfRepossessedUnits - accumulatedDepreciationOfRepossessedUnits;
+                repossessedCarryingAmount += carryingAmountOfTheseRepossessedUnits; // Sumar al total reposesionado
+
+                // NIIF 5: Suspender depreciación y reclasificar
+                // Ajustar los totales brutos de activos fijos por las unidades reposesionadas
+                state.currentTotalOriginalAssetsCost -= costOfRepossessedUnits;
+                state.currentTotalAccumulatedDepreciationBS -= accumulatedDepreciationOfRepossessedUnits;
+
+                // Reducir las unidades de la cohorte actual
+                asset.units -= unitsFromThisCohort;
+                // Ajustar la depreciación acumulada del resto de la cohorte
+                if (asset.units > 0) {
+                    asset.accumulatedDepreciationForThisCohort = (asset.accumulatedDepreciationForThisCohort / (unitsFromThisCohort + asset.units)) * asset.units;
+                    tempAssetsInServiceAfterRepossession.push(asset);
+                }
+                unitsToRepossess -= unitsFromThisCohort;
+            }
+            state.assetsInService = tempAssetsInServiceAfterRepossession; // Actualizar activos en servicio sin los reposesionados
+
+
+            // --- 2. Calcular depreciación anual para el P&L de los activos *restantes* ---
+            let annualDepreciationThisYear = 0;
+            state.assetsInService.forEach(asset => {
+                if (asset.remainingLife > 0) {
+                    const depreciationForThisCohort = (asset.cost / modelData.depreciationYears) * asset.units;
+                    annualDepreciationThisYear += depreciationForThisCohort;
+                    asset.remainingLife--; // Reducir la vida útil para el próximo año
+                    asset.accumulatedDepreciationForThisCohort += depreciationForThisCohort; // Acumular en la cohorte
+                }
+            });
+            annualDepreciationForPnl = annualDepreciationThisYear; // Depreciación para P&L
+
+            // Actualizar la depreciación acumulada total para el Balance General
+            // Se suma la depreciación de este año (annualDepreciationThisYear) a la acumulada que no fue de reposesionados.
+            state.currentTotalAccumulatedDepreciationBS += annualDepreciationThisYear;
+
+
+            return { annualDepreciation: annualDepreciationForPnl, repossessedUnitsThisYear, repossessedCarryingAmount };
+        }
+
+        // Función para gestionar la deuda Venture
+        function manageVentureDebt(currentYear, capexThisYear, state) {
+            // Nueva Deuda Venture se asocia al CAPEX del año actual (AÑO 1 en adelante)
+            const newVentureDebtAmountForCapex = capexThisYear * (modelData.ventureDebtPct / 100);
+            const newCapitalCall = capexThisYear * (1 - modelData.ventureDebtPct / 100);
+
+            if (newVentureDebtAmountForCapex > 0) {
+                financialResults.ventureDebtTranches.push({
+                    originalAmount: newVentureDebtAmountForCapex,
+                    remainingPrincipal: newVentureDebtAmountForCapex,
+                    interestRate: modelData.ventureDebtRate,
+                    term: modelData.amortizacionDeuda,
+                    originalYear: currentYear
+                });
+            }
+            
+            let ventureDebtPrincipalPayment = 0;
+            let ventureDebtInterestExpense = 0;
+            let totalDebtBalance = 0; // Saldo total de deuda para el balance
+
+            financialResults.ventureDebtTranches = financialResults.ventureDebtTranches.filter(tranche => {
+                if (tranche.remainingPrincipal > 0) {
+                    const annualInterest = tranche.remainingPrincipal * (tranche.interestRate / 100);
+                    // Amortización lineal sobre el término original del tramo
+                    const annualPrincipalPayment = tranche.originalAmount / tranche.term; 
+
+                    ventureDebtInterestExpense += annualInterest;
+                    ventureDebtPrincipalPayment += Math.min(annualPrincipalPayment, tranche.remainingPrincipal); // No pagar más de lo que se debe
+                    tranche.remainingPrincipal -= annualPrincipalPayment;
+                    
+                    if (tranche.remainingPrincipal < 0) {
+                        tranche.remainingPrincipal = 0;
+                    }
+                    totalDebtBalance += tranche.remainingPrincipal;
+                    return true;
+                }
+                return false;
+            });
+            return { newVentureDebtAmountForCapex, newCapitalCall, ventureDebtPrincipalPayment, ventureDebtInterestExpense, totalDebt: totalDebtBalance };
+        }
+
+        // Función para gestionar la cartera de préstamos a clientes
+        function manageClientLoans(currentYear, addedUnits, loanAmountPerUnit, state) {
+            let interestRevenue = 0;
+            let clientPrincipalPayments = 0;
+            let loanPortfolioBalance = 0; // Saldo de cuentas por cobrar para el balance
+
+            if (addedUnits > 0) {
+                financialResults.clientLoanCohorts.push({
+                    units: addedUnits,
+                    originalLoanAmountPerUnit: loanAmountPerUnit, // Monto del préstamo por unidad
+                    remainingPrincipalPerUnit: loanAmountPerUnit, // Principal restante por unidad
+                    interestRate: modelData.tasaInteres,
+                    term: 5, // Término de amortización del préstamo al cliente (años)
+                    originalYear: currentYear
+                });
+            }
+            
+            financialResults.clientLoanCohorts = financialResults.clientLoanCohorts.filter(cohort => {
+                if (cohort.remainingPrincipalPerUnit > 0 && cohort.term > 0) {
+                    const annualInterestPerUnit = cohort.remainingPrincipalPerUnit * (cohort.interestRate / 100);
+                    const annualPrincipalPaymentPerUnit = cohort.originalLoanAmountPerUnit / cohort.term; 
+
+                    interestRevenue += annualInterestPerUnit * cohort.units;
+                    clientPrincipalPayments += annualPrincipalPaymentPerUnit * cohort.units;
+                    
+                    cohort.remainingPrincipalPerUnit -= annualPrincipalPaymentPerUnit;
+                    
+                    if (cohort.remainingPrincipalPerUnit < 0) {
+                        cohort.remainingPrincipalPerUnit = 0;
+                    }
+                    loanPortfolioBalance += cohort.remainingPrincipalPerUnit * cohort.units;
+                    return true;
+                }
+                return false;
+            });
+            return { interestRevenue, clientPrincipalPayments, loanPortfolioBalance };
+        }
+
+        // Función para calcular las diferentes corrientes de ingresos
+        function calculateRevenueStreams(addedUnits, totalActiveUnitsInPortfolio, interestRevenue, margenOriginacionUpfront) {
+            const gnvCommissions = totalActiveUnitsInPortfolio * modelData.gnvRevPerUnit * (modelData.comisionGNV / 100);
+            const sparePartsRevenue = addedUnits * modelData.refaccionesRevPerUnit * (modelData.margenRefacciones / 100);
+            const marketplaceRevenue = totalActiveUnitsInPortfolio * modelData.marketplaceRevPerUnit * modelData.marketplace;
+            const totalRevenue = interestRevenue + margenOriginacionUpfront + gnvCommissions + sparePartsRevenue + marketplaceRevenue;
+            return { gnvCommissions, sparePartsRevenue, marketplaceRevenue, totalRevenue };
+        }
+
+        // Función para calcular gastos operativos y provisiones NIIF 9
+        function calculateOpexAndProvisions(totalRevenue, loanPortfolioBalance, state) {
+            const opex = totalRevenue * (modelData.opexRate / 100);
+            
+            const exposureStage1 = loanPortfolioBalance * 0.6; 
+            const exposureStage2 = loanPortfolioBalance * 0.25; 
+            const exposureStage3 = loanPortfolioBalance * 0.15; 
+            
+            const eclStage1 = exposureStage1 * (modelData.tasaMorosidad / 100) * (modelData.lgd / 100);
+            const eclStage2 = exposureStage2 * (modelData.pdEtapa2 / 100) * (modelData.lgd / 100);
+            const eclStage3 = exposureStage3 * (modelData.pdEtapa3 / 100) * (modelData.lgd / 100);
+            
+            let provisions = eclStage1 + eclStage2 + eclStage3;
+            
+            if (modelData.proteccionRodando) {
+                provisions *= 0.5;
+            }
+            state.currentProvisionsBalance += provisions;
+            return { opex, provisions, eclStage1, eclStage2, eclStage3 };
+        }
+
+        // Función para calcular deterioro NIIF 5
+        function calculateNiif5Impairment(repossessedCarryingAmount) {
+            // NIIF 5: Se valúa al menor entre valor en libros y valor razonable menos costos de venta.
+            // Si el carryingAmount es cero (no hay reposesionadas), el impairment es cero.
+            if (repossessedCarryingAmount <= 0) {
+                return { fairValue: 0, costsToSellNIIF5: 0, fairValueLessCosts: 0, impairment: 0 };
+            }
+
+            const fairValue = repossessedCarryingAmount * (modelData.fairValue / 100);
+            const costsToSellNIIF5 = fairValue * (modelData.costosVenta / 100);
+            const fairValueLessCosts = fairValue - costsToSellNIIF5;
+            
+            // La pérdida por deterioro es si el valor en libros es mayor al valor razonable neto
+            const impairment = Math.max(0, repossessedCarryingAmount - fairValueLessCosts);
+            
+            return { fairValue, costsToSellNIIF5, fairValueLessCosts, impairment };
+        }
+
+        // Función para calcular el P&L
+        function calculatePnL(totalRevenue, opex, provisions, impairment, annualDepreciation, ventureDebtInterestExpense) {
+            const ebitda = totalRevenue - opex - provisions - impairment;
+            const netIncome = ebitda - annualDepreciation - ventureDebtInterestExpense;
+            return { ebitda, netIncome };
+        }
+
+        // Función para calcular los flujos de efectivo
+        function calculateCashFlow(netIncome, annualDepreciation, provisions, impairment, capexThisYear, newVentureDebtAmountForCapex, ventureDebtPrincipalPayment, newCapitalCall) {
+            const operatingCash = netIncome + annualDepreciation + provisions + impairment;
+            const investingCash = -capexThisYear;
+            const financingCash = newVentureDebtAmountForCapex - ventureDebtPrincipalPayment + newCapitalCall;
+            const netCash = operatingCash + investingCash + financingCash;
+            return { operatingCash, investingCash, financingCash, netCash };
+        }
+
+        // Función para actualizar el Balance General
+        function updateBalanceSheet(state, loanPortfolioBalance, totalDebt) {
+            // fixedAssetsNet ahora se calcula de los totales brutos y depreciación acumulada,
+            // que ya han sido ajustados por las reposesiones.
+            const fixedAssetsNet = state.currentTotalOriginalAssetsCost - state.currentTotalAccumulatedDepreciationBS;
+            // totalAssets ahora también considera los Activos para Venta
+            const totalAssets = state.cash + loanPortfolioBalance + fixedAssetsNet + state.niif5Details.fairValueLessCosts;
+            
+            const equity = modelData.serieA + state.accumulatedEarnings;
+            const totalLiabilitiesEquity = totalDebt + state.currentProvisionsBalance + equity;
+            return { fixedAssetsNet, totalAssets, equity, totalLiabilitiesEquity };
+        }
+
+        // Función para almacenar los resultados anuales
+        function storeAnnualResults(currentYear, plResults, cfResults, bsResults, state) {
+            financialResults.pl.push({
+                year: currentYear,
+                interestRevenue: state.interestRevenue,
+                margenOriginacion: state.margenOriginacionUpfront,
+                gnvCommissions: state.gnvCommissions,
+                sparePartsRevenue: state.sparePartsRevenue,
+                marketplaceRevenue: state.marketplaceRevenue,
+                totalRevenue: state.totalRevenue,
+                opex: state.opex,
+                provisions: state.provisions,
+                impairment: state.niif5Details.impairment,
+                ebitda: plResults.ebitda,
+                annualDepreciation: state.annualDepreciation, // Depreciación P&L
+                interestExpense: state.ventureDebtDetails.ventureDebtInterestExpense,
+                netIncome: plResults.netIncome
+            });
+
+            financialResults.cf.push({
+                year: currentYear,
+                operatingCash: cfResults.operatingCash,
+                investingCash: cfResults.investingCash,
+                financingCash: cfResults.financingCash,
+                netCash: cfResults.netCash,
+                newVentureDebt: state.ventureDebtDetails.newVentureDebtAmountForCapex,
+                ventureDebtPrincipalPayment: state.ventureDebtDetails.ventureDebtPrincipalPayment,
+                newCapitalCall: state.ventureDebtDetails.newCapitalCall
+            });
+
+            financialResults.bs.push({
+                year: currentYear,
+                cash: state.cash,
+                receivables: state.loanPortfolioBalance,
+                fixedAssets: bsResults.fixedAssetsNet,
+                assetsHeldForSale: state.niif5Details.fairValueLessCosts, // Valor neto de activos para venta
+                totalAssets: bsResults.totalAssets,
+                debt: state.totalDebt,
+                provisions: state.currentProvisionsBalance,
+                equity: bsResults.equity,
+                totalLiabilitiesEquity: bsResults.totalLiabilitiesEquity
+            });
+
+            financialResults.niifDetails.push({
+                year: currentYear,
+                niif15: {
+                    valorNominal: state.interestRevenue + state.margenOriginacionUpfront,
+                    valorPresente: (state.interestRevenue + state.margenOriginacionUpfront) * 0.95,
+                    margenOriginacion: state.margenOriginacionUpfront
+                },
+                niif9: {
+                    etapa1: state.niif9Details.eclStage1,
+                    etapa2: state.niif9Details.eclStage2,
+                    etapa3: state.niif9Details.eclStage3,
+                    total: state.provisions,
+                    proteccionRodando: modelData.proteccionRodando
+                },
+                niif5: {
+                    carryingAmount: state.niif5Details.repossessedCarryingAmount, // Valor en libros al reposesionar
+                    fairValue: state.niif5Details.fairValue,
+                    costsToSell: state.niif5Details.costsToSellNIIF5,
+                    fairValueLessCosts: state.niif5Details.fairValueLessCosts,
+                    impairment: state.niif5Details.impairment,
+                    unitsHeldForSale: state.niif5Details.repossessedUnitsThisYear
+                }
+            });
+        }
+
+
+        // ===== FUNCIÓN PRINCIPAL DE CÁLCULO FINANCIERO =====
+        function calculateFinancials() {
+            const state = initializeFinancialState();
+            const errorContainer = document.getElementById('error-messages');
+            errorContainer.innerHTML = '';
+
+            modelData.unitsPerYear = modelData.unitsPerYear.map(units => {
+                return Math.max(0, Math.min(1000, parseInt(units) || 0));
+            });
+
+            const loanAmountPerUnit = modelData.precioFinanciado - modelData.engancheCliente;
+            if (loanAmountPerUnit <= 0) {
+                errorContainer.innerHTML += `<div class="error-message">El monto del préstamo por unidad debe ser positivo (Precio Financiado - Enganche). Actualmente es ${loanAmountPerUnit}.</div>`;
+                return;
+            }
+            
+            // Año 0: Inversión Inicial (solo Serie A)
+            state.cash = modelData.serieA;
+            state.projectCashFlows.push(-modelData.serieA); // Inversión inicial de equity (salida)
+
+            for (let year = 0; year < 5; year++) {
+                const currentYear = year + 1;
+                const addedUnits = modelData.unitsPerYear[year];
+                state.addedUnits = addedUnits; // Pasar al estado para uso en otras funciones
+
+                // Módulo 1: CAPEX y Adición de Activos Fijos
+                const capexThisYear = calculateCapexAndAssets(addedUnits, state);
+                
+                // Módulo 2: Depreciación y Gestión de Activos Fijos (incluyendo reposesiones y NIIF 5)
+                const { annualDepreciation, repossessedUnitsThisYear, repossessedCarryingAmount } = calculateDepreciationAndFixedAssets(currentYear, state);
+                state.annualDepreciation = annualDepreciation; 
+                state.niif5Details = { repossessedUnitsThisYear, repossessedCarryingAmount }; // Almacenar para NIIF5 y BS
+                
+                // Módulo 3: Gestión de Deuda Venture y Capital Calls (Venture Debt a partir de Año 1)
+                const ventureDebtDetails = manageVentureDebt(currentYear, capexThisYear, state);
+                state.totalDebt = ventureDebtDetails.totalDebt; 
+                state.ventureDebtDetails = ventureDebtDetails; 
+                
+                // Módulo 4: Gestión de Cartera de Préstamos a Clientes
+                const { interestRevenue, clientPrincipalPayments, loanPortfolioBalance } = manageClientLoans(currentYear, addedUnits, loanAmountPerUnit, state);
+                state.interestRevenue = interestRevenue; 
+                state.clientPrincipalPayments = clientPrincipalPayments; 
+                state.loanPortfolioBalance = loanPortfolioBalance; 
+                
+                // Módulo 5: Cálculo de Corrientes de Ingresos (NIIF 15)
+                const totalActiveUnitsInPortfolio = financialResults.clientLoanCohorts.reduce((sum, cohort) => sum + cohort.units, 0);
+                const margenOriginacionUpfront = addedUnits * modelData.precioFinanciado * (modelData.margenOriginacion / 100);
+                const { gnvCommissions, sparePartsRevenue, marketplaceRevenue, totalRevenue } = calculateRevenueStreams(addedUnits, totalActiveUnitsInPortfolio, interestRevenue, margenOriginacionUpfront);
+                state.totalRevenue = totalRevenue; 
+                state.margenOriginacionUpfront = margenOriginacionUpfront;
+                state.gnvCommissions = gnvCommissions;
+                state.sparePartsRevenue = sparePartsRevenue;
+                state.marketplaceRevenue = marketplaceRevenue;
+
+
+                // Módulo 6: Cálculo de Gastos Operativos y Provisiones NIIF 9
+                const { opex, provisions, eclStage1, eclStage2, eclStage3 } = calculateOpexAndProvisions(totalRevenue, loanPortfolioBalance, state);
+                state.opex = opex; 
+                state.provisions = provisions; 
+                state.niif9Details = { eclStage1, eclStage2, eclStage3 }; 
+
+                // Módulo 7: Cálculo de Deterioro NIIF 5
+                const niif5ImpairmentResults = calculateNiif5Impairment(repossessedCarryingAmount);
+                state.niif5Details = { ...state.niif5Details, ...niif5ImpairmentResults }; 
+                
+                // Módulo 8: Cálculo del P&L
+                const plResults = calculatePnL(totalRevenue, opex, provisions, state.niif5Details.impairment, annualDepreciation, ventureDebtDetails.ventureDebtInterestExpense);
+                state.accumulatedEarnings += plResults.netIncome; 
+                
+                // Módulo 9: Cálculo de Flujos de Efectivo
+                const cfResults = calculateCashFlow(plResults.netIncome, annualDepreciation, provisions, state.niif5Details.impairment, capexThisYear, ventureDebtDetails.newVentureDebtAmountForCapex, ventureDebtDetails.ventureDebtPrincipalPayment, ventureDebtDetails.newCapitalCall);
+                state.cash += cfResults.netCash;
+                
+                // Módulo 10: Actualización del Balance General
+                const bsResults = updateBalanceSheet(state, loanPortfolioBalance, ventureDebtDetails.totalDebt);
+
+                // Módulo 11: Almacenar Resultados Anuales
+                storeAnnualResults(currentYear, plResults, cfResults, bsResults, state);
+
+                // Flujos para TIRs (después de que el estado `state` esté actualizado para el año)
+                state.projectCashFlows.push(cfResults.netCash - ventureDebtDetails.newCapitalCall); // Ajustado para TIR del equity
+                state.portfolioCashFlows.push((interestRevenue + clientPrincipalPayments) - (addedUnits * loanAmountPerUnit));
+            }
+
+            financialResults.tirProyecto = calculateIRR(state.projectCashFlows);
+            financialResults.tirCartera = calculateIRR(state.portfolioCashFlows);
+        }
+
+        // ===== FUNCIÓN PARA CALCULAR TIR (Tasa Interna de Retorno) =====
+        function calculateIRR(cashFlows, maxIter = 100, tol = 0.0001) {
+            if (!cashFlows || cashFlows.length < 2) return 0;
+            const hasPositive = cashFlows.some(cf => cf > 0);
+            const hasNegative = cashFlows.some(cf => cf < 0);
+            if (!hasPositive || !hasNegative) return 0; 
+
+            let rate = 0.1;
+            
+            for (let i = 0; i < maxIter; i++) {
+                let npv = 0;
+                let derivative = 0;
+                
+                for (let t = 0; t < cashFlows.length; t++) {
+                    npv += cashFlows[t] / Math.pow(1 + rate, t);
+                    derivative -= t * cashFlows[t] / Math.pow(1 + rate, t + 1);
+                }
+                
+                if (Math.abs(npv) < tol) break;
+                
+                const newRate = rate - npv / derivative;
+                if (Math.abs(newRate - rate) < tol) break;
+                
+                rate = newRate;
+            }
+            return Math.min(1000, Math.max(-100, rate * 100));
+        }
+
+        // ===== ACTUALIZACIÓN DE LA INTERFAZ DE USUARIO =====
+        function updateUI() {
+            if (financialResults.pl.length >= 5) {
+                document.getElementById('ebitda-year5').textContent = formatCurrency(financialResults.pl[4].ebitda);
+                document.getElementById('tir-proyecto').textContent = financialResults.tirProyecto.toFixed(1) + '%';
+                document.getElementById('tir-cartera').textContent = financialResults.tirCartera.toFixed(1) + '%';
+                document.getElementById('vagonetas-total').textContent = modelData.unitsPerYear.reduce((a, b) => a + b, 0);
+                document.getElementById('deuda-residual').textContent = formatCurrency(financialResults.bs[4].debt);
+            } else {
+                document.getElementById('ebitda-year5').textContent = '$0M MXN';
+                document.getElementById('tir-proyecto').textContent = '0%';
+                document.getElementById('tir-cartera').textContent = '0%';
+                document.getElementById('vagonetas-total').textContent = '0';
+                document.getElementById('deuda-residual').textContent = '$0M MXN';
+            }
+
+            updateTables();
+            updateNIIFTables();
+            updateCharts();
+        }
+
+        function formatCurrency(value) {
+            if (typeof value !== 'number' || isNaN(value)) return '$0';
+            const absValue = Math.abs(value);
+            let formatted = '';
+
+            if (absValue >= 1000000) {
+                formatted = '$' + (value / 1000000).toFixed(1) + 'M MXN';
+            } else if (absValue >= 1000) {
+                formatted = '$' + (value / 1000).toFixed(0) + 'K MXN';
+            } else {
+                formatted = '$' + Math.round(value).toLocaleString('es-MX');
+            }
+            return value < 0 ? `(${formatted.replace('$', '')})` : formatted;
+        }
+        
+        function updateTables() {
+            updatePLTable();
+            updateCashFlowTable();
+            updateBalanceSheetTable();
+        }
+
+        function updatePLTable() {
+            const tbody = document.getElementById('pl-table-body');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            const headers = [
+                'Ingresos por Intereses', 'Margen por Originación', 'Comisiones GNV',
+                'Ingresos Refacciones', 'Ingresos Marketplace', 'Total Ingresos',
+                'Gastos Operativos', 'Provisiones NIIF 9', 'Pérdida Deterioro NIIF 5',
+                'EBITDA', 'Depreciación', 'Intereses Deuda', 'Utilidad Neta'
+            ];
+
+            headers.forEach(header => {
+                const row = document.createElement('tr');
+                const headerCell = document.createElement('td');
+                headerCell.textContent = header;
+                headerCell.classList.add('font-medium');
+                row.appendChild(headerCell);
+
+                for (let i = 0; i < 5; i++) {
+                    const cell = document.createElement('td');
+                    let value = 0;
+                    if (financialResults.pl[i]) {
+                        switch(header) {
+                            case 'Ingresos por Intereses': value = financialResults.pl[i].interestRevenue; break;
+                            case 'Margen por Originación': value = financialResults.pl[i].margenOriginacion; break;
+                            case 'Comisiones GNV': value = financialResults.pl[i].gnvCommissions; break;
+                            case 'Ingresos Refacciones': value = financialResults.pl[i].sparePartsRevenue; break;
+                            case 'Ingresos Marketplace': value = financialResults.pl[i].marketplaceRevenue; break;
+                            case 'Total Ingresos': value = financialResults.pl[i].totalRevenue; break;
+                            case 'Gastos Operativos': value = financialResults.pl[i].opex; break;
+                            case 'Provisiones NIIF 9': value = financialResults.pl[i].provisions; break;
+                            case 'Pérdida Deterioro NIIF 5': value = financialResults.pl[i].impairment; break;
+                            case 'EBITDA': value = financialResults.pl[i].ebitda; break;
+                            case 'Depreciación': value = financialResults.pl[i].annualDepreciation; break;
+                            case 'Intereses Deuda': value = financialResults.pl[i].interestExpense; break;
+                            case 'Utilidad Neta': value = financialResults.pl[i].netIncome; break;
+                        }
+                    }
+                    cell.textContent = formatCurrency(value);
+                    if (['Total Ingresos', 'EBITDA', 'Utilidad Neta'].includes(header)) {
+                        cell.classList.add('font-bold');
+                    }
+                    if (value > 0 && !['Gastos Operativos', 'Provisiones NIIF 9', 'Pérdida Deterioro NIIF 5', 'Depreciación', 'Intereses Deuda'].includes(header)) {
+                        cell.classList.add('positive');
+                    } else if (value < 0) {
+                        cell.classList.add('negative');
+                    }
+                    row.appendChild(cell);
+                }
+                tbody.appendChild(row);
+            });
+        }
+
+        function updateCashFlowTable() {
+            const tbody = document.getElementById('cf-table-body');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            const headers = [
+                'Capital Inicial Serie A', 'Nueva Deuda Venture', 'Pago Principal Venture Debt',
+                'Capital Call', 'Flujo Operativo', 'Flujo Inversión', 'Flujo Financiero', 'Flujo Neto'
+            ];
+
+            headers.forEach(header => {
+                const row = document.createElement('tr');
+                const headerCell = document.createElement('td');
+                headerCell.textContent = header;
+                headerCell.classList.add('font-medium');
+                row.appendChild(headerCell);
+
+                for (let year = 0; year <= 5; year++) {
+                    const cell = document.createElement('td');
+                    let value = 0;
+                    if (year === 0) {
+                        if (header === 'Capital Inicial Serie A') {
+                            value = modelData.serieA;
+                        } else {
+                            value = 0; 
+                        }
+                    } else {
+                        const idx = year - 1;
+                        if (financialResults.cf[idx]) {
+                            switch(header) {
+                                case 'Flujo Operativo': value = financialResults.cf[idx].operatingCash; break;
+                                case 'Flujo Inversión': value = financialResults.cf[idx].investingCash; break;
+                                case 'Flujo Financiero': value = financialResults.cf[idx].financingCash; break;
+                                case 'Flujo Neto': value = financialResults.cf[idx].netCash; break;
+                                case 'Nueva Deuda Venture': value = financialResults.cf[idx].newVentureDebt; break;
+                                case 'Pago Principal Venture Debt': value = -financialResults.cf[idx].ventureDebtPrincipalPayment; break;
+                                case 'Capital Call': value = financialResults.cf[idx].newCapitalCall; break;
+                                default: value = 0; break;
+                            }
+                        }
+                    }
+                    cell.textContent = formatCurrency(value);
+                    if (header === 'Flujo Neto') {
+                        cell.classList.add('font-bold');
+                    }
+                    if (value > 0) {
+                        cell.classList.add('positive');
+                    } else if (value < 0) {
+                        cell.classList.add('negative');
+                    }
+                    row.appendChild(cell);
+                }
+                tbody.appendChild(row);
+            });
+        }
+
+        function updateBalanceSheetTable() {
+            const tbody = document.getElementById('bs-table-body');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+            
+            const validationDiv = document.getElementById('balance-validation');
+            validationDiv.innerHTML = '';
+
+            const headers = [
+                'Efectivo', 'Cuentas por Cobrar', 'Activos Fijos (Neto)', 'Activos para Venta (NIIF 5)',
+                'Total Activos', 'Deuda Venture', 'Provisiones NIIF 9', 'Patrimonio', 'Total Pasivo + Patrimonio'
+            ];
+
+            headers.forEach(header => {
+                const row = document.createElement('tr');
+                const headerCell = document.createElement('td');
+                headerCell.textContent = header;
+                headerCell.classList.add('font-medium');
+                row.appendChild(headerCell);
+
+                for (let i = 0; i < 5; i++) {
+                    const cell = document.createElement('td');
+                    let value = 0;
+                    if (financialResults.bs[i]) {
+                        switch(header) {
+                            case 'Efectivo': value = financialResults.bs[i].cash; break;
+                            case 'Cuentas por Cobrar': value = financialResults.bs[i].receivables; break;
+                            case 'Activos Fijos (Neto)': value = financialResults.bs[i].fixedAssets; break;
+                            case 'Activos para Venta (NIIF 5)': value = financialResults.bs[i].assetsHeldForSale; break;
+                            case 'Total Activos': value = financialResults.bs[i].totalAssets; break;
+                            case 'Deuda Venture': value = financialResults.bs[i].debt; break;
+                            case 'Provisiones NIIF 9': value = financialResults.bs[i].provisions; break;
+                            case 'Patrimonio': value = financialResults.bs[i].equity; break;
+                            case 'Total Pasivo + Patrimonio': value = financialResults.bs[i].totalLiabilitiesEquity; break;
+                        }
+                    }
+                    cell.textContent = formatCurrency(value);
+                    if (['Total Activos', 'Total Pasivo + Patrimonio'].includes(header)) {
+                        cell.classList.add('font-bold');
+                    }
+                    row.appendChild(cell);
+                }
+                tbody.appendChild(row);
+            });
+
+            let validationHTML = '';
+            financialResults.bs.forEach((balance, index) => {
+                const diff = Math.abs(balance.totalAssets - balance.totalLiabilitiesEquity);
+                if (diff > 10) {
+                    validationHTML += `
+                        <div class="balance-error">
+                            <p> ❌  Desequilibrio en Año ${index + 1}: ${formatCurrency(diff)}</p>
+                        </div>
+                    `;
+                }
+            });
+            
+            if (validationHTML) {
+                validationDiv.innerHTML = `
+                    <div class="validation-error">
+                        <p>Se encontraron desequilibrios contables:</p>
+                        ${validationHTML}
+                        <p class="text-sm mt-2">Revisar cálculos de activos, pasivos y patrimonio.</p>
+                    </div>
+                `;
+            } else if (financialResults.bs.length > 0) {
+                validationDiv.innerHTML = `
+                    <div class="validation-success">
+                        <p> ✅  Balance validado para todos los años (Activo = Pasivo + Patrimonio).</p>
+                    </div>
+                `;
+            }
+        }
+
+        function updateNIIFTables() {
+            if (financialResults.niifDetails.length < 5) return;
+
+            const niif15Container = document.getElementById('niif15-container');
+            if (niif15Container) {
+                niif15Container.innerHTML = `
+                    <div class="overflow-x-auto">
+                        <table class="financial-table">
+                            <thead>
+                                <tr>
+                                    <th>Concepto</th>
+                                    <th>Año 1</th>
+                                    <th>Año 2</th>
+                                    <th>Año 3</th>
+                                    <th>Año 4</th>
+                                    <th>Año 5</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Ingresos por Intereses (Valor Nominal)</td>
+                                    ${financialResults.niifDetails.map(d => `<td>${formatCurrency(d.niif15.valorNominal)}</td>`).join('')}
+                                </tr>
+                                <tr>
+                                    <td>Margen por Originación (Reconocido Upfront)</td>
+                                    ${financialResults.niifDetails.map(d => `<td>${formatCurrency(d.niif15.margenOriginacion)}</td>`).join('')}
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            }
+
+            const niif9Container = document.getElementById('niif9-container');
+            if (niif9Container) {
+                const lastYearDetails = financialResults.niifDetails[4].niif9;
+                niif9Container.innerHTML = `
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <div class="p-4 bg-green-50 rounded-lg text-center">
+                            <h5 class="font-semibold">Etapa 1 - Riesgo Bajo</h5>
+                            <p class="text-lg font-bold">${formatCurrency(lastYearDetails.etapa1)}</p>
+                            <p class="text-sm">12 meses de pérdidas esperadas</p>
+                        </div>
+                        <div class="p-4 bg-yellow-50 rounded-lg text-center">
+                            <h5 class="font-semibold">Etapa 2 - Riesgo Significativo</h5>
+                            <p class="text-lg font-bold">${formatCurrency(lastYearDetails.etapa2)}</p>
+                            <p class="text-sm">Pérdidas de vida completa</p>
+                        </div>
+                        <div class="p-4 bg-red-50 rounded-lg text-center">
+                            <h5 class="font-semibold">Etapa 3 - Deteriorado</h5>
+                            <p class="text-lg font-bold">${formatCurrency(lastYearDetails.etapa3)}</p>
+                            <p class="text-sm">Pérdidas esperadas con colateral</p>
+                        </div>
+                    </div>
+                    <div class="p-4 bg-blue-50 rounded-lg">
+                        <h5 class="font-semibold text-center">Total Provisiones NIIF 9: ${formatCurrency(lastYearDetails.total)}</h5>
+                        <p class="text-center mt-2">
+                            ${lastYearDetails.proteccionRodando ? 
+                              ' ✅  Protección Rodando activa (reducción del 50% en provisiones)' : 
+                              ' ❌  Protección Rodando inactiva'}
+                        </p>
+                    </div>
+                `;
+            }
+
+            const niif5Container = document.getElementById('niif5-container');
+            if (niif5Container) {
+                const lastYearDetails = financialResults.niifDetails[4].niif5;
+                niif5Container.innerHTML = `
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="p-4 bg-purple-50 rounded-lg">
+                            <h5 class="font-semibold">Activos para Venta</h5>
+                            <p class="text-lg">${Math.round(lastYearDetails.unitsHeldForSale)} unidades</p>
+                        </div>
+                        <div class="p-4 bg-indigo-50 rounded-lg">
+                            <h5 class="font-semibold">Valor en Libros (Reposesionadas)</h5>
+                            <p class="text-lg">${formatCurrency(lastYearDetails.carryingAmount)}</p>
+                        </div>
+                        <div class="p-4 bg-blue-50 rounded-lg">
+                            <h5 class="font-semibold">Valor Razonable Neto</h5>
+                            <p class="text-lg">${formatCurrency(lastYearDetails.fairValueLessCosts)}</p>
+                        </div>
+                        <div class="p-4 ${lastYearDetails.impairment > 0 ? 'bg-red-50' : 'bg-green-50'} rounded-lg">
+                            <h5 class="font-semibold">Pérdida por Deterioro (Impairment)</h5>
+                            <p class="text-lg">${lastYearDetails.impairment > 0 ? formatCurrency(lastYearDetails.impairment) : 'Ninguna'}</p>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // ===== INICIALIZACIÓN Y ACTUALIZACIÓN DE GRÁFICOS =====
+        function initializeCharts() {
+            const ctx1 = document.getElementById('ebitdaChart');
+            if (ctx1) {
+                charts.ebitda = new Chart(ctx1, {
+                    type: 'line',
+                    data: {
+                        labels: ['Año 1', 'Año 2', 'Año 3', 'Año 4', 'Año 5'],
+                        datasets: [{
+                            label: 'EBITDA (M MXN)',
+                            data: [],
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            fill: true,
+                            tension: 0.3
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Evolución del EBITDA'
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return context.dataset.label + ': ' + formatCurrency(context.raw * 1000000);
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                ticks: {
+                                    callback: function(value, index, values) {
+                                        return (value).toFixed(0) + 'M';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            const ctx2 = document.getElementById('revenueMixChart');
+            if (ctx2) {
+                charts.revenueMix = new Chart(ctx2, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Intereses', 'Margen Originación', 'Comisiones GNV', 'Refacciones', 'Marketplace'],
+                        datasets: [{
+                            data: [],
+                            backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899']
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'right'
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        let label = context.label || '';
+                                        if (label) {
+                                            label += ': ';
+                                        }
+                                        if (context.raw !== null) {
+                                            label += formatCurrency(context.raw);
+                                        }
+                                        return label;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            const ctx3 = document.getElementById('equityChart');
+            if (ctx3) {
+                charts.equity = new Chart(ctx3, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Año 1', 'Año 2', 'Año 3', 'Año 4', 'Año 5'],
+                        datasets: [{
+                            label: 'Patrimonio (M MXN)',
+                            data: [],
+                            backgroundColor: '#10b981'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Evolución del Patrimonio'
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return context.dataset.label + ': ' + formatCurrency(context.raw * 1000000);
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: function(value, index, values) {
+                                        return (value).toFixed(0) + 'M';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            const ctx4 = document.getElementById('provisionChart');
+            if (ctx4) {
+                charts.provision = new Chart(ctx4, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Año 1', 'Año 2', 'Año 3', 'Año 4', 'Año 5'],
+                        datasets: [
+                            {
+                                label: 'Etapa 1',
+                                data: [],
+                                backgroundColor: '#10b981'
+                            },
+                            {
+                                label: 'Etapa 2',
+                                data: [],
+                                backgroundColor: '#f59e0b'
+                            },
+                            {
+                                label: 'Etapa 3',
+                                data: [],
+                                backgroundColor: '#ef4444'
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Evolución de Provisiones por Etapas (NIIF 9)'
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return context.dataset.label + ': ' + formatCurrency(context.raw * 1000);
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                stacked: true,
+                            },
+                            y: {
+                                stacked: true,
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: function(value, index, values) {
+                                        return (value).toFixed(0) + 'K';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        function updateCharts() {
+            if (charts.ebitda && financialResults.pl.length === 5) {
+                const ebitdaData = financialResults.pl.map(p => p.ebitda / 1000000);
+                charts.ebitda.data.datasets[0].data = ebitdaData;
+                charts.ebitda.update();
+            }
+
+            if (charts.revenueMix && financialResults.pl.length === 5) {
+                const lastYear = financialResults.pl[4];
+                const revenueData = [
+                    lastYear.interestRevenue,
+                    lastYear.margenOriginacion,
+                    lastYear.gnvCommissions,
+                    lastYear.sparePartsRevenue,
+                    lastYear.marketplaceRevenue
+                ];
+                charts.revenueMix.data.datasets[0].data = revenueData;
+                charts.revenueMix.update();
+            }
+
+            if (charts.equity && financialResults.bs.length === 5) {
+                const equityData = financialResults.bs.map(b => b.equity / 1000000);
+                charts.equity.data.datasets[0].data = equityData;
+                charts.equity.update();
+            }
+
+            if (charts.provision && financialResults.niifDetails.length === 5) {
+                const etapa1Data = financialResults.niifDetails.map(n => n.niif9.etapa1 / 1000);
+                const etapa2Data = financialResults.niifDetails.map(n => n.niif9.etapa2 / 1000);
+                const etapa3Data = financialResults.niifDetails.map(n => n.niif9.etapa3 / 1000);
+                charts.provision.data.datasets[0].data = etapa1Data;
+                charts.provision.data.datasets[1].data = etapa2Data;
+                charts.provision.data.datasets[2].data = etapa3Data;
+                charts.provision.update();
+            }
+        }
     </script>
 </body>
 </html>
