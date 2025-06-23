@@ -285,7 +285,7 @@
         let modelData = {
             // Credit and Risk Parameters
             tasaInteres: 25.5,      // Tasa de interés anual de los financiamientos a clientes
-            tasaMorosidad: 8,       // Porcentaje de ingresos por intereses que se considera moroso (para la antigua lógica)
+            // tasaMorosidad: 8,       // Porcentaje de ingresos por intereses que se considera moroso (para la antigua lógica) - REMOVIDO
             proteccionRodando: true,// Booleano para activar/desactivar reducción de provisiones
             // Parámetros IFRS 9 (nuevos)
             pdStage1: 0.005, // 0.5% Probability of Default (12-month) for Stage 1 loans
@@ -297,9 +297,9 @@
             portfolioAllocationStage3: 0.05, // 5% of active portfolio in Stage 3
             economicAdjustmentFactor: 1.0, // Factor para ajustes prospectivos macroeconómicos (1.0 = sin ajuste)
             // Parámetros de Operaciones y Deuda
-            comisionGNV: 8,         // Porcentaje de comisión por servicios de GNV
+            // comisionGNV: 8,         // Porcentaje de comisión por servicios de GNV - REMOVIDO
             margenRefacciones: 25,  // Margen de ganancia en refacciones
-            ventureDebtPct: 70,     // Porcentaje del capital inicial (Serie A) que se obtiene como Venture Debt (adicional a Serie A)
+            // ventureDebtPct: 70,     // Porcentaje del capital inicial (Serie A) que se obtiene como Venture Debt (adicional a Serie A) - REMOVIDO
             ventureDebtRate: 12,    // Tasa de interés anual del Venture Debt
             periodoAmortizacionDeuda: 5, // Años para amortizar la deuda inicial de Venture Debt
             // Unidades por Año (inputs dinámicos)
@@ -316,24 +316,39 @@
             depreciationYears: 10,  // Años de depreciación lineal de las vagonetas (activos de RAG)
             opexRate: 15,           // Porcentaje de los ingresos operativos destinado a OPEX
             margenVagoneta: 5,      // Porcentaje de comisión por la originación de cada vagoneta financiada
-            gnvRevPerUnit: 15000,   // Ingreso base por unidad por servicios de GNV
-            refaccionesRevPerUnit: 8000, // Ingreso base por unidad por servicios de refacciones
-            marketplaceRevPerUnit: 5000, // Ingreso base por unidad por servicios de Marketplace
-            marketplace: 3,         // Porcentaje de comisión por servicios de Marketplace
+            // gnvRevPerUnit: 15000,   // Ingreso base por unidad por servicios de GNV - REMOVIDO
+            refaccionesRevPerUnit: 8000, // Ingreso base por unidad por servicios de refacciones - SE MANTIENE
+            // marketplaceRevPerUnit: 5000, // Ingreso base por unidad por servicios de Marketplace - REMOVIDO
+            // marketplace: 3,         // Porcentaje de comisión por servicios de Marketplace - REMOVIDO
             tasaReposicion: 5,      // Porcentaje de unidades que se reponen/clasifican como Activos para Venta anualmente
             fairValueVenta: 85,     // Porcentaje del valor razonable de las vagonetas reposedas
             costosVenta: 5,          // Porcentaje de costos asociados a la venta de vagonetas reposedas
-            corporateTaxRate: 25   // Tasa de impuesto corporativo (%)
+            corporateTaxRate: 25,   // Tasa de impuesto corporativo (%)
+
+            // NUEVOS PARÁMETROS: GNV granular
+            litrosPromedioMensualPorUnidad: 900, // Rango: 800-1000 litros
+            precioLitroGNV: 13.00,             // Rango: 12.00-13.99 MXN
+            comisionGNVPorcentaje: 10,          // Rango: 7-15% (reemplaza comisionGNV anterior)
+
+            // NUEVOS PARÁMETROS: Marketplace transaccional
+            gnvPromedioMensualMensualPorUnidad: 8000, // Rango: 5000-15000 MXN (ventas brutas de GNV para marketplace)
+            takeRateMarketplace: 1.5,                 // Rango: 1.0-2.0% (comisión sobre ventas brutas del marketplace)
+            
+            // NUEVOS PARÁMETROS: Venture Debt Contingente
+            ventureDebtLineMax: 50000000 // Límite máximo de la línea de Venture Debt
         };
         
         // Rangos para los inputs deslizables (sliders)
         const sliderConfigs = [
             { id: 'tasaInteres', label: 'Tasa de Interés (Clientes)', min: 10, max: 35, step: 0.5, type: 'range', format: val => val.toFixed(1) + '%' },
-            { id: 'tasaMorosidad', label: 'Tasa Morosidad (Antigua Lógica)', min: 4, max: 15, step: 0.5, type: 'range', format: val => val.toFixed(1) + '%' },
-            { id: 'comisionGNV', label: 'Comisión GNV', min: 6, max: 20, step: 0.5, type: 'range', format: val => val.toFixed(1) + '%' },
+            // { id: 'tasaMorosidad', label: 'Tasa Morosidad (Antigua Lógica)', min: 4, max: 15, step: 0.5, type: 'range', format: val => val.toFixed(1) + '%' }, // REMOVIDO
+            // { id: 'comisionGNV', label: 'Comisión GNV', min: 6, max: 20, step: 0.5, type: 'range', format: val => val.toFixed(1) + '%' }, // REMOVIDO
             { id: 'margenRefacciones', label: 'Margen Refacciones', min: 20, max: 40, step: 1, type: 'range', format: val => val.toFixed(0) + '%' },
-            { id: 'ventureDebtPct', label: '% Venture Debt', min: 50, max: 100, step: 5, type: 'range', format: val => val.toFixed(0) + '%' },
-            { id: 'ventureDebtRate', label: 'Tasa Venture Debt', min: 10, max: 16, step: 0.5, type: 'range', format: val => val.toFixed(1) + '%' }
+            // { id: 'ventureDebtPct', label: '% Venture Debt', min: 50, max: 100, step: 5, type: 'range', format: val => val.toFixed(0) + '%' }, // REMOVIDO
+            { id: 'ventureDebtRate', label: 'Tasa Venture Debt', min: 10, max: 16, step: 0.5, type: 'range', format: val => val.toFixed(1) + '%' },
+            // NUEVOS CONTROLES SLIDER
+            { id: 'comisionGNVPorcentaje', label: 'Comisión GNV (%)', min: 7, max: 15, step: 0.1, type: 'range', format: val => val.toFixed(1) + '%' },
+            { id: 'takeRateMarketplace', label: 'Take Rate Marketplace (%)', min: 0.5, max: 5.0, step: 0.1, type: 'range', format: val => val.toFixed(1) + '%' }
         ];
         
         // Rangos para las constantes del modelo (inputs numéricos)
@@ -349,10 +364,10 @@
             { id: 'depreciationYears', label: 'Años Depreciación (Vagoneta)', min: 5, max: 15, step: 1, type: 'number', format: val => val.toFixed(0) + ' años' },
             { id: 'opexRate', label: 'Tasa OPEX (% Ingresos)', min: 10, max: 30, step: 1, type: 'number', format: val => val.toFixed(0) + '%' },
             { id: 'margenVagoneta', label: 'Margen Originación Vagoneta', min: 1, max: 10, step: 0.5, type: 'number', format: val => val.toFixed(1) + '%' },
-            { id: 'gnvRevPerUnit', label: 'Ingreso GNV/Unidad', min: 10000, max: 20000, step: 500, type: 'number', format: val => formatCurrency(val, true) },
+            // { id: 'gnvRevPerUnit', label: 'Ingreso GNV/Unidad', min: 10000, max: 20000, step: 500, type: 'number', format: val => formatCurrency(val, true) }, // REMOVIDO
             { id: 'refaccionesRevPerUnit', label: 'Ingreso Refacciones/Unidad', min: 5000, max: 15000, step: 500, type: 'number', format: val => formatCurrency(val, true) },
-            { id: 'marketplaceRevPerUnit', label: 'Ingreso Marketplace/Unidad', min: 3000, max: 10000, step: 500, type: 'number', format: val => formatCurrency(val, true) },
-            { id: 'marketplace', label: '% Comisión Marketplace', min: 1, max: 10, step: 0.5, type: 'number', format: val => val.toFixed(1) + '%' },
+            // { id: 'marketplaceRevPerUnit', label: 'Ingreso Marketplace/Unidad', min: 3000, max: 10000, step: 500, type: 'number', format: val => formatCurrency(val, true) }, // REMOVIDO
+            // { id: 'marketplace', label: '% Comisión Marketplace', min: 1, max: 10, step: 0.5, type: 'number', format: val => val.toFixed(1) + '%' }, // REMOVIDO
             { id: 'tasaReposicion', label: '% Unidades Reposición', min: 1, max: 10, step: 0.5, type: 'number', format: val => val.toFixed(1) + '%' },
             { id: 'fairValueVenta', label: '% Fair Value Venta', min: 70, max: 95, step: 1, type: 'number', format: val => val.toFixed(0) + '%' },
             { id: 'costosVenta', label: '% Costos Venta', min: 1, max: 10, step: 0.5, type: 'number', format: val => val.toFixed(1) + '%' },
@@ -365,7 +380,12 @@
             { id: 'portfolioAllocationStage2', label: 'Port. Etapa 2 (%)', min: 0.03, max: 0.20, step: 0.01, type: 'number', format: val => (val * 100).toFixed(0) + '%' },
             { id: 'portfolioAllocationStage3', label: 'Port. Etapa 3 (%)', min: 0.01, max: 0.10, step: 0.01, type: 'number', format: val => (val * 100).toFixed(0) + '%' },
             { id: 'economicAdjustmentFactor', label: 'Ajuste Económico (x)', min: 0.8, max: 1.2, step: 0.01, type: 'number', format: val => val.toFixed(2) + 'x' },
-            { id: 'corporateTaxRate', label: 'Tasa Impuesto Corporativo (%)', min: 0, max: 40, step: 1, type: 'number', format: val => val.toFixed(0) + '%' }
+            { id: 'corporateTaxRate', label: 'Tasa Impuesto Corporativo (%)', min: 0, max: 40, step: 1, type: 'number', format: val => val.toFixed(0) + '%' },
+            // NUEVOS CONTROLES NUMÉRICOS
+            { id: 'litrosPromedioMensualPorUnidad', label: 'Litros GNV/Unidad (Mensual)', min: 800, max: 1000, step: 10, type: 'number', format: val => val.toFixed(0) + ' L' },
+            { id: 'precioLitroGNV', label: 'Precio Litro GNV (MXN)', min: 12.00, max: 13.99, step: 0.01, type: 'number', format: val => '$' + val.toFixed(2) + ' MXN' },
+            { id: 'gnvPromedioMensualMensualPorUnidad', label: 'Ventas Brutas Marketplace/Unidad (Mensual)', min: 5000, max: 15000, step: 100, type: 'number', format: val => formatCurrency(val, true) },
+            { id: 'ventureDebtLineMax', label: 'Línea Máx. Venture Debt', min: 0, max: 100000000, step: 5000000, type: 'number', format: val => formatCurrency(val, true) }
         ];
         
         // Objeto para almacenar los resultados financieros calculados
@@ -413,12 +433,14 @@
         // Function to calculate Probability of Default based on cohort age for IFRS 9
         function calculatePDBasedOnAge(cohortAge) {
             // Simplified mapping for demonstration. In a real model, this would be more complex.
-            if (cohortAge === 0) { // Year 1 of the loan (first year after origination)
-                return modelData.pdStage1; // 12-month PD
-            } else if (cohortAge >= 1 && cohortAge <= 2) { // Year 2 and 3 of the loan
-                return modelData.pdStage2; // Lifetime PD for Stage 2
-            } else { // Year 4+ of the loan (or older)
-                return modelData.pdStage3; // Lifetime PD for Stage 3
+            // Asumiendo que Stage 1 es 12 meses, Stage 2 es Lifetime PD para préstamos más maduros pero no deteriorados, Stage 3 es para deteriorados.
+            // Para este modelo simplificado, la "antigüedad" del préstamo directamente influencia el PD.
+            if (cohortAge <= 1) { // Préstamos jóvenes (Año 1)
+                return modelData.pdStage1; // PD a 12 meses
+            } else if (cohortAge === 2) { // Préstamos de 2 años
+                return modelData.pdStage2; // PD de por vida (pero para etapa 2, más alto que etapa 1)
+            } else { // Préstamos de 3 años o más (más riesgo, se asignan a Stage 3)
+                return modelData.pdStage3; // PD de por vida (para etapa 3)
             }
         }
 
@@ -437,12 +459,12 @@
                 
                 // Variables iniciales de financiamiento para el modelo (fuera del loop anual para persistencia)
                 const initialEquityInvestment = modelData.seriesA;
-                const initialVentureDebtAmount = initialEquityInvestment * (modelData.ventureDebtPct / 100);
                 
                 // Inicializar variables de estado antes del bucle anual
                 let accumulatedEarnings = 0; // Utilidades retenidas acumuladas
-                let cash = initialEquityInvestment + initialVentureDebtAmount; // El efectivo inicial proviene de Serie A + Venture Debt inicial
-                let totalDebt = initialVentureDebtAmount; // El saldo inicial de deuda es el Venture Debt inicial
+                let cash = initialEquityInvestment; // El efectivo inicial proviene SÓLO de Serie A
+                let totalDebt = 0; // Venture Debt ya no es inicial, se activa contingentemente
+                let availableVentureDebtLine = modelData.ventureDebtLineMax; // La línea máxima disponible
                 let currentProvisionsBalance = 0; // Saldo acumulado de provisiones NIIF 9 en Balance General
                 let totalUnitsAccumulatedHeldForSale = 0; // Para el cálculo de Vagonetas Operativas (derivado de heldForSaleAssets)
                 
@@ -458,16 +480,17 @@
                 let fixedAssetsCohorts = [];
                 
                 // Arrays para el cálculo de TIRs
-                const projectCashFlows = [-(initialEquityInvestment + initialVentureDebtAmount)]; // TIR Proyecto: Inversión inicial total
-                const equityCashFlows = [-initialEquityInvestment]; // TIR Equity: Inversión inicial de Equity
+                // projectCashFlows - el primer elemento es la inversión inicial de equity (Serie A) + Venture Debt inicial si lo hubiera (aquí ya no)
+                const projectCashFlows = [-initialEquityInvestment]; // Para TIR Proyecto: Ahora solo Serie A inicialmente
+                const equityCashFlows = [-initialEquityInvestment]; // Para TIR Equity: Inversión inicial de Equity
                 let totalPrincipalOriginatedAcrossAllYears = 0; // Para la inversión inicial de TIR Cartera
                 
                 // Para los flujos de la TIR Cartera (la inversión inicial se añade después del loop)
                 const portfolioCashFlowsForIRR = []; 
                 
                 log(`Capital Serie A inicial: ${formatCurrency(modelData.seriesA)}`);
-                log(`Venture Debt inicial (parte de Serie A y ADICIONAL): ${formatCurrency(initialVentureDebtAmount)}`);
-                log(`Efectivo inicial total (Serie A + Venture Debt): ${formatCurrency(cash)}`);
+                log(`Línea Máxima Venture Debt disponible: ${formatCurrency(modelData.ventureDebtLineMax)}`);
+                log(`Efectivo inicial total (Solo Serie A): ${formatCurrency(cash)}`);
                 
                 // Ciclo Anual: desde Año 0 (representando el inicio del Año 1) hasta Año 4 (representando el final del Año 5)
                 for (let year = 0; year < 5; year++) {
@@ -476,8 +499,8 @@
                     
                     // Guardar los saldos iniciales de Equity y Deuda para el cálculo de promedio anual de ROIC/ROE
                     const startOfYearEquity = endOfYearEquity; // Usa el endOfYearEquity del año anterior como inicio del año actual
-                    const startOfYearTotalDebt = totalDebt;
-
+                    const startOfYearTotalDebt = totalDebt; // Saldo de deuda al inicio del año
+                    
                     // Set startOfYearPrincipal for existing loan cohorts for average exposure calculation in IFRS 9
                     loanCohorts.forEach(cohort => {
                         cohort.startOfYearPrincipal = cohort.remainingPrincipal;
@@ -552,7 +575,7 @@
                                 log(` Reclasificadas ${actualUnitsToRepossessFromThisCohort} unidades de cohorte Año ${cohort.yearAcquired} a NIIF 5. VL al reclasificar: ${formatCurrency(repossessedCarryingAmount)}, Deterioro: ${formatCurrency(impairmentForRepossessed)}`);
 
                                 remainingUnitsToRepossess -= actualUnitsToRepossessFromThisCohort;
-                                // Accumulate for NIIF details of this year
+                                // Acumular para los detalles NIIF de este año
                                 valueOfAssetsReclassifiedToNIIF5ThisYearOriginalCarryingAmount += repossessedCarryingAmount;
                                 valueOfAssetsReclassifiedToNIIF5ThisYearFairValue += repossessedCarryingAmount * (modelData.fairValueVenta / 100);
                                 valueOfAssetsReclassifiedToNIIF5ThisYearCostsToSell += repossessedCarryingAmount * (modelData.fairValueVenta / 100) * (modelData.costosVenta / 100);
@@ -566,7 +589,7 @@
                     // Recalculate totalUnitsAccumulatedHeldForSale from the dedicated array
                     totalUnitsAccumulatedHeldForSale = heldForSaleAssets.reduce((sum, asset) => sum + asset.units, 0);
 
-                    const impairment = totalImpairmentThisYear; // Impairment for P&L
+                    const impairment = totalImpairmentThisYear; // Impairment para el P&L
 
                     // --- DEPRECIACIÓN DE ACTIVOS FIJOS (Vagonetas) ---
                     // La depreciación solo aplica a los activos que aún están operando (no clasificados como NIIF 5)
@@ -674,7 +697,9 @@
                         // Only calculate ECL for cohorts that are active (have remaining principal or had at start of year)
                         if (cohort.remainingPrincipal > 0 || cohort.startOfYearPrincipal > 0) {
                             const avgExposureDuringYear = (cohort.startOfYearPrincipal + cohort.remainingPrincipal) / 2;
-                            const cohortAge = (year + 1) - cohort.yearOriginated;
+                            const cohortAge = (year + 1) - cohort.yearOriginated; // Antigüedad del préstamo en años
+
+                            // Calcular el PD ajustado según la antigüedad
                             const adjustedPD = calculatePDBasedOnAge(cohortAge);
 
                             const cohortECL = avgExposureDuringYear * adjustedPD * modelData.lgd;
@@ -697,9 +722,14 @@
                     // Calculate total active units (not Held For Sale)
                     const totalActiveUnits = fixedAssetsCohorts.reduce((sum, cohort) => sum + cohort.units, 0);
                     
-                    const gnvCommissions = totalActiveUnits * modelData.gnvRevPerUnit * (modelData.comisionGNV / 100);
+                    // NUEVO MODELO GNV
+                    const gnvCommissions = totalActiveUnits * modelData.litrosPromedioMensualPorUnidad * 12 * modelData.precioLitroGNV * (modelData.comisionGNVPorcentaje / 100);
+                    
                     const sparePartsRevenue = addedUnits * modelData.refaccionesRevPerUnit * (modelData.margenRefacciones / 100);
-                    const marketplaceRevenue = totalActiveUnits * modelData.marketplaceRevPerUnit * (modelData.marketplace / 100);
+                    
+                    // NUEVO MODELO MARKETPLACE
+                    const marketplaceRevenue = totalActiveUnits * modelData.gnvPromedioMensualMensualPorUnidad * 12 * (modelData.takeRateMarketplace / 100);
+                    
                     const totalRevenue = interestRevenue + originationCommission + gnvCommissions + sparePartsRevenue + marketplaceRevenue;
                     log(`Ingresos: Intereses=${formatCurrency(interestRevenue)}, Originación=${formatCurrency(originationCommission)}, GNV=${formatCurrency(gnvCommissions)}, Refacciones=${formatCurrency(sparePartsRevenue)}, Marketplace=${formatCurrency(marketplaceRevenue)}`);
                     log(`TOTAL INGRESOS OPERATIVOS: ${formatCurrency(totalRevenue)}`);
@@ -713,11 +743,13 @@
                     
                     const ebit = ebitda - annualDepreciation; // EBIT = EBITDA - Depreciation
 
-                    const interestExpense = (year === 0 ? initialVentureDebtAmount : totalDebt) * (modelData.ventureDebtRate / 100);
+                    // Gastos por Intereses de Venture Debt (basado en saldo inicial del año)
+                    const interestExpense = startOfYearTotalDebt * (modelData.ventureDebtRate / 100);
+
                     const earningsBeforeTax = ebit - interestExpense; // EBT = EBIT - Interest Expense
                     const incomeTaxExpense = Math.max(0, earningsBeforeTax) * (modelData.corporateTaxRate / 100); // Taxes only on positive EBT
                     const netIncome = earningsBeforeTax - incomeTaxExpense; // Net Income
-                    accumulatedEarnings += netIncome; // Accumulate earnings for Equity
+                    accumulatedEarnings += netIncome; // Acumular utilidades para Patrimonio
 
                     // --- FLUJO DE EFECTIVO (CF) ---
                     // Delta Cuentas por Cobrar (Change in non-cash working capital)
@@ -729,15 +761,16 @@
                     const operatingCash = netIncome + annualDepreciation + provisions + impairment - deltaReceivables;
                     
                     // Investing Cash Flow: Only includes CAPEX of vans. Loan origination handled in Op. Cash Flow via deltaReceivables.
-                    const investingCash = -capexThisYear; // Corrected: Removed totalPrincipalOriginatedThisYear to avoid double counting.
+                    const investingCash = -capexThisYear; 
                     log(` Flujo de Inversión (CAPEX vagonetas): ${formatCurrency(investingCash)}`);
                     
                     let financingCashThisPeriod = 0; // Represents net financing activities for *this* period
                     let principalPaymentVentureDebtThisPeriod = 0; // To store in CF results
                     let newEquityRaisedThisPeriod = 0; // Accumulates Series B, C, and liquidity plug
-                    let additionalFundingRaised = 0; // Declared here to ensure its scope
+                    let additionalFundingRaised = 0; // Declarada aquí para asegurar su ámbito
+                    let currentYearVentureDebtDraw = 0; // Monto de Venture Debt retirado este año
 
-                    // Staggered capital contributions (Series B and C)
+                    // Aportaciones de capital escalonado (Serie B y C)
                     if (year + 1 === modelData.seriesB_year) {
                         financingCashThisPeriod += modelData.seriesB_funding;
                         newEquityRaisedThisPeriod += modelData.seriesB_funding;
@@ -749,23 +782,38 @@
                         log(`  🎉  Recibido funding Serie C en Año ${year+1}: ${formatCurrency(modelData.seriesC_funding)}`);
                     }
                     
-                    // Principal payment for initial Venture Debt
-                    if (totalDebt > 0 && modelData.periodoAmortizacionDeuda > 0) {
-                        const annualPrincipalPaymentFixed = initialVentureDebtAmount / modelData.periodoAmortizacionDeuda;
-                        principalPaymentVentureDebtThisPeriod = Math.min(annualPrincipalPaymentFixed, totalDebt); // Ensure payment does not exceed remaining debt
-                        totalDebt = Math.max(0, totalDebt - principalPaymentVentureDebtThisPeriod); // Reduce remaining debt balance
+                    // Calcular Flujo Neto antes de Venture Debt contingente y Plug de Liquidez
+                    let netCashBeforeContingentFinancing = operatingCash + investingCash + financingCashThisPeriod;
+
+                    // Lógica para Venture Debt contingente por necesidades de efectivo (después de Op. y Inv.)
+                    if (cash + netCashBeforeContingentFinancing < 0 && availableVentureDebtLine > 0) {
+                        const neededToCoverDeficit = -(cash + netCashBeforeContingentFinancing);
+                        currentYearVentureDebtDraw = Math.min(neededToCoverDeficit, availableVentureDebtLine);
+                        
+                        financingCashThisPeriod += currentYearVentureDebtDraw;
+                        availableVentureDebtLine -= currentYearVentureDebtDraw;
+                        totalDebt += currentYearVentureDebtDraw; // Sumar al total de deuda
+                        log('  📈  Venture Debt draw para cubrir déficit: ' + formatCurrency(currentYearVentureDebtDraw));
+                    }
+
+                    // Pago de principal para el Venture Debt existente (basado en saldo inicial del año)
+                    if (startOfYearTotalDebt > 0 && modelData.periodoAmortizacionDeuda > 0) {
+                        const annualPrincipalPaymentRate = 1 / modelData.periodoAmortizacionDeuda;
+                        principalPaymentVentureDebtThisPeriod = Math.min(startOfYearTotalDebt * annualPrincipalPaymentRate, startOfYearTotalDebt); // Pagar proporcional al saldo
+                        totalDebt = Math.max(0, totalDebt - principalPaymentVentureDebtThisPeriod); // Reducir el saldo de deuda restante
                         financingCashThisPeriod -= principalPaymentVentureDebtThisPeriod; // El pago es una salida de efectivo
                     }
                     
-                    // Calculate provisional net cash for the period BEFORE liquidity plug
+                    // Calcular el efectivo neto provisional para el período
                     let netCashBeforePlug = operatingCash + investingCash + financingCashThisPeriod;
                     
-                    // PLUG DE LIQUIDEZ: Si el efectivo cae por debajo de cero, asumir financiación adicional
+                    // PLUG DE LIQUIDEZ: Si el efectivo cae por debajo de cero, asumir financiación adicional (equity)
                     const prospectiveCash = cash + netCashBeforePlug;
                     if (prospectiveCash < 0) {
                         additionalFundingRaised = -prospectiveCash; // Monto para llevar el efectivo a cero
                         financingCashThisPeriod += additionalFundingRaised;
                         newEquityRaisedThisPeriod += additionalFundingRaised; // El plug se considera equity adicional
+                        log(`  ⚠️  Déficit de efectivo en Año ${year+1}. Se asume funding ADICIONAL (Plug de Liquidez): ${formatCurrency(additionalFundingRaised)}`);
                     }
                     // Final Net Cash flow for the period
                     let netCash = operatingCash + investingCash + financingCashThisPeriod;
@@ -774,6 +822,10 @@
                     // Update `contractLiabilitiesBalance` for Balance Sheet with the accumulated value
                     const contractLiabilitiesBalance = totalContractLiabilitiesBalance; 
                     
+                    // Actualizar Equity para el balance (antes de calcular métricas basadas en saldo final)
+                    // Patrimonio: Capital inicial de Serie A + utilidades acumuladas + nuevo equity raised este periodo
+                    endOfYearEquity = initialEquityInvestment + accumulatedEarnings + newEquityRaisedThisPeriod;
+
                     // --- BALANCE GENERAL (BS) ---
                     // Activos Fijos Netos: Suma de costos originales menos depreciación acumulada de activos activos
                     let totalOriginalCostPPandE = fixedAssetsCohorts.reduce((sum, c) => sum + c.totalOriginalCost, 0);
@@ -1128,7 +1180,7 @@
                 
                 { label: 'Flujo de Efectivo de Financiación', total: true, separator: true },
                 { label: '  Serie A Recibida', year0: modelData.seriesA },
-                { label: '  Venture Debt Inicial Recibido', year0: modelData.seriesA * (modelData.ventureDebtPct / 100) },
+                { label: '  Venture Debt Extraído', key: 'currentYearVentureDebtDraw', fromCF: true, positive: true }, // Nuevo: para mostrar la extracción de VD
                 { label: '  Serie B Funding Recibido', key: 'seriesB_funding', fromModelData: true, yearSpecific: true },
                 { label: '  Serie C Funding Recibido', key: 'seriesC_funding', fromModelData: true, yearSpecific: true },
                 { label: '  - Pago Capital Venture Debt', key: 'principalPaymentVentureDebt', negative: true },
@@ -1154,11 +1206,11 @@
                     cell0.textContent = formatCurrency(row.year0);
                     cell0.classList.add('positive', 'font-bold');
                 } else if (row.key === 'netCash' && financialResults.cf.length > 0) { // Net cash year 0 should be total Series A + Venture Debt received
-                     const initialTotalFunding = modelData.seriesA + (modelData.seriesA * (modelData.ventureDebtPct / 100));
+                     const initialTotalFunding = modelData.seriesA; // Solo Serie A al inicio
                      cell0.textContent = formatCurrency(initialTotalFunding);
                      cell0.classList.add('positive', 'font-bold');
                 } else if (row.key === 'cash' && financialResults.cf.length > 0) { // Cash balance year 0 should be total Series A + Venture Debt
-                     const initialTotalFunding = modelData.seriesA + (modelData.seriesA * (modelData.ventureDebtPct / 100));
+                     const initialTotalFunding = modelData.seriesA; // Solo Serie A al inicio
                      cell0.textContent = formatCurrency(initialTotalFunding);
                      cell0.classList.add('positive', 'font-bold');
                 }
@@ -1175,7 +1227,10 @@
                         value = financialResults.pl[i][row.key] || 0;
                     } else if (row.fromBS) {
                         value = financialResults.bs[i][row.key] || 0;
-                    } else if (row.key === 'principalPaymentVentureDebt') { 
+                    } else if (row.fromCF) { // Nuevo caso para currentYearVentureDebtDraw
+                        value = financialResults.cf[i].currentYearVentureDebtDraw || 0; // Se asume que este valor se almacena en CF
+                    }
+                    else if (row.key === 'principalPaymentVentureDebt') { 
                          value = financialResults.cf[i].principalPaymentVentureDebt || 0;
                     } else if (row.key === 'clientPrincipalPaymentsReceived') {
                         value = financialResults.cf[i].clientPrincipalPaymentsReceived || 0;
@@ -1697,7 +1752,7 @@
                     <input type="range" id="${config.id}-input" min="${config.min}" max="${config.max}" step="${config.step}" value="${modelData[config.id]}" class="input-slider mt-1">
                 `;
                 
-                if (['tasaInteres', 'tasaMorosidad'].includes(config.id)) {
+                if (['tasaInteres', 'comisionGNVPorcentaje', 'takeRateMarketplace'].includes(config.id)) { // Agregado nuevos sliders
                     container.appendChild(parentDiv);
                 } else {
                     operationsContainer.appendChild(parentDiv);
@@ -1875,18 +1930,21 @@
             // Check percentage inputs for reasonable range (0-100%, or 0-1 for decimals)
             const percentageInputs = [
                 { id: 'tasaInteres', min: 0, max: 100, label: 'Tasa de Interés (Clientes)' }, 
-                { id: 'tasaMorosidad', min: 0, max: 100, label: 'Tasa Morosidad (Antigua Lógica)' },
-                { id: 'comisionGNV', min: 0, max: 100, label: 'Comisión GNV' }, 
+                // { id: 'tasaMorosidad', min: 0, max: 100, label: 'Tasa Morosidad (Antigua Lógica)' }, // REMOVIDO
+                // { id: 'comisionGNV', min: 0, max: 100, label: 'Comisión GNV' }, // REMOVIDO
                 { id: 'margenRefacciones', min: 0, max: 100, label: 'Margen Refacciones' },
-                { id: 'ventureDebtPct', min: 0, max: 100, label: '% Venture Debt' }, 
+                // { id: 'ventureDebtPct', min: 0, max: 100, label: '% Venture Debt' }, // REMOVIDO
                 { id: 'ventureDebtRate', min: 0, max: 100, label: 'Tasa Venture Debt' },
                 { id: 'opexRate', min: 0, max: 100, label: 'Tasa OPEX (% Ingresos)' }, 
                 { id: 'margenVagoneta', min: 0, max: 100, label: 'Margen Originación Vagoneta' },
-                { id: 'marketplace', min: 0, max: 100, label: '% Comisión Marketplace' }, 
+                // { id: 'marketplace', min: 0, max: 100, label: '% Comisión Marketplace' }, // REMOVIDO
                 { id: 'tasaReposicion', min: 0, max: 100, label: '% Unidades Reposición' },
                 { id: 'fairValueVenta', min: 0, max: 100, label: '% Fair Value Venta' }, 
                 { id: 'costosVenta', min: 0, max: 100, label: '% Costos Venta' },
-                { id: 'corporateTaxRate', min: 0, max: 100, label: 'Tasa Impuesto Corporativo (%)' }
+                { id: 'corporateTaxRate', min: 0, max: 100, label: 'Tasa Impuesto Corporativo (%)' },
+                // NUEVOS CONTROLES
+                { id: 'comisionGNVPorcentaje', min: 0, max: 100, label: 'Comisión GNV (%)' },
+                { id: 'takeRateMarketplace', min: 0, max: 100, label: 'Take Rate Marketplace (%)' }
             ];
             percentageInputs.forEach(p => {
                 if (modelData[p.id] < p.min || modelData[p.id] > p.max) {
@@ -1992,7 +2050,7 @@
                 const cf = financialResults.cf[i];
                 const bs = financialResults.bs[i];
                 // For Year 1 (index 0), previous BS values are initial fundings
-                const prevBsCash = (i === 0) ? (modelData.seriesA + (modelData.seriesA * (modelData.ventureDebtPct / 100))) : financialResults.bs[i-1].cash;
+                const prevBsCash = (i === 0) ? (modelData.seriesA) : financialResults.bs[i-1].cash; // Solo Serie A en Año 0
                 const prevBsEquity = (i === 0) ? modelData.seriesA : financialResults.bs[i-1].equity;
                 // Check Balance Sheet equation A = P + E
                 const balanceDiff = Math.abs(bs.totalAssets - bs.totalLiabilitiesEquity);
