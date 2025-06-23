@@ -381,6 +381,9 @@
             roic: []            // Return on Invested Capital anual
         };
         
+        // New global array for IFRS 5 assets
+        let heldForSaleAssets = [];
+
         // ===== FUNCIONES DE DEBUG =====
         // Registra mensajes en la consola y en el panel de depuración de la UI
         function log(message, data = null) {
@@ -407,6 +410,18 @@
             panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
         }
         
+        // Function to calculate Probability of Default based on cohort age for IFRS 9
+        function calculatePDBasedOnAge(cohortAge) {
+            // Simplified mapping for demonstration. In a real model, this would be more complex.
+            if (cohortAge === 0) { // Year 1 of the loan (first year after origination)
+                return modelData.pdStage1; // 12-month PD
+            } else if (cohortAge >= 1 && cohortAge <= 2) { // Year 2 and 3 of the loan
+                return modelData.pdStage2; // Lifetime PD for Stage 2
+            } else { // Year 4+ of the loan (or older)
+                return modelData.pdStage3; // Lifetime PD for Stage 3
+            }
+        }
+
         // ===== CÁLCULO FINANCIERO PRINCIPAL =====
         // Función central para calcular todos los estados financieros
         function calculateFinancials() {
@@ -418,6 +433,7 @@
                     tirProyecto: 0, tirCartera: 0, tirEquity: 0, 
                     roe: [], roic: [] 
                 };
+                heldForSaleAssets = []; // Reset IFRS 5 assets for recalculation
                 
                 // Variables iniciales de financiamiento para el modelo (fuera del loop anual para persistencia)
                 const initialEquityInvestment = modelData.seriesA;
@@ -428,14 +444,17 @@
                 let cash = initialEquityInvestment + initialVentureDebtAmount; // El efectivo inicial proviene de Serie A + Venture Debt inicial
                 let totalDebt = initialVentureDebtAmount; // El saldo inicial de deuda es el Venture Debt inicial
                 let currentProvisionsBalance = 0; // Saldo acumulado de provisiones NIIF 9 en Balance General
-                let totalUnitsAccumulatedHeldForSale = 0; // Para el cálculo de Vagonetas Operativas
+                let totalUnitsAccumulatedHeldForSale = 0; // Para el cálculo de Vagonetas Operativas (derivado de heldForSaleAssets)
                 
+                // Declara endOfYearEquity fuera del loop para que sea accesible después del loop
+                let endOfYearEquity = initialEquityInvestment; // Inicializa con el capital inicial. Se actualizará en el loop.
+
                 // Array para almacenar las cohortes de préstamos a clientes
-                // loanCohorts = [{ yearOriginated: Y, originalPrincipal: P, remainingPrincipal: P, paymentsMadeMonths: 0, monthlyPayment: M, monthlyInterestRate: r, totalLoanTermMonths: N, originationCommissionInitial: OCI, remainingOriginationCommission: ROC }]
+                // loanCohorts = [{ yearOriginated: Y, originalPrincipal: P, remainingPrincipal: P, paymentsMadeMonths: 0, monthlyPayment: M, monthlyInterestRate: r, totalLoanTermMonths: N, originationCommissionInitial: OCI, remainingOriginationCommission: ROC, startOfYearPrincipal: SOP }]
                 let loanCohorts = [];
                 
                 // Array para almacenar las cohortes de activos fijos (vagonetas)
-                // fixedAssetsCohorts = [{ yearAcquired: X, units: Y, originalCostPerUnit: C, totalOriginalCost: Y*C, accumulatedDepreciation: D, isHeldForSale: false, heldForSaleYear: null, carryingAmountAtHFS: 0, currentFairValueLessCosts: 0 }]
+                // fixedAssetsCohorts = [{ yearAcquired: X, units: Y, originalCostPerUnit: C, totalOriginalCost: Y*C, accumulatedDepreciation: D }]
                 let fixedAssetsCohorts = [];
                 
                 // Arrays para el cálculo de TIRs
@@ -456,8 +475,13 @@
                     const addedUnits = modelData.unitsPerYear[year];
                     
                     // Guardar los saldos iniciales de Equity y Deuda para el cálculo de promedio anual de ROIC/ROE
-                    const startOfYearEquity = initialEquityInvestment + accumulatedEarnings;
+                    const startOfYearEquity = endOfYearEquity; // Usa el endOfYearEquity del año anterior como inicio del año actual
                     const startOfYearTotalDebt = totalDebt;
+
+                    // Set startOfYearPrincipal for existing loan cohorts for average exposure calculation in IFRS 9
+                    loanCohorts.forEach(cohort => {
+                        cohort.startOfYearPrincipal = cohort.remainingPrincipal;
+                    });
 
                     // --- INVERSIONES (Activos Fijos) - Adquisición de nuevas vagonetas ---
                     const capexThisYear = addedUnits * modelData.vanCost; // Inversión en vagonetas (CAPEX)
@@ -467,43 +491,15 @@
                             units: addedUnits,
                             originalCostPerUnit: modelData.vanCost,
                             totalOriginalCost: addedUnits * modelData.vanCost,
-                            accumulatedDepreciation: 0, // Depreciación inicial en 0 para la cohorte
-                            isHeldForSale: false,
-                            heldForSaleYear: null,
-                            carryingAmountAtHFS: 0, // Valor en libros al momento de clasificar como HFS
-                            currentFairValueLessCosts: 0 // Valor para el balance después de deterioro NIIF 5
+                            accumulatedDepreciation: 0 // Depreciación inicial en 0 para la cohorte
                         });
                         log(` Nueva cohorte de activos fijos Año ${year+1}: ${addedUnits} unidades por ${formatCurrency(capexThisYear)}`);
                     }
                     
-                    // --- DEPRECIACIÓN DE ACTIVOS FIJOS (Vagonetas) ---
-                    // La depreciación solo aplica a los activos que NO están clasificados como "Mantenidos para Venta" (NIIF 5)
-                    let annualDepreciation = 0;
-                    fixedAssetsCohorts.forEach(cohort => {
-                        if (!cohort.isHeldForSale) { // Solo deprecia activos no clasificados como NIIF 5
-                            const yearsDepreciated = (year + 1) - cohort.yearAcquired; // Años transcurridos desde la adquisición
-                            const remainingDepreciableLife = modelData.depreciationYears - yearsDepreciated;
-                            if (remainingDepreciableLife > 0 && cohort.accumulatedDepreciation < cohort.totalOriginalCost) {
-                                const depreciationRate = 1 / modelData.depreciationYears;
-                                const depreciationThisYear = cohort.totalOriginalCost * depreciationRate;
-                                
-                                // Asegurar que la depreciación no exceda el valor no depreciado restante
-                                const remainingValue = cohort.totalOriginalCost - cohort.accumulatedDepreciation;
-                                cohort.depreciationThisYear = Math.min(depreciationThisYear, remainingValue);
-                                cohort.accumulatedDepreciation += cohort.depreciationThisYear;
-                                annualDepreciation += cohort.depreciationThisYear;
-                            } else {
-                                cohort.depreciationThisYear = 0;
-                            }
-                        } else {
-                            cohort.depreciationThisYear = 0; // Activos NIIF 5 no se deprecian
-                        }
-                    });
-
                     // --- NIIF 5: RECLASIFICACIÓN DE ACTIVOS Y CÁLCULO DE DETERIORO ---
-                    // Se aplica la tasa de reposición a las unidades activas y se reasignan a NIIF 5
                     let totalImpairmentThisYear = 0;
-                    let unitsToRepossess = Math.round((fixedAssetsCohorts.filter(c => !c.isHeldForSale).reduce((sum, c) => sum + c.units, 0)) * (modelData.tasaReposicion / 100));
+                    // Calculate units to repossess from actively operating vans
+                    let unitsToRepossess = Math.round((fixedAssetsCohorts.filter(c => c.units > 0).reduce((sum, c) => sum + c.units, 0)) * (modelData.tasaReposicion / 100));
                     let remainingUnitsToRepossess = unitsToRepossess;
                     
                     // Variables para acumular los valores de los activos reclasificados este año para el detalle NIIF
@@ -511,47 +507,92 @@
                     let valueOfAssetsReclassifiedToNIIF5ThisYearFairValue = 0;
                     let valueOfAssetsReclassifiedToNIIF5ThisYearCostsToSell = 0;
                     let valueOfAssetsReclassifiedToNIIF5ThisYearNetFairValue = 0;
-                    
-                    // Ordenar cohortes para reponer las más antiguas primero (FIFO conceptual)
+
+                    // Sort cohorts to repossess the oldest first (FIFO conceptual) - crucial for depreciation tracking
                     fixedAssetsCohorts.sort((a, b) => a.yearAcquired - b.yearAcquired);
-                    fixedAssetsCohorts.forEach(cohort => {
-                        if (!cohort.isHeldForSale && remainingUnitsToRepossess > 0) {
-                            const unitsFromCohort = Math.min(remainingUnitsToRepossess, cohort.units);
-                            if (unitsFromCohort > 0) {
-                                // Calcular el valor en libros de las unidades reposedas al momento de la reclasificación
-                                const proportionToRepossess = unitsFromCohort / cohort.units;
-                                const carryingAmountAtClassification = (cohort.totalOriginalCost - cohort.accumulatedDepreciation) * proportionToRepossess;
-                                cohort.isHeldForSale = true; // Marcar la cohorte como NIIF 5 (simplificación)
-                                cohort.heldForSaleYear = year + 1;
-                                cohort.carryingAmountAtHFS = carryingAmountAtClassification; // Valor en libros en el momento de reclasificación
-                                
-                                // Cálculo de Fair Value menos costos de venta
-                                const fairValueLessCosts = carryingAmountAtClassification * (modelData.fairValueVenta / 100) * (1 - (modelData.costosVenta / 100));
-                                
-                                // Cálculo del deterioro
-                                const impairmentForTheseUnits = Math.max(0, carryingAmountAtClassification - fairValueLessCosts);
-                                totalImpairmentThisYear += impairmentForTheseUnits; // Sumar al deterioro anual del P&L
-                                
-                                // Valor para el Balance General después del deterioro
-                                cohort.currentFairValueLessCosts = carryingAmountAtClassification - impairmentForTheseUnits;
-                                
-                                remainingUnitsToRepossess -= unitsFromCohort;
-                                totalUnitsAccumulatedHeldForSale += unitsFromCohort; // ACUMULAR unidades clasificadas NIIF 5
-                                
-                                // Acumular para los detalles NIIF de este año
-                                valueOfAssetsReclassifiedToNIIF5ThisYearOriginalCarryingAmount += carryingAmountAtClassification;
-                                valueOfAssetsReclassifiedToNIIF5ThisYearFairValue += carryingAmountAtClassification * (modelData.fairValueVenta / 100);
-                                valueOfAssetsReclassifiedToNIIF5ThisYearCostsToSell += carryingAmountAtClassification * (modelData.fairValueVenta / 100) * (modelData.costosVenta / 100);
-                                valueOfAssetsReclassifiedToNIIF5ThisYearNetFairValue += fairValueLessCosts;
-                                log(` Reclasificadas ${unitsFromCohort} unidades de cohorte Año ${cohort.yearAcquired} a NIIF 5. VL al reclasificar: ${formatCurrency(carryingAmountAtClassification)}, Deterioro: ${formatCurrency(impairmentForTheseUnits)}`);
+                    
+                    // Iterate over a *copy* of fixedAssetsCohorts to avoid issues during modification
+                    for (let i = 0; i < fixedAssetsCohorts.length && remainingUnitsToRepossess > 0; i++) {
+                        let cohort = fixedAssetsCohorts[i]; // Get reference to the actual cohort object
+
+                        if (cohort.units > 0) { // Only consider active units in this cohort
+                            const actualUnitsToRepossessFromThisCohort = Math.min(remainingUnitsToRepossess, cohort.units);
+
+                            if (actualUnitsToRepossessFromThisCohort > 0) {
+                                const proportionToRepossess = actualUnitsToRepossessFromThisCohort / cohort.units;
+                                const repossessedOriginalCost = cohort.totalOriginalCost * proportionToRepossess;
+                                const repossessedAccumulatedDepreciation = cohort.accumulatedDepreciation * proportionToRepossess;
+                                const repossessedCarryingAmount = repossessedOriginalCost - repossessedAccumulatedDepreciation;
+
+                                // Calculate Fair Value less costs to sell for the repossessed portion
+                                const repossessedFairValueLessCosts = repossessedCarryingAmount * (modelData.fairValueVenta / 100) * (1 - (modelData.costosVenta / 100));
+
+                                // Calculate impairment for this repossessed portion
+                                const impairmentForRepossessed = Math.max(0, repossessedCarryingAmount - repossessedFairValueLessCosts);
+                                totalImpairmentThisYear += impairmentForRepossessed; // Accumulate impairment for P&L
+
+                                // Net value after impairment for the repossessed portion
+                                const netValueAfterImpairment = repossessedCarryingAmount - impairmentForRepossessed;
+
+                                // Update the original cohort (remaining portion) - adjust its values
+                                cohort.units -= actualUnitsToRepossessFromThisCohort;
+                                cohort.totalOriginalCost -= repossessedOriginalCost;
+                                cohort.accumulatedDepreciation -= repossessedAccumulatedDepreciation;
+                                // If cohort.units becomes 0, it means the entire cohort was repossessed and will be filtered out.
+
+                                // Add the repossessed portion to heldForSaleAssets (separate tracking for IFRS 5)
+                                heldForSaleAssets.push({
+                                    units: actualUnitsToRepossessFromThisCohort,
+                                    originalCost: repossessedOriginalCost,
+                                    accumulatedDepreciation: repossessedAccumulatedDepreciation,
+                                    carryingAmountAtHFS: repossessedCarryingAmount,
+                                    currentFairValueLessCosts: netValueAfterImpairment,
+                                    heldForSaleYear: year + 1
+                                });
+                                log(` Reclasificadas ${actualUnitsToRepossessFromThisCohort} unidades de cohorte Año ${cohort.yearAcquired} a NIIF 5. VL al reclasificar: ${formatCurrency(repossessedCarryingAmount)}, Deterioro: ${formatCurrency(impairmentForRepossessed)}`);
+
+                                remainingUnitsToRepossess -= actualUnitsToRepossessFromThisCohort;
+                                // Accumulate for NIIF details of this year
+                                valueOfAssetsReclassifiedToNIIF5ThisYearOriginalCarryingAmount += repossessedCarryingAmount;
+                                valueOfAssetsReclassifiedToNIIF5ThisYearFairValue += repossessedCarryingAmount * (modelData.fairValueVenta / 100);
+                                valueOfAssetsReclassifiedToNIIF5ThisYearCostsToSell += repossessedCarryingAmount * (modelData.fairValueVenta / 100) * (modelData.costosVenta / 100);
+                                valueOfAssetsReclassifiedToNIIF5ThisYearNetFairValue += repossessedFairValueLessCosts;
                             }
                         }
+                    }
+                    // Filter out cohorts that became fully repossessed (units = 0) to ensure only active PP&E remain
+                    fixedAssetsCohorts = fixedAssetsCohorts.filter(c => c.units > 0);
+
+                    // Recalculate totalUnitsAccumulatedHeldForSale from the dedicated array
+                    totalUnitsAccumulatedHeldForSale = heldForSaleAssets.reduce((sum, asset) => sum + asset.units, 0);
+
+                    const impairment = totalImpairmentThisYear; // Impairment for P&L
+
+                    // --- DEPRECIACIÓN DE ACTIVOS FIJOS (Vagonetas) ---
+                    // La depreciación solo aplica a los activos que aún están operando (no clasificados como NIIF 5)
+                    let annualDepreciation = 0;
+                    fixedAssetsCohorts.forEach(cohort => { // fixedAssetsCohorts now only contains active PP&E
+                        const yearsDepreciated = (year + 1) - cohort.yearAcquired; // Años transcurridos desde la adquisición
+                        const remainingDepreciableLife = modelData.depreciationYears - yearsDepreciated;
+
+                        // Solo deprecia si la vida útil restante es positiva y no está completamente depreciado
+                        if (remainingDepreciableLife > 0 && cohort.accumulatedDepreciation < cohort.totalOriginalCost && cohort.units > 0) {
+                            const depreciationRate = 1 / modelData.depreciationYears;
+                            // La depreciación se basa en el costo original total restante de las unidades aún en esta cohorte
+                            const depreciationThisYear = cohort.totalOriginalCost * depreciationRate;
+                            
+                            // Asegurar que la depreciación no exceda el valor no depreciado restante de la cohorte
+                            const remainingValueInCohort = cohort.totalOriginalCost - cohort.accumulatedDepreciation;
+                            const actualDepreciationForCohort = Math.min(depreciationThisYear, remainingValueInCohort);
+                            
+                            cohort.accumulatedDepreciation += actualDepreciationForCohort;
+                            annualDepreciation += actualDepreciationForCohort;
+                        }
                     });
-                    const impairment = totalImpairmentThisYear; // Impairment para el P&L
 
                     // --- ORIGINACIÓN DE NUEVA COHORTE DE PRÉSTAMOS A CLIENTES ---
                     let totalPrincipalOriginatedThisYear = 0; // Total principal de préstamos nuevos este año
-                    let currentYearOriginationContractValue = 0; // Variable para almacenar el margen de originación inicial para este año
+                    let currentYearOriginationContractValue = 0; // Margen de originación inicial para los nuevos préstamos de este año
                     
                     if (addedUnits > 0) {
                         const newCohortPrincipal = addedUnits * modelData.vanPrice;
@@ -575,6 +616,7 @@
                             yearOriginated: year + 1,
                             originalPrincipal: newCohortPrincipal,
                             remainingPrincipal: newCohortPrincipal, // Al inicio del año, este es el total
+                            startOfYearPrincipal: newCohortPrincipal, // Para nueva cohorte, el inicio es el principal original
                             paymentsMadeMonths: 0, // No se han hecho pagos aún para esta cohorte
                             monthlyPayment: monthlyPaymentClient,
                             monthlyInterestRate: monthlyInterestRateClient,
@@ -588,112 +630,114 @@
                     // --- AMORTIZACIÓN Y RECONOCIMIENTO DE INGRESOS POR COHORTES (Clientes) ---
                     let annualInterestReceived = 0; // Ingresos por intereses devengados este año de todas las cohortes
                     let annualPrincipalReceived = 0; // Pagos de principal recibidos este año de todas las cohortes
-                    let annualOriginationCommissionRecognized = 0; // Nuevo: Acumulador de margen de originación reconocido este año
+                    let annualOriginationCommissionRecognized = 0; // Acumulador de margen de originación reconocido este año
                     let currentYearEndReceivables = 0; // Saldo total de CxC al final de este año
                     
                     // Iterar sobre todas las cohortes activas (las que aún tienen saldo pendiente)
                     loanCohorts.forEach(cohort => {
-                        if (cohort.remainingPrincipal > 0 && cohort.paymentsMadeMonths < cohort.totalLoanTermMonths) {
-                            for (let m = 0; m < 12; m++) { // Simular 12 meses de pagos para cada cohorte
-                                if (cohort.remainingPrincipal <= 0 || cohort.paymentsMadeMonths >= cohort.totalLoanTermMonths) {
-                                    break; // Cohorte totalmente amortizada
-                                }
-                                
-                                const interestThisMonth = cohort.remainingPrincipal * cohort.monthlyInterestRate;
-                                let principalThisMonth = cohort.monthlyPayment - interestThisMonth;
-                                // Asegurar que el principal a pagar no exceda el saldo restante
-                                principalThisMonth = Math.min(principalThisMonth, cohort.remainingPrincipal);
-                                
-                                annualInterestReceived += interestThisMonth;
-                                annualPrincipalReceived += principalThisMonth;
-                                cohort.remainingPrincipal -= principalThisMonth;
-                                cohort.paymentsMadeMonths++;
+                        // Simulate 12 months of payments for each cohort
+                        for (let m = 0; m < 12; m++) {
+                            if (cohort.remainingPrincipal <= 0 || cohort.paymentsMadeMonths >= cohort.totalLoanTermMonths) {
+                                break; // Cohorte totalmente amortizada
+                            }
+                            
+                            const interestThisMonth = cohort.remainingPrincipal * cohort.monthlyInterestRate;
+                            let principalThisMonth = cohort.monthlyPayment - interestThisMonth;
+                            // Asegurar que el principal a pagar no exceda el saldo restante
+                            principalThisMonth = Math.min(principalThisMonth, cohort.remainingPrincipal);
+                            
+                            annualInterestReceived += interestThisMonth;
+                            annualPrincipalReceived += principalThisMonth;
+                            cohort.remainingPrincipal -= principalThisMonth;
+                            cohort.paymentsMadeMonths++;
 
-                                // NIIF 15: Reconocimiento de Margen por Originación basado en amortización de principal
-                                if (cohort.originalPrincipal > 0) { // Evitar división por cero
-                                    const recognitionRatioThisMonth = principalThisMonth / cohort.originalPrincipal;
-                                    const recognizedRevenueThisMonthFromOrigination = cohort.originationCommissionInitial * recognitionRatioThisMonth;
-                                    
-                                    annualOriginationCommissionRecognized += recognizedRevenueThisMonthFromOrigination;
-                                    
-                                    cohort.remainingOriginationCommission -= recognizedRevenueThisMonthFromOrigination;
-                                    cohort.remainingOriginationCommission = Math.max(0, cohort.remainingOriginationCommission); // Asegurar que no sea negativo
-                                }
+                            // NIIF 15: Reconocimiento de Margen por Originación basado en amortización de principal
+                            if (cohort.originalPrincipal > 0) { // Evitar división por cero
+                                const recognitionRatioThisMonth = principalThisMonth / cohort.originalPrincipal;
+                                const recognizedRevenueThisMonthFromOrigination = cohort.originationCommissionInitial * recognitionRatioThisMonth;
+                                
+                                annualOriginationCommissionRecognized += recognizedRevenueThisMonthFromOrigination;
+                                
+                                cohort.remainingOriginationCommission -= recognizedRevenueThisMonthFromOrigination;
+                                cohort.remainingOriginationCommission = Math.max(0, cohort.remainingOriginationCommission); // Asegurar que no sea negativo
                             }
                         }
                         // Sumar el saldo restante de esta cohorte al total de CxC al final del año
                         currentYearEndReceivables += Math.max(0, cohort.remainingPrincipal);
                     });
                     
-                    // --- ESTADO DE RESULTADOS (P&L) ---
-                    // Ingresos Operativos
-                    // Ingreso por Intereses: ahora viene de la suma de intereses devengados de todas las cohortes
-                    const interestRevenue = annualInterestReceived;
+                    // Calculate total ECL for the year based on average exposure per cohort (IFRS 9)
+                    let totalECLForYear = 0;
+                    let totalContractLiabilitiesBalance = 0; // Accumulate contract liabilities for BS
+
+                    loanCohorts.forEach(cohort => {
+                        // Only calculate ECL for cohorts that are active (have remaining principal or had at start of year)
+                        if (cohort.remainingPrincipal > 0 || cohort.startOfYearPrincipal > 0) {
+                            const avgExposureDuringYear = (cohort.startOfYearPrincipal + cohort.remainingPrincipal) / 2;
+                            const cohortAge = (year + 1) - cohort.yearOriginated;
+                            const adjustedPD = calculatePDBasedOnAge(cohortAge);
+
+                            const cohortECL = avgExposureDuringYear * adjustedPD * modelData.lgd;
+                            totalECLForYear += cohortECL;
+                        }
+                        // Accumulate remaining contract liabilities for the Balance Sheet from all cohorts
+                        totalContractLiabilitiesBalance += cohort.remainingOriginationCommission;
+                    });
+
+                    let annualECLProvision = totalECLForYear;
+                    annualECLProvision *= modelData.economicAdjustmentFactor; // Apply economic adjustment factor
+                    const provisions = annualECLProvision * (modelData.proteccionRodando ? 0.5 : 1.0); // Apply "Protección Rodando"
+                    currentProvisionsBalance += provisions; // Accumulate for Balance Sheet
+                    log(` Provisiones NIIF 9 (ECL) este año: ${formatCurrency(provisions)}. Base outstanding: ${formatCurrency(currentYearEndReceivables)}`); // Corrected variable
                     
-                    // NIIF 15: Margen por Originación reconocido este año
+                    // --- ESTADO DE RESULTADOS (P&L) ---
+                    const interestRevenue = annualInterestReceived;
                     const originationCommission = annualOriginationCommissionRecognized; // Ingreso reconocido en P&L
                     
-                    // Calcular el total de unidades activas (no Held For Sale)
-                    // **CORRECCIÓN:** Se calcula la suma de unidades de las cohortes de fixedAssets que NO están marcadas como isHeldForSale
-                    const totalActiveUnits = fixedAssetsCohorts.filter(c => !c.isHeldForSale).reduce((sum, cohort) => sum + cohort.units, 0);
+                    // Calculate total active units (not Held For Sale)
+                    const totalActiveUnits = fixedAssetsCohorts.reduce((sum, cohort) => sum + cohort.units, 0);
                     
-                    // NIIF 15: COMISIONES GNV (Reconocidas a lo largo del tiempo / en el año que se provee el servicio)
-                    // Se asume que el `gnvRevPerUnit` es un valor anual por unidad activa (no HFS).
                     const gnvCommissions = totalActiveUnits * modelData.gnvRevPerUnit * (modelData.comisionGNV / 100);
-                    
-                    // NIIF 15: INGRESOS POR REFACCIONES (Reconocidos en un punto en el tiempo)
-                    // Se asume que la venta de refacciones ocurre en el año de adición de unidades.
                     const sparePartsRevenue = addedUnits * modelData.refaccionesRevPerUnit * (modelData.margenRefacciones / 100);
-                    
-                    // NIIF 15: INGRESOS POR MARKETPLACE (Reconocidas a lo largo del tiempo / en el año que se provee el servicio)
-                    // Similar a GNV, se asume que el `marketplaceRevPerUnit` es un valor anual por unidad activa (no HFS).
                     const marketplaceRevenue = totalActiveUnits * modelData.marketplaceRevPerUnit * (modelData.marketplace / 100);
                     const totalRevenue = interestRevenue + originationCommission + gnvCommissions + sparePartsRevenue + marketplaceRevenue;
                     log(`Ingresos: Intereses=${formatCurrency(interestRevenue)}, Originación=${formatCurrency(originationCommission)}, GNV=${formatCurrency(gnvCommissions)}, Refacciones=${formatCurrency(sparePartsRevenue)}, Marketplace=${formatCurrency(marketplaceRevenue)}`);
                     log(`TOTAL INGRESOS OPERATIVOS: ${formatCurrency(totalRevenue)}`);
-                    // Gastos Operativos (OPEX)
-                    const opex = totalRevenue * (modelData.opexRate / 100);
-                    // --- NIIF 9: PROVISIONES CREDITICIAS (Expected Credit Losses - ECL) ---
-                    // Exposición a Incumplimiento (EAD) = Saldo pendiente de la cartera de préstamos al final del periodo
-                    let totalOutstandingPrincipalForECL = currentYearEndReceivables; // Usamos el saldo de CxC al final del año
-                    // Distribución del portafolio por etapas (simplificación para este modelo agregado)
-                    // No se simula migración individual, se asumen porcentajes de la cartera total en cada etapa.
-                    const eadStage1 = totalOutstandingPrincipalForECL * modelData.portfolioAllocationStage1;
-                    const eadStage2 = totalOutstandingPrincipalForECL * modelData.portfolioAllocationStage2;
-                    const eadStage3 = totalOutstandingPrincipalForECL * modelData.portfolioAllocationStage3;
-                    // Calcular Expected Credit Losses (ECL = EAD * PD * LGD)
-                    const eclStage1Amount = eadStage1 * modelData.pdStage1 * modelData.lgd;
-                    const eclStage2Amount = eadStage2 * modelData.pdStage2 * modelData.lgd;
-                    const eclStage3Amount = eadStage3 * modelData.pdStage3 * modelData.lgd;
-                    let annualECLProvision = eclStage1Amount + eclStage2Amount + eclStage3Amount;
-                    // Aplicar ajuste por forward-looking information
-                    annualECLProvision *= modelData.economicAdjustmentFactor;
-                    // Aplicar "Protección Rodando" si está activa (reduce el gasto de provisión final)
-                    const provisions = annualECLProvision * (modelData.proteccionRodando ? 0.5 : 1.0); // Gasto por provisiones del periodo (ajustado por Protección Rodando)
-                    currentProvisionsBalance += provisions; // Acumular para el Balance General
-                    log(` Provisiones NIIF 9 (ECL) este año: ${formatCurrency(provisions)}. Base outstanding: ${formatCurrency(totalOutstandingPrincipalForECL)}`);
-                    // Gasto por Intereses de Deuda (Venture Debt)
-                    const interestExpense = (year === 0 ? initialVentureDebtAmount : totalDebt) * (modelData.ventureDebtRate / 100);
-                    // Resultados del P&L
-                    const ebitda = totalRevenue - opex - provisions - impairment; // EBITDA incluye provisiones e impairment NIIF 5 como gastos operativos
-                    const netIncome = ebitda - annualDepreciation - interestExpense; // Utilidad Neta
-                    accumulatedEarnings += netIncome; // Acumular utilidades para Patrimonio
-                    // --- FLUJO DE EFECTIVO (CF) ---
                     
-                    // El `deltaReceivables` es el cambio en el saldo de CxC del Balance General
+                    // Operating Expenses (OPEX)
+                    const opex = totalRevenue * (modelData.opexRate / 100);
+                    
+                    const grossProfit = totalRevenue; // No COGS defined separately
+                    const opexTotal = opex + provisions + impairment; // Group operating expenses including IFRS 9 & 5 for EBITDA calculation
+                    const ebitda = grossProfit - opexTotal; // This EBITDA is Revenue - all operating expenses (incl. non-cash IFRS)
+                    
+                    const ebit = ebitda - annualDepreciation; // EBIT = EBITDA - Depreciation
+
+                    const interestExpense = (year === 0 ? initialVentureDebtAmount : totalDebt) * (modelData.ventureDebtRate / 100);
+                    const earningsBeforeTax = ebit - interestExpense; // EBT = EBIT - Interest Expense
+                    const incomeTaxExpense = Math.max(0, earningsBeforeTax) * (modelData.corporateTaxRate / 100); // Taxes only on positive EBT
+                    const netIncome = earningsBeforeTax - incomeTaxExpense; // Net Income
+                    accumulatedEarnings += netIncome; // Accumulate earnings for Equity
+
+                    // --- FLUJO DE EFECTIVO (CF) ---
+                    // Delta Cuentas por Cobrar (Change in non-cash working capital)
                     const prevReceivablesBalance = (year === 0) ? 0 : financialResults.bs[year-1].receivables;
                     const deltaReceivables = currentYearEndReceivables - prevReceivablesBalance;
-                    // Flujo Operativo (Método Indirecto): Utilidad Neta ajustada por partidas no monetarias y cambios en capital de trabajo (CxC)
+
+                    // Operating Cash Flow (Indirect Method):
+                    // Net Income + Non-Cash Expenses (Depreciation, Provisions, Impairment) - Change in Working Capital (Receivables)
                     const operatingCash = netIncome + annualDepreciation + provisions + impairment - deltaReceivables;
                     
-                    // Flujo de Inversión: Solo incluye CAPEX de vagonetas. La originación de préstamos se maneja en Op. Cash Flow via deltaReceivables.
-                    const investingCash = -capexThisYear; // CORRECCIÓN CRÍTICA: Eliminado totalPrincipalOriginatedThisYear para evitar doble conteo.
+                    // Investing Cash Flow: Only includes CAPEX of vans. Loan origination handled in Op. Cash Flow via deltaReceivables.
+                    const investingCash = -capexThisYear; // Corrected: Removed totalPrincipalOriginatedThisYear to avoid double counting.
                     log(` Flujo de Inversión (CAPEX vagonetas): ${formatCurrency(investingCash)}`);
-                    let financingCashThisPeriod = 0; // Representa las actividades de financiación netas para *este* periodo
-                    let principalPaymentVentureDebtThisPeriod = 0; // Para almacenar en los resultados de CF
-                    let newEquityRaisedThisPeriod = 0; // Acumula Serie B, C, y el plug de liquidez
-                    let additionalFundingRaised = 0; // Declarada aquí para asegurar su ámbito
-                    // Aportaciones de capital escalonado (Serie B y C)
+                    
+                    let financingCashThisPeriod = 0; // Represents net financing activities for *this* period
+                    let principalPaymentVentureDebtThisPeriod = 0; // To store in CF results
+                    let newEquityRaisedThisPeriod = 0; // Accumulates Series B, C, and liquidity plug
+                    let additionalFundingRaised = 0; // Declared here to ensure its scope
+
+                    // Staggered capital contributions (Series B and C)
                     if (year + 1 === modelData.seriesB_year) {
                         financingCashThisPeriod += modelData.seriesB_funding;
                         newEquityRaisedThisPeriod += modelData.seriesB_funding;
@@ -704,52 +748,41 @@
                         newEquityRaisedThisPeriod += modelData.seriesC_funding;
                         log(`  🎉  Recibido funding Serie C en Año ${year+1}: ${formatCurrency(modelData.seriesC_funding)}`);
                     }
-                    // Pago de principal para el Venture Debt inicial
+                    
+                    // Principal payment for initial Venture Debt
                     if (totalDebt > 0 && modelData.periodoAmortizacionDeuda > 0) {
                         const annualPrincipalPaymentFixed = initialVentureDebtAmount / modelData.periodoAmortizacionDeuda;
-                        principalPaymentVentureDebtThisPeriod = Math.min(annualPrincipalPaymentFixed, totalDebt); // Asegurar que el pago no exceda la deuda remanente
-                        totalDebt = Math.max(0, totalDebt - principalPaymentVentureDebtThisPeriod); // Reducir el saldo de deuda restante
+                        principalPaymentVentureDebtThisPeriod = Math.min(annualPrincipalPaymentFixed, totalDebt); // Ensure payment does not exceed remaining debt
+                        totalDebt = Math.max(0, totalDebt - principalPaymentVentureDebtThisPeriod); // Reduce remaining debt balance
                         financingCashThisPeriod -= principalPaymentVentureDebtThisPeriod; // El pago es una salida de efectivo
                     }
                     
-                    // Calcular el efectivo neto provisional para el período
-                    let netCash = operatingCash + investingCash + financingCashThisPeriod;
+                    // Calculate provisional net cash for the period BEFORE liquidity plug
+                    let netCashBeforePlug = operatingCash + investingCash + financingCashThisPeriod;
                     
                     // PLUG DE LIQUIDEZ: Si el efectivo cae por debajo de cero, asumir financiación adicional
-                    const prospectiveCash = cash + netCash;
+                    const prospectiveCash = cash + netCashBeforePlug;
                     if (prospectiveCash < 0) {
                         additionalFundingRaised = -prospectiveCash; // Monto para llevar el efectivo a cero
                         financingCashThisPeriod += additionalFundingRaised;
                         newEquityRaisedThisPeriod += additionalFundingRaised; // El plug se considera equity adicional
-                        netCash += additionalFundingRaised; // Recalcular netCash para reflejar el nuevo funding
-                        log(`  ⚠️  Déficit de efectivo en Año ${year+1}. Se asume funding ADICIONAL (Plug de Liquidez): ${formatCurrency(additionalFundingRaised)}`);
                     }
-                    // Actualizar el saldo de efectivo total
-                    cash += netCash; 
-                    
-                    // Actualizar Equity para el balance (antes de calcular métricas basadas en saldo final)
-                    // Patrimonio: Capital inicial de Serie A + utilidades acumuladas + nuevo equity raised este periodo
-                    let endOfYearEquity = initialEquityInvestment + accumulatedEarnings + newEquityRaisedThisPeriod;
-                    
-                    // Calcular el saldo de pasivos por contrato (NIIF 15) al final del año, sumando los saldos restantes de todas las cohortes
-                    const contractLiabilitiesBalance = loanCohorts.reduce((sum, cohort) => sum + cohort.remainingOriginationCommission, 0);
+                    // Final Net Cash flow for the period
+                    let netCash = operatingCash + investingCash + financingCashThisPeriod;
+                    cash += netCash; // Actualizar el saldo de efectivo total
 
-                    // --- BALANCE GENERAL (BS) ---
-                    // Activos Fijos Netos: Se suman los costos originales y se resta la depreciación acumulada SOLO para activos NO clasificados NIIF 5
-                    let totalOriginalCostPPandE = 0;
-                    let totalAccumulatedDepreciationPPandE = 0;
-                    let totalNIIF5AssetsBS = 0; // Valor total de activos clasificados como NIIF 5 para el Balance
-                    fixedAssetsCohorts.forEach(cohort => {
-                        if (cohort.isHeldForSale) {
-                            totalNIIF5AssetsBS += cohort.currentFairValueLessCosts; // Usar el valor post-deterioro para NIIF 5 en Balance
-                        } else {
-                            totalOriginalCostPPandE += cohort.totalOriginalCost;
-                            totalAccumulatedDepreciationPPandE += cohort.accumulatedDepreciation;
-                        }
-                    });
+                    // Update `contractLiabilitiesBalance` for Balance Sheet with the accumulated value
+                    const contractLiabilitiesBalance = totalContractLiabilitiesBalance; 
                     
+                    // --- BALANCE GENERAL (BS) ---
+                    // Activos Fijos Netos: Suma de costos originales menos depreciación acumulada de activos activos
+                    let totalOriginalCostPPandE = fixedAssetsCohorts.reduce((sum, c) => sum + c.totalOriginalCost, 0);
+                    let totalAccumulatedDepreciationPPandE = fixedAssetsCohorts.reduce((sum, c) => sum + c.accumulatedDepreciation, 0);
                     const fixedAssetsNet = totalOriginalCostPPandE - totalAccumulatedDepreciationPPandE;
-                    const assetsHeldForSaleNet = totalNIIF5AssetsBS; // Es el acumulado de valores NIIF 5 en Balance
+
+                    // Valor total de activos clasificados como NIIF 5 para el Balance
+                    const assetsHeldForSaleNet = heldForSaleAssets.reduce((sum, asset) => sum + asset.currentFairValueLessCosts, 0);
+                    
                     // Total Activos
                     const totalAssets = cash + currentYearEndReceivables + fixedAssetsNet + assetsHeldForSaleNet; // currentYearEndReceivables es el saldo de CxC
                     
@@ -769,16 +802,16 @@
                     
                     let annualROIC = 0;
                     // NOPAT = EBIT * (1 - Tax Rate)
-                    const ebit = ebitda - annualDepreciation;
-                    const nopat = ebit * (1 - (modelData.corporateTaxRate / 100));
+                    const nopat = ebit * (1 - (modelData.corporateTaxRate / 100)); // Using `ebit` which is after operating expenses, before interest.
                     if (averageInvestedCapital !== 0) annualROIC = (nopat / averageInvestedCapital) * 100;
                     financialResults.roe.push(annualROE);
                     financialResults.roic.push(annualROIC);
+                    
                     // --- ALMACENAMIENTO DE RESULTADOS ANUALES ---
                     financialResults.pl.push({
                         interestRevenue, originationCommission, gnvCommissions, sparePartsRevenue, marketplaceRevenue, totalRevenue,
-                        opex, provisions, impairment, ebitda, 
-                        depreciation: annualDepreciation, interestExpense, netIncome,
+                        opex, provisions, impairment, ebitda, ebit,
+                        depreciation: annualDepreciation, interestExpense, earningsBeforeTax, incomeTaxExpense, netIncome,
                         cumulativeUnits: fixedAssetsCohorts.reduce((sum, cohort) => sum + cohort.units, 0) // Total de unidades para la TIR Cartera
                     });
                     financialResults.cf.push({
@@ -811,48 +844,46 @@
                         },
                         niif9: {
                             // Datos NIIF 9 basados en la nueva lógica de ECL
-                            totalOutstandingPrincipal: totalOutstandingPrincipalForECL,
-                            eadStage1: eadStage1,
-                            eclStage1Amount: eclStage1Amount,
-                            pdStage1: modelData.pdStage1,
-                            eadStage2: eadStage2,
-                            eclStage2Amount: eclStage2Amount,
-                            pdStage2: modelData.pdStage2,
-                            eadStage3: eadStage3,
-                            eclStage3Amount: eclStage3Amount,
-                            pdStage3: modelData.pdStage3,
-                            lgd: modelData.lgd,
-                            totalECLBeforeAdjustment: eclStage1Amount + eclStage2Amount + eclStage3Amount,
+                            totalOutstandingPrincipal: currentYearEndReceivables, // Total de cuentas por cobrar al final del año (exposición)
+                            totalECLBeforeAdjustment: totalECLForYear, // ECL total calculado anualmente antes de ajustes
                             economicAdjustmentFactor: modelData.economicAdjustmentFactor,
-                            provisionesSinProteccion: annualECLProvision, // Este es el ECL total con ajuste económico, antes de Protección Rodando
-                            provisionesConProteccion: provisions, // Este es el gasto real en P&L
+                            provisionesSinProteccion: annualECLProvision, 
+                            provisionesConProteccion: provisions, 
                             reduccionPorProteccion: annualECLProvision - provisions,
-                            saldoProvisionesAcumulado: currentProvisionsBalance, // Saldo acumulado para Balance
-                            proteccionRodandoActiva: modelData.proteccionRodando
+                            saldoProvisionesAcumulado: currentProvisionsBalance, 
+                            proteccionRodandoActiva: modelData.proteccionRodando,
+                            // Parámetros de la lógica ECL (para referencia)
+                            pdStage1: modelData.pdStage1,
+                            pdStage2: modelData.pdStage2,
+                            pdStage3: modelData.pdStage3,
+                            lgd: modelData.lgd
                         },
                         niif5: {
-                            unidadesClasificadasAnuales: unitsToRepossess, // Unidades reposedas este año
-                            valorEnLibrosClasificado: valueOfAssetsReclassifiedToNIIF5ThisYearOriginalCarryingAmount, // VL original de los reclassified
+                            unidadesClasificadasAnuales: unitsToRepossess, 
+                            valorEnLibrosClasificado: valueOfAssetsReclassifiedToNIIF5ThisYearOriginalCarryingAmount, 
                             valorRazonable: valueOfAssetsReclassifiedToNIIF5ThisYearFairValue,
                             costosDeVenta: valueOfAssetsReclassifiedToNIIF5ThisYearCostsToSell,
                             valorRazonableMenosCostos: valueOfAssetsReclassifiedToNIIF5ThisYearNetFairValue,
-                            perdidaPorDeterioro: totalImpairmentThisYear, // Pérdida de deterioro este año
-                            saldoActivosParaVentaAcumulado: assetsHeldForSaleNet, // Saldo acumulado para Balance
-                            totalUnitsAccumulatedHeldForSale: totalUnitsAccumulatedHeldForSale // Nueva propiedad para almacenar el total acumulado
+                            perdidaPorDeterioro: totalImpairmentThisYear, 
+                            saldoActivosParaVentaAcumulado: assetsHeldForSaleNet, 
+                            totalUnitsAccumulatedHeldForSale: totalUnitsAccumulatedHeldForSale 
                         }
                     });
+                    
                     // Flujo para TIR Cartera
                     portfolioCashFlowsForIRR.push(interestRevenue - provisions - (interestRevenue * 0.05)); // Incluir 5% de costo operativo de cartera
                     
                     // Flujo para TIR Equity (después de impuestos y ajuste de financiamiento)
-                    // Cash Flow to Equity (FCFE) = OCF - Capex + Net Borrowing (Principal Received - Principal Paid) + New Equity
-                    const fcfes = operatingCash + investingCash + (newEquityRaisedThisPeriod - principalPaymentVentureDebtThisPeriod);
-                    equityCashFlows.push(fcfes);
+                    equityCashFlows.push(netCash); // `netCash` represents FCFE in this model.
+
+                    // Flujo para TIR Proyecto (FCFF)
+                    // FCFF = NOPAT + Non-Cash D&A and Provisions - CAPEX - Change in WC
+                    const fcffThisYear = nopat + annualDepreciation + provisions + impairment - capexThisYear - deltaReceivables;
+                    projectCashFlows.push(fcffThisYear);
                 }
                 
                 // ===== VALOR RESIDUAL DE ACTIVOS (Para TIR Proyecto) =====
                 // Se calcula el valor de los activos al final del periodo de proyección (Año 5)
-                // **CORRECCIÓN:** La base de cálculo de totalFixedAssetsOriginalCost para TIR Cartera ahora usa totalPrincipalOriginatedAcrossAllYears para mayor precisión.
                 const totalFixedAssetsAtEnd = fixedAssetsCohorts.reduce((sum, cohort) => sum + (cohort.totalOriginalCost - cohort.accumulatedDepreciation), 0);
                 const totalReceivablesAtEnd = financialResults.bs[4].receivables;
                 const totalAssetsHeldForSaleAtEnd = financialResults.bs[4].assetsHeldForSale;
@@ -970,6 +1001,7 @@
                 const year5PL = financialResults.pl[4];
                 const year5BS = financialResults.bs[4];
                 // Calcular total de unidades financiadas sumando todos los años
+                // Nota: totalUnitsAcquired es el total de unidades compradas a lo largo de los 5 años.
                 const totalUnitsAcquired = modelData.unitsPerYear.reduce((acc, curr) => acc + curr, 0);
                 // Vagonetas operativas: total de unidades adquiridas - total acumulado de unidades clasificadas NIIF5
                 const vagonetasOperativas = totalUnitsAcquired - (financialResults.niifDetails[4]?.niif5?.totalUnitsAccumulatedHeldForSale || 0);
@@ -1034,7 +1066,10 @@
                 { label: 'Pérdida por Deterioro NIIF 5', key: 'impairment', negative: true },
                 { label: 'EBITDA', key: 'ebitda', total: true, emphasize: true },
                 { label: 'Depreciación', key: 'depreciation', negative: true },
+                { label: 'EBIT', key: 'ebit', total: true }, // Nuevo EBIT
                 { label: 'Gastos por Intereses (Deuda)', key: 'interestExpense', negative: true },
+                { label: 'Ganancia Antes de Impuestos (EBT)', key: 'earningsBeforeTax', total: true }, // Nuevo EBT
+                { label: 'Impuesto sobre la Renta', key: 'incomeTaxExpense', negative: true }, // Nuevo Impuesto
                 { label: 'Utilidad Neta', key: 'netIncome', total: true, emphasize: true }
             ];
             // Rellenar la tabla dinámicamente
@@ -1088,7 +1123,7 @@
                 { label: 'Total Flujo de Efectivo Operativo', key: 'operatingCash', total: true, emphasize: true },
                 { label: 'Flujo de Efectivo de Inversión', total: true, separator: true },
                 { label: '  - CAPEX Vagonetas (Activos Fijos)', key: 'investingCash_capex', negative: true }, // Detalle de CAPEX
-                { label: '  - Originación de Préstamos Clientes', key: 'investingCash_loans', negative: true }, // Detalle de originación
+                // { label: '  - Originación de Préstamos Clientes', key: 'investingCash_loans', negative: true }, // Ya no se muestra aquí
                 { label: 'Total Flujo de Efectivo de Inversión', key: 'investingCash', total: true, emphasize: true, duplicate: true },
                 
                 { label: 'Flujo de Efectivo de Financiación', total: true, separator: true },
@@ -1149,7 +1184,6 @@
                     } else if (row.key === 'investingCash_capex') {
                         value = modelData.unitsPerYear[i] * modelData.vanCost; // CAPEX de vagonetas para este año
                     } else if (row.key === 'investingCash_loans') {
-                        // totalPrincipalOriginatedThisYear no está almacenado anualmente en cf, calcularlo
                         value = 0; // Se elimina el detalle de originación de préstamos aquí ya que no es un flujo separado en este punto
                     }
                     else if (row.key === 'deltaReceivables') {
@@ -1350,22 +1384,22 @@
                     container9.innerHTML = `
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                             <div class="p-4 bg-blue-100 rounded-lg text-center">
-                                <h5 class="font-semibold text-blue-800">Exposición Etapa 1</h5>
-                                <p class="text-xl font-bold">${formatCurrency(year5NIIF9.eadStage1)}</p>
-                                <p class="text-sm">ECL 12 meses (PD: ${(year5NIIF9.pdStage1 * 100).toFixed(1)}%)</p>
-                                <p class="text-lg font-bold text-blue-900">${formatCurrency(year5NIIF9.eclStage1Amount)}</p>
+                                <h5 class="font-semibold text-blue-800">Exposición Promedio Etapa 1</h5>
+                                <p class="text-xl font-bold">${formatCurrency(year5NIIF9.totalOutstandingPrincipal * modelData.portfolioAllocationStage1)}</p>
+                                <p class="text-sm">PD: ${(year5NIIF9.pdStage1 * 100).toFixed(1)}%</p>
+                                <p class="text-lg font-bold text-blue-900">${formatCurrency(year5NIIF9.totalECLBeforeAdjustment * modelData.portfolioAllocationStage1)} (ECL)</p>
                             </div>
                             <div class="p-4 bg-yellow-100 rounded-lg text-center">
-                                <h5 class="font-semibold text-yellow-800">Exposición Etapa 2</h5>
-                                <p class="text-xl font-bold">${formatCurrency(year5NIIF9.eadStage2)}</p>
-                                <p class="text-sm">ECL Lifetime (PD: ${(year5NIIF9.pdStage2 * 100).toFixed(1)}%)</p>
-                                <p class="text-lg font-bold text-yellow-900">${formatCurrency(year5NIIF9.eclStage2Amount)}</p>
+                                <h5 class="font-semibold text-yellow-800">Exposición Promedio Etapa 2</h5>
+                                <p class="text-xl font-bold">${formatCurrency(year5NIIF9.totalOutstandingPrincipal * modelData.portfolioAllocationStage2)}</p>
+                                <p class="text-sm">PD: ${(year5NIIF9.pdStage2 * 100).toFixed(1)}%</p>
+                                <p class="text-lg font-bold text-yellow-900">${formatCurrency(year5NIIF9.totalECLBeforeAdjustment * modelData.portfolioAllocationStage2)} (ECL)</p>
                             </div>
                             <div class="p-4 bg-red-100 rounded-lg text-center">
-                                <h5 class="font-semibold text-red-800">Exposición Etapa 3</h5>
-                                <p class="text-xl font-bold">${formatCurrency(year5NIIF9.eadStage3)}</p>
-                                <p class="text-sm">ECL Lifetime (PD: ${(year5NIIF9.pdStage3 * 100).toFixed(1)}%)</p>
-                                <p class="text-lg font-bold text-red-900">${formatCurrency(year5NIIF9.eclStage3Amount)}</p>
+                                <h5 class="font-semibold text-red-800">Exposición Promedio Etapa 3</h5>
+                                <p class="text-xl font-bold">${formatCurrency(year5NIIF9.totalOutstandingPrincipal * modelData.portfolioAllocationStage3)}</p>
+                                <p class="text-sm">PD: ${(year5NIIF9.pdStage3 * 100).toFixed(1)}%</p>
+                                <p class="text-lg font-bold text-red-900">${formatCurrency(year5NIIF9.totalECLBeforeAdjustment * modelData.portfolioAllocationStage3)} (ECL)</p>
                             </div>
                         </div>
                         <div class="text-center p-4 bg-indigo-50 rounded-lg mb-4">
@@ -1388,16 +1422,11 @@
                         <div class="mt-4 p-4 bg-gray-50 rounded-lg text-sm">
                             <h5 class="font-semibold text-base mb-1">Explicación NIIF 9 (Instrumentos Financieros)</h5>
                             <p class="mb-1">• NIIF 9 requiere el reconocimiento de provisiones por pérdidas crediticias esperadas (ECL) sobre los instrumentos financieros (cartera de préstamos).</p>
-                            <p class="mb-1">• **Modelo de Tres Etapas:** La cartera se segmenta por riesgo.</p>
-                            <ul class="list-disc list-inside ml-4">
-                                <li>**Etapa 1:** Activos con bajo riesgo de crédito (ECL a 12 meses).</li>
-                                <li>**Etapa 2:** Activos con un aumento significativo en el riesgo de crédito (ECL de por vida).</li>
-                                <li>**Etapa 3:** Activos con deterioro de crédito (ECL de por vida).</li>
-                            </ul>
-                            <p class="mb-1">• **Cálculo de ECL:** ECL = Exposición a Incumplimiento (EAD) × Probabilidad de Incumplimiento (PD) × Pérdida Dado Incumplimiento (LGD).</p>
+                            <p class="mb-1">• **Modelo de Tres Etapas:** La cartera se segmenta por riesgo (aunque aquí simplificado por antigüedad del préstamo).</p>
+                            <p class="mb-1">• **Cálculo de ECL:** ECL = Exposición Promedio × Probabilidad de Incumplimiento (PD) × Pérdida Dado Incumplimiento (LGD).</p>
                             <p class="mb-1">• **Información Prospectiva:** El factor de ajuste económico permite incorporar expectativas futuras sobre el riesgo de crédito.</p>
                             <p class="mb-1">• "Protección Rodando" simula un mecanismo que reduce el gasto final por provisiones.</p>
-                            <p class="mt-2 text-red-700 font-bold">Nota: En este modelo, la migración entre etapas se simula mediante una distribución porcentual fija de la cartera total para cada año, lo cual es una simplificación común para modelos agregados de alto nivel, en lugar de un seguimiento individual de cada préstamo.</p>
+                            <p class="mt-2 text-red-700 font-bold">Nota: En este modelo, la asignación a etapas se simula mediante PDs que varían por antigüedad, lo cual es una simplificación común para modelos agregados de alto nivel, en lugar de un seguimiento individual de cada préstamo.</p>
                         </div>
                     `;
                     log('  ✅  NIIF 9 actualizada.');
@@ -1419,7 +1448,7 @@
                                 <p class="text-sm">Unidades clasificadas como mantenidas para venta este año.</p>
                             </div>
                             <div class="p-4 bg-indigo-50 rounded-lg">
-                                <h5 class="font-semibold text-indigo-900">Valor en Libros (Activos Reposedos Año 5)</h5>
+                                <h5 class="font-semibold text-indigo-900">Valor en Libros Original (Activos Reposedos Año 5)</h5>
                                 <p class="text-xl font-bold">${formatCurrency(year5NIIF5.valorEnLibrosClasificado)}</p>
                                 <p class="text-sm">Costo histórico de las unidades clasificadas para venta en el Año 5.</p>
                             </div>
@@ -1740,8 +1769,8 @@
                     <span class="text-xs text-gray-500 mt-1" id="${config.id}-display">${config.format(modelData[config.id])}</span>
                 `;
                 constantsContainer.appendChild(div);
-                const input = div.querySelector(`#${config.id}-input`); // Corregido de div.getElementById
-                const display = div.querySelector(`#${config.id}-display`); // Corregido de div.getElementById
+                const input = div.querySelector(`#${config.id}-input`);
+                const display = div.querySelector(`#${config.id}-display`);
                 input.addEventListener('input', function() {
                     let value = parseFloat(this.value);
                     if (isNaN(value)) value = 0; // Default to 0 if input is not a number
