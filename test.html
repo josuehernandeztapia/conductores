@@ -102,7 +102,7 @@
             </div>
              <div class="metric-card p-4 rounded-lg">
                 <div class="text-sm text-gray-500">TIR Equity</div>
-                <div class="text-2xl font-bold" id="tir-equity">0%</div>
+                <div class="2xl font-bold" id="tir-equity">0%</div>
             </div>
             <div class="metric-card p-4 rounded-lg">
                 <div class="text-sm text-gray-500">Vagonetas Operativas (Año 5)</div>
@@ -447,6 +447,7 @@
                 let totalDebt = initialVentureDebtAmount; // El saldo inicial de deuda es el Venture Debt inicial
                 let currentProvisionsBalance = 0; // Saldo acumulado de provisiones NIIF 9 en Balance General
                 let contractLiabilitiesBalance = 0; // Saldo acumulado de pasivos por contrato (NIIF 15)
+                let totalUnitsAccumulatedHeldForSale = 0; // Para el cálculo de Vagonetas Operativas
 
                 // Array para almacenar las cohortes de préstamos a clientes
                 // loanCohorts = [{ yearOriginated: Y, originalPrincipal: P, remainingPrincipal: P, paymentsMadeMonths: 0, monthlyPayment: M, monthlyInterestRate: r, totalLoanTermMonths: N }]
@@ -560,6 +561,7 @@
                                 cohort.currentFairValueLessCosts = carryingAmountAtClassification - impairmentForTheseUnits;
                                 
                                 remainingUnitsToRepossess -= unitsFromCohort;
+                                totalUnitsAccumulatedHeldForSale += unitsFromCohort; // ACUMULAR unidades clasificadas NIIF 5
 
                                 // Acumular para los detalles NIIF de este año
                                 valueOfAssetsReclassifiedToNIIF5ThisYearOriginalCarryingAmount += carryingAmountAtClassification;
@@ -640,33 +642,36 @@
                     const interestRevenue = annualInterestReceived;
                     
                     // NIIF 15: MARGEN POR ORIGINACIÓN (Diferido a lo largo del tiempo)
-                    // totalOriginationContractValueThisYear es el valor del contrato de servicio de originación este año
                     const totalOriginationContractValueThisYear = addedUnits * modelData.vanPrice * (modelData.margenVagoneta / 100);
-                    // Añadir el valor total del contrato al pasivo por contrato
                     contractLiabilitiesBalance += totalOriginationContractValueThisYear;
                     
-                    // Reconocimiento anual del ingreso de originación diferido
-                    // Se asume reconocimiento lineal sobre el plazo del préstamo del cliente
-                    const recognizedOriginationRevenueThisYear = totalOriginationContractValueThisYear / modelData.clientLoanTermYears;
-                    // Reducir el pasivo por contrato por el monto reconocido
-                    contractLiabilitiesBalance -= recognizedOriginationRevenueThisYear;
+                    // Calcular el monto a reconocer este año
+                    let recognizedOriginationRevenueThisYear = totalOriginationContractValueThisYear / modelData.clientLoanTermYears;
+
+                    // Ajuste crítico: Asegurar que el reconocimiento no exceda el pasivo por contrato acumulado
+                    if (recognizedOriginationRevenueThisYear > contractLiabilitiesBalance) {
+                        log(` ⚠️ Ajuste NIIF 15: El reconocimiento de originación (${formatCurrency(recognizedOriginationRevenueThisYear)}) excede el pasivo por contrato acumulado (${formatCurrency(contractLiabilitiesBalance)}). Ajustando.`);
+                        recognizedOriginationRevenueThisYear = contractLiabilitiesBalance; // Solo reconocer lo que está disponible
+                    }
+                    contractLiabilitiesBalance -= recognizedOriginationRevenueThisYear; // Reducir el pasivo por contrato por el monto *realmente* reconocido
 
                     const originationCommission = recognizedOriginationRevenueThisYear; // Ingreso reconocido en P&L
 
+                    // Calcular el total de unidades activas (no Held For Sale)
+                    // **CORRECCIÓN:** Se calcula la suma de unidades de las cohortes de fixedAssets que NO están marcadas como isHeldForSale
+                    const totalActiveUnits = fixedAssetsCohorts.filter(c => !c.isHeldForSale).reduce((sum, cohort) => sum + cohort.units, 0);
 
                     // NIIF 15: COMISIONES GNV (Reconocidas a lo largo del tiempo / en el año que se provee el servicio)
-                    // Se asume que el `gnvRevPerUnit` es un valor anual por unidad activa.
-                    // **CORRECCIÓN:** La base de cálculo ahora usa fixedAssetsCohorts para asegurar que se refiera a unidades en el portfolio.
-                    const gnvCommissions = fixedAssetsCohorts.reduce((sum, cohort) => sum + cohort.units, 0) * modelData.gnvRevPerUnit * (modelData.comisionGNV / 100);
+                    // Se asume que el `gnvRevPerUnit` es un valor anual por unidad activa (no HFS).
+                    const gnvCommissions = totalActiveUnits * modelData.gnvRevPerUnit * (modelData.comisionGNV / 100);
                     
                     // NIIF 15: INGRESOS POR REFACCIONES (Reconocidos en un punto en el tiempo)
                     // Se asume que la venta de refacciones ocurre en el año de adición de unidades.
                     const sparePartsRevenue = addedUnits * modelData.refaccionesRevPerUnit * (modelData.margenRefacciones / 100);
                     
                     // NIIF 15: INGRESOS POR MARKETPLACE (Reconocidas a lo largo del tiempo / en el año que se provee el servicio)
-                    // Similar a GNV, se asume que el `marketplaceRevPerUnit` es un valor anual.
-                    // **CORRECCIÓN:** La base de cálculo ahora usa fixedAssetsCohorts para asegurar que se refiera a unidades en el portfolio.
-                    const marketplaceRevenue = fixedAssetsCohorts.reduce((sum, cohort) => sum + cohort.units, 0) * modelData.marketplaceRevPerUnit * (modelData.marketplace / 100);
+                    // Similar a GNV, se asume que el `marketplaceRevPerUnit` es un valor anual por unidad activa (no HFS).
+                    const marketplaceRevenue = totalActiveUnits * modelData.marketplaceRevPerUnit * (modelData.marketplace / 100);
 
                     const totalRevenue = interestRevenue + originationCommission + gnvCommissions + sparePartsRevenue + marketplaceRevenue;
 
@@ -876,7 +881,8 @@
                             costosDeVenta: valueOfAssetsReclassifiedToNIIF5ThisYearCostsToSell,
                             valorRazonableMenosCostos: valueOfAssetsReclassifiedToNIIF5ThisYearNetFairValue,
                             perdidaPorDeterioro: totalImpairmentThisYear, // Pérdida de deterioro este año
-                            saldoActivosParaVentaAcumulado: assetsHeldForSaleNet // Saldo acumulado para Balance
+                            saldoActivosParaVentaAcumulado: assetsHeldForSaleNet, // Saldo acumulado para Balance
+                            totalUnitsAccumulatedHeldForSale: totalUnitsAccumulatedHeldForSale // Nueva propiedad para almacenar el total acumulado
                         }
                     });
 
@@ -1019,8 +1025,8 @@
                 const year5BS = financialResults.bs[4];
                 // Calcular total de unidades financiadas sumando todos los años
                 const totalUnitsAcquired = modelData.unitsPerYear.reduce((acc, curr) => acc + curr, 0);
-                // Vagonetas operativas: total de unidades adquiridas - unidades clasificadas NIIF5 (acumuladas)
-                const vagonetasOperativas = totalUnitsAcquired - (financialResults.niifDetails.reduce((sum, d) => sum + (d.niif5?.unidadesClasificadasAnuales || 0), 0));
+                // Vagonetas operativas: total de unidades adquiridas - total acumulado de unidades clasificadas NIIF5
+                const vagonetasOperativas = totalUnitsAcquired - (financialResults.niifDetails[4]?.niif5?.totalUnitsAccumulatedHeldForSale || 0);
 
 
                 if (year5PL && year5BS) {
@@ -1627,7 +1633,6 @@
                             labels: ['Año 1', 'Año 2', 'Año 3', 'Año 4', 'Año 5'],
                             datasets: [{
                                 label: 'Flujo Neto de Efectivo (M MXN)',
-                                data: [],
                                 backgroundColor: (context) => {
                                     // Verificar si context.parsed y context.parsed.y existen
                                     if (context.parsed && typeof context.parsed.y === 'number') {
@@ -2134,7 +2139,7 @@
                     if (revenueGrowth > 1000) { // If revenue grows more than 1000% (10x) in a year
                         validations.warnings.push(`🟡 Advertencia Temporal: Crecimiento de Ingresos del Año ${i + 1} (${revenueGrowth.toFixed(1)}%) es extremadamente alto. Revise las unidades o supuestos de precio.`);
                     }
-                } else if (currentPl.totalRevenue > 0) { // If prev year revenue was 0 but current is positive, it's a new ramp-up, not an "explosive" growth anomaly
+                } else if (currentPl.totalRevenue > 0) { // If prev year revenue was 0 but current is positive, it's a new ramp-up, not an an "explosive" growth anomaly
                      validations.info.push(`🔵 Info Temporal: Ingresos de Año ${i + 1} inician ramp-up desde cero/bajo. Crecimiento porcentual no significativo.`);
                 }
 
