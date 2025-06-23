@@ -335,7 +335,11 @@
             takeRateMarketplace: 1.5,                 // Rango: 1.0-2.0% (comisión sobre ventas brutas del marketplace)
             
             // NUEVOS PARÁMETROS: Venture Debt Contingente
-            ventureDebtLineMax: 50000000 // Límite máximo de la línea de Venture Debt
+            ventureDebtLineMax: 50000000, // Límite máximo de la línea de Venture Debt
+
+            // NUEVOS PARÁMETROS: Modelo de Negocio de Financiamiento
+            downPaymentPercentage: 10, // 10% down payment del cliente
+            upfrontCommissionPercentage: 3 // 3% comisión cobrada upfront
         };
         
         // Rangos para los inputs deslizables (sliders)
@@ -385,7 +389,9 @@
             { id: 'litrosPromedioMensualPorUnidad', label: 'Litros GNV/Unidad (Mensual)', min: 800, max: 1000, step: 10, type: 'number', format: val => val.toFixed(0) + ' L' },
             { id: 'precioLitroGNV', label: 'Precio Litro GNV (MXN)', min: 12.00, max: 13.99, step: 0.01, type: 'number', format: val => '$' + val.toFixed(2) + ' MXN' },
             { id: 'gmvPromedioMensualPorUnidad', label: 'Ventas Brutas Marketplace/Unidad (Mensual)', min: 5000, max: 15000, step: 100, type: 'number', format: val => formatCurrency(val, true) }, // RENOMBRADO
-            { id: 'ventureDebtLineMax', label: 'Línea Máx. Venture Debt', min: 0, max: 100000000, step: 5000000, type: 'number', format: val => formatCurrency(val, true) }
+            { id: 'ventureDebtLineMax', label: 'Línea Máx. Venture Debt', min: 0, max: 100000000, step: 5000000, type: 'number', format: val => formatCurrency(val, true) },
+            { id: 'downPaymentPercentage', label: 'Down Payment Cliente (%)', min: 5, max: 20, step: 1, type: 'number', format: val => val.toFixed(0) + '%' },
+            { id: 'upfrontCommissionPercentage', label: 'Comisión Upfront (%)', min: 1, max: 5, step: 0.5, type: 'number', format: val => val.toFixed(1) + '%' }
         ];
         
         // Objeto para almacenar los resultados financieros calculados
@@ -649,41 +655,61 @@
                         }
                     });
 
+                    // Variables para el flujo de originación - INICIALIZADAS A 0 EN CADA AÑO
+                    let currentYearCashFromOrigination = 0;
+                    let currentYearUpfrontCommissionLiability = 0;
+                    let netLoanPrincipal = 0;
+                    let downPaymentReceived = 0; // Inicializar
+                    let upfrontCommissionReceived = 0; // Inicializar
+                    
                     // --- ORIGINACIÓN DE NUEVA COHORTE DE PRÉSTAMOS A CLIENTES ---
                     let totalPrincipalOriginatedThisYear = 0; // Total principal de préstamos nuevos este año
                     let currentYearOriginationContractValue = 0; // Margen de originación inicial para los nuevos préstamos de este año
                     
                     if (addedUnits > 0) {
                         const newCohortPrincipal = addedUnits * modelData.vanPrice;
-                        totalPrincipalOriginatedThisYear = newCohortPrincipal; // Esta es la inversión real en el préstamo al cliente
-                        totalPrincipalOriginatedAcrossAllYears += newCohortPrincipal; // Acumular para TIR Cartera
+                            
+                        // Flujos de efectivo reales al originar préstamos
+                        downPaymentReceived = newCohortPrincipal * (modelData.downPaymentPercentage / 100); // Usar la variable inicializada
+                        upfrontCommissionReceived = newCohortPrincipal * (modelData.upfrontCommissionPercentage / 100); // Usar la variable inicializada
+                        const totalCashFromOrigination = downPaymentReceived + upfrontCommissionReceived;
+                            
+                        // Ajustar el principal neto del préstamo (después del down payment)
+                        netLoanPrincipal = newCohortPrincipal - downPaymentReceived;
+                            
+                        // Variables para usar en cash flow y balance
+                        currentYearCashFromOrigination = totalCashFromOrigination;
+                        currentYearUpfrontCommissionLiability = upfrontCommissionReceived;
+                            
+                        // Para TIR Cartera usar el principal neto
+                        totalPrincipalOriginatedThisYear = netLoanPrincipal;
+                        totalPrincipalOriginatedAcrossAllYears += netLoanPrincipal;
                         const monthlyInterestRateClient = (modelData.tasaInteres / 100) / 12;
                         const totalPaymentsMonthsClient = modelData.clientLoanTermYears * 12;
-                        
                         let monthlyPaymentClient = 0;
                         if (monthlyInterestRateClient > 0) {
-                            monthlyPaymentClient = newCohortPrincipal * (monthlyInterestRateClient / (1 - Math.pow(1 + monthlyInterestRateClient, -totalPaymentsMonthsClient)));
+                            monthlyPaymentClient = netLoanPrincipal * (monthlyInterestRateClient / (1 - Math.pow(1 + monthlyInterestRateClient, -totalPaymentsMonthsClient)));
                         } else {
-                            // Si la tasa de interés es 0, el pago mensual es simplemente principal / número de meses
-                            monthlyPaymentClient = newCohortPrincipal / totalPaymentsMonthsClient;
+                            monthlyPaymentClient = netLoanPrincipal / totalPaymentsMonthsClient;
                         }
-
-                        const originationCommissionForThisCohort = newCohortPrincipal * (modelData.margenVagoneta / 100); // Calcular el margen de originación para esta cohorte
-                        currentYearOriginationContractValue = originationCommissionForThisCohort; // Asignar al acumulador anual
-                        
+                        const originationCommissionForThisCohort = netLoanPrincipal * (modelData.margenVagoneta / 100);
+                        currentYearOriginationContractValue = originationCommissionForThisCohort;
                         loanCohorts.push({
                             yearOriginated: year + 1,
-                            originalPrincipal: newCohortPrincipal,
-                            remainingPrincipal: newCohortPrincipal, // Al inicio del año, este es el total
-                            startOfYearPrincipal: newCohortPrincipal, // Para nueva cohorte, el inicio es el principal original
-                            paymentsMadeMonths: 0, // No se han hecho pagos aún para esta cohorte
+                            originalPrincipal: netLoanPrincipal, // Principal neto sin down payment
+                            remainingPrincipal: netLoanPrincipal, 
+                            startOfYearPrincipal: netLoanPrincipal,
+                            paymentsMadeMonths: 0,
                             monthlyPayment: monthlyPaymentClient,
                             monthlyInterestRate: monthlyInterestRateClient,
                             totalLoanTermMonths: totalPaymentsMonthsClient,
-                            originationCommissionInitial: originationCommissionForThisCohort, // Nuevo campo
-                            remainingOriginationCommission: originationCommissionForThisCohort // Nuevo campo, se reducirá a medida que se reconozca el ingreso
+                            originationCommissionInitial: originationCommissionForThisCohort,
+                            remainingOriginationCommission: originationCommissionForThisCohort,
+                            // NUEVOS CAMPOS para upfront commission:
+                            originalUpfrontLiability: upfrontCommissionReceived,
+                            remainingUpfrontLiability: upfrontCommissionReceived
                         });
-                        log(` Cohorte nueva Año ${year+1}: ${addedUnits} unidades, Principal: ${formatCurrency(newCohortPrincipal)}. Esta es una INVERSIÓN.`);
+                        log(` Cohorte nueva Año ${year+1}: ${addedUnits} unidades, Principal neto: ${formatCurrency(netLoanPrincipal)}, Down payment: ${formatCurrency(downPaymentReceived)}, Comisión upfront: ${formatCurrency(upfrontCommissionReceived)}`);
                     }
                     
                     // --- AMORTIZACIÓN Y RECONOCIMIENTO DE INGRESOS POR COHORTES (Clientes) ---
@@ -719,15 +745,12 @@
                             // Simular reducción de principal para el cálculo de ECL
                             if (tempPrincipalForECL > 0 && cohort.monthlyPayment > 0) {
                                 const tempMonthlyInterest = tempPrincipalForECL * cohort.monthlyInterestRate;
-                                const tempMonthlyPrincipalPayment = Math.min(
-                                    cohort.monthlyPayment - tempMonthlyInterest, 
-                                    tempPrincipalForECL
-                                );
+                                const tempMonthlyPrincipalPayment = Math.min(cohort.monthlyPayment - tempMonthlyInterest, tempPrincipalForECL);
                                 tempPrincipalForECL -= tempMonthlyPrincipalPayment;
                             }
 
                             // NIIF 15: Reconocimiento de Margen por Originación basado en amortización de principal
-                            if (cohort.originalPrincipal > 0) { // Evitar división por cero
+                            if (cohort.originalPrincipal > 0) {
                                 const recognitionRatioThisMonth = principalThisMonth / cohort.originalPrincipal;
                                 const recognizedRevenueThisMonthFromOrigination = cohort.originationCommissionInitial * recognitionRatioThisMonth;
                                 
@@ -742,6 +765,15 @@
                                 // CRÍTICO: Asegurar que remainingOriginationCommission nunca sea negativo
                                 cohort.remainingOriginationCommission = Math.max(0, cohort.remainingOriginationCommission); 
                             }
+                            // NUEVO: Amortización de comisión upfront durante la vida del préstamo
+                            if (cohort.remainingUpfrontLiability > 0 && cohort.originalUpfrontLiability > 0) {
+                                const monthlyUpfrontAmortization = cohort.originalUpfrontLiability / cohort.totalLoanTermMonths;
+                                const amortizationThisMonth = Math.min(monthlyUpfrontAmortization, cohort.remainingUpfrontLiability);
+                                            
+                                annualOriginationCommissionRecognized += amortizationThisMonth;
+                                cohort.remainingUpfrontLiability -= amortizationThisMonth;
+                                cohort.remainingUpfrontLiability = Math.max(0, cohort.remainingUpfrontLiability);
+                            }
                         }
                         // Sumar el saldo restante de esta cohorte al total de CxC al final del año
                         currentYearEndReceivables += Math.max(0, cohort.remainingPrincipal);
@@ -752,8 +784,9 @@
                     
                     // Calculate total ECL for the year based on average exposure per cohort (IFRS 9)
                     let totalECLForYear = 0;
-                    let totalContractLiabilitiesBalance = 0; // Accumulate contract liabilities for BS
-
+                    // Calcular total de pasivos por contrato de TODAS las cohortes
+                    let totalContractLiabilitiesBalance = 0; 
+                    
                     loanCohorts.forEach(cohort => {
                         // Only calculate ECL for cohorts that are active (have remaining principal or had at start of year)
                         if (cohort.remainingPrincipal > 0 || cohort.startOfYearPrincipal > 0) {
@@ -766,7 +799,8 @@
                             totalECLForYear += cohortECL;
                         }
                         // Accumulate remaining contract liabilities for the Balance Sheet from all cohorts
-                        totalContractLiabilitiesBalance += cohort.remainingOriginationCommission;
+                        totalContractLiabilitiesBalance += (cohort.remainingOriginationCommission || 0);
+                        totalContractLiabilitiesBalance += (cohort.remainingUpfrontLiability || 0);
                     });
 
                     let annualECLProvision = totalECLForYear;
@@ -812,13 +846,13 @@
                     accumulatedEarnings += netIncome; // Acumular utilidades para Patrimonio
 
                     // --- FLUJO DE EFECTIVO (CF) ---
-                    // Delta Cuentas por Cobrar (Change in non-cash working capital)
+                    // Delta Cuentas por Cobrar AJUSTADO por cash recibido en originación
                     const prevReceivablesBalance = (year === 0) ? 0 : financialResults.bs[year-1].receivables;
                     const deltaReceivables = currentYearEndReceivables - prevReceivablesBalance;
-
-                    // Operating Cash Flow (Indirect Method):
-                    // Net Income + Non-Cash Expenses (Depreciation, Provisions, Impairment) - Change in Working Capital (Receivables)
-                    const operatingCash = netIncome + annualDepreciation + provisions + impairment - deltaReceivables;
+                    // CRUCIAL: Ajustar por el efectivo recibido al originar préstamos
+                    const adjustedDeltaReceivables = deltaReceivables - currentYearCashFromOrigination;
+                    // Operating Cash Flow CORREGIDO - incluye el efectivo real recibido de originación
+                    const operatingCash = netIncome + annualDepreciation + provisions + impairment - adjustedDeltaReceivables;
                     
                     // Investing Cash Flow: Only includes CAPEX of vans. Loan origination handled in Op. Cash Flow via deltaReceivables.
                     const investingCash = -capexThisYear; 
@@ -828,7 +862,7 @@
                     let principalPaymentVentureDebtThisPeriod = 0; // To store in CF results
                     let newEquityRaisedThisPeriod = 0; // Accumulates Series B, C, and liquidity plug
                     let additionalFundingRaised = 0; // Declarada aquí para asegurar su ámbito
-                    let currentYearVentureDebtDraw = 0; // Monto de Venture Debt retirado este año
+                    let currentYearVentureDebtDraw = 0; // Monto de Venture Debt retirado este año - INICIALIZAR
 
                     // Aportaciones de capital escalonado (Serie B y C)
                     if (year + 1 === modelData.seriesB_year) {
@@ -904,6 +938,22 @@
                     // Validación de Balance: Compara Total Activos y Total Pasivos + Patrimonio
                     const balanceDiff = Math.abs(totalAssets - totalLiabilitiesEquity);
                     log(`Diferencia de Balance Año ${year + 1}: ${formatCurrency(balanceDiff)}`);
+
+                    // VERIFICACIÓN AUTOMÁTICA DE CUADRE DE CASH FLOW
+                    const totalCashFlowGenerated = operatingCash + investingCash + financingCashThisPeriod;
+                    const previousYearCash = (year === 0) ? modelData.seriesA : financialResults.bs[year-1].cash;
+                    const actualCashChange = cash - previousYearCash;
+                    if (Math.abs(totalCashFlowGenerated - actualCashChange) > 1000) {
+                        log(`⚠️ ALERTA: Cash flow no cuadra en Año ${year+1}:         CF Generado: ${formatCurrency(totalCashFlowGenerated)},         Cambio Balance: ${formatCurrency(actualCashChange)},         Diferencia: ${formatCurrency(Math.abs(totalCashFlowGenerated - actualCashChange))}`);
+                    } else {
+                        log(`✅ Cash flow cuadra perfectamente en Año ${year+1}: ${formatCurrency(totalCashFlowGenerated)}`);
+                    }
+                    // Verificación adicional: Balance General debe cuadrar
+                    if (balanceDiff > 1000) {
+                        log(`⚠️ ALERTA: Balance no cuadra en Año ${year+1}: Diferencia ${formatCurrency(balanceDiff)}`);
+                    } else {
+                        log(`✅ Balance cuadra perfectamente en Año ${year+1}`);
+                    }
                     
                     // --- CÁLCULO DE MÉTRICAS ANUALES (ROE, ROIC) ---
                     // Identificar eventos de capital este año para ROE/ROIC Time-Weighted Average
@@ -946,6 +996,8 @@
                         operatingCash, investingCash, financingCash: financingCashThisPeriod, netCash,
                         principalPaymentVentureDebt: principalPaymentVentureDebtThisPeriod, // Pago de principal de Venture Debt
                         clientPrincipalPaymentsReceived: annualPrincipalReceived, // Pagos de principal de clientes
+                        downPaymentReceived: downPaymentReceived, // Almacenar para display
+                        upfrontCommissionReceived: upfrontCommissionReceived, // Almacenar para display
                         additionalFundingRaised: additionalFundingRaised, // Plug de liquidez
                         currentYearVentureDebtDraw: currentYearVentureDebtDraw // Almacenar el draw de VD de este año
                     });
@@ -1257,6 +1309,8 @@
                 
                 { label: 'Flujo de Efectivo de Financiación', total: true, separator: true },
                 { label: '  Serie A Recibida', year0: modelData.seriesA },
+                { label: '  Down Payment Recibido', key: 'downPaymentReceived', fromCF: true, positive: true },
+                { label: '  Comisión Upfront Cobrada', key: 'upfrontCommissionReceived', fromCF: true, positive: true },
                 { label: '  Venture Debt Extraído', key: 'currentYearVentureDebtDraw', fromCF: true, positive: true }, // Nuevo: para mostrar la extracción de VD
                 { label: '  Serie B Funding Recibido', key: 'seriesB_funding', fromModelData: true, yearSpecific: true },
                 { label: '  Serie C Funding Recibido', key: 'seriesC_funding', fromModelData: true, yearSpecific: true },
@@ -1317,6 +1371,10 @@
                         value = modelData.unitsPerYear[i] * modelData.vanCost; // CAPEX de vagonetas para este año
                     } else if (row.key === 'investingCash_loans') {
                         value = 0; // Se elimina el detalle de originación de préstamos aquí ya que no es un flujo separado en este punto
+                    } else if (row.key === 'downPaymentReceived') { // Nuevo: Down Payment Recibido
+                        value = financialResults.cf[i].downPaymentReceived || 0;
+                    } else if (row.key === 'upfrontCommissionReceived') { // Nuevo: Comisión Upfront Cobrada
+                        value = financialResults.cf[i].upfrontCommissionReceived || 0;
                     }
                     else if (row.key === 'deltaReceivables') {
                         // Delta de CxC es especial porque se calcula de año a año.
@@ -2021,7 +2079,9 @@
                 { id: 'corporateTaxRate', min: 0, max: 100, label: 'Tasa Impuesto Corporativo (%)' },
                 // NUEVOS CONTROLES
                 { id: 'comisionGNVPorcentaje', min: 0, max: 100, label: 'Comisión GNV (%)' },
-                { id: 'takeRateMarketplace', min: 0, max: 100, label: 'Take Rate Marketplace (%)' }
+                { id: 'takeRateMarketplace', min: 0, max: 100, label: 'Take Rate Marketplace (%)' },
+                { id: 'downPaymentPercentage', min: 0, max: 100, label: 'Down Payment Cliente (%)' },
+                { id: 'upfrontCommissionPercentage', min: 0, max: 100, label: 'Comisión Upfront (%)' }
             ];
             percentageInputs.forEach(p => {
                 if (modelData[p.id] < p.min || modelData[p.id] > p.max) {
