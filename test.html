@@ -465,11 +465,13 @@
             tirCartera: 0
         };
 
+        let charts = {}; // Variable global para almacenar los gráficos
+
         // ===== INICIALIZACIÓN DE LA INTERFAZ =====
         document.addEventListener('DOMContentLoaded', function() {
             setupTabs();
             setupControls();
-            setupOpexControls(); // Nuevo: Controles de gastos operativos
+            setupOpexControls();
             setupUnitControls();
             setupScenarios();
             initializeCharts();
@@ -482,12 +484,37 @@
             const tabButtons = document.querySelectorAll('.tab-button');
             const contentSections = document.querySelectorAll('.content-section');
 
-            tabButtons.forEach((button, index) => {
-                button.addEventListener('click', () => {
+            tabButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    // Remover clase activa de todos los botones y secciones
                     tabButtons.forEach(btn => btn.classList.remove('active'));
                     contentSections.forEach(section => section.classList.remove('active'));
-                    button.classList.add('active');
-                    contentSections[index].classList.add('active');
+
+                    // Agregar clase activa al botón y sección seleccionados
+                    this.classList.add('active');
+                    
+                    const tabId = this.id;
+                    let contentId;
+                    switch(tabId) {
+                        case 'tab-control':
+                            contentId = 'content-control';
+                            break;
+                        case 'tab-financieros':
+                            contentId = 'content-financieros';
+                            break;
+                        case 'tab-niif':
+                            contentId = 'content-niif';
+                            break;
+                        case 'tab-graficos':
+                            contentId = 'content-graficos';
+                            break;
+                    }
+                    
+                    if (contentId) {
+                        document.getElementById(contentId).classList.add('active');
+                    }
+
+                    // Actualizar gráficos si es necesario
                     if (button.id === 'tab-graficos') {
                         updateCharts();
                     }
@@ -791,7 +818,7 @@
                 const newDebt = capexThisYear * (modelData.ventureDebtPct / 100);
                 const capitalCall = capexThisYear * (1 - modelData.ventureDebtPct / 100);
                 capitalCalls.push(capitalCall);
-                totalDebt += newDebt - principalPayment;
+                totalDebt = totalDebt + newDebt - principalPayment;
 
                 // --- RESULTADOS ---
                 const ebitda = totalRevenue - opex - provisions - impairment;
@@ -926,7 +953,7 @@
                 if (Math.abs(newGuess - guess) < tolerance) {
                     return Math.max(0, Math.min(100, newGuess * 100));
                 }
-                guess = Math.max(-0.99, Math.min(5, newGuess));
+                guess = newGuess;
             }
             return Math.max(0, Math.min(100, guess * 100));
         }
@@ -1263,8 +1290,6 @@
         }
 
         // ===== GRÁFICOS =====
-        let charts = {};
-
         function initializeCharts() {
             const ctx1 = document.getElementById('ebitdaChart');
             if (ctx1) {
@@ -1334,4 +1359,100 @@
                         maintainAspectRatio: false,
                         plugins: {
                             title: {
-                                display:
+                                display: true,
+                                text: 'Evolución del Patrimonio'
+                            }
+                        }
+                    }
+                });
+            }
+
+            const ctx4 = document.getElementById('provisionChart');
+            if (ctx4) {
+                charts.provision = new Chart(ctx4, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Año 1', 'Año 2', 'Año 3', 'Año 4', 'Año 5'],
+                        datasets: [
+                            {
+                                label: 'Etapa 1',
+                                data: [],
+                                backgroundColor: '#10b981'
+                            },
+                            {
+                                label: 'Etapa 2',
+                                data: [],
+                                backgroundColor: '#f59e0b'
+                            },
+                            {
+                                label: 'Etapa 3',
+                                data: [],
+                                backgroundColor: '#ef4444'
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Evolución de Provisiones por Etapas (NIIF 9)'
+                            }
+                        },
+                        scales: {
+                            x: {
+                                stacked: true,
+                            },
+                            y: {
+                                stacked: true
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        function updateCharts() {
+            // Actualizar gráfico de EBITDA
+            if (charts.ebitda && financialResults.pl.length >= 5) {
+                const ebitdaData = financialResults.pl.map(p => p.ebitda / 1000000);
+                charts.ebitda.data.datasets[0].data = ebitdaData;
+                charts.ebitda.update();
+            }
+
+            // Actualizar gráfico de composición de ingresos
+            if (charts.revenueMix && financialResults.pl.length >= 5) {
+                const lastYear = financialResults.pl[4];
+                const revenueData = [
+                    lastYear.interestRevenue,
+                    lastYear.margenOriginacion,
+                    lastYear.gnvCommissions,
+                    lastYear.sparePartsRevenue,
+                    lastYear.marketplaceRevenue
+                ];
+                charts.revenueMix.data.datasets[0].data = revenueData;
+                charts.revenueMix.update();
+            }
+
+            // Actualizar gráfico de patrimonio
+            if (charts.equity && financialResults.bs.length >= 5) {
+                const equityData = financialResults.bs.map(b => b.equity / 1000000);
+                charts.equity.data.datasets[0].data = equityData;
+                charts.equity.update();
+            }
+
+            // Actualizar gráfico de provisiones
+            if (charts.provision && financialResults.niifDetails.length >= 5) {
+                const etapa1Data = financialResults.niifDetails.map(n => n.niif9.etapa1 / 1000);
+                const etapa2Data = financialResults.niifDetails.map(n => n.niif9.etapa2 / 1000);
+                const etapa3Data = financialResults.niifDetails.map(n => n.niif9.etapa3 / 1000);
+                charts.provision.data.datasets[0].data = etapa1Data;
+                charts.provision.data.datasets[1].data = etapa2Data;
+                charts.provision.data.datasets[2].data = etapa3Data;
+                charts.provision.update();
+            }
+        }
+    </script>
+</body>
+</html>
