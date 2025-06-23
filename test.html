@@ -32,8 +32,8 @@
         .input-value { font-weight: 600; color: #2563eb; min-width: 60px; }
         .section-header { font-size: 1.25rem; font-weight: 600; color: #1e40af; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid #dbeafe; }
         .info-tooltip { display: inline-block; width: 16px; height: 16px; background-color: #9ca3af; color: white; border-radius: 50%; text-align: center; font-size: 12px; line-height: 16px; cursor: help; margin-left: 0.25rem; vertical-align: middle; }
-        .opex-slider-container { display: flex; flex-direction: column; gap: 0.5rem; }
-        .opex-slider-label { font-size: 0.75rem; color: #6b7280; text-align: center; }
+        .validation-success { background-color: #dcfce7; border-left: 4px solid #22c55e; padding: 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+        .validation-error { background-color: #fee2e2; border-left: 4px solid #ef4444; padding: 1rem; border-radius: 0.5rem; margin: 1rem 0; }
     </style>
 </head>
 <body class="text-gray-800">
@@ -102,22 +102,22 @@
                         <div class="input-group">
                             <label class="input-label">Tasa de Interés (%)</label>
                             <div class="input-container">
-                                <input type="range" id="tasa-interes" min="10" max="40" step="0.1" value="25.5" class="input-slider">
-                                <span id="tasa-interes-valor" class="input-value">25.5%</span>
+                                <input type="range" id="tasa-interes" min="10" max="40" step="0.1" value="40.0" class="input-slider">
+                                <span id="tasa-interes-valor" class="input-value">40.0%</span>
                             </div>
                         </div>
                         <div class="input-group">
                             <label class="input-label">Tasa de Morosidad (%)</label>
                             <div class="input-container">
-                                <input type="range" id="tasa-morosidad" min="1" max="20" step="0.5" value="8" class="input-slider">
-                                <span id="tasa-morosidad-valor" class="input-value">8%</span>
+                                <input type="range" id="tasa-morosidad" min="1" max="30" step="0.5" value="19.5" class="input-slider">
+                                <span id="tasa-morosidad-valor" class="input-value">19.5%</span>
                             </div>
                         </div>
                         <div class="input-group">
                             <label class="input-label">LGD (Pérdida en caso de Incumplimiento) (%)</label>
                             <div class="input-container">
-                                <input type="range" id="lgd" min="20" max="80" step="1" value="45" class="input-slider">
-                                <span id="lgd-valor" class="input-value">45%</span>
+                                <input type="range" id="lgd" min="20" max="100" step="1" value="80" class="input-slider">
+                                <span id="lgd-valor" class="input-value">80%</span>
                             </div>
                         </div>
                         <div class="flex items-center mt-4">
@@ -157,11 +157,11 @@
                                 <span id="margen-refacciones-valor" class="input-value">25%</span>
                             </div>
                         </div>
-                        <!-- Nuevos controles para gastos operativos por año -->
                         <div class="input-group">
-                            <label class="input-label">Gastos Operativos (%) por Año</label>
-                            <div class="grid grid-cols-5 gap-4" id="opex-container">
-                                <!-- Controles generados dinámicamente -->
+                            <label class="input-label">Gastos Operativos (%)</label>
+                            <div class="input-container">
+                                <input type="range" id="opex-rate" min="5" max="30" step="1" value="15" class="input-slider">
+                                <span id="opex-rate-valor" class="input-value">15%</span>
                             </div>
                         </div>
                     </div>
@@ -223,8 +223,8 @@
                         <div class="input-group">
                             <label class="input-label">Tasa Reposesión (%)</label>
                             <div class="input-container">
-                                <input type="range" id="tasa-reposicion" min="1" max="15" step="0.5" value="5" class="input-slider">
-                                <span id="tasa-reposicion-valor" class="input-value">5%</span>
+                                <input type="range" id="tasa-reposicion" min="1" max="15" step="0.5" value="15" class="input-slider">
+                                <span id="tasa-reposicion-valor" class="input-value">15%</span>
                             </div>
                         </div>
                         <div class="input-group">
@@ -256,7 +256,26 @@
                     </p>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-5 gap-4" id="units-container">
-                    <!-- Units will be dynamically added here -->
+                    <div class="flex flex-col">
+                        <label class="input-label">Año 1</label>
+                        <input type="number" id="unit-year-1" min="0" max="1000" value="35" class="p-2 border rounded">
+                    </div>
+                    <div class="flex flex-col">
+                        <label class="input-label">Año 2</label>
+                        <input type="number" id="unit-year-2" min="0" max="1000" value="70" class="p-2 border rounded">
+                    </div>
+                    <div class="flex flex-col">
+                        <label class="input-label">Año 3</label>
+                        <input type="number" id="unit-year-3" min="0" max="1000" value="100" class="p-2 border rounded">
+                    </div>
+                    <div class="flex flex-col">
+                        <label class="input-label">Año 4</label>
+                        <input type="number" id="unit-year-4" min="0" max="1000" value="150" class="p-2 border rounded">
+                    </div>
+                    <div class="flex flex-col">
+                        <label class="input-label">Año 5</label>
+                        <input type="number" id="unit-year-5" min="0" max="1000" value="200" class="p-2 border rounded">
+                    </div>
                 </div>
                 <div class="mt-6 flex justify-between">
                     <div>
@@ -332,7 +351,7 @@
                             </tbody>
                         </table>
                     </div>
-                    <div id="balance-validation" class="mt-4 text-center font-semibold text-green-600">
+                    <div id="balance-validation" class="mt-4">
                         <!-- Balance validation message -->
                     </div>
                 </div>
@@ -431,24 +450,24 @@
     <script>
         // ===== VARIABLES GLOBALES =====
         const modelData = {
-            tasaInteres: 25.5,
-            tasaMorosidad: 8,
-            lgd: 45,
+            tasaInteres: 40.0,
+            tasaMorosidad: 19.5,
+            lgd: 80,
             proteccionRodando: true,
             margenOriginacion: 10,
             comisionGNV: 8,
             margenRefacciones: 25,
+            opexRate: 15,
             serieA: 45000000,
             ventureDebtPct: 70,
             ventureDebtRate: 12,
             amortizacionDeuda: 5,
             costoVagoneta: 641000,
             precioFinanciado: 729000,
-            tasaReposicion: 5,
+            tasaReposicion: 15,
             fairValue: 85,
             costosVenta: 5,
             depreciationYears: 10,
-            opexRate: [15, 15, 15, 15, 15], // Array para gastos por año
             unitsPerYear: [35, 70, 100, 150, 200],
             gnvRevPerUnit: 12000,
             refaccionesRevPerUnit: 50000,
@@ -471,8 +490,6 @@
         document.addEventListener('DOMContentLoaded', function() {
             setupTabs();
             setupControls();
-            setupOpexControls();
-            setupUnitControls();
             setupScenarios();
             initializeCharts();
             calculateFinancials();
@@ -532,6 +549,7 @@
                 { id: 'margen-originacion', prop: 'margenOriginacion', format: v => v + '%' },
                 { id: 'comision-gnv', prop: 'comisionGNV', format: v => v + '%' },
                 { id: 'margen-refacciones', prop: 'margenRefacciones', format: v => v + '%' },
+                { id: 'opex-rate', prop: 'opexRate', format: v => v + '%' },
                 { id: 'serie-a', prop: 'serieA', format: v => (v/1000000).toFixed(0) + 'M' },
                 { id: 'venture-debt-pct', prop: 'ventureDebtPct', format: v => v + '%' },
                 { id: 'venture-debt-rate', prop: 'ventureDebtRate', format: v => v + '%' },
@@ -580,6 +598,17 @@
                 });
             }
 
+            // Configurar unidades por año
+            for (let year = 1; year <= 5; year++) {
+                const input = document.getElementById(`unit-year-${year}`);
+                if (input) {
+                    input.addEventListener('change', function() {
+                        const value = parseInt(this.value) || 0;
+                        modelData.unitsPerYear[year-1] = Math.max(0, Math.min(1000, value));
+                    });
+                }
+            }
+
             // Configurar botón de recalcular
             const btnRecalcular = document.getElementById('btn-recalcular');
             if (btnRecalcular) {
@@ -590,102 +619,46 @@
             }
         }
 
-        // ===== CONFIGURACIÓN DE GASTOS OPERATIVOS POR AÑO =====
-        function setupOpexControls() {
-            const opexContainer = document.getElementById('opex-container');
-            if (!opexContainer) return;
-            
-            opexContainer.innerHTML = '';
-            
-            for (let year = 0; year < 5; year++) {
-                const div = document.createElement('div');
-                div.className = 'opex-slider-container';
-                div.innerHTML = `
-                    <label class="opex-slider-label">Año ${year+1}</label>
-                    <input type="range" min="5" max="30" value="${modelData.opexRate[year]}" 
-                           class="input-slider opex-slider" data-year="${year}">
-                    <span class="input-value opex-value">${modelData.opexRate[year]}%</span>
-                `;
-                opexContainer.appendChild(div);
-            }
-
-            // Event listeners
-            document.querySelectorAll('.opex-slider').forEach(slider => {
-                const year = parseInt(slider.dataset.year);
-                const span = slider.nextElementSibling;
-                
-                slider.addEventListener('input', function() {
-                    const value = parseInt(this.value);
-                    modelData.opexRate[year] = value;
-                    span.textContent = value + '%';
-                });
-            });
-        }
-
-        // ===== CONFIGURACIÓN DE UNIDADES POR AÑO =====
-        function setupUnitControls() {
-            const container = document.getElementById('units-container');
-            if (!container) return;
-            container.innerHTML = '';
-
-            modelData.unitsPerYear.forEach((units, index) => {
-                const year = index + 1;
-                const div = document.createElement('div');
-                div.className = 'flex flex-col';
-                div.innerHTML = `
-                    <label class="input-label">Año ${year}</label>
-                    <input type="number" id="unit-year-${year}" min="0" max="1000" value="${units}" class="p-2 border rounded">
-                `;
-                container.appendChild(div);
-
-                const input = document.getElementById(`unit-year-${year}`);
-                input.addEventListener('change', function() {
-                    const value = parseInt(this.value) || 0;
-                    modelData.unitsPerYear[index] = Math.max(0, Math.min(1000, value));
-                });
-            });
-        }
-
         // ===== CONFIGURACIÓN DE ESCENARIOS =====
         function setupScenarios() {
             const scenarios = {
                 base: {
-                    tasaInteres: 25.5,
-                    tasaMorosidad: 8,
-                    lgd: 45,
+                    tasaInteres: 40.0,
+                    tasaMorosidad: 19.5,
+                    lgd: 80,
                     proteccionRodando: true,
                     margenOriginacion: 10,
                     comisionGNV: 8,
                     margenRefacciones: 25,
+                    opexRate: 15,
                     ventureDebtPct: 70,
                     ventureDebtRate: 12,
-                    opexRate: [15, 15, 15, 15, 15],
                     unitsPerYear: [35, 70, 100, 150, 200]
                 },
                 optimista: {
-                    tasaInteres: 26.9,
-                    tasaMorosidad: 5,
-                    lgd: 30,
+                    tasaInteres: 42.5,
+                    tasaMorosidad: 15,
+                    lgd: 70,
                     proteccionRodando: true,
                     margenOriginacion: 12,
                     comisionGNV: 10,
-                    margenRefacciones: 35,
-                    ventureDebtPct: 80,
+                    margenRefacciones: 28,
+                    opexRate: 14,
+                    ventureDebtPct: 75,
                     ventureDebtRate: 10,
-                    opexRate: [14, 14, 14, 14, 14],
                     unitsPerYear: [40, 80, 120, 180, 250]
                 },
                 conservador: {
-                    tasaInteres: 23.9,
-                    tasaMorosidad: 12,
-                    lgd: 60,
+                    tasaInteres: 37.5,
+                    tasaMorosidad: 25,
+                    lgd: 90,
                     proteccionRodando: false,
                     margenOriginacion: 8,
                     comisionGNV: 7,
-                    margenRefacciones: 20,
-                    ventureDebtPct: 60,
-                    ventureDebtRate: 15,
-                    opexRate: [18, 18, 18, 18, 18],
+                    margenRefacciones: 22,
+                    opexRate: 18,
+                    ventureDebtPct: 65,
+                    ventureDebtRate: 14,
                     unitsPerYear: [30, 60, 80, 120, 150]
                 }
             };
@@ -720,23 +693,16 @@
             document.getElementById('tasa-morosidad-valor').textContent = modelData.tasaMorosidad + '%';
             document.getElementById('lgd').value = modelData.lgd;
             document.getElementById('lgd-valor').textContent = modelData.lgd + '%';
-
-            // Actualizar gastos operativos por año
-            const opexSliders = document.querySelectorAll('.opex-slider');
-            opexSliders.forEach((slider, index) => {
-                slider.value = modelData.opexRate[index];
-                const span = slider.nextElementSibling;
-                span.textContent = modelData.opexRate[index] + '%';
-            });
+            document.getElementById('opex-rate').value = modelData.opexRate;
+            document.getElementById('opex-rate-valor').textContent = modelData.opexRate + '%';
 
             // Actualizar unidades
-            modelData.unitsPerYear.forEach((units, index) => {
-                const year = index + 1;
+            for (let year = 1; year <= 5; year++) {
                 const input = document.getElementById(`unit-year-${year}`);
                 if (input) {
-                    input.value = units;
+                    input.value = modelData.unitsPerYear[year-1];
                 }
-            });
+            }
 
             // Actualizar checkbox
             document.getElementById('check-proteccion').checked = modelData.proteccionRodando;
@@ -749,45 +715,42 @@
 
             // Variables de estado
             let accumulatedEarnings = 0;
-            let cash = modelData.serieA;
+            let cash = 0;
             let accumulatedDepreciation = 0;
             let totalDebt = 0;
             let cumulativeUnits = 0;
             let currentReceivables = 0;
             let currentProvisionsBalance = 0;
-            const projectCashFlows = [-modelData.serieA]; // Año 0: Serie A
-            const capitalCalls = [0]; // Capital calls por año
+            const projectCashFlows = []; // Para TIR
+            const portfolioCashFlows = []; // Para TIR cartera
+            let totalInvestment = 0;
 
-            // Calcular por cada año (0-4 para años 1-5)
+            // Year 0 - Capital inicial
+            const initialEquity = modelData.serieA;
+            const initialDebt = initialEquity * (modelData.ventureDebtPct / 100);
+            cash = initialEquity + initialDebt;
+            totalDebt += initialDebt;
+            
+            projectCashFlows.push(-initialEquity); // Inversión inicial de equity
+
+            // Años 1-5
             for (let year = 0; year < 5; year++) {
                 const addedUnits = modelData.unitsPerYear[year];
                 cumulativeUnits += addedUnits;
 
                 // --- CÁLCULO DE INGRESOS (NIIF 15) ---
-                // Corrección: Usar saldo total de la cartera para intereses
                 const portfolioBalance = cumulativeUnits * modelData.precioFinanciado;
                 const interestRevenue = portfolioBalance * (modelData.tasaInteres / 100);
-
-                // Margen por originación (servicio al formalizar contrato)
                 const margenOriginacion = addedUnits * modelData.precioFinanciado * (modelData.margenOriginacion / 100);
-
-                // Comisiones GNV (sobre unidades acumuladas)
                 const gnvCommissions = cumulativeUnits * modelData.gnvRevPerUnit * (modelData.comisionGNV / 100);
-
-                // Ingresos refacciones (sobre unidades nuevas)
                 const sparePartsRevenue = addedUnits * modelData.refaccionesRevPerUnit * (modelData.margenRefacciones / 100);
-
-                // Ingresos marketplace (sobre unidades acumuladas)
                 const marketplaceRevenue = cumulativeUnits * modelData.marketplaceRevPerUnit * (modelData.marketplace / 100);
-
-                // Total de ingresos
                 const totalRevenue = interestRevenue + margenOriginacion + gnvCommissions + sparePartsRevenue + marketplaceRevenue;
 
                 // --- GASTOS OPERATIVOS ---
-                // Usar el valor específico para cada año
-                const opex = totalRevenue * (modelData.opexRate[year] / 100);
+                const opex = totalRevenue * (modelData.opexRate / 100);
 
-                // --- PROVISIONES NIIF 9 (CORRECCIÓN CON LGD) ---
+                // --- PROVISIONES NIIF 9 (PÉRDIDAS ESPERADAS) ---
                 const provisionRate = (modelData.tasaMorosidad / 100) * (modelData.lgd / 100);
                 const baseProvisions = portfolioBalance * provisionRate;
                 const provisions = baseProvisions * (modelData.proteccionRodando ? 0.5 : 1.0);
@@ -795,6 +758,7 @@
 
                 // --- CAPEX Y DEPRECIACIÓN ---
                 const capexThisYear = addedUnits * modelData.costoVagoneta;
+                totalInvestment += capexThisYear;
                 const totalFixedAssetsCost = cumulativeUnits * modelData.costoVagoneta;
                 const annualDepreciation = totalFixedAssetsCost / modelData.depreciationYears;
                 accumulatedDepreciation += annualDepreciation;
@@ -808,16 +772,10 @@
                 const impairment = Math.max(0, carryingAmountHeldForSale - fairValueLessCosts);
 
                 // --- DEUDA VENTURE ---
-                // Intereses sobre saldo de deuda
                 const interestExpense = totalDebt * (modelData.ventureDebtRate / 100);
-
-                // Pago de principal (amortización)
                 const principalPayment = (year === 0) ? 0 : totalDebt / modelData.amortizacionDeuda;
-
-                // Nuevo financiamiento para este año (Venture Debt para nuevas unidades)
                 const newDebt = capexThisYear * (modelData.ventureDebtPct / 100);
                 const capitalCall = capexThisYear * (1 - modelData.ventureDebtPct / 100);
-                capitalCalls.push(capitalCall);
                 totalDebt = totalDebt + newDebt - principalPayment;
 
                 // --- RESULTADOS ---
@@ -826,16 +784,14 @@
                 accumulatedEarnings += netIncome;
 
                 // --- FLUJO DE EFECTIVO ---
-                // Cambio en cuentas por cobrar
-                const newReceivables = portfolioBalance; // Saldo total de la cartera
+                const newReceivables = portfolioBalance;
                 const deltaReceivables = newReceivables - currentReceivables;
                 currentReceivables = newReceivables;
 
                 const operatingCash = netIncome + annualDepreciation + provisions + impairment - deltaReceivables;
                 const investingCash = -capexThisYear;
                 const financingCash = (year === 0) ? 
-                    (modelData.serieA * (1 - modelData.ventureDebtPct / 100)) + 
-                    (modelData.serieA * (modelData.ventureDebtPct / 100)) :
+                    initialEquity + initialDebt : 
                     newDebt - principalPayment + capitalCall;
 
                 const netCash = operatingCash + investingCash + financingCash;
@@ -844,7 +800,7 @@
                 // --- BALANCE GENERAL ---
                 const fixedAssetsNet = totalFixedAssetsCost - accumulatedDepreciation;
                 const totalAssets = cash + currentReceivables + fixedAssetsNet + fairValueLessCosts;
-                const equity = modelData.serieA + accumulatedEarnings;
+                const equity = initialEquity + accumulatedEarnings;
                 const totalLiabilitiesEquity = totalDebt + currentProvisionsBalance + equity;
 
                 // Almacenar resultados
@@ -910,20 +866,13 @@
 
                 // Flujos para TIR
                 projectCashFlows.push(netCash);
+                portfolioCashFlows.push(interestRevenue - provisions);
             }
 
             // Calcular TIR Proyecto
             financialResults.tirProyecto = calculateIRR(projectCashFlows);
 
             // Calcular TIR Cartera
-            const carteraInitialInvestment = cumulativeUnits * modelData.costoVagoneta * (1 - (modelData.ventureDebtPct / 100));
-            const portfolioCashFlows = [-carteraInitialInvestment];
-            
-            for (let i = 0; i < 5; i++) {
-                const netCarteraFlow = financialResults.pl[i].interestRevenue - financialResults.pl[i].provisions;
-                portfolioCashFlows.push(netCarteraFlow);
-            }
-            
             financialResults.tirCartera = calculateIRR(portfolioCashFlows);
         }
 
@@ -1182,11 +1131,18 @@
             if (financialResults.bs[4]) {
                 const diff = Math.abs(financialResults.bs[4].totalAssets - financialResults.bs[4].totalLiabilitiesEquity);
                 if (diff < 1000) {
-                    validationDiv.textContent = '✅ Balance validado (Activo = Pasivo + Patrimonio)';
-                    validationDiv.className = 'mt-4 text-center font-semibold text-green-600';
+                    validationDiv.innerHTML = `
+                        <div class="validation-success">
+                            <p>✅ Balance validado (Activo = Pasivo + Patrimonio)</p>
+                        </div>
+                    `;
                 } else {
-                    validationDiv.textContent = `❌ Desequilibrio: ${formatCurrency(diff)}`;
-                    validationDiv.className = 'mt-4 text-center font-semibold text-red-600';
+                    validationDiv.innerHTML = `
+                        <div class="validation-error">
+                            <p>❌ Desequilibrio: ${formatCurrency(diff)}</p>
+                            <p class="text-sm mt-2">Revisar cálculos de activos, pasivos y patrimonio</p>
+                        </div>
+                    `;
                 }
             }
         }
