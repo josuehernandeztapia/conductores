@@ -295,11 +295,7 @@
                     </div>
                 </div>
                 <div class="mt-6 flex justify-between">
-                    <div>
-                        <button id="btn-base" class="bg-blue-500 text-white px-4 py-2 rounded font-medium">Escenario Base</button>
-                        <button id="btn-optimista" class="bg-green-500 text-white px-4 py-2 rounded font-medium ml-2">Optimista</button>
-                        <button id="btn-conservador" class="bg-yellow-500 text-white px-4 py-2 rounded font-medium ml-2">Conservador</button>
-                    </div>
+                    <!-- Eliminados botones de escenario -->
                     <button id="btn-recalcular" class="bg-indigo-600 text-white px-4 py-2 rounded font-medium"> 🔄  Recalcular Modelo</button>
                 </div>
                 <div id="error-messages" class="mt-4"></div>
@@ -512,7 +508,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             setupTabs();
             setupControls();
-            setupScenarios();
+            // Eliminados setupScenarios();
             initializeCharts();
             calculateFinancials(); // Cálculo inicial
             updateUI(); // Actualización inicial de la interfaz
@@ -563,9 +559,9 @@
                 { id: 'pd-etapa3', prop: 'pdEtapa3', format: v => v + '%' },
                 { id: 'margen-originacion', prop: 'margenOriginacion', format: v => v + '%' },
                 { id: 'comision-gnv', prop: 'comisionGNV', format: v => v + '%' },
-                { id: 'margen-refacciones', prop: 'margenRefacciones', format: v => v + '%' },
+                { id: 'margen-refacciones', prop: v => v + '%', prop: 'margenRefacciones', format: v => v + '%' }, // Corregido: Duplicidad de 'prop'
                 { id: 'opex-rate', prop: 'opexRate', format: v => v + '%' },
-                { id: 'enganche-cliente', prop: 'engancheCliente', format: v => (v/1000).toFixed(0) + 'K', parse: v => parseInt(v) }, // Nuevo enganche
+                { id: 'enganche-cliente', prop: 'engancheCliente', format: v => (v/1000).toFixed(0) + 'K', parse: v => parseInt(v) }, 
                 { id: 'serie-a', prop: 'serieA', format: v => (v/1000000).toFixed(0) + 'M', parse: v => parseInt(v) * 1000000 },
                 { id: 'venture-debt-pct', prop: 'ventureDebtPct', format: v => v + '%' },
                 { id: 'venture-debt-rate', prop: 'ventureDebtRate', format: v => v + '%' },
@@ -654,91 +650,13 @@
             }, 500); // Retraso de 500ms
         }
 
-        // ===== CONFIGURACIÓN DE ESCENARIOS PREDETERMINADOS =====
+        // ===== CONFIGURACIÓN DE ESCENARIOS PREDETERMINADOS (ELIMINADOS) =====
         function setupScenarios() {
-            const scenarios = {
-                base: {
-                    tasaInteres: 40.0, tasaMorosidad: 19.5, lgd: 80, pdEtapa2: 12, pdEtapa3: 30,
-                    proteccionRodando: true, margenOriginacion: 10, comisionGNV: 8, margenRefacciones: 25,
-                    opexRate: 15, ventureDebtPct: 70, ventureDebtRate: 12,
-                    unitsPerYear: [35, 70, 100, 150, 200], engancheCliente: 100000
-                },
-                optimista: {
-                    tasaInteres: 42.5, tasaMorosidad: 15, lgd: 70, pdEtapa2: 8, pdEtapa3: 20,
-                    proteccionRodando: true, margenOriginacion: 12, comisionGNV: 10, margenRefacciones: 28,
-                    opexRate: 14, ventureDebtPct: 75, ventureDebtRate: 10,
-                    unitsPerYear: [40, 80, 120, 180, 250], engancheCliente: 150000
-                },
-                conservador: {
-                    tasaInteres: 37.5, tasaMorosidad: 25, lgd: 90, pdEtapa2: 18, pdEtapa3: 45,
-                    proteccionRodando: false, margenOriginacion: 8, comisionGNV: 7, margenRefacciones: 22,
-                    opexRate: 18, ventureDebtPct: 65, ventureDebtRate: 14,
-                    unitsPerYear: [30, 60, 80, 120, 150], engancheCliente: 100000
-                }
-            };
-            // Asignar listeners a los botones de escenario
-            document.getElementById('btn-base').addEventListener('click', () => applyScenario(scenarios.base));
-            document.getElementById('btn-optimista').addEventListener('click', () => applyScenario(scenarios.optimista));
-            document.getElementById('btn-conservador').addEventListener('click', () => applyScenario(scenarios.conservador));
+            // Esta función ha sido eliminada según la solicitud del usuario.
+            // Los escenarios se manejan directamente ajustando los controles.
         }
 
-        // Aplica un escenario guardado a los datos del modelo
-        function applyScenario(scenario) {
-            Object.keys(scenario).forEach(key => {
-                if (modelData.hasOwnProperty(key)) {
-                    modelData[key] = scenario[key];
-                }
-            });
-            updateControlsUI(); // Actualizar los elementos de la UI con los nuevos valores del modelo
-            calculateFinancials();
-            updateUI();
-        }
-
-        // Actualiza el estado visual de los controles de la UI según modelData
-        function updateControlsUI() {
-            // Actualizar controles deslizantes
-            const sliders = [
-                { id: 'tasa-interes', prop: 'tasaInteres', format: v => v.toFixed(1) + '%' },
-                { id: 'tasa-morosidad', prop: 'tasaMorosidad', format: v => v + '%' },
-                { id: 'lgd', prop: 'lgd', format: v => v + '%' },
-                { id: 'pd-etapa2', prop: 'pdEtapa2', format: v => v + '%' },
-                { id: 'pd-etapa3', prop: 'pdEtapa3', format: v => v + '%' },
-                { id: 'margen-originacion', prop: 'margenOriginacion', format: v => v + '%' },
-                { id: 'comision-gnv', prop: 'comisionGNV', format: v => v + '%' },
-                { id: 'margen-refacciones', prop: 'margenRefacciones', format: v => v + '%' },
-                { id: 'opex-rate', prop: 'opexRate', format: v => v + '%' },
-                { id: 'enganche-cliente', prop: 'engancheCliente', format: v => (v/1000).toFixed(0) + 'K' },
-                { id: 'serie-a', prop: 'serieA', format: v => (v/1000000).toFixed(0) + 'M' },
-                { id: 'venture-debt-pct', prop: 'ventureDebtPct', format: v => v + '%' },
-                { id: 'venture-debt-rate', prop: 'ventureDebtRate', format: v => v + '%' },
-                { id: 'amortizacion-deuda', prop: 'amortizacionDeuda', format: v => v + ' años' },
-                { id: 'tasa-reposicion', prop: 'tasaReposicion', format: v => v + '%' },
-                { id: 'fair-value', prop: 'fairValue', format: v => v + '%' },
-                { id: 'costos-venta', prop: 'costosVenta', format: v => v + '%' }
-            ];
-            sliders.forEach(config => {
-                const slider = document.getElementById(config.id);
-                const display = document.getElementById(`${config.id}-valor`);
-                if (slider && display) {
-                    slider.value = modelData[config.prop];
-                    display.textContent = config.format(modelData[config.prop]);
-                }
-            });
-
-            // Actualizar campos numéricos
-            document.getElementById('costo-vagoneta').value = modelData.costoVagoneta;
-            document.getElementById('precio-financiado').value = modelData.precioFinanciado;
-
-            // Actualizar unidades por año
-            for (let year = 1; year <= 5; year++) {
-                const input = document.getElementById(`unit-year-${year}`);
-                if (input) {
-                    input.value = modelData.unitsPerYear[year-1];
-                }
-            }
-            // Actualizar checkbox
-            document.getElementById('check-proteccion').checked = modelData.proteccionRodando;
-        }
+        // Función applyScenario eliminada, ya no es necesaria.
 
         // ===== LÓGICA FINANCIERA PRINCIPAL (NIIF COMPLIANT) =====
         function calculateFinancials() {
@@ -762,14 +680,15 @@
             let accumulatedEarnings = 0; // Utilidades retenidas (parte del patrimonio)
             let cash = 0; // Saldo de efectivo
             let currentProvisionsBalance = 0; // Saldo acumulado de provisiones (NIIF 9)
-            
+            let currentTotalOriginalAssetsCost = 0; // Costo bruto acumulado de activos fijos en balance
+            let currentTotalAccumulatedDepreciationBS = 0; // Depreciación acumulada para el balance
+
             // Arrays para calcular TIR
             const projectCashFlows = []; // Flujos para TIR del proyecto (inversión de equity + Flujo Neto)
             const portfolioCashFlows = []; // Flujos para TIR de la cartera (desembolsos + ingresos por intereses y capital)
 
             // Tracking de activos fijos para depreciación
-            let assetsInService = []; // [{ cost, units, remainingLife, originalYear }]
-            let totalOriginalFixedAssetsCost = 0; // Costo original acumulado de todos los activos en servicio
+            let assetsInService = []; // [{ cost, units, remainingLife, originalYear, accumulatedDepreciationForThisCohort }]
 
             // Pre-cálculo del monto real del préstamo al cliente
             const loanAmountPerUnit = modelData.precioFinanciado - modelData.engancheCliente;
@@ -780,20 +699,8 @@
             
             // === Año 0: Inversión Inicial ===
             const initialEquityInjection = modelData.serieA; // Inyección inicial de equity
-            let initialVentureDebt = initialEquityInjection * (modelData.ventureDebtPct / 100); // Venture Debt inicial asociado a Serie A
             
-            cash = initialEquityInjection + initialVentureDebt; // Efectivo inicial
-
-            // Registrar el primer tramo de deuda venture
-            if (initialVentureDebt > 0) {
-                financialResults.ventureDebtTranches.push({
-                    originalAmount: initialVentureDebt,
-                    remainingPrincipal: initialVentureDebt,
-                    interestRate: modelData.ventureDebtRate,
-                    term: modelData.amortizacionDeuda,
-                    originalYear: 0 // Año 0
-                });
-            }
+            cash = initialEquityInjection; // Efectivo inicial es solo la inyección de Serie A
 
             // Flujo de efectivo para TIR del proyecto - Inversión inicial del inversionista de equity
             projectCashFlows.push(-initialEquityInjection); 
@@ -805,7 +712,7 @@
 
                 // --- CAPEX y Activos Fijos ---
                 const capexThisYear = addedUnits * modelData.costoVagoneta;
-                totalOriginalFixedAssetsCost += capexThisYear; // Acumular costo original
+                currentTotalOriginalAssetsCost += capexThisYear; // Acumular costo original de activos fijos
 
                 // Añadir nuevas vagonetas al registro de activos en servicio para depreciación
                 if (addedUnits > 0) {
@@ -813,34 +720,49 @@
                         cost: modelData.costoVagoneta, // Costo por unidad
                         units: addedUnits, // Cantidad de unidades en esta cohorte
                         remainingLife: modelData.depreciationYears,
-                        originalYear: currentYear // Año en que se puso en servicio
+                        originalYear: currentYear, // Año en que se puso en servicio
+                        accumulatedDepreciationForThisCohort: 0 // Inicializar
                     });
                 }
 
                 // Calcular Depreciación Anual (NIIF: Método lineal)
                 let annualDepreciation = 0;
-                let totalAccumulatedDepreciationBS = 0; // Para el Balance General
-                
+                let repossessedUnitsThisYear = 0;
+                let repossessedCarryingAmount = 0;
+
+                // Primero, identificar unidades a reposesionar (por simplicidad, del total de unidades activas)
+                if (totalActiveUnits > 0) { // totalActiveUnits se calcula más abajo, hay que mover esta lógica
+                    repossessedUnitsThisYear = addedUnits * (modelData.tasaReposicion / 100);
+                    // Para simplificar, asumimos que las reposesionadas tienen 1 año de depreciación en promedio.
+                    const costPerRepossessed = modelData.costoVagoneta;
+                    const depPerRepossessed = (modelData.costoVagoneta / modelData.depreciationYears) * Math.min(currentYear, 1); // Asumimos un año de depreciación
+                    repossessedCarryingAmount = repossessedUnitsThisYear * (costPerRepossessed - depPerRepossessed);
+
+                    // Restar el costo original y la depreciación acumulada de las unidades reposesionadas de los totales brutos.
+                    currentTotalOriginalAssetsCost -= (repossessedUnitsThisYear * costPerRepossessed);
+                    currentTotalAccumulatedDepreciationBS -= (repossessedUnitsThisYear * depPerRepossessed);
+                }
+
+
                 // Actualizar la vida útil y calcular depreciación para cada cohorte de activos
                 assetsInService = assetsInService.filter(asset => {
+                    // Solo depreciar si el activo aún tiene vida útil y no ha sido reposesionado (simplificación aquí)
                     if (asset.remainingLife > 0) {
                         const depreciationForThisAssetCohort = (asset.cost / modelData.depreciationYears) * asset.units;
                         annualDepreciation += depreciationForThisAssetCohort;
                         asset.remainingLife--; // Reducir vida útil restante
 
-                        // Calcular depreciación acumulada para balance sheet
-                        const yearsDepreciated = modelData.depreciationYears - asset.remainingLife;
-                        totalAccumulatedDepreciationBS += (asset.cost * yearsDepreciated / modelData.depreciationYears) * asset.units;
-
+                        asset.accumulatedDepreciationForThisCohort += depreciationForThisAssetCohort; // Acumular para esta cohorte
                         return true; // Mantener el activo si aún tiene vida útil
                     }
                     return false; // Remover el activo si ya se depreció por completo
                 });
+                // Actualizar la depreciación acumulada total para el balance general
+                currentTotalAccumulatedDepreciationBS += annualDepreciation; // Sumar la depreciación del periodo
+
 
                 // --- Deuda Venture y Capital Calls ---
-                // Determinar el financiamiento de CAPEX: % Venture Debt y % Equity (Capital Call)
-                // El venture debt del año 0 es una inyección inicial, no asociada al CAPEX del año 1.
-                // Aquí calculamos la nueva deuda venture para el CAPEX del año actual.
+                // La Nueva Deuda Venture y Capital Calls se asocian al CAPEX del año actual (a partir del Año 1)
                 const newVentureDebtAmountForCapex = capexThisYear * (modelData.ventureDebtPct / 100);
                 const newCapitalCall = capexThisYear * (1 - modelData.ventureDebtPct / 100);
 
@@ -859,17 +781,17 @@
                 let ventureDebtInterestExpense = 0;
                 let totalCurrentDebtBalance = 0; // Para el balance general
 
-                // Amortizar cada tramo de deuda venture (incluido el inicial del Año 0)
+                // Amortizar cada tramo de deuda venture
                 financialResults.ventureDebtTranches = financialResults.ventureDebtTranches.filter(tranche => {
-                    if (tranche.remainingPrincipal > 0 && tranche.term > 0) {
+                    if (tranche.remainingPrincipal > 0) { // Solo si aún hay principal pendiente
                         const annualInterest = tranche.remainingPrincipal * (tranche.interestRate / 100);
-                        const annualPrincipalPayment = tranche.originalAmount / tranche.term; // Amortización lineal
+                        // Amortización lineal sobre el término original del tramo
+                        const annualPrincipalPayment = tranche.originalAmount / tranche.term; 
 
                         ventureDebtInterestExpense += annualInterest;
-                        ventureDebtPrincipalPayment += annualPrincipalPayment;
+                        ventureDebtPrincipalPayment += Math.min(annualPrincipalPayment, tranche.remainingPrincipal); // No pagar más de lo que se debe
                         tranche.remainingPrincipal -= annualPrincipalPayment;
                         
-                        // Asegurarse de que el principal restante no sea negativo
                         if (tranche.remainingPrincipal < 0) {
                             tranche.remainingPrincipal = 0;
                         }
@@ -890,47 +812,43 @@
                 if (addedUnits > 0) {
                     financialResults.clientLoanCohorts.push({
                         units: addedUnits,
-                        originalLoanAmount: addedUnits * loanAmountPerUnit,
-                        remainingPrincipal: addedUnits * loanAmountPerUnit,
+                        originalLoanAmountPerUnit: loanAmountPerUnit, // Monto del préstamo por unidad
+                        remainingPrincipalPerUnit: loanAmountPerUnit, // Principal restante por unidad
                         interestRate: modelData.tasaInteres,
-                        term: 5, // Término de amortización del préstamo al cliente
+                        term: 5, // Término de amortización del préstamo al cliente (años)
                         originalYear: currentYear
                     });
                 }
                 
                 // Procesar cohortes de préstamos existentes
                 financialResults.clientLoanCohorts = financialResults.clientLoanCohorts.filter(cohort => {
-                    if (cohort.remainingPrincipal > 0 && cohort.term > 0) {
-                        const annualInterest = cohort.remainingPrincipal * (cohort.interestRate / 100);
-                        const annualPrincipalPayment = cohort.originalLoanAmount / cohort.term; // Amortización lineal
+                    if (cohort.remainingPrincipalPerUnit > 0 && cohort.term > 0) {
+                        const annualInterestPerUnit = cohort.remainingPrincipalPerUnit * (cohort.interestRate / 100);
+                        const annualPrincipalPaymentPerUnit = cohort.originalLoanAmountPerUnit / cohort.term; 
 
-                        interestRevenue += annualInterest;
-                        clientPrincipalPayments += annualPrincipalPayment;
-                        cohort.remainingPrincipal -= annualPrincipalPayment;
+                        interestRevenue += annualInterestPerUnit * cohort.units;
+                        clientPrincipalPayments += annualPrincipalPaymentPerUnit * cohort.units;
                         
-                        // Asegurarse de que el principal restante no sea negativo
-                        if (cohort.remainingPrincipal < 0) {
-                            cohort.remainingPrincipal = 0;
+                        cohort.remainingPrincipalPerUnit -= annualPrincipalPaymentPerUnit;
+                        
+                        if (cohort.remainingPrincipalPerUnit < 0) {
+                            cohort.remainingPrincipalPerUnit = 0;
                         }
-                        loanPortfolioBalance += cohort.remainingPrincipal;
+                        loanPortfolioBalance += cohort.remainingPrincipalPerUnit * cohort.units;
                         return true; // Mantener la cohorte si aún tiene saldo
                     }
                     return false; // Eliminar la cohorte si está completamente amortizado
                 });
-
+                
                 // --- INGRESOS ADICIONALES (NIIF 15) ---
                 // Margen por Originación: Reconocido 100% upfront en el año de formalización (NIIF 15)
                 const margenOriginacionUpfront = addedUnits * modelData.precioFinanciado * (modelData.margenOriginacion / 100);
                 
-                // Comisiones GNV: Basado en unidades acumuladas (suma de todas las unidades en cohortes de préstamo activas)
-                let totalActiveUnits = financialResults.clientLoanCohorts.reduce((sum, cohort) => sum + cohort.units, 0);
-                const gnvCommissions = totalActiveUnits * modelData.gnvRevPerUnit * (modelData.comisionGNV / 100);
-                
-                // Ingresos por Refacciones: Basado en unidades añadidas (se asocia a la venta inicial) * ingreso por unidad * margen
+                // Comisiones GNV y Marketplace: Basado en unidades activas en la cartera (no solo las añadidas este año)
+                let totalActiveUnitsInPortfolio = financialResults.clientLoanCohorts.reduce((sum, cohort) => sum + cohort.units, 0);
+                const gnvCommissions = totalActiveUnitsInPortfolio * modelData.gnvRevPerUnit * (modelData.comisionGNV / 100);
                 const sparePartsRevenue = addedUnits * modelData.refaccionesRevPerUnit * (modelData.margenRefacciones / 100);
-                
-                // Ingresos por Marketplace: Basado en unidades acumuladas (suma de todas las unidades en cohortes de préstamo activas)
-                const marketplaceRevenue = totalActiveUnits * modelData.marketplaceRevPerUnit * modelData.marketplace;
+                const marketplaceRevenue = totalActiveUnitsInPortfolio * modelData.marketplaceRevPerUnit * modelData.marketplace;
 
                 const totalRevenue = interestRevenue + margenOriginacionUpfront + gnvCommissions + sparePartsRevenue + marketplaceRevenue;
 
@@ -939,10 +857,10 @@
 
                 // --- PROVISIONES NIIF 9 (MODELO DE 3 ETAPAS) ---
                 // Las provisiones se calculan sobre el saldo total de la cartera (Cuentas por Cobrar)
-                // La tasa de morosidad ahora sí impacta aquí.
-                const exposureStage1 = loanPortfolioBalance * 0.6; // 60% en etapa 1 (menos de 1 año)
-                const exposureStage2 = loanPortfolioBalance * 0.25; // 25% en etapa 2 (1-3 años)
-                const exposureStage3 = loanPortfolioBalance * 0.15; // 15% en etapa 3 (más de 3 años / deteriorado)
+                // Estas variables ahora SÍ tienen impacto.
+                const exposureStage1 = loanPortfolioBalance * 0.6; 
+                const exposureStage2 = loanPortfolioBalance * 0.25; 
+                const exposureStage3 = loanPortfolioBalance * 0.15; 
                 
                 // Calcular pérdidas esperadas (Expected Credit Loss - ECL)
                 const eclStage1 = exposureStage1 * (modelData.tasaMorosidad / 100) * (modelData.lgd / 100);
@@ -961,23 +879,8 @@
 
 
                 // --- NIIF 5: Activos No Corrientes Mantenidos para la Venta ---
-                // Vagonetas reposesionadas (asociadas a las unidades añadidas en el año)
-                const repossessedUnits = addedUnits * (modelData.tasaReposicion / 100); 
-                
-                // Calcular el valor en libros de las unidades reposesionadas
-                // Asumimos que las vagonetas reposesionadas en el año N son de la cohorte del año N-X, y su depreciación es la correspondiente.
-                // Para simplificar, usamos un valor promedio de depreciación para estas unidades.
-                const carryingAmountPerRepossessedVan = modelData.costoVagoneta * (1 - ((currentYear-1) / modelData.depreciationYears)); // Asumimos 1 año de depreciación en promedio
-                const carryingAmountHeldForSale = repossessedUnits * carryingAmountPerRepossessedVan;
-                
-                // Valor razonable menos costos de venta
-                const fairValue = carryingAmountHeldForSale * (modelData.fairValue / 100);
-                const costsToSell = fairValue * (modelData.costosVenta / 100);
-                const fairValueLessCosts = fairValue - costsToSell;
-                
-                // Deterioro (Impairment) = Max(0, Valor en Libros - Valor Razonable Neto)
-                const impairment = Math.max(0, carryingAmountHeldForSale - fairValueLessCosts);
-                
+                const fairValueLessCosts = repossessedCarryingAmount * (modelData.fairValue / 100) * (1 - (modelData.costosVenta / 100));
+                const impairment = Math.max(0, repossessedCarryingAmount - fairValueLessCosts);
 
                 // --- Estado de Resultados (P&L) ---
                 const ebitda = totalRevenue - opex - provisions - impairment;
@@ -995,9 +898,7 @@
 
 
                 // --- Balance General (BS) ---
-                // Activos Fijos (Neto): Costo original acumulado - Depreciación acumulada - Activos Held for Sale
-                const fixedAssetsNet = totalOriginalFixedAssetsCost - totalAccumulatedDepreciationBS - carryingAmountHeldForSale;
-
+                const fixedAssetsNet = currentTotalOriginalAssetsCost - currentTotalAccumulatedDepreciationBS;
                 const totalAssets = cash + loanPortfolioBalance + fixedAssetsNet + fairValueLessCosts;
                 
                 const equity = initialEquityInjection + accumulatedEarnings; // Patrimonio = Capital Inicial + Utilidades Retenidas
@@ -1030,7 +931,7 @@
                     netCash,
                     newVentureDebt: newVentureDebtAmountForCapex, // Para mostrar en tabla
                     ventureDebtPrincipalPayment, // Para mostrar en tabla
-                    newCapitalCall // Para mostrar en tabla
+                    newCapitalCall // Para mostrar en tabla (es un ingreso para la empresa)
                 });
 
                 financialResults.bs.push({
@@ -1049,8 +950,6 @@
                 financialResults.niifDetails.push({
                     year: currentYear,
                     niif15: {
-                        // Para NIIF 15, `valorNominal` podría ser el ingreso por interés más el margen de originación
-                        // `valorPresente` sería el valor descontado de esos ingresos futuros
                         valorNominal: interestRevenue + margenOriginacionUpfront,
                         valorPresente: (interestRevenue + margenOriginacionUpfront) * 0.95, // Simplificación de valor presente
                         margenOriginacion: margenOriginacionUpfront
@@ -1063,17 +962,17 @@
                         proteccionRodando: modelData.proteccionRodando
                     },
                     niif5: {
-                        carryingAmount: carryingAmountHeldForSale,
+                        carryingAmount: repossessedCarryingAmount,
                         fairValue,
-                        costsToSell,
+                        costsToSell: fairValue * (modelData.costosVenta / 100), // Calcular con fairValue aquí
                         fairValueLessCosts,
                         impairment,
-                        unitsHeldForSale: repossessedUnits
+                        unitsHeldForSale: repossessedUnitsThisYear
                     }
                 });
 
-                // --- Flujos de Efectivo para TIR del Proyecto ---
-                // Los capital calls son un FLUJO DE SALIDA para el inversor de Equity
+                // --- Flujos de Efectivo para TIR del Proyecto (perspectiva del Inversionista de Equity) ---
+                // Esto es: Flujo de Caja Libre para la Empresa (NetCash) - Capital Calls (salida adicional de equity)
                 projectCashFlows.push(netCash - newCapitalCall);
 
                 // --- Flujos de Efectivo para TIR de la Cartera ---
@@ -1251,11 +1150,7 @@
                         // Flujos específicos del Año 0 (inversión inicial)
                         if (header === 'Capital Inicial Serie A') {
                             value = modelData.serieA;
-                        } else if (header === 'Nueva Deuda Venture') {
-                             value = modelData.serieA * (modelData.ventureDebtPct / 100);
-                        } else if (header === 'Pago Principal Venture Debt' || 
-                                   header === 'Capital Call' || header === 'Flujo Operativo' || 
-                                   header === 'Flujo Inversión' || header === 'Flujo Financiero' || header === 'Flujo Neto') {
+                        } else { // Para cualquier otro encabezado en Año 0, el valor es 0
                             value = 0; 
                         }
                     } else {
