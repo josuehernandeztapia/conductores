@@ -500,8 +500,8 @@
             niifDetails: [], // Detalles NIIF
             tirProyecto: 0, // TIR del proyecto
             tirCartera: 0, // TIR de la cartera de préstamos
-            loanPortfolios: [], // Seguimiento de saldos de préstamos por año
-            ventureDebtSchedule: [] // Calendario de amortización de la deuda venture
+            clientLoanCohorts: [], // Array para seguir cada cohorte de préstamos a clientes
+            ventureDebtTranches: [] // Array para seguir cada tramo de deuda venture
         };
 
         let charts = {}; // Objeto para almacenar las instancias de Chart.js
@@ -768,7 +768,7 @@
             const portfolioCashFlows = []; // Flujos para TIR de la cartera (desembolsos + ingresos por intereses y capital)
 
             // Tracking de activos fijos para depreciación
-            let assetsInService = []; // [{ id: 'unit-X-year-Y', cost, usefulLifeRemaining }]
+            let assetsInService = []; // [{ cost, units, remainingLife, originalYear }]
             let totalOriginalFixedAssetsCost = 0; // Costo original acumulado de todos los activos en servicio
 
             // Pre-cálculo del monto real del préstamo al cliente
@@ -779,12 +779,23 @@
             }
             
             // === Año 0: Inversión Inicial ===
-            // Serie A (Equity)
-            const initialEquityInjection = modelData.serieA;
-            cash = initialEquityInjection;
-            accumulatedEarnings = 0; // Año 0 no genera utilidades
+            const initialEquityInjection = modelData.serieA; // Inyección inicial de equity
+            let initialVentureDebt = initialEquityInjection * (modelData.ventureDebtPct / 100); // Venture Debt inicial asociado a Serie A
             
-            // Flujo de efectivo para TIR del proyecto - Inversión inicial es un egreso
+            cash = initialEquityInjection + initialVentureDebt; // Efectivo inicial
+
+            // Registrar el primer tramo de deuda venture
+            if (initialVentureDebt > 0) {
+                financialResults.ventureDebtTranches.push({
+                    originalAmount: initialVentureDebt,
+                    remainingPrincipal: initialVentureDebt,
+                    interestRate: modelData.ventureDebtRate,
+                    term: modelData.amortizacionDeuda,
+                    originalYear: 0 // Año 0
+                });
+            }
+
+            // Flujo de efectivo para TIR del proyecto - Inversión inicial del inversionista de equity
             projectCashFlows.push(-initialEquityInjection); 
 
             // === Bucle para Años 1 a 5 ===
@@ -828,14 +839,16 @@
 
                 // --- Deuda Venture y Capital Calls ---
                 // Determinar el financiamiento de CAPEX: % Venture Debt y % Equity (Capital Call)
-                const newVentureDebtAmount = capexThisYear * (modelData.ventureDebtPct / 100);
+                // El venture debt del año 0 es una inyección inicial, no asociada al CAPEX del año 1.
+                // Aquí calculamos la nueva deuda venture para el CAPEX del año actual.
+                const newVentureDebtAmountForCapex = capexThisYear * (modelData.ventureDebtPct / 100);
                 const newCapitalCall = capexThisYear * (1 - modelData.ventureDebtPct / 100);
 
-                // Añadir nuevo tramo de deuda venture si aplica
-                if (newVentureDebtAmount > 0) {
+                // Añadir nuevo tramo de deuda venture para CAPEX si aplica
+                if (newVentureDebtAmountForCapex > 0) {
                     financialResults.ventureDebtTranches.push({
-                        originalAmount: newVentureDebtAmount,
-                        remainingPrincipal: newVentureDebtAmount,
+                        originalAmount: newVentureDebtAmountForCapex,
+                        remainingPrincipal: newVentureDebtAmountForCapex,
                         interestRate: modelData.ventureDebtRate,
                         term: modelData.amortizacionDeuda,
                         originalYear: currentYear
@@ -846,7 +859,7 @@
                 let ventureDebtInterestExpense = 0;
                 let totalCurrentDebtBalance = 0; // Para el balance general
 
-                // Amortizar cada tramo de deuda venture
+                // Amortizar cada tramo de deuda venture (incluido el inicial del Año 0)
                 financialResults.ventureDebtTranches = financialResults.ventureDebtTranches.filter(tranche => {
                     if (tranche.remainingPrincipal > 0 && tranche.term > 0) {
                         const annualInterest = tranche.remainingPrincipal * (tranche.interestRate / 100);
@@ -869,8 +882,6 @@
 
 
                 // --- Cartera de Préstamos a Clientes (Cuentas por Cobrar) ---
-                // Cada "cohorte" de unidades financiadas representa un grupo de préstamos
-                // Calculamos interés y principal para cada cohorte activa
                 let interestRevenue = 0;
                 let clientPrincipalPayments = 0;
                 let loanPortfolioBalance = 0; // Saldo de cuentas por cobrar para el balance
@@ -928,6 +939,7 @@
 
                 // --- PROVISIONES NIIF 9 (MODELO DE 3 ETAPAS) ---
                 // Las provisiones se calculan sobre el saldo total de la cartera (Cuentas por Cobrar)
+                // La tasa de morosidad ahora sí impacta aquí.
                 const exposureStage1 = loanPortfolioBalance * 0.6; // 60% en etapa 1 (menos de 1 año)
                 const exposureStage2 = loanPortfolioBalance * 0.25; // 25% en etapa 2 (1-3 años)
                 const exposureStage3 = loanPortfolioBalance * 0.15; // 15% en etapa 3 (más de 3 años / deteriorado)
@@ -976,7 +988,7 @@
                 // --- Flujo de Efectivo (CF) ---
                 const operatingCash = netIncome + annualDepreciation + provisions + impairment; // Ajustes para obtener FCO
                 const investingCash = -capexThisYear; // Egreso por CAPEX
-                const financingCash = newVentureDebtAmount - ventureDebtPrincipalPayment + newCapitalCall; // Flujos de deuda y equity
+                const financingCash = newVentureDebtAmountForCapex - ventureDebtPrincipalPayment + newCapitalCall; // Flujos de deuda y equity
 
                 const netCash = operatingCash + investingCash + financingCash;
                 cash += netCash; // Actualizar saldo de efectivo
@@ -1016,7 +1028,7 @@
                     investingCash,
                     financingCash,
                     netCash,
-                    newVentureDebt: newVentureDebtAmount, // Para mostrar en tabla
+                    newVentureDebt: newVentureDebtAmountForCapex, // Para mostrar en tabla
                     ventureDebtPrincipalPayment, // Para mostrar en tabla
                     newCapitalCall // Para mostrar en tabla
                 });
@@ -1061,13 +1073,10 @@
                 });
 
                 // --- Flujos de Efectivo para TIR del Proyecto ---
-                // Aquí el projectCashFlows ya incluye la inversión inicial como primer elemento.
-                // Los elementos siguientes son el NetCash de cada año.
-                projectCashFlows.push(netCash);
+                // Los capital calls son un FLUJO DE SALIDA para el inversor de Equity
+                projectCashFlows.push(netCash - newCapitalCall);
 
                 // --- Flujos de Efectivo para TIR de la Cartera ---
-                // La TIR de Cartera considera los desembolsos de los préstamos
-                // y los ingresos por intereses y principal de esos préstamos.
                 const portfolioNetCashFlow = (interestRevenue + clientPrincipalPayments) - (addedUnits * loanAmountPerUnit);
                 portfolioCashFlows.push(portfolioNetCashFlow); 
             } // Fin del bucle anual
@@ -1242,12 +1251,12 @@
                         // Flujos específicos del Año 0 (inversión inicial)
                         if (header === 'Capital Inicial Serie A') {
                             value = modelData.serieA;
-                        } else if (header === 'Nueva Deuda Venture' || header === 'Pago Principal Venture Debt' || 
+                        } else if (header === 'Nueva Deuda Venture') {
+                             value = modelData.serieA * (modelData.ventureDebtPct / 100);
+                        } else if (header === 'Pago Principal Venture Debt' || 
                                    header === 'Capital Call' || header === 'Flujo Operativo' || 
                                    header === 'Flujo Inversión' || header === 'Flujo Financiero' || header === 'Flujo Neto') {
-                            value = 0; // Estos flujos inician en Año 1, o se capturan de forma diferente para Año 0
-                            // Note: La inversión inicial de Serie A es un "Flujo Financiero" para la empresa.
-                            // Para el cálculo de TIR Proyecto, se maneja como un egreso inicial.
+                            value = 0; 
                         }
                     } else {
                         const idx = year - 1; // Índice para arrays de resultados (0 a 4)
@@ -1261,7 +1270,6 @@
                                 case 'Nueva Deuda Venture': value = financialResults.cf[idx].newVentureDebt; break;
                                 case 'Pago Principal Venture Debt': value = -financialResults.cf[idx].ventureDebtPrincipalPayment; break; // Negativo porque es un pago
                                 case 'Capital Call': value = financialResults.cf[idx].newCapitalCall; break; // Es un ingreso para la empresa
-                                // Otros conceptos no aplican directamente a CF anual después del año 0
                                 default: value = 0; break;
                             }
                         }
