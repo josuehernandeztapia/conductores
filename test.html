@@ -1093,7 +1093,6 @@
                         currentYearCashFromOrigination = downPaymentReceived + upfrontCommissionReceived;
 
                         netLoanPrincipal = newCohortGrossPrincipal - downPaymentReceived;
-                        // totalPrincipalOriginatedAcrossAllYears += netLoanPrincipal; // Esto es para TIR Cartera global, ya no necesario aquí
 
                         const monthlyInterestRateClient = (modelData.tasaInteres / 100) / 12;
                         const totalPaymentsMonthsClient = modelData.clientLoanTermYears * 12;
@@ -1426,16 +1425,28 @@
                     });
                     
                     // --- FLUJO PARA TIR CARTERA ---
-                    // Cash flow para la cartera en este año: principal desembolsado (negativo) + pagos de intereses y principal (positivo)
-                    // Las provisiones no son un flujo de caja directo, por lo que no se incluyen aquí.
-                    let portfolioCashFlowThisYear = (annualInterestReceived + annualPrincipalReceived);
-                    if (addedUnits > 0) { // Si hay nuevas unidades, hay desembolso de principal
-                        portfolioCashFlowThisYear -= netLoanPrincipal;
+                    // Calcular flujos de cartera con lógica correcta
+                    let portfolioCashFlowThisYear = 0;
+                    // Inflows: Solo pagos reales de clientes (intereses + principal)
+                    portfolioCashFlowThisYear += annualInterestReceived + annualPrincipalReceived;
+                    // Outflows: Desembolsos netos en año de originación
+                    if (addedUnits > 0) {
+                        // Desembolso real: netLoanPrincipal (ya neto del down payment)
+                        portfolioCashFlowThisYear -= netLoanPrincipal;        
+                        // NO sumar down payment (ya está neteado del desembolso)
+                        // NO sumar upfront fees (son ingresos operativos, no de cartera)
                     }
-                    portfolioCashFlows.push(portfolioCashFlowThisYear); // Añade el flujo neto de cartera del año
-                    
-                    // Flujo para TIR Equity (FCFE ANTES de inyecciones de capital Serie B/C y plug de liquidez)
-                    const fcfeForTIR = operatingCash + investingCash + (currentYearVentureDebtDraw - principalPaymentVentureDebtThisPeriod);
+                    // Outflows: Costos reales de la cartera
+                    portfolioCashFlowThisYear -= provisions; // Costo de riesgo de crédito
+                    portfolioCashFlowThisYear -= (impairment * 0.5); // Proporción de deterioro atribuible a cartera
+                    portfolioCashFlows.push(portfolioCashFlowThisYear);
+
+                    // --- FLUJO PARA TIR EQUITY (FCFE) ---
+                    // Flujo para TIR Equity: EBITDA-based approach más realista
+                    // nopat ya está declarado como const más arriba, usarlo directamente
+                    const capexFinancedByDebt = capexThisYear * (totalDebt / (totalDebt + endOfYearEquity + 1)); // Evitar div/0
+                    const netCapexForEquity = capexThisYear - capexFinancedByDebt;
+                    const fcfeForTIR = nopat + annualDepreciation + impairment - netCapexForEquity - deltaReceivables + deltaContractLiabilities + currentYearVentureDebtDraw - principalPaymentVentureDebtThisPeriod;
                     equityCashFlows.push(fcfeForTIR);
 
                     // Flujo para TIR Proyecto (FCFF)
@@ -1452,8 +1463,13 @@
                 projectCashFlows[projectCashFlows.length - 1] += terminalValueProject; 
                 log(` Valor Terminal de Activos (Año 5) para TIR Proyecto: ${formatCurrency(terminalValueProject)}`);
 
-                // Valor terminal para TIR Equity (1.2x del Patrimonio Año 5)
-                const terminalValueEquity = financialResults.bs[4].equity * 1.2;
+                // Valor terminal para TIR Equity (basado en múltiplo de EBITDA o book value)
+                const year5EBITDA = financialResults.pl[4].ebitda;
+                const ebitdaMultiple = 10; // Conservative fintech multiple
+                const terminalValueEquity = Math.max(
+                    year5EBITDA * ebitdaMultiple - financialResults.bs[4].debt, // Enterprise value minus debt
+                    financialResults.bs[4].equity * 2.5 // Minimum 2.5x book value
+                );
                 equityCashFlows[equityCashFlows.length - 1] += terminalValueEquity;
                 log(` Valor Terminal de Patrimonio (Año 5) para TIR Equity: ${formatCurrency(terminalValueEquity)}`);
 
@@ -1688,6 +1704,10 @@
                         if (value < 0) cell.classList.add('negative');
                     }
                     
+                    if (value === 0) { /* Ajuste para que los ceros sean visibles */
+                        cell.style.color = '#94a3b8'; /* slate-400 */
+                    }
+
                     if (row.total) cell.classList.add('font-bold');
                     tr.appendChild(cell);
                 });
@@ -1727,7 +1747,7 @@
                 { label: '  Serie A Recibida', year0: modelData.seriesA },
                 { label: '  Venture Debt Extraído', key: 'currentYearVentureDebtDraw', fromCF: true, positive: true },
                 { label: '  Serie B Funding Recibido', key: 'seriesB_funding', fromModelData: true, yearSpecific: true },
-                { label: '  Serie C Funding Recibido', key: 'seriesC_funding', fromModelData: true, yearSpecific: true },
+                { label: '  Serie C Funding Recibido', fromModelData: true, yearSpecific: true },
                 { label: '  - Pago Capital Venture Debt', key: 'principalPaymentVentureDebt', negative: true },
                 { label: '  + Funding Adicional (Plug de Liquidez)', key: 'additionalFundingRaised', positive: true },
                 { label: 'TOTAL FLUJO DE EFECTIVO DE FINANCIACIÓN', key: 'financingCash', total: true, emphasize: true, duplicate: true },
@@ -1802,6 +1822,10 @@
                         if (value < 0) cell.classList.add('negative');
                     }
                     
+                    if (value === 0) { /* Ajuste para que los ceros sean visibles */
+                        cell.style.color = '#94a3b8'; /* slate-400 */
+                    }
+
                     if (row.total) cell.classList.add('font-bold');
                     tr.appendChild(cell);
                 }
@@ -1867,6 +1891,9 @@
                     if (value > 0 && !row.negative) cell.classList.add('positive');
                     if (value < 0) cell.classList.add('negative');
                     cell.textContent = formatCurrency(value);
+                    if (value === 0) { /* Ajuste para que los ceros sean visibles */
+                        cell.style.color = '#94a3b8'; /* slate-400 */
+                    }
                     if (row.total) cell.classList.add('font-bold');
                     tr.appendChild(cell);
                 });
@@ -2040,7 +2067,7 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                             <div class="p-4 bg-purple-950 rounded-lg text-center text-purple-200">
                                 <h5 class="font-semibold text-purple-400">Unidades Reposadas (Año 5)</h5>
-                                <p class="text-xl font-bold">${year5NIIF5.unidadesClasificadasAnuales.toFixed(0)}</p>
+                                <p class="text-xl font-bold">${formatCurrency(year5NIIF5.unidadesClasificadasAnuales.toFixed(0))}</p>
                                 <p class="text-sm">Unidades reclasificadas como mantenidas para venta este año.</p>
                             </div>
                             <div class="p-4 bg-indigo-950 rounded-lg text-center text-indigo-200">
@@ -2053,7 +2080,7 @@
                                 <p class="text-xl font-bold">${formatCurrency(year5NIIF5.valorRazonableMenosCostos)}</p>
                                 <p class="text-sm">Valor de venta esperado menos costos de venta.</p>
                             </div>
-                            <div class="p-4 ${year5NIIF5.perdidaPorDeterioro > 0 ? 'bg-red-950 text-red-200' : 'bg-emerald-950 text-emerald-200'} rounded-lg">
+                            <div class="p-4 ${year5NIIF5.perdidaPorDeterioro > 0 ? 'bg-rose-950 text-rose-200' : 'bg-emerald-950 text-emerald-200'} rounded-lg">
                                 <h5 class="font-semibold ${year5NIIF5.perdidaPorDeterioro > 0 ? 'text-rose-400' : 'text-emerald-400'}">Pérdida por Deterioro (Año 5)</h5>
                                 <p class="text-xl font-bold">${year5NIIF5.perdidaPorDeterioro > 0 ? formatCurrency(year5NIIF5.perdidaPorDeterioro) : 'Ninguna'}</p>
                                 <p class="text-sm">Impacto en el Estado de Resultados por la reclasificación.</p>
@@ -2437,7 +2464,7 @@
                 } else if (['refaccionesRevPerUnit', 'litrosPromedioMensualPorUnidad', 'precioLitroGNV', 'gmvPromedioMensualPorUnidad'].includes(config.id)) {
                     otherRevenueContainer.appendChild(div);
                 } else {
-                    constantsContainer.appendChild(div); // Default container for generic constants
+                    operationsDebtContainer.appendChild(div); // Default container for generic constants
                 }
 
                 const input = div.querySelector(`#${config.id}-input`);
@@ -3064,7 +3091,7 @@
                 log(`✅ Test NIIF 15 (Origination/Upfront): Pasado. Reconocido: ${formatCurrency(niif15Result2.recognizedOriginationRevenue)}`);
                 // Also check remaining liability
                 if (Math.abs(testLoanCohort[0].remainingOriginationCommission) < 0.01 && Math.abs(testLoanCohort[0].remainingUpfrontLiability) < 0.01) {
-                    log(`✅ Test NIIF 15 (Origination/Upfront Liabilities): Pasado. Pasivos residuales son cero.`);
+                    log(`✅ Test NIIF 15 (Origination/Upfront Liabilities): Falló. Pasivos residuales son cero.`);
                 } else {
                     log(`❌ Test NIIF 15 (Origination/Upfront Liabilities): Falló. Pasivos residuales no son cero.`);
                 }
