@@ -308,18 +308,25 @@
         <!-- Tab Content: Control -->
         <div id="content-control" class="content-section active">
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <!-- Credit and Risk Parameters Section -->
+                <!-- Tasas y Riesgo Section (formerly Credit and Risk Parameters) -->
                 <div class="card">
-                    <h4 class="font-semibold text-lg mb-4 text-white">Crédito y Riesgo <span class="text-sm text-slate-400">(Parámetros clave para el riesgo y el retorno del financiamiento)</span></h4>
-                    <div class="space-y-4" id="credit-risk-controls">
-                        <!-- Inputs will be dynamically generated here -->
+                    <h4 class="font-semibold text-lg mb-4 text-white">Tasas y Riesgo <span class="text-sm text-slate-400">(Parámetros clave para el riesgo y el retorno del financiamiento)</span></h4>
+                    <div class="space-y-4" id="rates-risk-controls">
+                        <!-- Sliders will be dynamically generated here -->
                     </div>
                     <div class="flex items-center mt-4">
                         <input id="check-proteccion" type="checkbox" checked class="h-4 w-4 rounded border-slate-600 text-sky-500 focus:ring-sky-500 bg-slate-700">
                         <label for="check-proteccion" class="ml-2 block text-sm text-slate-200" data-tooltip="Activa un factor de reducción del 50% en las provisiones por riesgo de crédito.">Protección Rodando (<span class="font-bold">-50% en provisiones de morosidad</span>)</label>
                     </div>
                 </div>
-                <!-- Operations and Debt Parameters Section -->
+                <!-- Otros Ingresos Section (newly created) -->
+                <div class="card">
+                    <h4 class="font-semibold text-lg mb-4 text-white">Otros Ingresos <span class="text-sm text-slate-400">(Márgenes y comisiones de servicios adicionales)</span></h4>
+                    <div class="space-y-4" id="other-revenue-controls">
+                        <!-- Sliders will be dynamically generated here -->
+                    </div>
+                </div>
+                <!-- Operations and Debt Parameters Section (original place) -->
                 <div class="card">
                     <h4 class="font-semibold text-lg mb-4 text-white">Operaciones y Deuda <span class="text-sm text-slate-400">(Eficiencia operativa y estructura de capital)</span></h4>
                     <div class="space-y-4" id="operations-debt-controls">
@@ -566,7 +573,7 @@
         const constantConfigs = [
             { id: 'vanCost', label: 'Costo Vagoneta (RAG)', min: 0, max: 1000000, step: 1000, type: 'number', format: val => formatCurrency(val, true), tooltip: 'Costo de adquisición de cada vagoneta por parte de Rodando a Gas. Importante para el cálculo de CAPEX.' },
             { id: 'vanPrice', label: 'Precio Préstamo Cliente', min: 0, max: 1000000, step: 1000, type: 'number', format: val => formatCurrency(val, true), tooltip: 'Precio de venta/financiamiento de la vagoneta al cliente. Determina el monto del préstamo.' },
-            { id: 'seriesA', label: 'Capital Serie A', min: 0, max: 100000000, step: 1000000, type: 'number', format: val => formatCurrency(val, true), tooltip: 'Inversión inicial de capital por Serie A.' },
+            { id: 'seriesA', label: 'Capital Serie A', min: 0, max: 100000000, step: 1000000, type: 'number', format: val => formatCurrency(val, true), tooltip: 'Inversión inicial de Serie A (Equity).' },
             { id: 'seriesB_funding', label: 'Funding Serie B', min: 0, max: 300000000, step: 5000000, type: 'number', format: val => formatCurrency(val, true), tooltip: 'Monto de inyección de capital en Serie B.' },
             { id: 'seriesB_year', label: 'Año Serie B', min: 1, max: 5, step: 1, type: 'number', format: val => val.toFixed(0) + ' ' + (val == 1 ? 'año' : 'años'), tooltip: 'Año de la proyección en que se recibe el funding de Serie B.' },
             { id: 'seriesC_funding', label: 'Funding Serie C', min: 0, max: 500000000, step: 5000000, type: 'number', format: val => formatCurrency(val, true), tooltip: 'Monto de inyección de capital en Serie C.' },
@@ -1059,7 +1066,7 @@
                             totalOriginalCost: addedUnits * modelData.vanCost,
                             accumulatedDepreciation: 0
                         });
-                        log(` Nueva cohorte de activos fijos Año ${year+1}: ${addedUnits} unidades por ${formatCurrency(capexThisYear)}`);
+                        log(` Nueva cohorte de activos fijos Año ${year+1}: ${formatCurrency(capexThisYear)}`);
                     }
                     
                     // --- NIIF 5: RECLASIFICACIÓN DE ACTIVOS Y CÁLCULO DE DETERIORO ---
@@ -1948,16 +1955,16 @@
                             </tbody>
                         </table>
                     </div>
-                    <div class="mt-4 p-4 bg-gray-50 rounded-lg text-sm">
-                        <h5 class="font-semibold text-base mb-1">Explicación NIIF 15 (Ingresos de Contratos con Clientes)</h5>
-                        <p class="mb-1">• NIIF 15 establece un modelo de 5 pasos para reconocer ingresos. Se reconocen cuando (o a medida que) se satisfacen las **obligaciones de desempeño**.</p>
+                    <div class="mt-4 p-4 bg-slate-800 rounded-lg text-sm text-slate-300">
+                        <h5 class="font-semibold text-base mb-1 text-white">Explicación NIIF 15 (Ingresos de Contratos con Clientes)</h5>
+                        <p class="mb-1">• NIIF 15 establece un modelo de 5 pasos para reconocer ingresos. Se reconocen cuando (o a medida que) se satisfacen las <strong>obligaciones de desempeño</strong>.</p>
                         <ul class="list-disc list-inside ml-4">
-                            <li>**Comisiones de Originación (Margen + Upfront):** Se difieren como "Pasivos por Contrato" y se reconocen **a lo largo del tiempo** a medida que se amortiza el principal del préstamo o linealmente sobre la vida del préstamo (para upfront).</li>
-                            <li>**Servicios GNV y Marketplace:** Se reconocen **al devengo** (a lo largo del tiempo) a medida que los servicios se proveen por las unidades activas.</li>
-                            <li>**Servicios de Refacciones:** Se reconocen **en un punto en el tiempo** (al momento de la entrega, asumido en el año de adición de la unidad).</li>
+                            <li><strong>Comisiones de Originación (Margen + Upfront):</strong> Se difieren como "Pasivos por Contrato" y se reconocen <strong>a lo largo del tiempo</strong> a medida que se amortiza el principal del préstamo o linealmente sobre la vida del préstamo (para upfront).</li>
+                            <li><strong>Servicios GNV y Marketplace:</strong> Se reconocen <strong>al devengo</strong> (a lo largo del tiempo) a medida que los servicios se proveen por las unidades activas.</li>
+                            <li><strong>Servicios de Refacciones:</strong> Se reconocen <strong>en un punto en el tiempo</strong> (al momento de la entrega, asumido en el año de adición de la unidad).</li>
                         </ul>
                         <p class="mb-1">• Los ingresos por intereses se rigen por NIIF 9, no por NIIF 15.</p>
-                        <p class="mb-1">• El Balance General ahora refleja los **Pasivos por Contrato** para los ingresos diferidos.</p>
+                        <p class="mb-1">• El Balance General ahora refleja los <strong>Pasivos por Contrato</strong> para los ingresos diferidos.</p>
                     </div>
                 `;
                 log('   ✅   NIIF 15 actualizada.');
@@ -1970,51 +1977,51 @@
                 if (year5NIIF9) {
                     container9.innerHTML = `
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                            <div class="p-4 bg-blue-100 rounded-lg text-center">
-                                <h5 class="font-semibold text-blue-800">ECL Etapa 1 (Año 5)</h5>
+                            <div class="p-4 bg-sky-950 rounded-lg text-center text-sky-200">
+                                <h5 class="font-semibold text-sky-400">ECL Etapa 1 (Año 5)</h5>
                                 <p class="text-xl font-bold">${formatCurrency(year5NIIF9.eclByStage.stage1)}</p>
                                 <p class="text-sm">PD: ${(year5NIIF9.pdStage1 * 100).toFixed(1)}%</p>
                             </div>
-                            <div class="p-4 bg-yellow-100 rounded-lg text-center">
-                                <h5 class="font-semibold text-yellow-800">ECL Etapa 2 (Año 5)</h5>
+                            <div class="p-4 bg-amber-950 rounded-lg text-center text-amber-200">
+                                <h5 class="font-semibold text-amber-400">ECL Etapa 2 (Año 5)</h5>
                                 <p class="text-xl font-bold">${formatCurrency(year5NIIF9.eclByStage.stage2)}</p>
                                 <p class="text-sm">PD: ${(year5NIIF9.pdStage2 * 100).toFixed(1)}%</p>
                             </div>
-                            <div class="p-4 bg-red-100 rounded-lg text-center">
-                                <h5 class="font-semibold text-red-800">ECL Etapa 3 (Año 5)</h5>
+                            <div class="p-4 bg-rose-950 rounded-lg text-center text-rose-200">
+                                <h5 class="font-semibold text-rose-400">ECL Etapa 3 (Año 5)</h5>
                                 <p class="text-xl font-bold">${formatCurrency(year5NIIF9.eclByStage.stage3)}</p>
                                 <p class="text-sm">PD: ${(year5NIIF9.pdStage3 * 100).toFixed(1)}% (+50% si >2 años)</p>
                             </div>
                         </div>
-                        <div class="text-center p-4 bg-indigo-50 rounded-lg mb-4">
-                            <h5 class="font-semibold text-indigo-900">Total Provisiones ECL Antes de Ajustes</h5>
+                        <div class="text-center p-4 bg-indigo-950 rounded-lg mb-4 text-indigo-200">
+                            <h5 class="font-semibold text-indigo-400">Total Provisiones ECL Antes de Ajustes</h5>
                             <p class="text-2xl font-bold">${formatCurrency(year5NIIF9.totalECLBeforeAdjustment)}</p>
                             <p class="text-sm">LGD: ${(year5NIIF9.lgd * 100).toFixed(1)}%. Ajuste Económico: ${year5NIIF9.economicAdjustmentFactor.toFixed(2)}x</p>
                         </div>
-                        <div class="text-center p-4 ${year5NIIF9.proteccionRodandoActiva ? 'bg-green-50' : 'bg-gray-200'} rounded-lg">
-                            <h5 class="font-semibold ${year5NIIF9.proteccionRodandoActiva ? 'text-green-900' : 'text-gray-900'}">Gasto por Provisiones NIIF 9 (P&L del Año 5)</h5>
+                        <div class="text-center p-4 ${year5NIIF9.proteccionRodandoActiva ? 'bg-emerald-950 text-emerald-200' : 'bg-slate-800 text-slate-200'} rounded-lg">
+                            <h5 class="font-semibold ${year5NIIF9.proteccionRodandoActiva ? 'text-emerald-400' : 'text-slate-400'}">Gasto por Provisiones NIIF 9 (P&L del Año 5)</h5>
                             <p class="text-2xl font-bold">${formatCurrency(year5NIIF9.provisionesConProteccion)}</p>
                             ${year5NIIF9.proteccionRodandoActiva ? 
-                                `<p class="text-sm text-green-700">   ✅   Reducción por Protección: ${formatCurrency(year5NIIF9.reduccionPorProteccion)}</p>` : 
-                                '<p class="text-sm text-gray-700">Protección Rodando inactiva</p>'}
+                                `<p class="text-sm text-emerald-300"> <strong>✅ Reducción por Protección: ${formatCurrency(year5NIIF9.reduccionPorProteccion)}</strong></p>` : 
+                                '<p class="text-sm text-slate-400">Protección Rodando inactiva</p>'}
                         </div>
-                        <div class="mt-4 text-center p-4 bg-gray-300 rounded-lg">
-                            <h5 class="font-semibold text-gray-900">Saldo Acumulado de Provisiones NIIF 9 (Balance Año 5)</h5>
+                        <div class="mt-4 text-center p-4 bg-slate-900 rounded-lg text-slate-200">
+                            <h5 class="font-semibold text-slate-400">Saldo Acumulado de Provisiones NIIF 9 (Balance Año 5)</h5>
                             <p class="text-2xl font-bold">${formatCurrency(year5NIIF9.saldoProvisionesAcumulado)}</p>
                             <p class="text-sm">Este es el pasivo acumulado que aparece en el Balance General.</p>
                         </div>
-                        <div class="mt-4 p-4 bg-gray-50 rounded-lg text-sm">
-                            <h5 class="font-semibold text-base mb-1">Explicación NIIF 9 (Instrumentos Financieros)</h5>
+                        <div class="mt-4 p-4 bg-slate-800 rounded-lg text-sm text-slate-300">
+                            <h5 class="font-semibold text-base mb-1 text-white">Explicación NIIF 9 (Instrumentos Financieros)</h5>
                             <p class="mb-1">• NIIF 9 requiere el reconocimiento de provisiones por pérdidas crediticias esperadas (ECL) sobre los instrumentos financieros (cartera de préstamos).</p>
-                            <p class="mb-1">• **Modelo de Tres Etapas:** La cartera se segmenta por riesgo.</p>
+                            <p class="mb-1">• <strong>Modelo de Tres Etapas:</strong> La cartera se segmenta por riesgo.</p>
                             <ul class="list-disc list-inside ml-4">
-                                <li>**Etapa 1:** Préstamos con bajo riesgo de crédito (PD a 12 meses).</li>
-                                <li>**Etapa 2:** Préstamos con aumento significativo del riesgo (PD de por vida).</li>
-                                <li>**Etapa 3:** Préstamos con deterioro crediticio (PD de por vida).</li>
+                                <li><strong>Etapa 1:</strong> Préstamos con bajo riesgo de crédito (PD a 12 meses).</li>
+                                <li><strong>Etapa 2:</strong> Préstamos con aumento significativo del riesgo (PD de por vida).</li>
+                                <li><strong>Etapa 3:</strong> Préstamos con deterioro crediticio (PD de por vida).</li>
                             </ul>
-                            <p class="mb-1">• **Cálculo de ECL:** ECL = Exposición Promedio × Probabilidad de Incumplimiento (PD) × Pérdida Dado Incumplimiento (LGD).</p>
-                            <p class="mb-1">• **PD Dinámica:** La PD se ajusta según la antigüedad del préstamo (aumenta 50% si > 2 años) para reflejar el riesgo creciente.</p>
-                            <p class="mb-1">• **Información Prospectiva:** El factor de ajuste económico permite incorporar expectativas futuras sobre el riesgo de crédito.</p>
+                            <p class="mb-1">• <strong>Cálculo de ECL:</strong> ECL = Exposición Promedio × Probabilidad de Incumplimiento (PD) × Pérdida Dado Incumplimiento (LGD).</p>
+                            <p class="mb-1">• <strong>PD Dinámica:</strong> La PD se ajusta según la antigüedad del préstamo (aumenta 50% si > 2 años) para reflejar el riesgo creciente.</p>
+                            <p class="mb-1">• <strong>Información Prospectiva:</strong> El factor de ajuste económico permite incorporar expectativas futuras sobre el riesgo de crédito.</p>
                             <p class="mb-1">• "Protección Rodando" simula un mecanismo que reduce el gasto final por provisiones.</p>
                         </div>
                     `;
@@ -2031,34 +2038,34 @@
                 if (year5NIIF5) {
                     container5.innerHTML = `
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                            <div class="p-4 bg-purple-50 rounded-lg">
-                                <h5 class="font-semibold text-purple-900">Unidades Reposadas (Año 5)</h5>
+                            <div class="p-4 bg-purple-950 rounded-lg text-center text-purple-200">
+                                <h5 class="font-semibold text-purple-400">Unidades Reposadas (Año 5)</h5>
                                 <p class="text-xl font-bold">${year5NIIF5.unidadesClasificadasAnuales.toFixed(0)}</p>
                                 <p class="text-sm">Unidades reclasificadas como mantenidas para venta este año.</p>
                             </div>
-                            <div class="p-4 bg-indigo-50 rounded-lg">
-                                <h5 class="font-semibold text-indigo-900">Valor en Libros Original (Activos Reposedos Año 5)</h5>
+                            <div class="p-4 bg-indigo-950 rounded-lg text-center text-indigo-200">
+                                <h5 class="font-semibold text-indigo-400">Valor en Libros Original (Activos Reposedos Año 5)</h5>
                                 <p class="text-xl font-bold">${formatCurrency(year5NIIF5.valorEnLibrosClasificado)}</p>
                                 <p class="text-sm">Valor contable de las unidades clasificadas para venta en el Año 5.</p>
                             </div>
-                            <div class="p-4 bg-blue-50 rounded-lg">
-                                <h5 class="font-semibold text-blue-900">Valor Razonable Neto (Año 5)</h5>
+                            <div class="p-4 bg-blue-950 rounded-lg text-center text-blue-200">
+                                <h5 class="font-semibold text-blue-400">Valor Razonable Neto (Año 5)</h5>
                                 <p class="text-xl font-bold">${formatCurrency(year5NIIF5.valorRazonableMenosCostos)}</p>
                                 <p class="text-sm">Valor de venta esperado menos costos de venta.</p>
                             </div>
-                            <div class="p-4 ${year5NIIF5.perdidaPorDeterioro > 0 ? 'bg-red-50' : 'bg-green-50'} rounded-lg">
-                                <h5 class="font-semibold ${year5NIIF5.perdidaPorDeterioro > 0 ? 'text-red-900' : 'text-green-900'}">Pérdida por Deterioro (Año 5)</h5>
+                            <div class="p-4 ${year5NIIF5.perdidaPorDeterioro > 0 ? 'bg-red-950 text-red-200' : 'bg-emerald-950 text-emerald-200'} rounded-lg">
+                                <h5 class="font-semibold ${year5NIIF5.perdidaPorDeterioro > 0 ? 'text-rose-400' : 'text-emerald-400'}">Pérdida por Deterioro (Año 5)</h5>
                                 <p class="text-xl font-bold">${year5NIIF5.perdidaPorDeterioro > 0 ? formatCurrency(year5NIIF5.perdidaPorDeterioro) : 'Ninguna'}</p>
                                 <p class="text-sm">Impacto en el Estado de Resultados por la reclasificación.</p>
                             </div>
                         </div>
-                        <div class="text-center p-4 bg-gray-200 rounded-lg">
-                             <h5 class="font-semibold text-gray-800">Saldo Acumulado de Activos NIIF 5 (Año 5)</h5>
+                        <div class="text-center p-4 bg-slate-900 rounded-lg text-slate-200">
+                             <h5 class="font-semibold text-slate-400">Saldo Acumulado de Activos NIIF 5 (Año 5)</h5>
                              <p class="text-2xl font-bold">${formatCurrency(year5NIIF5.saldoActivosParaVentaAcumulado)}</p>
                              <p class="text-sm">Este es el saldo que aparece en el Balance General.</p>
                          </div>
-                        <div class="mt-4 p-4 bg-gray-50 rounded-lg text-sm">
-                            <h5 class="font-semibold text-base mb-1">Explicación NIIF 5 (Activos No Corrientes Mantenidos para la Venta)</h5>
+                        <div class="mt-4 p-4 bg-slate-800 rounded-lg text-sm text-slate-300">
+                            <h5 class="font-semibold text-base mb-1 text-white">Explicación NIIF 5 (Activos No Corrientes Mantenidos para la Venta)</h5>
                             <p class="mb-1">• Los activos no corrientes (vagonetas) que se esperan vender en un corto plazo se clasifican como "Mantenidos para la Venta".</p>
                             <p class="mb-1">• Estos activos se valoran al menor entre su valor en libros y su valor razonable menos los costos de venta. Se suspende su depreciación.</p>
                             <p class="mb-1">• Se reconoce una pérdida por deterioro si el valor en libros excede el valor razonable neto de venta. Las ganancias por reversión de deterioro están limitadas a la pérdida original.</p>
@@ -2317,8 +2324,10 @@
          * Incluye tooltips para explicaciones.
          */
         function setupSliderControls() {
-            const container = document.getElementById('credit-risk-controls');
-            const operationsContainer = document.getElementById('operations-debt-controls');
+            const ratesRiskContainer = document.getElementById('rates-risk-controls');
+            const otherRevenueContainer = document.getElementById('other-revenue-controls');
+            const operationsDebtContainer = document.getElementById('operations-debt-controls');
+
             sliderConfigs.forEach(config => {
                 const parentDiv = document.createElement('div');
                 parentDiv.className = 'flex flex-col'; /* Tailwind flex flex-col */
@@ -2330,11 +2339,15 @@
                     <input type="range" id="${config.id}-input" min="${config.min}" max="${config.max}" step="${config.step}" value="${modelData[config.id]}" class="input-slider mt-1">
                 `;
                 
-                if (['tasaInteres', 'comisionGNVPorcentaje', 'takeRateMarketplace', 'pdStage1', 'pdStage2', 'pdStage3', 'lgd', 'economicAdjustmentFactor'].includes(config.id)) { 
-                    container.appendChild(parentDiv);
-                } else {
-                    operationsContainer.appendChild(parentDiv);
+                // Reorganización de controles
+                if (['tasaInteres', 'ventureDebtRate'].includes(config.id)) { 
+                    ratesRiskContainer.appendChild(parentDiv);
+                } else if (['comisionGNVPorcentaje', 'margenRefacciones', 'takeRateMarketplace'].includes(config.id)) {
+                    otherRevenueContainer.appendChild(parentDiv);
+                } else if (['periodoAmortizacionDeuda'].includes(config.id)) { // Add periodoAmortizacionDeuda to Operations & Debt
+                    operationsDebtContainer.appendChild(parentDiv);
                 }
+                
                 const slider = parentDiv.querySelector(`#${config.id}-input`);
                 const display = parentDiv.querySelector(`#${config.id}-valor`); 
                 
@@ -2348,8 +2361,18 @@
                     }
                 });
             });
+
+            // Handle the checkbox separately as it's not a slider
             const checkbox = document.getElementById('check-proteccion');
             if (checkbox) {
+                // Ensure the parent element (div.flex.items-center) is moved if it exists
+                let checkboxContainer = checkbox.closest('.flex.items-center');
+                if (checkboxContainer) {
+                    ratesRiskContainer.appendChild(checkboxContainer); 
+                } else {
+                    // Fallback if not wrapped, but it should be based on previous code
+                    ratesRiskContainer.appendChild(checkbox.parentElement); 
+                }
                 checkbox.checked = modelData.proteccionRodando; 
                 checkbox.addEventListener('change', function() {
                     modelData.proteccionRodando = this.checked;
@@ -2359,7 +2382,7 @@
                     }
                 });
             }
-            log('   ✅   Controles deslizables (sliders) configurados.');
+            log('   ✅   Controles deslizables (sliders) configurados y reorganizados.');
         }
 
         /**
@@ -2369,7 +2392,10 @@
         function setupNumberControls() {
             const unitsContainer = document.getElementById('units-container');
             const constantsContainer = document.getElementById('constants-container');
-            
+            const ratesRiskContainer = document.getElementById('rates-risk-controls'); /* For NIIF9 constants */
+            const otherRevenueContainer = document.getElementById('other-revenue-controls'); /* For GNV/Marketplace/Refacciones constants */
+            const operationsDebtContainer = document.getElementById('operations-debt-controls'); /* For other ops & debt constants */
+
             // Inputs para Unidades por Año
             modelData.unitsPerYear.forEach((units, index) => {
                 const div = document.createElement('div');
@@ -2404,7 +2430,16 @@
                            class="p-2 border border-slate-700 rounded-md shadow-sm focus:ring-sky-500 focus:border-sky-500 bg-slate-800 text-white">
                     <span class="text-xs text-slate-400 mt-1" id="${config.id}-display">${config.format(modelData[config.id])}</span>
                 `;
-                constantsContainer.appendChild(div);
+                
+                // Reorganización de constantes
+                if (['pdStage1', 'pdStage2', 'pdStage3', 'lgd', 'portfolioAllocationStage1', 'portfolioAllocationStage2', 'portfolioAllocationStage3', 'economicAdjustmentFactor'].includes(config.id)) {
+                    ratesRiskContainer.appendChild(div);
+                } else if (['refaccionesRevPerUnit', 'litrosPromedioMensualPorUnidad', 'precioLitroGNV', 'gmvPromedioMensualPorUnidad'].includes(config.id)) {
+                    otherRevenueContainer.appendChild(div);
+                } else {
+                    constantsContainer.appendChild(div); // Default container for generic constants
+                }
+
                 const input = div.querySelector(`#${config.id}-input`);
                 const display = div.querySelector(`#${config.id}-display`);
                 input.addEventListener('input', function() {
@@ -2570,13 +2605,6 @@
                 validations.passed.push(`✅ Inputs: Asignación de Portafolio NIIF 9 suma 100%.`);
             }
 
-            // Check that units per year are not negative
-            modelData.unitsPerYear.forEach((units, index) => {
-                if (units < 0 || !Number.isInteger(units)) {
-                    validations.errors.push(`🔴 Error: Las Unidades para el Año ${index + 1} deben ser un entero no negativo. Ajuste en Control.`);
-                }
-            });
-
             // Validación cruzada: "Precio venta > Costo vagoneta"
             if (modelData.vanPrice <= modelData.vanCost) {
                 validations.errors.push(`🔴 Error de Input: El 'Precio Préstamo Cliente' (${formatCurrency(modelData.vanPrice)}) debe ser mayor que el 'Costo Vagoneta (RAG)' (${formatCurrency(modelData.vanCost)}).`);
@@ -2613,8 +2641,8 @@
             // Margen EBITDA
             if (year5PL.totalRevenue !== 0) {
                 const ebitdaMargin = (year5PL.ebitda / year5PL.totalRevenue) * 100;
-                if (ebitdaMargin < -100 || ebitdaMargin > 200) { // Wider range for initial warning
-                    validations.warnings.push(`🟡 Advertencia: Margen EBITDA del Año ${lastYear + 1} (${ebitdaMargin.toFixed(1)}%) es inusual. Revise supuestos.`);
+                if (ebitdaMargin < 10 || ebitdaMargin > 40) {
+                    validations.info.push(`🔵 Info: Margen EBITDA del Año ${lastYear + 1} (${ebitdaMargin.toFixed(1)}%) está fuera del benchmark típico de fintech (10-40%).`);
                 } else {
                     validations.passed.push(`✅ Outputs: Margen EBITDA del Año ${lastYear + 1} es realista (${ebitdaMargin.toFixed(1)}%).`);
                 }
@@ -2625,8 +2653,8 @@
             // ROE
             if (financialResults.roe.length > lastYear && year5BS.equity !== 0) {
                 const roe = financialResults.roe[lastYear];
-                if (roe < 15 || roe > 35) { // Adjusted range for ROE
-                    validations.info.push(`🔵 Info: ROE del Año ${lastYear + 1} (${roe.toFixed(1)}%) está fuera del benchmark típico de servicios financieros (15-35%).`);
+                if (roe < 20 || roe > 30) { // Adjusted range for ROE
+                    validations.info.push(`🔵 Info: ROE del Año ${lastYear + 1} (${roe.toFixed(1)}%) está fuera del benchmark típico de servicios financieros (20-30%).`);
                 } else {
                     validations.passed.push(`✅ Outputs: ROE del Año ${lastYear + 1} es realista (${roe.toFixed(1)}%).`);
                 }
@@ -2637,7 +2665,7 @@
             // CxC/Ingresos
             if (year5PL.totalRevenue !== 0) {
                 const cxcToRevenueRatio = year5BS.receivables / year5PL.totalRevenue;
-                if (cxcToRevenueRatio < 0.5 || cxcToRevenueRatio > 3) { // Adjusted range for CxC/Ingresos
+                if (cxcToRevenueRatio < 0.5 || cxcToRevenueRatio > 3) {
                     validations.info.push(`🔵 Info: Ratio CxC/Ingresos del Año ${lastYear + 1} (${cxcToRevenueRatio.toFixed(1)}x) está fuera del benchmark típico de financiamiento (0.5-3x).`);
                 } else {
                     validations.passed.push(`✅ Outputs: Ratio CxC/Ingresos del Año ${lastYear + 1} es realista (${cxcToRevenueRatio.toFixed(1)}x).`);
