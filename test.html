@@ -6,108 +6,234 @@
     <title>Modelo Financiero Interactivo - Rodando a Gas</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- Lucide Icons para un toque profesional -->
+    <script src="https://unpkg.com/lucide@latest"></script> 
     
     <style>
-        /* Estilos base */
-        body { font-family: 'Inter', sans-serif; background-color: #f8f9fa; }
-        .tab-button { transition: all 0.3s ease; cursor: pointer; }
-        .tab-button.active { border-color: #2563eb; color: #2563eb; background-color: #eff6ff; }
+        /* Estilos Base - Inspirados en el Pitch Deck (Tema Oscuro) */
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #020617; /* slate-950 de Tailwind para fondo oscuro */
+            color: #e2e8f0; /* slate-200 para texto principal */
+            overflow-x: hidden; /* Prevenir scroll horizontal */
+        }
+        h1, h2, h3, h4 {
+            color: #f8fafc; /* slate-50 para títulos */
+            font-weight: 700; /* Bold */
+        }
+        /* Resaltado de texto con gradiente */
+        .highlight-text {
+            background: -webkit-linear-gradient(45deg, #22d3ee, #0ea5e9); /* cian-400 a sky-500 */
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* Tabs Navigation */
+        .tab-button { 
+            transition: all 0.3s ease; 
+            cursor: pointer; 
+            padding: 1rem 1.5rem;
+            border-bottom: 2px solid transparent;
+            color: #94a3b8; /* slate-400 */
+            font-weight: 500;
+            margin-right: 0.5rem;
+            border-radius: 0.5rem 0.5rem 0 0;
+            display: inline-flex; /* Permite iconos alineados con texto */
+            align-items: center;
+            gap: 0.5rem; /* Espacio entre icono y texto */
+        }
+        .tab-button.active { 
+            border-color: #0ea5e9; /* sky-500 */
+            color: #f8fafc; /* slate-50 */
+            background-color: #0f172a; /* slate-900 */
+            font-weight: 600;
+        }
+        .tab-button:hover:not(.active) {
+            color: #cbd5e1; /* slate-300 */
+            background-color: #0f172a; /* slate-900 */
+        }
+
+        /* Contenido de secciones */
         .content-section { display: none; }
         .content-section.active { display: block; }
-        .card { background-color: white; border-radius: 0.75rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); padding: 1.5rem; margin-bottom: 1.5rem; }
-        .input-slider { -webkit-appearance: none; width: 100%; height: 8px; background: #e5e7eb; border-radius: 9999px; outline: none; }
-        .input-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; background: #2563eb; border-radius: 9999px; cursor: pointer; }
-        .financial-table { width: 100%; border-collapse: collapse; }
-        .financial-table th, .financial-table td { padding: 0.75rem; text-align: right; border-bottom: 1px solid #e5e7eb; }
-        .financial-table th { background-color: #f9fafb; font-weight: 600; }
-        .financial-table td:first-child, .financial-table th:first-child { text-align: left; }
-        .positive { color: #16a34a; } /* Verde para valores positivos */
-        .negative { color: #dc2626; } /* Rojo para valores negativos */
-        .metric-card { background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-left: 4px solid #2563eb; }
-        .debug-info { position: fixed; top: 10px; right: 10px; background: #1f2937; color: white; padding: 10px; border-radius: 6px; font-size: 12px; max-width: 300px; z-index: 1000; display: none; }
-        .niif-compliant { border-left: 4px solid #10b981; background-color: #f0fdf4; }
-        /* Estilos para el panel de validación */
+
+        /* Estilo de Tarjetas (Cards) */
+        .card { 
+            background-color: #0f172a; /* slate-900 para el interior de tarjetas */
+            border-radius: 0.75rem; /* rounded-xl */
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); 
+            padding: 1.5rem; 
+            margin-bottom: 1.5rem; 
+            border: 1px solid #1e293b; /* slate-800 para bordes sutiles */
+        }
+
+        /* Sliders */
+        .input-slider { 
+            -webkit-appearance: none; 
+            width: 100%; 
+            height: 8px; 
+            background: #1e293b; /* slate-800 */
+            border-radius: 9999px; 
+            outline: none; 
+            transition: background 0.2s ease-in-out;
+        }
+        .input-slider::-webkit-slider-thumb { 
+            -webkit-appearance: none; 
+            width: 20px; 
+            height: 20px; 
+            background: #0ea5e9; /* sky-500 */
+            border-radius: 9999px; 
+            cursor: pointer; 
+            box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.3); /* Ring al arrastrar */
+            transition: background 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .input-slider:hover::-webkit-slider-thumb {
+            background: #38bdf8; /* sky-400 */
+        }
+
+        /* Tablas Financieras */
+        .financial-table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            background-color: #0f172a; /* slate-900 */
+            border-radius: 0.75rem; /* rounded-xl */
+            overflow: hidden; /* Para que los bordes redondeados se apliquen a thead/tbody */
+        }
+        .financial-table th, .financial-table td { 
+            padding: 1rem; /* Más padding para legibilidad */
+            text-align: right; 
+            border-bottom: 1px solid #1e293b; /* slate-800 */
+            font-size: 0.95rem;
+        }
+        .financial-table th { 
+            background-color: #1a233b; /* Un tono un poco más claro que el fondo de la tabla */
+            font-weight: 600; 
+            color: #94a3b8; /* slate-400 */
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .financial-table td:first-child, .financial-table th:first-child { 
+            text-align: left; 
+            color: #e2e8f0; /* slate-200 */
+        }
+        .financial-table tr:last-child td {
+            border-bottom: none; /* Eliminar borde inferior de la última fila */
+        }
+        .financial-table tr.bg-gray-50 { /* Estilo para filas de totales/subtotales */
+            background-color: #1e293b; /* slate-800 */
+            color: #f8fafc; /* slate-50 */
+            font-weight: 700;
+        }
+        .positive { color: #34d399; /* emerald-400 */ } 
+        .negative { color: #f43f5e; /* rose-500 */ }
+
+        /* Indicadores de Métricas Clave */
+        .metric-card { 
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); /* Gradiente sutil */
+            border-left: 4px solid #0ea5e9; /* sky-500 */
+            padding: 1.25rem; /* Más padding */
+            border-radius: 0.75rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .metric-card .text-sm {
+            color: #94a3b8; /* slate-400 */
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+        }
+        .metric-card .text-2xl {
+            color: #f8fafc; /* slate-50 */
+            font-weight: 800; /* Extra bold */
+        }
+
+        /* Debug Panel */
+        .debug-info { 
+            background: #1e293b; /* slate-800 */
+            color: #f8fafc; /* slate-50 */
+            border: 1px solid #334155; /* slate-700 */
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+        .debug-info button {
+            background-color: #ef4444; /* red-500 */
+            color: white;
+            padding: 0.3rem 0.75rem;
+            border-radius: 0.375rem;
+            font-size: 0.75rem;
+            transition: background-color 0.2s ease;
+        }
+        .debug-info button:hover {
+            background-color: #dc2626; /* red-600 */
+        }
+
+        /* NIIF Compliant Cards */
+        .niif-compliant {
+            border-left: 4px solid #10b981; /* emerald-500 */
+            background-color: #0f172a; /* slate-900 */
+        }
+
+        /* Validación Panel */
         #validation-panel-content {
-            background-color: white;
+            background-color: #0f172a; /* slate-900 */
+            border: 1px solid #1e293b; /* slate-800 */
             border-radius: 0.75rem;
             box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
         }
         .validation-item {
-            display: flex;
-            align-items: flex-start;
-            margin-bottom: 0.5rem;
-            padding: 0.5rem;
+            border-left: 4px solid;
+            padding: 0.75rem;
             border-radius: 0.5rem;
+            margin-bottom: 0.5rem;
         }
-        .validation-item.error { background-color: #fee2e2; border-left: 4px solid #ef4444; } /* red-200 / red-500 */
-        .validation-item.warning { background-color: #fffbeb; border-left: 4px solid #f59e0b; } /* amber-100 / amber-500 */
-        .validation-item.info { background-color: #e0f2fe; border-left: 44px solid #3b82f6; } /* light-blue-100 / blue-500 */
-        .validation-item.passed { background-color: #d1fae5; border-left: 4px solid #10b981; } /* green-100 / green-500 */
-        .validation-icon {
-            font-size: 1.25rem; /* 20px */
-            margin-right: 0.75rem; /* 12px */
-            line-height: 1;
-        }
-        .validation-item.error .validation-icon { color: #ef4444; }
-        .validation-item.warning .validation-icon { color: #f59e0b; }
-        .validation-item.info .validation-icon { color: #3b82f6; }
-        .validation-item.passed .validation-icon { color: #10b981; }
-        .validation-message {
-            flex-grow: 1;
-            font-size: 0.875rem; /* 14px */
-            color: #374151; /* gray-700 */
-        }
-        .validation-message strong { font-weight: 600; }
-        .validation-message ul { list-style: disc; padding-left: 1.25rem; margin-top: 0.25rem; }
+        .validation-item.error { background-color: #450a0a; border-color: #dc2626; color: #fecaca; } /* red-950 / red-600 */
+        .validation-item.warning { background-color: #422006; border-color: #f59e0b; color: #fffbeb; } /* amber-950 / amber-500 */
+        .validation-item.info { background-color: #075985; border-color: #3b82f6; color: #e0f2fe; } /* sky-950 / blue-500 */
+        .validation-item.passed { background-color: #064e3b; border-color: #10b981; color: #d1fae5; } /* emerald-950 / green-500 */
+        
+        .validation-message { color: #cbd5e1; /* slate-300 */ }
+        .validation-message strong { color: #f8fafc; }
+
         .validation-summary {
-            font-weight: bold;
-            text-align: center;
-            margin-top: 1rem;
+            background-color: #1a233b; /* slate-800 */
+            color: #f8fafc;
+            border: 1px solid #334155;
         }
-        /* Tooltip Styles */
-        [data-tooltip] {
-            position: relative;
-            cursor: help;
-        }
-        [data-tooltip]:before,
-        [data-tooltip]:after {
-            visibility: hidden;
-            opacity: 0;
-            pointer-events: none;
-            transition: 0.2s;
-        }
-        [data-tooltip]:before {
-            content: attr(data-tooltip);
-            position: absolute;
-            bottom: 125%; /* Position above the element */
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: #333;
-            color: #fff;
-            padding: 8px 12px;
-            border-radius: 6px;
-            font-size: 0.8rem;
-            white-space: nowrap; /* Prevent text wrapping */
-            z-index: 999; /* Ensure it's above other elements */
+        .validation-summary.bg-red-200 { background-color: #450a0a; border-color: #dc2626; color: #fecaca; }
+        .validation-summary.bg-yellow-200 { background-color: #422006; border-color: #f59e0b; color: #fffbeb; }
+        .validation-summary.bg-green-200 { background-color: #064e3b; border-color: #10b981; color: #d1fae5; }
+
+        /* Tooltips - Mantener la visibilidad y legibilidad */
+        [data-tooltip]:before, [data-tooltip]:after {
+            background-color: #334155; /* slate-700 */
+            color: #f8fafc;
+            border-radius: 0.375rem;
+            font-size: 0.75rem;
         }
         [data-tooltip]:after {
-            content: '';
-            position: absolute;
-            bottom: 125%;
-            left: 50%;
-            transform: translateX(-50%) translateY(8px); /* Position the arrow correctly */
-            border-left: 6px solid transparent;
-            border-right: 6px solid transparent;
-            border-top: 6px solid #333;
-            z-index: 999;
+            border-top-color: #334155; /* slate-700 */
         }
-        [data-tooltip]:hover:before,
-        [data-tooltip]:hover:after {
-            visibility: visible;
-            opacity: 1;
+
+        /* Inputs y Selects */
+        input[type="number"], input[type="range"] {
+            background-color: #1a233b; /* slate-800 */
+            border-color: #334155; /* slate-700 */
+            color: #e2e8f0; /* slate-200 */
+            border-radius: 0.375rem; /* rounded-md */
+        }
+        input[type="number"]:focus, input[type="range"]::-webkit-slider-thumb:focus {
+            border-color: #0ea5e9; /* sky-500 */
+            box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.5); /* Anillo de foco */
+            background-color: #1a233b; /* Ensure background doesn't change on focus */
+        }
+        label {
+            color: #cbd5e1; /* slate-300 */
+        }
+        /* Estilos para el texto de valor de los sliders */
+        span[id$="-valor"] {
+            color: #81e6d9; /* un tono verde/cian para valores */
         }
     </style>
 </head>
@@ -121,13 +247,17 @@
     
     <div class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
         <!-- Header and Key Metrics -->
-        <header class="mb-8 text-center bg-white rounded-xl p-6 shadow-sm">
-            <h1 class="text-3xl font-bold text-gray-900">Modelo Financiero - Rodando a Gas</h1>
-            <p class="text-lg text-gray-600 mt-2">Resiliencia como Servicio</p>
-            <button onclick="toggleDebug()" class="mt-2 bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm transition duration-300">Debug</button>
+        <header class="mb-8 text-center bg-transparent rounded-xl p-6">
+            <h1 class="text-4xl lg:text-5xl font-black text-white leading-tight tracking-tighter mb-2">
+                Modelo Financiero - Rodando a <span class="highlight-text">Gas</span>
+            </h1>
+            <p class="text-xl text-slate-400 mt-2">Resiliencia como Servicio</p>
+            <button onclick="toggleDebug()" class="mt-4 bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 rounded-lg font-medium transition duration-300 inline-flex items-center gap-2">
+                <i data-lucide="bug" class="w-5 h-5"></i> Debug
+            </button>
         </header>
         <!-- Key Metrics Summary Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
             <div class="metric-card p-4 rounded-lg">
                 <div class="text-sm text-gray-500">EBITDA Año 5</div>
                 <div class="text-2xl font-bold" id="ebitda-year5">$0M MXN</div>
@@ -151,7 +281,7 @@
            
         </div>
         <!-- Additional row for ROE and ROIC -->
-        <div class="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 mb-8">
              <div class="metric-card p-4 rounded-lg">
                 <div class="text-sm text-gray-500">ROE (Año 5)</div>
                 <div class="text-2xl font-bold" id="roe-year5">0%</div>
@@ -166,13 +296,13 @@
             </div>
         </div>
         <!-- Tab Navigation -->
-        <div class="mb-6 border-b border-gray-200">
+        <div class="mb-6 border-b border-slate-800">
             <nav class="flex flex-wrap -mb-px">
-                <button id="tab-control" class="tab-button active text-lg font-medium mr-2 inline-block p-4 border-b-2 border-transparent rounded-t-lg">   🚀   Control</button>
-                <button id="tab-financieros" class="tab-button text-lg font-medium mr-2 inline-block p-4 border-b-2 border-transparent rounded-t-lg">   📊   Financieros</button>
-                <button id="tab-niif" class="tab-button text-lg font-medium mr-2 inline-block p-4 border-b-2 border-transparent rounded-t-lg">   📋   NIIF</button>
-                <button id="tab-graficos" class="tab-button text-lg font-medium mr-2 inline-block p-4 border-b-2 border-transparent rounded-t-lg">   📈   Gráficos</button>
-                <button id="tab-validacion" class="tab-button text-lg font-medium mr-2 inline-block p-4 border-b-2 border-transparent rounded-t-lg">   ✅   Validación</button>
+                <button id="tab-control" class="tab-button active"> <i data-lucide="settings" class="w-5 h-5"></i> Control</button>
+                <button id="tab-financieros" class="tab-button"> <i data-lucide="wallet" class="w-5 h-5"></i> Financieros</button>
+                <button id="tab-niif" class="tab-button"> <i data-lucide="book" class="w-5 h-5"></i> NIIF</button>
+                <button id="tab-graficos" class="tab-button"> <i data-lucide="bar-chart-2" class="w-5 h-5"></i> Gráficos</button>
+                <button id="tab-validacion" class="tab-button"> <i data-lucide="check-circle" class="w-5 h-5"></i> Validación</button>
             </nav>
         </div>
         <!-- Tab Content: Control -->
@@ -180,32 +310,34 @@
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <!-- Credit and Risk Parameters Section -->
                 <div class="card">
-                    <h4 class="font-semibold text-lg mb-4">Crédito y Riesgo <span class="text-sm text-gray-500">(Parámetros clave para el riesgo y el retorno del financiamiento)</span></h4>
+                    <h4 class="font-semibold text-lg mb-4 text-white">Crédito y Riesgo <span class="text-sm text-slate-400">(Parámetros clave para el riesgo y el retorno del financiamiento)</span></h4>
                     <div class="space-y-4" id="credit-risk-controls">
                         <!-- Inputs will be dynamically generated here -->
                     </div>
                     <div class="flex items-center mt-4">
-                        <input id="check-proteccion" type="checkbox" checked class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
-                        <label for="check-proteccion" class="ml-2 block text-sm text-gray-900" data-tooltip="Activa un factor de reducción del 50% en las provisiones por riesgo de crédito.">Protección Rodando (<span class="font-bold">-50% en provisiones de morosidad</span>)</label>
+                        <input id="check-proteccion" type="checkbox" checked class="h-4 w-4 rounded border-slate-600 text-sky-500 focus:ring-sky-500 bg-slate-700">
+                        <label for="check-proteccion" class="ml-2 block text-sm text-slate-200" data-tooltip="Activa un factor de reducción del 50% en las provisiones por riesgo de crédito.">Protección Rodando (<span class="font-bold">-50% en provisiones de morosidad</span>)</label>
                     </div>
                 </div>
                 <!-- Operations and Debt Parameters Section -->
                 <div class="card">
-                    <h4 class="font-semibold text-lg mb-4">Operaciones y Deuda <span class="text-sm text-gray-500">(Eficiencia operativa y estructura de capital)</span></h4>
+                    <h4 class="font-semibold text-lg mb-4 text-white">Operaciones y Deuda <span class="text-sm text-slate-400">(Eficiencia operativa y estructura de capital)</span></h4>
                     <div class="space-y-4" id="operations-debt-controls">
                         <!-- Inputs will be dynamically generated here -->
                     </div>
                 </div>
                 <!-- Units per Year and Model Constants Section -->
                 <div class="card lg:col-span-3">
-                    <h3 class="text-xl font-semibold mb-4">Unidades por Año y Constantes del Modelo <span class="text-sm text-gray-500">(Definiciones base del negocio)</span></h3>
+                    <h3 class="text-xl font-semibold mb-4 text-white">Unidades por Año y Constantes del Modelo <span class="text-sm text-slate-400">(Definiciones base del negocio)</span></h3>
                     <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6" id="units-container">
                         <!-- Unit inputs will be dynamically generated here -->
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="constants-container">
                         <!-- Constant inputs will be dynamically generated here -->
                     </div>
-                    <button onclick="forceCalculate()" class="mt-6 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded font-medium transition duration-300">   🔄   Recalcular Modelo</button>
+                    <button onclick="forceCalculate()" class="mt-6 bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-3 rounded-lg font-medium transition duration-300 inline-flex items-center gap-2">
+                        <i data-lucide="refresh-cw" class="w-5 h-5"></i> Recalcular Modelo
+                    </button>
                 </div>
             </div>
         </div>
@@ -213,7 +345,7 @@
         <div id="content-financieros" class="content-section">
             <div class="space-y-6">
                 <div class="card">
-                    <h3 class="text-xl font-semibold mb-4">Estado de Resultados (P&L)</h3>
+                    <h3 class="text-xl font-semibold mb-4 text-white">Estado de Resultados (P&L)</h3>
                     <div class="overflow-x-auto">
                         <table class="financial-table">
                             <thead>
@@ -231,7 +363,7 @@
                     </div>
                 </div>
                 <div class="card">
-                    <h3 class="text-xl font-semibold mb-4">Flujo de Efectivo</h3>
+                    <h3 class="text-xl font-semibold mb-4 text-white">Flujo de Efectivo</h3>
                     <div class="overflow-x-auto">
                         <table class="financial-table">
                             <thead>
@@ -250,7 +382,7 @@
                     </div>
                 </div>
                 <div class="card">
-                    <h3 class="text-xl font-semibold mb-4">Balance General</h3>
+                    <h3 class="text-xl font-semibold mb-4 text-white">Balance General</h3>
                     <div class="overflow-x-auto">
                         <table class="financial-table">
                             <thead>
@@ -274,15 +406,15 @@
         <div id="content-niif" class="content-section">
             <div class="space-y-6">
                 <div class="card niif-compliant">
-                    <h3 class="text-xl font-semibold mb-4">NIIF 15 - Reconocimiento de Ingresos <span class="text-sm text-gray-600">(Cómo se reconocen los ingresos del negocio de financiamiento)</span></h3>
+                    <h3 class="text-xl font-semibold mb-4 text-white">NIIF 15 - Reconocimiento de Ingresos <span class="text-sm text-slate-400">(Cómo se reconocen los ingresos del negocio de financiamiento)</span></h3>
                     <div id="niif15-container">Calculando datos NIIF 15...</div>
                 </div>
                 <div class="card niif-compliant">
-                    <h3 class="text-xl font-semibold mb-4">NIIF 9 - Provisiones Crediticias <span class="text-sm text-gray-600">(Impacto de la morosidad y las pérdidas esperadas)</span></h3>
+                    <h3 class="text-xl font-semibold mb-4 text-white">NIIF 9 - Provisiones Crediticias <span class="text-sm text-slate-400">(Impacto de la morosidad y las pérdidas esperadas)</span></h3>
                     <div id="niif9-container">Calculando datos NIIF 9...</div>
                 </div>
                 <div class="card niif-compliant">
-                    <h3 class="text-xl font-semibold mb-4">NIIF 5 - Activos Mantenidos para Venta <span class="text-sm text-gray-600">(Tratamiento contable de vagonetas reposedas)</span></h3>
+                    <h3 class="text-xl font-semibold mb-4 text-white">NIIF 5 - Activos Mantenidos para Venta <span class="text-sm text-slate-400">(Tratamiento contable de vagonetas reposedas)</span></h3>
                     <div id="niif5-container">Calculando datos NIIF 5...</div>
                 </div>
             </div>
@@ -291,19 +423,19 @@
         <div id="content-graficos" class="content-section">
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div class="card">
-                    <h4 class="font-semibold text-lg mb-2">Evolución de EBITDA</h4>
+                    <h4 class="font-semibold text-lg mb-2 text-white">Evolución de EBITDA</h4>
                     <div style="height: 300px;"><canvas id="ebitdaChart"></canvas></div>
                 </div>
                 <div class="card">
-                    <h4 class="font-semibold text-lg mb-2">Composición de Ingresos (Año 5)</h4>
+                    <h4 class="font-semibold text-lg mb-2 text-white">Composición de Ingresos (Año 5)</h4>
                     <div style="height: 300px;"><canvas id="revenueMixChart"></canvas></div>
                 </div>
                  <div class="card">
-                    <h4 class="font-semibold text-lg mb-2">Activos Totales vs Pasivos + Patrimonio</h4>
+                    <h4 class="font-semibold text-lg mb-2 text-white">Activos Totales vs Pasivos + Patrimonio</h4>
                     <div style="height: 300px;"><canvas id="balanceValidationChart"></canvas></div>
                 </div>
                 <div class="card">
-                    <h4 class="font-semibold text-lg mb-2">Flujo de Efectivo Neto Anual</h4>
+                    <h4 class="font-semibold text-lg mb-2 text-white">Flujo de Efectivo Neto Anual</h4>
                     <div style="height: 300px;"><canvas id="netCashFlowChart"></canvas></div>
                 </div>
             </div>
@@ -311,15 +443,20 @@
         <!-- Tab Content: Validation -->
         <div id="content-validacion" class="content-section">
             <div id="validation-panel-content">
-                <h3 class="text-xl font-semibold mb-4">Resultados de Validación del Modelo</h3>
+                <h3 class="text-xl font-semibold mb-4 text-white">Resultados de Validación del Modelo</h3>
                 <div id="validation-results-container">
                     <!-- Validation results will be inserted here -->
                 </div>
-                <button onclick="generateValidationReportPDF()" class="mt-6 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded font-medium transition duration-300">Generar Reporte PDF</button>
+                <button onclick="generateValidationReportPDF()" class="mt-6 bg-sky-600 hover:bg-sky-500 text-white px-6 py-3 rounded-lg font-medium transition duration-300 inline-flex items-center gap-2">
+                    <i data-lucide="file-text" class="w-5 h-5"></i> Generar Reporte PDF
+                </button>
             </div>
         </div>
     </div>
     <script>
+        // Inicializa los iconos de Lucide
+        lucide.createIcons();
+
         // ===== GLOBAL MODEL VARIABLES =====
         let debugLogs = []; // Array to store debug logs
         let charts = {}; // Object to store Chart.js instances
@@ -436,7 +573,7 @@
             { id: 'seriesC_year', label: 'Año Serie C', min: 1, max: 5, step: 1, type: 'number', format: val => val.toFixed(0) + ' ' + (val == 1 ? 'año' : 'años'), tooltip: 'Año de la proyección en que se recibe el funding de Serie C.' },
             { id: 'clientLoanTermYears', label: 'Plazo Préstamo Cliente (Años)', min: 1, max: 10, step: 1, type: 'number', format: val => val.toFixed(0) + ' años', tooltip: 'Duración en años de los préstamos que se otorgan a los clientes.' },
             { id: 'depreciationYears', label: 'Años Depreciación (Vagoneta)', min: 1, max: 15, step: 1, type: 'number', format: val => val.toFixed(0) + ' años', tooltip: 'Vida útil en años para la depreciación lineal de las vagonetas de Rodando a Gas.' },
-            { id: 'opexRate', label: 'Tasa OPEX (% Ingresos)', min: 0, max: 100, step: 1, type: 'number', format: val => val.toFixed(0) + '%', tooltip: 'Porcentaje de los ingresos operativos que se destina a Gastos Operativos (OPEX).' },
+            { id: 'opexRate', label: 'Tasa OPEX (% Ingresos)', min: 0, max: 100, step: 1, type: 'number', format: val => val.toFixed(0) + '%', tooltip: 'Porcentaje de los ingresos operativos destinado a OPEX.' },
             { id: 'margenVagoneta', label: 'Margen Originación Vagoneta', min: 0, max: 100, step: 0.5, type: 'number', format: val => val.toFixed(1) + '%', tooltip: 'Comisión por la originación de cada vagoneta financiada, reconocida bajo NIIF 15.' },
             { id: 'refaccionesRevPerUnit', label: 'Ingreso Refacciones/Unidad', min: 0, max: 20000, step: 500, type: 'number', format: val => formatCurrency(val, true), tooltip: 'Ingreso promedio por unidad por servicios de refacciones.' },
             { id: 'tasaReposicion', label: '% Unidades Reposición', min: 0, max: 100, step: 0.5, type: 'number', format: val => val.toFixed(1) + '%', tooltip: 'Porcentaje de unidades que se reponen y se clasifican como Activos para Venta anualmente.' },
@@ -449,7 +586,14 @@
             { id: 'lgd', label: 'LGD (Recuperación %)', min: 0, max: 1, step: 0.01, type: 'number', format: val => (val * 100).toFixed(1) + '%', tooltip: 'Pérdida dado el incumplimiento: Porcentaje de la exposición que se espera perder si un deudor incumple.' },
             { id: 'portfolioAllocationStage1', label: 'Port. Etapa 1 (%)', min: 0, max: 1, step: 0.01, type: 'number', format: val => (val * 100).toFixed(0) + '%', tooltip: 'Porcentaje del portafolio que se considera en Etapa 1 de riesgo bajo.' },
             { id: 'portfolioAllocationStage2', label: 'Port. Etapa 2 (%)', min: 0, max: 1, step: 0.01, type: 'number', format: val => (val * 100).toFixed(0) + '%', tooltip: 'Porcentaje del portafolio que se considera en Etapa 2 de riesgo medio.' },
-            { id: 'portfolioAllocationStage3', label: 'Port. Etapa 3 (%)', min: 0, max: 1, step: 0.01, type: 'number', format: val => (val * 100).toFixed(0) + '%', tooltip: 'Porcentaje del portafolio que se considera en Etapa 3 de riesgo alto (activos deteriorados).' }
+            { id: 'portfolioAllocationStage3', label: 'Port. Etapa 3 (%)', min: 0, max: 1, step: 0.01, type: 'number', format: val => (val * 100).toFixed(0) + '%', tooltip: 'Porcentaje del portafolio que se considera en Etapa 3 de riesgo alto (activos deteriorados).' },
+            { id: 'economicAdjustmentFactor', label: 'Ajuste Económico (x)', min: 0.5, max: 1.5, step: 0.01, type: 'number', format: val => val.toFixed(2) + 'x', tooltip: 'Factor de ajuste prospectivo macroeconómico para las provisiones de NIIF 9.' },
+            { id: 'corporateTaxRate', label: 'Tasa Impuesto Corporativo (%)', min: 0, max: 100, step: 1, type: 'number', format: val => val.toFixed(0) + '%', tooltip: 'Tasa de impuesto sobre la renta que aplica a las ganancias de la empresa.' },
+            // NUEVOS CONTROLES NUMÉRICOS
+            { id: 'litrosPromedioMensualPorUnidad', label: 'Litros GNV/Unidad (Mensual)', min: 0, max: 2000, step: 10, type: 'number', format: val => val.toFixed(0) + ' L', tooltip: 'Consumo promedio mensual de GNV por vagoneta activa para cálculo de ingresos.' },
+            { id: 'precioLitroGNV', label: 'Precio Litro GNV (MXN)', min: 0, max: 20, step: 0.01, type: 'number', format: val => '$' + val.toFixed(2) + ' MXN', tooltip: 'Precio promedio por litro de GNV. Usado para calcular ingresos de GNV.' },
+            { id: 'gmvPromedioMensualPorUnidad', label: 'Ventas Brutas Marketplace/Unidad (Mensual)', min: 0, max: 20000, step: 100, type: 'number', format: val => formatCurrency(val, true), tooltip: 'Gross Merchandise Value promedio mensual generado por unidad en el marketplace.' },
+            { id: 'takeRateMarketplace', label: 'Take Rate Marketplace (%)', min: 0, max: 100, step: 0.1, type: 'range', format: val => val.toFixed(1) + '%', tooltip: 'Porcentaje de comisión sobre las ventas brutas del marketplace. Ingreso por transacciones.' }
         ];
         
         // Objeto para almacenar los resultados financieros calculados
@@ -1698,6 +1842,7 @@
                 financialResults.bs.forEach(yearData => {
                     const cell = document.createElement('td');
                     let value;
+                    // Lógica para asignar valores a las celdas de la tabla
                     if (row.key === 'totalLiabilities') { 
                         value = yearData.debt + yearData.provisions + yearData.contractLiabilities;
                     } else if (row.key === 'totalAssets') {
@@ -1709,6 +1854,7 @@
                         value = yearData[row.key] || 0;
                     }
                     
+                    // Aplicar clases de color según el valor
                     if (value > 0 && !row.negative) cell.classList.add('positive');
                     if (value < 0) cell.classList.add('negative');
                     cell.textContent = formatCurrency(value);
@@ -1918,7 +2064,7 @@
                     `;
                 log('   ✅   NIIF 5 actualizada.');
             } else {
-                    log('   ⚠️   Datos de NIIF 5 para Año 5 incompletos.');
+                     log('   ⚠️   Datos de NIIF 5 para Año 5 incompletos.');
                 }
             }
         }
@@ -1948,8 +2094,17 @@
                             responsive: true,
                             maintainAspectRatio: false,
                             scales: {
-                                y: { beginAtZero: true, title: { display: true, text: 'Monto (MXN)' } },
-                                x: { title: { display: true, text: 'Año Fiscal' } }
+                                y: { 
+                                    beginAtZero: true, 
+                                    title: { display: true, text: 'Monto (MXN)', color: '#94a3b8' },
+                                    ticks: { color: '#94a3b8' },
+                                    grid: { color: 'rgba(255, 255, 255, 0.1)' } 
+                                },
+                                x: { 
+                                    title: { display: true, text: 'Año Fiscal', color: '#94a3b8' },
+                                    ticks: { color: '#94a3b8' },
+                                    grid: { color: 'rgba(255, 255, 255, 0.1)' } 
+                                }
                             },
                             plugins: {
                                 legend: { display: false }
@@ -1966,15 +2121,24 @@
                             labels: ['Intereses', 'Originación', 'GNV', 'Refacciones', 'Marketplace'],
                             datasets: [{
                                 data: [],
-                                backgroundColor: ['#34D399', '#FBBF24', '#60A5FA', '#8B5CF6', '#EC4899'] 
+                                backgroundColor: ['#34D399', '#FBBF24', '#60A5FA', '#8B5CF6', '#EC4899'], /* colores más vibrantes */
+                                borderColor: '#0f172a', /* borde que coincida con el fondo de la card */
+                                borderWidth: 2,
                             }]
                         },
                         options: {
                             responsive: true,
                             maintainAspectRatio: false,
                             plugins: {
-                                legend: { position: 'right' },
-                                title: { display: true, text: 'Composición de Ingresos (Año 5)' }
+                                legend: { 
+                                    position: 'right', 
+                                    labels: { color: '#94a3b8' } /* color de leyenda */
+                                },
+                                title: { 
+                                    display: true, 
+                                    text: 'Composición de Ingresos (Año 5)', 
+                                    color: '#f8fafc' /* color de título */
+                                }
                             }
                         }
                     });
@@ -2002,11 +2166,20 @@
                             responsive: true,
                             maintainAspectRatio: false,
                             scales: {
-                                y: { beginAtZero: true, title: { display: true, text: 'Monto (MXN)' } },
-                                x: { title: { display: true, text: 'Año Fiscal' } }
+                                y: { 
+                                    beginAtZero: true, 
+                                    title: { display: true, text: 'Monto (MXN)', color: '#94a3b8' },
+                                    ticks: { color: '#94a3b8' },
+                                    grid: { color: 'rgba(255, 255, 255, 0.1)' } 
+                                },
+                                x: { 
+                                    title: { display: true, text: 'Año Fiscal', color: '#94a3b8' },
+                                    ticks: { color: '#94a3b8' },
+                                    grid: { color: 'rgba(255, 255, 255, 0.1)' } 
+                                }
                             },
                             plugins: {
-                                legend: { position: 'top' }
+                                legend: { position: 'top', labels: { color: '#94a3b8' } } /* color de leyenda */
                             }
                         }
                     });
@@ -2032,8 +2205,17 @@
                             responsive: true,
                             maintainAspectRatio: false,
                             scales: {
-                                y: { beginAtZero: true, title: { display: true, text: 'Monto (MXN)' } },
-                                x: { title: { display: true, text: 'Año Fiscal' } }
+                                y: { 
+                                    beginAtZero: true, 
+                                    title: { display: true, text: 'Monto (MXN)', color: '#94a3b8' },
+                                    ticks: { color: '#94a3b8' },
+                                    grid: { color: 'rgba(255, 255, 255, 0.1)' } 
+                                },
+                                x: { 
+                                    title: { display: true, text: 'Año Fiscal', color: '#94a3b8' },
+                                    ticks: { color: '#94a3b8' },
+                                    grid: { color: 'rgba(255, 255, 255, 0.1)' } 
+                                }
                             },
                              plugins: {
                                 legend: { display: false }
@@ -2137,10 +2319,11 @@
             const operationsContainer = document.getElementById('operations-debt-controls');
             sliderConfigs.forEach(config => {
                 const parentDiv = document.createElement('div');
+                parentDiv.className = 'flex flex-col'; /* Tailwind flex flex-col */
                 parentDiv.innerHTML = `
-                    <label class="flex justify-between text-sm font-medium text-gray-700" ${config.tooltip ? `data-tooltip="${config.tooltip}"` : ''}>
+                    <label class="flex justify-between text-sm font-medium text-slate-300" ${config.tooltip ? `data-tooltip="${config.tooltip}"` : ''}>
                         ${config.label} 
-                        <span id="${config.id}-valor" class="font-bold text-indigo-600">${config.format(modelData[config.id])}</span>
+                        <span id="${config.id}-valor" class="font-bold text-teal-400">${config.format(modelData[config.id])}</span>
                     </label>
                     <input type="range" id="${config.id}-input" min="${config.min}" max="${config.max}" step="${config.step}" value="${modelData[config.id]}" class="input-slider mt-1">
                 `;
@@ -2190,9 +2373,9 @@
                 const div = document.createElement('div');
                 div.className = 'flex flex-col';
                 div.innerHTML = `
-                    <label for="unit-year-${index+1}" class="text-sm font-medium text-gray-700 mb-1" data-tooltip="Número de vagonetas adquiridas y puestas en operación en el Año ${index+1}.">Unidades Año ${index+1}</label>
+                    <label for="unit-year-${index+1}" class="text-sm font-medium text-slate-300 mb-1" data-tooltip="Número de vagonetas adquiridas y puestas en operación en el Año ${index+1}.">Unidades Año ${index+1}</label>
                     <input type="number" id="unit-year-${index+1}" min="0" max="1000" value="${units}" 
-                           class="p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                           class="p-2 border border-slate-700 rounded-md shadow-sm focus:ring-sky-500 focus:border-sky-500 bg-slate-800 text-white">
                 `;
                 unitsContainer.appendChild(div);
                 
@@ -2214,10 +2397,10 @@
                 const div = document.createElement('div');
                 div.className = 'flex flex-col';
                 div.innerHTML = `
-                    <label for="${config.id}-input" class="text-sm font-medium text-gray-700 mb-1" ${config.tooltip ? `data-tooltip="${config.tooltip}"` : ''}>${config.label}</label>
+                    <label for="${config.id}-input" class="text-sm font-medium text-slate-300 mb-1" ${config.tooltip ? `data-tooltip="${config.tooltip}"` : ''}>${config.label}</label>
                     <input type="${config.type}" id="${config.id}-input" min="${config.min}" max="${config.max}" step="${config.step}" value="${modelData[config.id]}"
-                           class="p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
-                    <span class="text-xs text-gray-500 mt-1" id="${config.id}-display">${config.format(modelData[config.id])}</span>
+                           class="p-2 border border-slate-700 rounded-md shadow-sm focus:ring-sky-500 focus:border-sky-500 bg-slate-800 text-white">
+                    <span class="text-xs text-slate-400 mt-1" id="${config.id}-display">${config.format(modelData[config.id])}</span>
                 `;
                 constantsContainer.appendChild(div);
                 const input = div.querySelector(`#${config.id}-input`);
@@ -2440,8 +2623,8 @@
             // ROE
             if (financialResults.roe.length > lastYear && year5BS.equity !== 0) {
                 const roe = financialResults.roe[lastYear];
-                if (roe < -200 || roe > 500) { // Very wide range for extreme warnings
-                    validations.warnings.push(`🟡 Advertencia: ROE del Año ${lastYear + 1} (${roe.toFixed(1)}%) es extremadamente alto/bajo. Revise supuestos.`);
+                if (roe < 15 || roe > 35) { // Adjusted range for ROE
+                    validations.info.push(`🔵 Info: ROE del Año ${lastYear + 1} (${roe.toFixed(1)}%) está fuera del benchmark típico de servicios financieros (15-35%).`);
                 } else {
                     validations.passed.push(`✅ Outputs: ROE del Año ${lastYear + 1} es realista (${roe.toFixed(1)}%).`);
                 }
@@ -2452,8 +2635,8 @@
             // CxC/Ingresos
             if (year5PL.totalRevenue !== 0) {
                 const cxcToRevenueRatio = year5BS.receivables / year5PL.totalRevenue;
-                if (cxcToRevenueRatio < 0.01 || cxcToRevenueRatio > 10) { // Very wide range for extreme warnings
-                    validations.warnings.push(`🟡 Advertencia: Ratio CxC/Ingresos del Año ${lastYear + 1} (${cxcToRevenueRatio.toFixed(1)}x) es inusual. Revise supuestos.`);
+                if (cxcToRevenueRatio < 0.5 || cxcToRevenueRatio > 3) { // Adjusted range for CxC/Ingresos
+                    validations.info.push(`🔵 Info: Ratio CxC/Ingresos del Año ${lastYear + 1} (${cxcToRevenueRatio.toFixed(1)}x) está fuera del benchmark típico de financiamiento (0.5-3x).`);
                 } else {
                     validations.passed.push(`✅ Outputs: Ratio CxC/Ingresos del Año ${lastYear + 1} es realista (${cxcToRevenueRatio.toFixed(1)}x).`);
                 }
@@ -2464,7 +2647,7 @@
             // Debt/Equity
             if (year5BS.equity !== 0) {
                 const debtToEquityRatio = year5BS.debt / year5BS.equity;
-                if (debtToEquityRatio < 0 || debtToEquityRatio > 30) { // Very wide range for extreme warnings
+                if (debtToEquityRatio < 0 || debtToEquityRatio > 3) { // Adjusted range for Debt/Equity (more conservative)
                     validations.warnings.push(`🟡 Advertencia: Ratio Deuda/Patrimonio del Año ${lastYear + 1} (${debtToEquityRatio.toFixed(1)}x) es inusual. Revise supuestos.`);
                 } else {
                     validations.passed.push(`✅ Outputs: Ratio Deuda/Patrimonio del Año ${lastYear + 1} es realista (${debtToEquityRatio.toFixed(1)}x).`);
@@ -2591,10 +2774,10 @@
             // CxC/Ingresos financiamiento: 0.5-3x
             if (year5PL.totalRevenue !== 0) {
                 const cxcToRevenueRatio = year5BS.receivables / year5PL.totalRevenue;
-                if (cxcToRevenueRatio < 0.01 || cxcToRevenueRatio > 10) { // Very wide range for extreme warnings
-                    validations.warnings.push(`🟡 Advertencia: Ratio CxC/Ingresos del Año ${lastYear + 1} (${cxcToRevenueRatio.toFixed(1)}x) es inusual. Revise supuestos.`);
+                if (cxcToRevenueRatio < 0.5 || cxcToRevenueRatio > 3) {
+                    validations.info.push(`🔵 Info: Ratio CxC/Ingresos del Año ${lastYear + 1} (${cxcToRevenueRatio.toFixed(1)}x) está fuera del benchmark típico de financiamiento (0.5-3x).`);
                 } else {
-                    validations.passed.push(`✅ Outputs: Ratio CxC/Ingresos del Año ${lastYear + 1} es realista (${cxcToRevenueRatio.toFixed(1)}x).`);
+                    validations.passed.push(`✅ Benchmarks: Ratio CxC/Ingresos del Año ${lastYear + 1} (${cxcToRevenueRatio.toFixed(1)}x) está en línea con el benchmark.`);
                 }
             } else {
                 validations.info.push(`🔵 Info: Ingresos Totales del Año ${lastYear + 1} son cero, no se puede comparar Ratio CxC/Ingresos con benchmark.`);
