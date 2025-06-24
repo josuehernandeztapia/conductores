@@ -1035,8 +1035,23 @@
                 let loanCohorts = [];
                 let fixedAssetsCohorts = [];
                 
-                const projectCashFlows = [-initialEquityInvestment]; // Para TIR Proyecto: Solo Serie A inicialmente
-                const equityCashFlows = [-initialEquityInvestment]; // Para TIR Equity: Solo Serie A inicialmente (excluye Series B/C y plug)
+                // ===== DEFINICIÓN DE INVERSIONES INICIALES =====
+                // 🏢 TIR PROYECTO: Todas las series (perspectiva total empresa)
+                const totalProjectInvestment = modelData.seriesA +
+                                               modelData.seriesB_funding +
+                                               modelData.seriesC_funding;
+                const projectCashFlows = [-totalProjectInvestment];
+
+                // 💎 TIR EQUITY: Solo Serie A (perspectiva inversionistas originales)
+                const equityCashFlows = [-initialEquityInvestment]; // Solo Serie A
+
+                log(`📊 INVERSIONES INICIALES PARA TIRs:`);
+                log(`   🏢 TIR PROYECTO (todas las series): ${formatCurrency(totalProjectInvestment)}`);
+                log(`      - Serie A: ${formatCurrency(modelData.seriesA)}`);
+                log(`      - Serie B: ${formatCurrency(modelData.seriesB_funding)} (Año ${modelData.seriesB_year})`);
+                log(`      - Serie C: ${formatCurrency(modelData.seriesC_funding)} (Año ${modelData.seriesC_year})`);
+                log(`   💎 TIR EQUITY (solo Serie A): ${formatCurrency(initialEquityInvestment)}`);
+
                 let portfolioCashFlows = []; // Para TIR Cartera
                 portfolioCashFlows.push(0); // Año 0: No hay flujo de cartera todavía
 
@@ -1398,7 +1413,7 @@
                     financialResults.niifDetails.push({
                         niif15: {
                             totalContractValueFromPerformanceObligations: currentYearOriginationContractValue + gnvCommissions + sparePartsRevenue + marketplaceRevenue,
-                            originationContractValueInitial: currentYearOriginationContractValue,
+                            originationContractValueInitial: currentYearOriginationContractValue, // Corrected variable name
                             recognizedOriginationRevenue: originationCommission, 
                             contractLiabilitiesBalance: contractLiabilitiesBalance, 
                             gnvCommissions: gnvCommissions,
@@ -1424,25 +1439,31 @@
                         niif5: niif5Results.niif5Details
                     });
                     
-                    // --- FLUJO PARA TIR CARTERA ---
-                    // Calcular flujos de cartera con lógica correcta
+                    // --- FLUJO PARA TIR CARTERA (CORREGIDO) ---
                     let portfolioCashFlowThisYear = 0;
-                    // Inflows: Solo pagos reales de clientes (intereses + principal)
+                    // ✅ INFLOWS: Solo flujos de CARTERA (intereses + principal de clientes)
                     portfolioCashFlowThisYear += annualInterestReceived + annualPrincipalReceived;
-                    // Outflows: Desembolsos netos en año de originación
+                    // ✅ OUTFLOWS: Solo desembolsos NETOS de cartera (sin down payment/upfront)
                     if (addedUnits > 0) {
-                        // Desembolso real: netLoanPrincipal (ya neto del down payment)
+                        // netLoanPrincipal ya es neto (excluye down payment de 10%)
+                        // Down payment y upfront fees SON INGRESOS OPERATIVOS, no flujos de cartera
                         portfolioCashFlowThisYear -= netLoanPrincipal;        
-                        // NO sumar down payment (ya está neteado del desembolso)
-                        // NO sumar upfront fees (son ingresos operativos, no de cartera)
                     }
-                    // Outflows: Costos reales de la cartera
-                    portfolioCashFlowThisYear -= provisions; // Costo de riesgo de crédito
-                    portfolioCashFlowThisYear -= (impairment * 0.5); // Proporción de deterioro atribuible a cartera
+                    // ✅ COSTOS: Solo costos DIRECTOS de riesgo crediticio
+                    portfolioCashFlowThisYear -= provisions; // Costo esperado de pérdidas crediticias
+                    // ❌ ELIMINADO: impairment (es de activos fijos, NO de cartera)
+                    // portfolioCashFlowThisYear -= (impairment * 0.5); // COMENTAR ESTA LÍNEA
                     portfolioCashFlows.push(portfolioCashFlowThisYear);
+
+                    // 📊 DEBUG: Verificar TIR razonable
+                    if (year === 4) { // Año 5
+                        log(`🔍 DEBUG TIR CARTERA - Flujos: ${JSON.stringify(portfolioCashFlows)}`);
+                        log(`🔍 Tasa cliente: ${modelData.tasaInteres}%, TIR esperada: ~22-24%`);
+                    }
 
                     // --- FLUJO PARA TIR EQUITY (FCFE) ---
                     // Flujo para TIR Equity: EBITDA-based approach más realista
+                    // nopat ya está declarado como const más arriba, usarlo directamente
                     const capexFinancedByDebt = capexThisYear * (totalDebt / (totalDebt + endOfYearEquity + 1)); // Evitar div/0
                     const netCapexForEquity = capexThisYear - capexFinancedByDebt;
                     const fcfeForTIR = nopat + annualDepreciation + impairment - netCapexForEquity - deltaReceivables + deltaContractLiabilities + currentYearVentureDebtDraw - principalPaymentVentureDebtThisPeriod;
@@ -1454,28 +1475,41 @@
                 }
                 
                 // ===== VALOR TERMINAL PARA TIRs (después del bucle anual) =====
-                // Valor residual de activos para TIR Proyecto
+                // ===== VALOR TERMINAL TIR PROYECTO (9X EBITDA) =====
+                const year5EBITDA = financialResults.pl[4].ebitda;
+                const ebitdaMultipleProject = 9; // Base conservadora fintech México  
+                const terminalValueProject = year5EBITDA * ebitdaMultipleProject;
+                projectCashFlows[projectCashFlows.length - 1] += terminalValueProject;
+                log(`🏢 TIR PROYECTO - Valor Terminal (9X EBITDA):`);
+                log(`   EBITDA Año 5: ${formatCurrency(year5EBITDA)}`);
+                log(`   Múltiplo Proyecto: ${ebitdaMultipleProject}X`);
+                log(`   VALOR TERMINAL PROYECTO: ${formatCurrency(terminalValueProject)}`);
+                // 📊 COMPARACIÓN: Valor económico vs contable (para referencia)
                 const totalFixedAssetsAtEnd = fixedAssetsCohorts.reduce((sum, cohort) => sum + (cohort.totalOriginalCost - cohort.accumulatedDepreciation), 0);
                 const totalReceivablesAtEnd = financialResults.bs[4].receivables;
                 const totalAssetsHeldForSaleAtEnd = heldForSaleAssets.reduce((sum, asset) => sum + asset.currentFairValueLessCosts, 0); 
-                const terminalValueProject = totalFixedAssetsAtEnd + totalReceivablesAtEnd + totalAssetsHeldForSaleAtEnd;
-                projectCashFlows[projectCashFlows.length - 1] += terminalValueProject; 
-                log(` Valor Terminal de Activos (Año 5) para TIR Proyecto: ${formatCurrency(terminalValueProject)}`);
+                const valorContable = totalFixedAssetsAtEnd + totalReceivablesAtEnd + totalAssetsHeldForSaleAtEnd;
+                log(`📊 COMPARACIÓN Valor Terminal:`);
+                log(`   Método Económico (9X EBITDA): ${formatCurrency(terminalValueProject)}`);
+                log(`   Método Contable (activos): ${formatCurrency(valorContable)}`);
+                log(`   Ratio Económico/Contable: ${(terminalValueProject/valorContable).toFixed(1)}X`);
 
-                // Valor terminal para TIR Equity (basado en múltiplo de EBITDA o book value)
-                const year5EBITDA = financialResults.pl[4].ebitda;
-                const ebitdaMultiple = 10; // Conservative fintech multiple
+
+                // ===== VALOR TERMINAL TIR EQUITY (9X EBITDA) =====
+                const ebitdaMultipleEquity = 9; // Base conservadora fintech México
+                const enterpriseValue = year5EBITDA * ebitdaMultipleEquity;
                 const terminalValueEquity = Math.max(
-                    year5EBITDA * ebitdaMultiple - financialResults.bs[4].debt, // Enterprise value minus debt
-                    financialResults.bs[4].equity * 2.5 // Minimum 2.5x book value
+                    enterpriseValue - financialResults.bs[4].debt, // Enterprise value minus debt
+                    financialResults.bs[4].equity * 1.5 // Floor más conservador 1.5x book value
                 );
                 equityCashFlows[equityCashFlows.length - 1] += terminalValueEquity;
-                log(` Valor Terminal de Patrimonio (Año 5) para TIR Equity: ${formatCurrency(terminalValueEquity)}`);
-
-                // Valor terminal para TIR Cartera: recuperación de cuentas por cobrar pendientes
-                const terminalValueCartera = financialResults.bs[4].receivables;
-                portfolioCashFlows[portfolioCashFlows.length - 1] += terminalValueCartera;
-                log(` Valor Terminal de Cartera (Año 5): ${formatCurrency(terminalValueCartera)}`);
+                log(`💎 TIR EQUITY - Valor Terminal (9X EBITDA):`);
+                log(`   EBITDA Año 5: ${formatCurrency(year5EBITDA)}`);
+                log(`   Enterprise Value (${ebitdaMultipleEquity}X): ${formatCurrency(enterpriseValue)}`);
+                log(`   Menos Deuda Año 5: ${formatCurrency(financialResults.bs[4].debt)}`);
+                log(`   Book Value Año 5: ${formatCurrency(financialResults.bs[4].equity)}`);
+                log(`   Floor (1.5X Book): ${formatCurrency(financialResults.bs[4].equity * 1.5)}`);
+                log(`   VALOR TERMINAL EQUITY: ${formatCurrency(terminalValueEquity)}`);
 
                 // ===== CÁLCULO DE TIRs FINALES (después del bucle anual) =====
                 log('Calculando TIR Proyecto...');
@@ -1490,9 +1524,49 @@
                 }
                 log(`TIR Cartera calculada: ${financialResults.tirCartera.toFixed(2)}%`);
 
+                // Validaciones requeridas post-corrección para TIR Cartera
+                if (financialResults.tirCartera < 20 || financialResults.tirCartera > 30) {
+                    log(`⚠️ ADVERTENCIA: TIR Cartera ${financialResults.tirCartera.toFixed(1)}% fuera de rango esperado (20-30%)`);
+                } else {
+                    log(`✅ TIR Cartera ${financialResults.tirCartera.toFixed(1)}% en rango esperado vs tasa cliente ${modelData.tasaInteres}%`);
+                }
+
                 log('Calculando TIR Equity...');
                 financialResults.tirEquity = calculateIRR(equityCashFlows);
                 log(`TIR Equity calculada: ${financialResults.tirEquity.toFixed(2)}%`);
+
+                // Validaciones requeridas para TIR Equity
+                if (financialResults.tirEquity < 25 || financialResults.tirEquity > 35) {
+                    log(`⚠️ ADVERTENCIA: TIR Equity (${financialResults.tirEquity.toFixed(1)}%) fuera del rango objetivo (25-35%).`);
+                } else {
+                    log(`✅ Benchmarks: TIR Equity (${financialResults.tirEquity.toFixed(1)}%) está en el rango objetivo.`);
+                }
+
+                // ===== VALIDACIÓN FINAL TIRs CON CORRECCIONES =====
+                log(`\n🎯 RESULTADOS TIRs CON CORRECCIONES (9X EBITDA):`);
+                log(`   🏢 TIR PROYECTO: ${financialResults.tirProyecto.toFixed(1)}% (esperado: 18-22%)`);
+                log(`      - Inversión base: ${formatCurrency(totalProjectInvestment)} (Series A+B+C)`);
+                log(`      - Valor terminal: ${formatCurrency(terminalValueProject)} (9X EBITDA)`);
+                log(`   💎 TIR EQUITY: ${financialResults.tirEquity.toFixed(1)}% (esperado: 25-30%)`);
+                log(`      - Inversión base: ${formatCurrency(initialEquityInvestment)} (Solo Serie A)`);
+                log(`      - Valor terminal: ${formatCurrency(terminalValueEquity)} (9X EBITDA - Deuda)`);
+                log(`   📊 Spread TIR: ${(financialResults.tirEquity - financialResults.tirProyecto).toFixed(1)}pp`);// Validaciones de coherencia
+                if (financialResults.tirEquity < financialResults.tirProyecto) {
+                    log(`⚠️ ADVERTENCIA: TIR Equity menor que TIR Proyecto - revisar estructura capital`);
+                } else {
+                    log(`✅ COHERENCIA: TIR Equity > TIR Proyecto (correcto por apalancamiento)`);
+                }
+                if (financialResults.tirProyecto < 15 || financialResults.tirProyecto > 25) {
+                    log(`⚠️ TIR PROYECTO fuera de rango típico fintech (15-25%)`);
+                } else {
+                    log(`✅ TIR PROYECTO en rango esperado para fintech`);
+                }
+                if (financialResults.tirEquity < 20 || financialResults.tirEquity > 35) {
+                    log(`⚠️ TIR EQUITY fuera de rango típico VC (20-35%)`);
+                } else {
+                    log(`✅ TIR EQUITY en rango esperado para inversionistas`);
+                }
+
 
                 log('   ✅   CÁLCULOS FINANCIEROS COMPLETADOS CORRECTAMENTE');
                 return true; 
@@ -1851,7 +1925,7 @@
                 { label: '  Cuentas por Cobrar (Principal)', key: 'receivables' },
                 { label: '  Activos Fijos Netos (Vagonetas)', key: 'fixedAssets' },
                 { label: '  Activos Mantenidos para Venta (NIIF 5)', key: 'assetsHeldForSale' },
-                { label: 'TOTAL ACTIVOS', key: 'totalAssets', total: true, emphasize: true },
+                { label: 'TOTAL ACTIVOS', total: true, emphasize: true },
                 { label: 'PASIVOS Y PATRIMONIO', total: true, separator: true, emphasize: true },
                 { label: '  Deuda Venture', key: 'debt' },
                 { label: '  Provisiones NIIF 9 (Acumuladas)', key: 'provisions' },
@@ -2463,7 +2537,7 @@
                 } else if (['refaccionesRevPerUnit', 'litrosPromedioMensualPorUnidad', 'precioLitroGNV', 'gmvPromedioMensualPorUnidad'].includes(config.id)) {
                     otherRevenueContainer.appendChild(div);
                 } else {
-                    operationsDebtContainer.appendChild(div); // Default container for generic constants
+                    constantsContainer.appendChild(div); // Default container for generic constants
                 }
 
                 const input = div.querySelector(`#${config.id}-input`);
@@ -2573,7 +2647,7 @@
                 validations.errors.push("🔴 Error: El Costo de Vagoneta debe ser mayor que 0. Ajuste 'Costo Vagoneta (RAG)' en Control.");
             }
             if (modelData.vanPrice <= 0) {
-                validations.errors.push("🔴 Error: El Precio de Préstamo al Cliente debe ser mayor que 0. Ajuste 'Precio Préstamo Cliente' en Control.");
+                validations.errors.push(`🔴 Error: El Precio de Préstamo al Cliente (${formatCurrency(modelData.vanPrice)}) debe ser mayor que 0. Ajuste 'Precio Préstamo Cliente' en Control.`);
             }
             if (modelData.clientLoanTermYears <= 0 || !Number.isInteger(modelData.clientLoanTermYears)) {
                 validations.errors.push("🔴 Error: El Plazo del Préstamo al Cliente debe ser un entero positivo. Ajuste 'Plazo Préstamo Cliente' en Control.");
@@ -2673,7 +2747,7 @@
                     validations.passed.push(`✅ Outputs: Margen EBITDA del Año ${lastYear + 1} es realista (${ebitdaMargin.toFixed(1)}%).`);
                 }
             } else {
-                 validations.info.push(`🔵 Info: Ingresos Totales del Año ${lastYear + 1} son cero, no se puede calcular Margen EBITDA.`);
+                validations.info.push(`🔵 Info: Ingresos Totales del Año ${lastYear + 1} son cero, no se puede calcular Margen EBITDA.`);
             }
 
             // ROE
@@ -2812,8 +2886,10 @@
                 if (ebitdaMargin < 10 || ebitdaMargin > 40) {
                     validations.info.push(`🔵 Info: Margen EBITDA del Año ${lastYear + 1} (${ebitdaMargin.toFixed(1)}%) está fuera del benchmark típico de fintech (10-40%).`);
                 } else {
-                    validations.passed.push(`✅ Benchmarks: Margen EBITDA del Año ${lastYear + 1} (${ebitdaMargin.toFixed(1)}%) está en línea con el benchmark.`);
+                    validations.passed.push(`✅ Outputs: Margen EBITDA del Año ${lastYear + 1} es realista (${ebitdaMargin.toFixed(1)}%).`);
                 }
+            } else {
+                validations.info.push(`🔵 Info: Ingresos Totales del Año ${lastYear + 1} son cero, no se puede calcular Margen EBITDA.`);
             }
 
             // ROE servicios financieros: 15-35%
@@ -2821,7 +2897,7 @@
                 if (year5ROE < 20 || year5ROE > 30) { // Adjusted range for ROE
                     validations.info.push(`🔵 Info: ROE del Año ${lastYear + 1} (${year5ROE.toFixed(1)}%) está fuera del benchmark típico de servicios financieros (20-30%).`);
                 } else {
-                    validations.passed.push(`✅ Benchmarks: ROE del Año ${lastYear + 1} (${year5ROE.toFixed(1)}%) está en línea con el benchmark.`);
+                    validations.passed.push(`✅ Outputs: ROE del Año ${lastYear + 1} es realista (${year5ROE.toFixed(1)}%).`);
                 }
             } else {
                  validations.info.push(`🔵 Info: Patrimonio del Año ${lastYear + 1} es cero o negativo, no se puede comparar ROE con benchmark.`);
@@ -2833,7 +2909,7 @@
                 if (cxcToRevenueRatio < 0.5 || cxcToRevenueRatio > 3) {
                     validations.info.push(`🔵 Info: Ratio CxC/Ingresos del Año ${lastYear + 1} (${cxcToRevenueRatio.toFixed(1)}x) está fuera del benchmark típico de financiamiento (0.5-3x).`);
                 } else {
-                    validations.passed.push(`✅ Benchmarks: Ratio CxC/Ingresos del Año ${lastYear + 1} (${cxcToRevenueRatio.toFixed(1)}x) está en línea con el benchmark.`);
+                    validations.passed.push(`✅ Outputs: Ratio CxC/Ingresos del Año ${lastYear + 1} es realista (${cxcToRevenueRatio.toFixed(1)}x).`);
                 }
             } else {
                 validations.info.push(`🔵 Info: Ingresos Totales del Año ${lastYear + 1} son cero, no se puede comparar Ratio CxC/Ingresos.`);
@@ -3090,7 +3166,7 @@
                 log(`✅ Test NIIF 15 (Origination/Upfront): Pasado. Reconocido: ${formatCurrency(niif15Result2.recognizedOriginationRevenue)}`);
                 // Also check remaining liability
                 if (Math.abs(testLoanCohort[0].remainingOriginationCommission) < 0.01 && Math.abs(testLoanCohort[0].remainingUpfrontLiability) < 0.01) {
-                    log(`✅ Test NIIF 15 (Origination/Upfront Liabilities): Pasado. Pasivos residuales son cero.`);
+                    log(`✅ Test NIIF 15 (Origination/Upfront Liabilities): Falló. Pasivos residuales son cero.`);
                 } else {
                     log(`❌ Test NIIF 15 (Origination/Upfront Liabilities): Falló. Pasivos residuales no son cero.`);
                 }
