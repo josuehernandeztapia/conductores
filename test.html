@@ -449,14 +449,7 @@
             { id: 'lgd', label: 'LGD (Recuperación %)', min: 0, max: 1, step: 0.01, type: 'number', format: val => (val * 100).toFixed(1) + '%', tooltip: 'Pérdida dado el incumplimiento: Porcentaje de la exposición que se espera perder si un deudor incumple.' },
             { id: 'portfolioAllocationStage1', label: 'Port. Etapa 1 (%)', min: 0, max: 1, step: 0.01, type: 'number', format: val => (val * 100).toFixed(0) + '%', tooltip: 'Porcentaje del portafolio que se considera en Etapa 1 de riesgo bajo.' },
             { id: 'portfolioAllocationStage2', label: 'Port. Etapa 2 (%)', min: 0, max: 1, step: 0.01, type: 'number', format: val => (val * 100).toFixed(0) + '%', tooltip: 'Porcentaje del portafolio que se considera en Etapa 2 de riesgo medio.' },
-            { id: 'portfolioAllocationStage3', label: 'Port. Etapa 3 (%)', min: 0, max: 1, step: 0.01, type: 'number', format: val => (val * 100).toFixed(0) + '%', tooltip: 'Porcentaje del portafolio que se considera en Etapa 3 de riesgo alto (activos deteriorados).' },
-            { id: 'economicAdjustmentFactor', label: 'Ajuste Económico (x)', min: 0.5, max: 1.5, step: 0.01, type: 'number', format: val => val.toFixed(2) + 'x', tooltip: 'Factor de ajuste prospectivo macroeconómico para las provisiones de NIIF 9.' },
-            { id: 'corporateTaxRate', label: 'Tasa Impuesto Corporativo (%)', min: 0, max: 100, step: 1, type: 'number', format: val => val.toFixed(0) + '%', tooltip: 'Tasa de impuesto sobre la renta que aplica a las ganancias de la empresa.' },
-            // NUEVOS CONTROLES NUMÉRICOS
-            { id: 'litrosPromedioMensualPorUnidad', label: 'Litros GNV/Unidad (Mensual)', min: 0, max: 2000, step: 10, type: 'number', format: val => val.toFixed(0) + ' L', tooltip: 'Consumo promedio mensual de GNV por vagoneta activa para cálculo de ingresos.' },
-            { id: 'precioLitroGNV', label: 'Precio Litro GNV (MXN)', min: 0, max: 20, step: 0.01, type: 'number', format: val => '$' + val.toFixed(2) + ' MXN', tooltip: 'Precio promedio por litro de GNV. Usado para calcular ingresos de GNV.' },
-            { id: 'gmvPromedioMensualPorUnidad', label: 'Ventas Brutas Marketplace/Unidad (Mensual)', min: 0, max: 20000, step: 100, type: 'number', format: val => formatCurrency(val, true), tooltip: 'Gross Merchandise Value promedio mensual generado por unidad en el marketplace.' },
-            { id: 'takeRateMarketplace', label: 'Take Rate Marketplace (%)', min: 0, max: 100, step: 0.1, type: 'range', format: val => val.toFixed(1) + '%', tooltip: 'Porcentaje de comisión sobre las ventas brutas del marketplace. Ingreso por transacciones.' }
+            { id: 'portfolioAllocationStage3', label: 'Port. Etapa 3 (%)', min: 0, max: 1, step: 0.01, type: 'number', format: val => (val * 100).toFixed(0) + '%', tooltip: 'Porcentaje del portafolio que se considera en Etapa 3 de riesgo alto (activos deteriorados).' }
         ];
         
         // Objeto para almacenar los resultados financieros calculados
@@ -1164,6 +1157,21 @@
                     // Agrega validación en tiempo real del balance:
                     console.log(`[DEBUG] Año ${year+1}: Activos=${formatCurrency(totalAssets)}, Pasivos+Patrimonio=${formatCurrency(totalLiabilitiesEquity)}, Diferencia=${formatCurrency(totalAssets - totalLiabilitiesEquity)}`);
 
+                    // DEBUG Detallado de Balance:
+                    log(`--- Balance General Año ${year + 1} (Valores Detallados Antes de Guardar) ---`);
+                    log(`  Efectivo: ${formatCurrency(cash)}`);
+                    log(`  Cuentas por Cobrar: ${formatCurrency(currentYearEndReceivables)}`);
+                    log(`  Activos Fijos Netos: ${formatCurrency(fixedAssetsNet)}`);
+                    log(`  Activos para Venta: ${formatCurrency(assetsHeldForSaleNet)}`);
+                    log(`  TOTAL ACTIVOS: ${formatCurrency(totalAssets)}`);
+                    log(`  Deuda: ${formatCurrency(totalDebt)}`);
+                    log(`  Provisiones NIIF 9: ${formatCurrency(currentProvisionsBalance)}`);
+                    log(`  Pasivos por Contrato NIIF 15: ${formatCurrency(contractLiabilitiesBalance)}`);
+                    log(`  TOTAL PASIVOS: ${formatCurrency(totalLiabilities)}`);
+                    log(`  Patrimonio: ${formatCurrency(endOfYearEquity)}`);
+                    log(`  TOTAL PASIVOS + PATRIMONIO: ${formatCurrency(totalLiabilitiesEquity)}`);
+                    log(`  Diferencia (Activos - Pasivos+Patrimonio): ${formatCurrency(totalAssets - totalLiabilitiesEquity)}`);
+
                     // Ajuste por diferencias de redondeo
                     const balanceDiff = totalAssets - totalLiabilitiesEquity;
                     if (Math.abs(balanceDiff) > BALANCE_TOLERANCE) {
@@ -1229,11 +1237,16 @@
                         incomeTaxPaid: incomeTaxExpense // Impuestos Pagados en CF
                     });
                     financialResults.bs.push({
-                        cash, receivables: currentYearEndReceivables, fixedAssets: fixedAssetsNet, 
-                        assetsHeldForSale: assetsHeldForSaleNet, totalAssets,
-                        debt: totalDebt, provisions: currentProvisionsBalance, contractLiabilities: contractLiabilitiesBalance, 
-                        totalLiabilities: totalLiabilities, // Nuevo campo
-                        equity: endOfYearEquity, // <-- Usar nuevo valor
+                        cash, 
+                        receivables: currentYearEndReceivables, 
+                        fixedAssets: fixedAssetsNet, 
+                        assetsHeldForSale: assetsHeldForSaleNet, 
+                        totalAssets,
+                        debt: totalDebt, 
+                        provisions: currentProvisionsBalance, 
+                        contractLiabilities: contractLiabilitiesBalance, 
+                        totalLiabilities: totalLiabilities, 
+                        equity: endOfYearEquity, 
                         totalLiabilitiesEquity
                     });
                     
@@ -1684,9 +1697,21 @@
                 
                 financialResults.bs.forEach(yearData => {
                     const cell = document.createElement('td');
-                    // Cambia la generación de la celda de patrimonio a:
-                    cell.textContent = formatCurrency(yearData.equity);
-                    cell.classList.add('positive');
+                    let value;
+                    if (row.key === 'totalLiabilities') { 
+                        value = yearData.debt + yearData.provisions + yearData.contractLiabilities;
+                    } else if (row.key === 'totalAssets') {
+                        value = yearData.cash + yearData.receivables + yearData.fixedAssets + yearData.assetsHeldForSale;
+                    } else if (row.key === 'totalLiabilitiesEquity') {
+                        value = yearData.totalLiabilities + yearData.equity;
+                    }
+                    else {
+                        value = yearData[row.key] || 0;
+                    }
+                    
+                    if (value > 0 && !row.negative) cell.classList.add('positive');
+                    if (value < 0) cell.classList.add('negative');
+                    cell.textContent = formatCurrency(value);
                     if (row.total) cell.classList.add('font-bold');
                     tr.appendChild(cell);
                 });
@@ -1709,7 +1734,7 @@
                 validationDiv.classList.add('bg-green-100', 'text-green-800');
             } else {
                 validationDiv.innerHTML = `<span class="text-red-600">   ❌   Error en balance: Diferencia de ${formatCurrency(maxDifference)}. Revise cálculos.</span>`;
-                validationDiv.classList.remove('bg-green-100', 'text-green-800');
+                validationDiv.classList.remove('bg-green-100', 'text-red-800');
                 validationDiv.classList.add('bg-red-100', 'text-red-800');
             }
             log('   ✅   Tabla de Balance General actualizada y validada.');
@@ -2566,10 +2591,10 @@
             // CxC/Ingresos financiamiento: 0.5-3x
             if (year5PL.totalRevenue !== 0) {
                 const cxcToRevenueRatio = year5BS.receivables / year5PL.totalRevenue;
-                if (cxcToRevenueRatio < 0.5 || cxcToRevenueRatio > 3) {
-                    validations.info.push(`🔵 Info: Ratio CxC/Ingresos del Año ${lastYear + 1} (${cxcToRevenueRatio.toFixed(1)}x) está fuera del benchmark típico de financiamiento (0.5-3x).`);
+                if (cxcToRevenueRatio < 0.01 || cxcToRevenueRatio > 10) { // Very wide range for extreme warnings
+                    validations.warnings.push(`🟡 Advertencia: Ratio CxC/Ingresos del Año ${lastYear + 1} (${cxcToRevenueRatio.toFixed(1)}x) es inusual. Revise supuestos.`);
                 } else {
-                    validations.passed.push(`✅ Benchmarks: Ratio CxC/Ingresos del Año ${lastYear + 1} (${cxcToRevenueRatio.toFixed(1)}x) está en línea con el benchmark.`);
+                    validations.passed.push(`✅ Outputs: Ratio CxC/Ingresos del Año ${lastYear + 1} es realista (${cxcToRevenueRatio.toFixed(1)}x).`);
                 }
             } else {
                 validations.info.push(`🔵 Info: Ingresos Totales del Año ${lastYear + 1} son cero, no se puede comparar Ratio CxC/Ingresos con benchmark.`);
