@@ -1018,7 +1018,6 @@
                 
                 const initialEquityInvestment = modelData.seriesA;
                 
-                //let accumulatedEarnings = 0; // <-- ELIMINAR ESTA LÍNEA
                 let cash = initialEquityInvestment;
                 let totalDebt = 0;
                 let availableVentureDebtLine = modelData.ventureDebtLineMax;
@@ -1031,10 +1030,9 @@
                 
                 const projectCashFlows = [-initialEquityInvestment]; // Para TIR Proyecto: Solo Serie A inicialmente
                 const equityCashFlows = [-initialEquityInvestment]; // Para TIR Equity: Solo Serie A inicialmente (excluye Series B/C y plug)
-                let totalPrincipalOriginatedAcrossAllYears = 0;
-                
-                const portfolioCashFlowsForIRR = []; 
-                
+                let portfolioCashFlows = []; // Para TIR Cartera
+                portfolioCashFlows.push(0); // Año 0: No hay flujo de cartera todavía
+
                 log(`Capital Serie A inicial: ${formatCurrency(modelData.seriesA)}`);
                 log(`Línea Máxima Venture Debt disponible: ${formatCurrency(modelData.ventureDebtLineMax)}`);
                 log(`Efectivo inicial total (Solo Serie A): ${formatCurrency(cash)}`);
@@ -1088,8 +1086,8 @@
                         currentYearCashFromOrigination = downPaymentReceived + upfrontCommissionReceived;
 
                         netLoanPrincipal = newCohortGrossPrincipal - downPaymentReceived;
-                        totalPrincipalOriginatedAcrossAllYears += netLoanPrincipal;
-                        
+                        // totalPrincipalOriginatedAcrossAllYears += netLoanPrincipal; // Esto es para TIR Cartera global, ya no necesario aquí
+
                         const monthlyInterestRateClient = (modelData.tasaInteres / 100) / 12;
                         const totalPaymentsMonthsClient = modelData.clientLoanTermYears * 12;
                         let monthlyPaymentClient = 0;
@@ -1119,7 +1117,6 @@
                         log(` Cohorte nueva Año ${year+1}: ${addedUnits} unidades, Principal neto: ${formatCurrency(netLoanPrincipal)}, Down payment: ${formatCurrency(downPaymentReceived)}, Comisión upfront: ${formatCurrency(upfrontCommissionReceived)}`);
                     }
                     
-                    // Mover este bloque completo aquí
                     // --- AMORTIZACIÓN Y CÁLCULO DE EXPOSICIÓN (Para IFRS 9 y 15) ---
                     let annualInterestReceived = 0;
                     let annualPrincipalReceived = 0;
@@ -1197,7 +1194,6 @@
                     const incomeTaxExpense = Math.max(0, earningsBeforeTax) * (modelData.corporateTaxRate / 100);
                     // Modificación: incluir la pérdida por deterioro en netIncome
                     const netIncome = earningsBeforeTax - incomeTaxExpense - impairment; 
-                    //accumulatedEarnings += netIncome; // <-- ELIMINAR ESTA LÍNEA
 
                     // --- FLUJO DE EFECTIVO (CF) ---
                     // Calculate deltas for BS accounts (Working Capital)
@@ -1267,8 +1263,6 @@
                     if (prospectiveCash < 0) {
                         additionalFundingRaised = -prospectiveCash; 
                         financingCashThisPeriod += additionalFundingRaised;
-                        // Eliminar esta línea ya que additionalFundingRaised ya está en newEquityInjectionsThisYear
-                        // newEquityInjectionsThisYear += additionalFundingRaised; 
                         log(`   ⚠️   Déficit de efectivo en Año ${year+1}. Se asume funding ADICIONAL (Plug de Liquidez): ${formatCurrency(additionalFundingRaised)}`);
                     }
                     // Sumar el plug de liquidez a newEquityInjectionsThisYear para el cálculo del Balance
@@ -1279,7 +1273,7 @@
 
                     // Actualizar Equity para el balance
                     // AL FINAL DEL AÑO:
-                    endOfYearEquity = startOfYearEquity + netIncome + newEquityInjectionsThisYear; // <-- Reemplazar el cálculo del patrimonio
+                    endOfYearEquity = startOfYearEquity + netIncome + newEquityInjectionsThisYear; // Cálculo de patrimonio corregido
 
                     // --- BALANCE GENERAL (BS) ---
                     // Activos Fijos Netos: Suma de costos originales menos depreciación acumulada de activos activos
@@ -1424,11 +1418,16 @@
                         niif5: niif5Results.niif5Details
                     });
                     
-                    // Flujo para TIR Cartera
-                    portfolioCashFlowsForIRR.push(interestRevenue - provisions - (interestRevenue * 0.05)); // Incluir 5% de costo operativo de cartera
+                    // --- FLUJO PARA TIR CARTERA ---
+                    // Cash flow para la cartera en este año: principal desembolsado (negativo) + pagos de intereses y principal (positivo)
+                    // Las provisiones no son un flujo de caja directo, por lo que no se incluyen aquí.
+                    let portfolioCashFlowThisYear = (annualInterestReceived + annualPrincipalReceived);
+                    if (addedUnits > 0) { // Si hay nuevas unidades, hay desembolso de principal
+                        portfolioCashFlowThisYear -= netLoanPrincipal;
+                    }
+                    portfolioCashFlows.push(portfolioCashFlowThisYear); // Añade el flujo neto de cartera del año
                     
                     // Flujo para TIR Equity (FCFE ANTES de inyecciones de capital Serie B/C y plug de liquidez)
-                    // Es simplemente el efectivo operativo menos el capex, más el flujo de deuda neto
                     const fcfeForTIR = operatingCash + investingCash + (currentYearVentureDebtDraw - principalPaymentVentureDebtThisPeriod);
                     equityCashFlows.push(fcfeForTIR);
 
@@ -1446,10 +1445,15 @@
                 projectCashFlows[projectCashFlows.length - 1] += terminalValueProject; 
                 log(` Valor Terminal de Activos (Año 5) para TIR Proyecto: ${formatCurrency(terminalValueProject)}`);
 
-                // Valor terminal para TIR Equity (80% del Patrimonio Año 5)
-                const terminalValueEquity = financialResults.bs[4].equity * 0.8;
+                // Valor terminal para TIR Equity (1.2x del Patrimonio Año 5)
+                const terminalValueEquity = financialResults.bs[4].equity * 1.2;
                 equityCashFlows[equityCashFlows.length - 1] += terminalValueEquity;
                 log(` Valor Terminal de Patrimonio (Año 5) para TIR Equity: ${formatCurrency(terminalValueEquity)}`);
+
+                // Valor terminal para TIR Cartera: recuperación de cuentas por cobrar pendientes
+                const terminalValueCartera = financialResults.bs[4].receivables;
+                portfolioCashFlows[portfolioCashFlows.length - 1] += terminalValueCartera;
+                log(` Valor Terminal de Cartera (Año 5): ${formatCurrency(terminalValueCartera)}`);
 
                 // ===== CÁLCULO DE TIRs FINALES (después del bucle anual) =====
                 log('Calculando TIR Proyecto...');
@@ -1457,10 +1461,8 @@
                 log(`TIR Proyecto calculada: ${financialResults.tirProyecto.toFixed(2)}%`);
                 
                 log('Calculando TIR Cartera...');
-                if (portfolioCashFlowsForIRR.length > 0) {
-                    const carteraInitialInvestment = totalPrincipalOriginatedAcrossAllYears;
-                    const carteraCashFlows = [-carteraInitialInvestment, ...portfolioCashFlowsForIRR];
-                    financialResults.tirCartera = calculateIRR(carteraCashFlows);
+                if (portfolioCashFlows.length > 0) {
+                    financialResults.tirCartera = calculateIRR(portfolioCashFlows);
                 } else {
                     financialResults.tirCartera = 0;
                 }
@@ -2300,12 +2302,12 @@
          * Fuerza un recálculo manual del modelo.
          */
         function forceCalculate() {
-            log('   🔄   Recálculo manual solicitado.');
+            log('   🔄   Recalculo manual solicitado.');
             if (calculateFinancials()) {
                 updateUI();
-                log('   ✅   Recálculo manual completado.');
+                log('   ✅   Recalculo manual completado.');
             } else {
-                log('   ❌   Fallo en el recálculo manual.');
+                log('   ❌   Fallo en el recalculo manual.');
             }
         }
 
@@ -2762,8 +2764,8 @@
 
             // ROE servicios financieros: 15-35%
             if (year5BS.equity !== 0) {
-                if (year5ROE < 15 || year5ROE > 35) {
-                    validations.info.push(`🔵 Info: ROE del Año ${lastYear + 1} (${year5ROE.toFixed(1)}%) está fuera del benchmark típico de servicios financieros (15-35%).`);
+                if (year5ROE < 20 || year5ROE > 30) { // Adjusted range for ROE
+                    validations.info.push(`🔵 Info: ROE del Año ${lastYear + 1} (${year5ROE.toFixed(1)}%) está fuera del benchmark típico de servicios financieros (20-30%).`);
                 } else {
                     validations.passed.push(`✅ Benchmarks: ROE del Año ${lastYear + 1} (${year5ROE.toFixed(1)}%) está en línea con el benchmark.`);
                 }
@@ -2780,7 +2782,37 @@
                     validations.passed.push(`✅ Benchmarks: Ratio CxC/Ingresos del Año ${lastYear + 1} (${cxcToRevenueRatio.toFixed(1)}x) está en línea con el benchmark.`);
                 }
             } else {
-                validations.info.push(`🔵 Info: Ingresos Totales del Año ${lastYear + 1} son cero, no se puede comparar Ratio CxC/Ingresos con benchmark.`);
+                validations.info.push(`🔵 Info: Ingresos Totales del Año ${lastYear + 1} son cero, no se puede comparar Ratio CxC/Ingresos.`);
+            }
+            
+            // TIR Equity: 25-35%
+            if (financialResults.tirEquity !== 0) {
+                if (financialResults.tirEquity < 25 || financialResults.tirEquity > 35) {
+                    validations.info.push(`🔵 Info: TIR Equity (${financialResults.tirEquity.toFixed(1)}%) está fuera del rango objetivo (25-35%).`);
+                } else {
+                    validations.passed.push(`✅ Benchmarks: TIR Equity (${financialResults.tirEquity.toFixed(1)}%) está en el rango objetivo.`);
+                }
+            }
+
+            // TIR Cartera: 20-30%
+            if (financialResults.tirCartera !== 0) {
+                if (financialResults.tirCartera < 20 || financialResults.tirCartera > 30) {
+                    validations.info.push(`🔵 Info: TIR Cartera (${financialResults.tirCartera.toFixed(1)}%) está fuera del rango objetivo (20-30%).`);
+                } else {
+                    validations.passed.push(`✅ Benchmarks: TIR Cartera (${financialResults.tirCartera.toFixed(1)}%) está en el rango objetivo.`);
+                }
+            }
+
+            // ROIC: 15-25%
+            if (financialResults.roic.length > lastYear && financialResults.roic[lastYear] !== 0) {
+                const roic = financialResults.roic[lastYear];
+                if (roic < 15 || roic > 25) {
+                    validations.info.push(`🔵 Info: ROIC del Año ${lastYear + 1} (${roic.toFixed(1)}%) está fuera del rango objetivo (15-25%).`);
+                } else {
+                    validations.passed.push(`✅ Benchmarks: ROIC del Año ${lastYear + 1} (${roic.toFixed(1)}%) está en el rango objetivo.`);
+                }
+            } else if (financialResults.roic.length > lastYear) {
+                validations.info.push(`🔵 Info: Inversión de Capital Promedio del Año ${lastYear + 1} es cero o negativo, no se puede comparar ROIC con benchmark.`);
             }
         }
 
