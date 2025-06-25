@@ -1446,7 +1446,7 @@
                     let newEquityInjectionsThisYear = 0; // Renamed to avoid confusion
                     let additionalFundingRaised = 0; // For liquidity plug
 
-                    // OPTIMIZED FINANCING SECTION
+                    // OPTIMIZED FINANCING SECTION: Replaced old contingent logic
                     let newEquityThisYear = getOptimizedCapitalCall(year + 1);
                     let newVentureDebt = getOptimizedVentureDebt(year + 1);
                     let newCommercialDebt = getOptimizedCommercialDebt(year + 1);
@@ -1459,9 +1459,7 @@
                     if (newVentureDebt > 0) {
                         financingCashThisPeriod += newVentureDebt;
                         // totalDebt += newVentureDebt; // totalDebt is now calculated from balances directly
-                        if (typeof availableVentureDebtLine !== 'undefined') {
-                            availableVentureDebtLine -= newVentureDebt;
-                        }
+                        // availableVentureDebtLine -= newVentureDebt; // This line is not needed with fixed draws
                         log(`📈 Venture Debt Año ${year+1}: ${formatCurrency(newVentureDebt)}`);
                     }
                     if (newCommercialDebt > 0) {
@@ -1469,8 +1467,7 @@
                         // totalDebt += newCommercialDebt; // totalDebt is now calculated from balances directly
                         log(`🏦 Deuda Comercial Año ${year+1}: ${formatCurrency(newCommercialDebt)}`);
                     }
-                    // ELIMINA lógica de Series B/C y liquidity plug - Replaced by optimized structure
-                    // The newEquityInjectionsThisYear should already contain all equity, including optimized capital calls
+                    // ELIMINAR: Series B/C logic y liquidity plug logic - This is now handled by the optimized structure
 
                     let netCash = operatingCash + investingCash + financingCashThisPeriod;
                     cash += netCash; 
@@ -1828,6 +1825,25 @@
             log(`IRR did not converge completely after ${maxIterations} iterations. Returning ${Math.max(-99, Math.min(500, guess * 100)).toFixed(2)}%.`);
             return Math.max(-99, Math.min(500, guess * 100)); // Best effort
         }
+
+        // FIX #1: Moved updateOptimizationStatus to be accessible globally
+        function updateOptimizationStatus() {
+            const statusElement = document.getElementById('optimization-status');
+            if (statusElement) {
+                const plazo = modelData.clientLoanTermYears;
+                const vdRate = modelData.ventureDebtRate;
+                const commRate = modelData.commercialDebtRate;
+                
+                statusElement.innerHTML = `
+                <div class="text-slate-300">
+                <strong>🎯 Configuración Actual:</strong><br>
+                • Plazo: ${plazo} años ${plazo === 4 ? '✅' : '⚠️'}<br>
+                • VD: ${vdRate.toFixed(1)}% ${vdRate >= 12 && vdRate <= 20 ? '✅' : '⚠️'}<br>
+                • Comercial: ${commRate.toFixed(1)}% ${commRate >= 10 && commRate <= 18 ? '✅' : '⚠️'}
+                </div>
+                `;
+            }
+        }
         // ===== USER INTERFACE (UI) UPDATE =====
         /**
          * Updates the key metrics in the summary cards and then the tables and charts.
@@ -2156,9 +2172,13 @@
             let maxDifference = 0;
             
             financialResults.bs.forEach((bsYear, index) => {
-                const difference = Math.abs(bsYear.totalAssets - bsYear.totalLiabilitiesEquity); 
-                maxDifference = Math.max(maxDifference, difference);
-                if (difference > BALANCE_TOLERANCE) balanceValid = false; 
+                const diff = Math.abs(bsYear.totalAssets - bsYear.totalLiabilitiesEquity);
+                if (diff > BALANCE_TOLERANCE) {
+                    log(`      ❌       Balance Year ${index + 1}: Failed. Difference: ${formatCurrency(diff)}`);
+                    allPassed = false;
+                } else {
+                    log(`      ✅       Balance Year ${index + 1}: Passed. Difference: ${formatCurrency(diff)}`);
+                }
             });
             if (balanceValid) {
                 validationDiv.innerHTML = '<span class="text-green-600">         ✅         Balance validated: Total Assets = Total Liabilities + Equity.</span>';
@@ -2562,7 +2582,7 @@
                             plugins: {
                                 legend: { display: false }
                             }
-                        } // Removed the extra ')' here
+                        } 
                     });
                 }
                 log(' ✅  6 New objective charts initialized.');
@@ -2756,7 +2776,13 @@
                 <label class="flex justify-between text-sm font-medium text-slate-300" ${config.tooltip ? `data-tooltip="${config.tooltip}"` : ''}>
                     ${config.label} 
                     <span id="${config.id}-valor" class="font-bold text-teal-400">${
-                        (config.format && typeof config.format === 'function') ? config.format(modelData[config.id]) : modelData[config.id].toString()
+                        // FIX #2: Defensive formatValue in createSliderControl
+                        (config.format && typeof config.format === 'function') ? config.format(modelData[config.id]) : (
+                            config.label.includes('%') ? modelData[config.id].toFixed(1) + '%' :
+                            config.label.includes('años') ? modelData[config.id].toFixed(0) + ' años' :
+                            config.label.includes('Factor') ? modelData[config.id].toFixed(2) + 'x' :
+                            modelData[config.id].toString()
+                        )
                     }</span>
                 </label>
                 <input type="range" id="${config.id}-input" min="${config.min}" max="${config.max}" step="${config.step}" value="${modelData[config.id]}" class="input-slider mt-1">
@@ -2769,7 +2795,7 @@
             slider.addEventListener('input', function() {
                 let value = parseFloat(this.value);
                 modelData[config.id] = value;
-                // Defensive fix for formatValue
+                // FIX #2: Defensive formatValue in createSliderControl
                 const formatValue = (val) => {
                     if (config.format && typeof config.format === 'function') {
                         return config.format(val);
@@ -2809,7 +2835,13 @@
                 <input type="number" id="${config.id}-input" min="${config.min}" max="${config.max}" step="${config.step}" value="${modelData[config.id]}"
                        class="p-2 border border-slate-700 rounded-md shadow-sm focus:ring-sky-500 focus:border-sky-500 bg-slate-800 text-white">
                 <span class="text-xs text-slate-400 mt-1" id="${config.id}-display">${
-                    (config.format && typeof config.format === 'function') ? config.format(modelData[config.id]) : modelData[config.id].toString()
+                    // FIX #2: Defensive formatValue in createNumberControl
+                    (config.format && typeof config.format === 'function') ? config.format(modelData[config.id]) : (
+                        config.label.includes('%') ? modelData[config.id].toFixed(1) + '%' :
+                        config.label.includes('años') ? modelData[config.id].toFixed(0) + ' años' :
+                        config.label.includes('Factor') ? modelData[config.id].toFixed(2) + 'x' :
+                        modelData[config.id].toString()
+                    )
                 }</span>
             `;
             container.appendChild(div);
@@ -2827,7 +2859,7 @@
                 this.value = value;
                 
                 modelData[config.id] = value;
-                // Defensive fix for formatValue
+                // FIX #2: Defensive formatValue in createNumberControl
                 const formatValue = (val) => {
                     if (config.format && typeof config.format === 'function') {
                         return config.format(val);
@@ -2973,22 +3005,6 @@
             log('         ✅         "Rates and Risk" controls configured.');
         }
 
-        function updateOptimizationStatus() {
-            const statusElement = document.getElementById('optimization-status');
-            if (statusElement) {
-                const plazo = modelData.clientLoanTermYears;
-                const vdRate = modelData.ventureDebtRate;
-                const commRate = modelData.commercialDebtRate;
-                statusElement.innerHTML = `
-                    <div class="text-slate-300">
-                        <strong>🎯 Configuración Actual:</strong><br>
-                        • Plazo: ${plazo} años ${plazo === 4 ? '✅' : '⚠️'}<br>
-                        • VD: ${vdRate.toFixed(1)}% ${vdRate >= 12 && vdRate <= 20 ? '✅' : '⚠️'}<br>
-                        • Comercial: ${commRate.toFixed(1)}% ${commRate >= 10 && commRate <= 18 ? '✅' : '⚠️'}
-                    </div>
-                `;
-            }
-        }
         /**
          * Sets up controls for the "Operations and Services" section.
          */
