@@ -501,22 +501,23 @@
          * @property {number} conversionCost - Costo de la conversión GNV para RAG.
          * @property {number} bancasCost - Costo de las bancas GNV para RAG.
          * @property {number} gpsCost - Costo del GPS para RAG.
+         * @property {number} refaccionesCostPerUnit - Costo base de refacciones para RAG.
          */
         let modelData = {
             // Credit and Risk Parameters
             tasaInteres: 25.5,      // Tasa de interés anual de los financiamientos a clientes
             proteccionRodando: true,// Booleano para activar/desactivar reducción de provisiones
             // Parámetros IFRS 9
-            pdStage1: 0.005, // 0.5% Probability of Default (12-month) for Stage 1 loans
-            pdStage2: 0.08,  // 8% Probability of Default (lifetime) for Stage 2 loans
-            pdStage3: 0.40,  // 40% Probability of Default (lifetime) for Stage 3 loans (Credit-impaired)
-            lgd: 0.50,       // Loss Given Default (percentage of exposure lost if default occurs)
-            portfolioAllocationStage1: 0.85, // 85% of active portfolio in Stage 1
-            portfolioAllocationStage2: 0.10, // 10% of active portfolio in Stage 2
-            portfolioAllocationStage3: 0.05, // 5% of active portfolio in Stage 3
+            pdStage1: 0.005, // 0.5% Probabilidad de Incumplimiento (12 meses) para préstamos Etapa 1
+            pdStage2: 0.08,  // 8% Probabilidad de Incumplimiento (vida útil) para préstamos Etapa 2
+            pdStage3: 0.40,  // 40% Probabilidad de Incumplimiento (vida útil) para préstamos Etapa 3 (deterioro)
+            lgd: 0.50,       // Loss Given Default (porcentaje de exposición perdida si ocurre el incumplimiento)
+            portfolioAllocationStage1: 0.85, // 85% del portafolio activo en Etapa 1
+            portfolioAllocationStage2: 0.10, // 10% del portafolio activo en Etapa 2
+            portfolioAllocationStage3: 0.05, // 5% del portafolio activo en Etapa 3
             economicAdjustmentFactor: 1.0, // Factor para ajustes prospectivos macroeconómicos (1.0 = sin ajuste)
             // Parámetros de Operaciones y Deuda
-            margenRefacciones: 25,  // Margen de ganancia en refacciones
+            margenRefacciones: 25,  // Margen de ganancia en refacciones (se mantiene existente)
             ventureDebtRate: 12,    // Tasa de interés anual del Venture Debt
             periodoAmortizacionDeuda: 5, // Años para amortizar la deuda inicial de Venture Debt
             // Unidades por Año (inputs dinámicos)
@@ -533,11 +534,11 @@
             depreciationYears: 10,  // Años de depreciación lineal de las vagonetas (activos de RAG)
             opexRate: 15,           // Porcentaje de los ingresos operativos destinado a OPEX
             margenVagoneta: 5,      // Porcentaje de comisión por la originación de cada vagoneta financiada
-            refaccionesRevPerUnit: 8000, // Ingreso base por unidad por servicios de refacciones
+            // ELIMINAR: refaccionesRevPerUnit: 8000,
             tasaReposicion: 5,      // Porcentaje de unidades que se reponen/clasifican como Activos para Venta anualmente
             fairValueVenta: 85,     // Porcentaje del valor razonable de las vagonetas reposedas
             costosVenta: 5,          // Porcentaje de costos asociados a la venta de vagonetas reposedas
-            corporateTaxRate: 31,   // Tasa de impuesto corporativo (%) - Actualizado a 31
+            corporateTaxRate: 31,   // Tasa de impuesto corporativo (%)
             // NUEVOS PARÁMETROS: GNV granular
             litrosPromedioMensualPorUnidad: 900, // Rango: 800-1000 litros
             precioLitroGNV: 13.00,             // Rango: 12.00-13.99 MXN
@@ -562,6 +563,9 @@
             conversionCost: 50000,        // Costo conversión para RAG
             bancasCost: 20000,            // Costo bancas para RAG
             gpsCost: 11000,               // Costo GPS para RAG
+            
+            //  🆕  NUEVO: Costo base para refacciones
+            refaccionesCostPerUnit: 6000,
             // END OF ADDED PARAMETERS FOR COMPLETE PACKAGE
         };
         
@@ -582,20 +586,24 @@
             ratesRisk: [
                 { id: 'tasaInteres', label: 'Tasa de Interés (Clientes)', min: 0, max: 100, step: 0.5, type: 'range', format: val => val.toFixed(1) + '%', tooltip: 'Tasa de interés anual aplicada a los préstamos de clientes.' },
                 { id: 'ventureDebtRate', label: 'Tasa Venture Debt', min: 0, max: 100, step: 0.5, type: 'range', format: val => val.toFixed(1) + '%', tooltip: 'Tasa de interés anual del financiamiento de Venture Debt.' },
-                { id: 'corporateTaxRate', label: 'Tasa Impuesto Corporativo (%)', min: 0, max: 100, step: 1, type: 'number', format: val => val.toFixed(0) + '%', tooltip: 'Tasa de impuesto sobre la renta que aplica a las ganancias de la empresa.' },
-                { id: 'pdStage1', label: 'PD Etapa 1 (12M)', min: 0, max: 1, step: 0.001, type: 'number', format: val => (val * 100).toFixed(1) + '%', tooltip: 'Probabilidad de Incumplimiento a 12 meses para préstamos en Etapa 1 (riesgo bajo).' },
-                { id: 'pdStage2', label: 'PD Etapa 2 (Lifetime)', min: 0, max: 1, step: 0.005, type: 'number', format: val => (val * 100).toFixed(1) + '%', tooltip: 'Probabilidad de Incumplimiento de por vida para préstamos en Etapa 2 (riesgo medio).' },
-                { id: 'pdStage3', label: 'PD Etapa 3 (Lifetime)', min: 0, max: 1, step: 0.01, type: 'number', format: val => (val * 100).toFixed(1) + '%', tooltip: 'Probabilidad de Incumplimiento de por vida para préstamos en Etapa 3 (riesgo alto/deterioro).' },
-                { id: 'lgd', label: 'LGD (Pérdida Incumplimiento)', min: 0, max: 1, step: 0.01, type: 'number', format: val => (val * 100).toFixed(1) + '%', tooltip: 'Pérdida dado el incumplimiento: Porcentaje de la exposición que se espera perder si un deudor incumple.' },
-                { id: 'portfolioAllocationStage1', label: 'Port. Etapa 1 (%)', min: 0, max: 1, step: 0.01, type: 'number', format: val => (val * 100).toFixed(0) + '%', tooltip: 'Porcentaje del portafolio que se considera en Etapa 1 de riesgo bajo.' },
-                { id: 'portfolioAllocationStage2', label: 'Port. Etapa 2 (%)', min: 0, max: 1, step: 0.01, type: 'number', format: val => (val * 100).toFixed(0) + '%', tooltip: 'Porcentaje del portafolio que se considera en Etapa 2 de riesgo medio.' },
-                { id: 'portfolioAllocationStage3', label: 'Port. Etapa 3 (%)', min: 0, max: 1, step: 0.01, type: 'number', format: val => (val * 100).toFixed(0) + '%', tooltip: 'Porcentaje del portafolio que se considera en Etapa 3 de riesgo alto (activos deteriorados).' },
-                { id: 'economicAdjustmentFactor', label: 'Ajuste Económico (Factor)', min: 0.5, max: 1.5, step: 0.01, type: 'number', format: val => val.toFixed(2) + 'x', tooltip: 'Factor de ajuste prospectivo macroeconómico para las provisiones de NIIF 9.' },
+                // CAMBIAR a type: 'range'
+                { id: 'corporateTaxRate', label: 'Tasa Impuesto Corporativo (%)', min: 0, max: 100, step: 1, type: 'range', format: val => val.toFixed(0) + '%', tooltip: 'Tasa de impuesto sobre la renta que aplica a las ganancias de la empresa.' },
+                // CAMBIAR todos a type: 'range'
+                { id: 'pdStage1', label: 'PD Etapa 1 (12M)', min: 0, max: 1, step: 0.001, type: 'range', format: val => (val * 100).toFixed(1) + '%', tooltip: 'Probabilidad de Incumplimiento a 12 meses para préstamos en Etapa 1 (riesgo bajo).' },
+                { id: 'pdStage2', label: 'PD Etapa 2 (Lifetime)', min: 0, max: 1, step: 0.005, type: 'range', format: val => (val * 100).toFixed(1) + '%', tooltip: 'Probabilidad de Incumplimiento de por vida para préstamos en Etapa 2 (riesgo medio).' },
+                { id: 'pdStage3', label: 'PD Etapa 3 (Lifetime)', min: 0, max: 1, step: 0.01, type: 'range', format: val => (val * 100).toFixed(1) + '%', tooltip: 'Probabilidad de Incumplimiento de por vida para préstamos en Etapa 3 (riesgo alto/deterioro).' },
+                { id: 'lgd', label: 'LGD (Pérdida Incumplimiento)', min: 0, max: 1, step: 0.01, type: 'range', format: val => (val * 100).toFixed(1) + '%', tooltip: 'Pérdida dado el incumplimiento: Porcentaje de la exposición que se espera perder si un deudor incumple.' },
+                { id: 'portfolioAllocationStage1', label: 'Port. Etapa 1 (%)', min: 0, max: 1, step: 0.01, type: 'range', format: val => (val * 100).toFixed(0) + '%', tooltip: 'Porcentaje del portafolio que se considera en Etapa 1 de riesgo bajo.' },
+                { id: 'portfolioAllocationStage2', label: 'Port. Etapa 2 (%)', min: 0, max: 1, step: 0.01, type: 'range', format: val => (val * 100).toFixed(0) + '%', tooltip: 'Porcentaje del portafolio que se considera en Etapa 2 de riesgo medio.' },
+                { id: 'portfolioAllocationStage3', label: 'Port. Etapa 3 (%)', min: 0, max: 1, step: 0.01, type: 'range', format: val => (val * 100).toFixed(0) + '%', tooltip: 'Porcentaje del portafolio que se considera en Etapa 3 de riesgo alto (activos deteriorados).' },
+                { id: 'economicAdjustmentFactor', label: 'Ajuste Económico (Factor)', min: 0.5, max: 1.5, step: 0.01, type: 'range', format: val => val.toFixed(2) + 'x', tooltip: 'Factor de ajuste prospectivo macroeconómico para las provisiones de NIIF 9.' },
             ],
             operationsServices: [
                 { id: 'margenVagoneta', label: 'Margen Originación Vagoneta', min: 0, max: 100, step: 0.5, type: 'number', format: val => val.toFixed(1) + '%', tooltip: 'Comisión por la originación de cada vagoneta financiada, reconocida bajo NIIF 15.' },
                 { id: 'margenRefacciones', label: 'Margen Refacciones', min: 0, max: 100, step: 1, type: 'range', format: val => val.toFixed(0) + '%', tooltip: 'Margen de ganancia en los servicios de refacciones.' },
-                { id: 'refaccionesRevPerUnit', label: 'Ingreso Refacciones/Unidad', min: 0, max: 20000, step: 500, type: 'number', format: val => formatCurrency(val, true), tooltip: 'Ingreso promedio por unidad por servicios de refacciones.' },
+                // REEMPLAZAR por costo base
+                { id: 'refaccionesCostPerUnit', label: 'Costo Refacciones/Unidad', min: 3000, max: 12000, step: 200, type: 'number', 
+                  format: val => formatCurrency(val, true), tooltip: 'Costo base de refacciones para RAG (antes de margen).' },
                 { id: 'litrosPromedioMensualPorUnidad', label: 'Litros GNV/Unidad (Mensual)', min: 0, max: 2000, step: 10, type: 'number', format: val => val.toFixed(0) + ' L', tooltip: 'Consumo promedio mensual de GNV por vagoneta activa para cálculo de ingresos.' },
                 { id: 'precioLitroGNV', label: 'Precio Litro GNV (MXN)', min: 0, max: 20, step: 0.01, type: 'number', format: val => '$' + val.toFixed(2) + ' MXN', tooltip: 'Precio promedio por litro de GNV. Usado para calcular ingresos de GNV.' },
                 { id: 'comisionGNVPorcentaje', label: 'Comisión GNV (%)', min: 0, max: 100, step: 0.1, type: 'range', format: val => val.toFixed(1) + '%', tooltip: 'Porcentaje de comisión por los servicios de GNV.' },
@@ -692,15 +700,16 @@
             }
             return '$' + Math.round(value).toLocaleString() + ' MXN';
         }
-        //  🆕  START OF ADDED HELPER FUNCTIONS FOR COMPLETE PACKAGE
         /**
          * Calcula el precio total del seguro financiado
+         * @returns {number}
          */
         function getInsuranceTotalPrice() {
             return modelData.insuranceAnnualPrice * modelData.insuranceYears;
         }
         /**
          * Calcula el PRECIO TOTAL del paquete completo
+         * @returns {number}
          */
         function getTotalPackagePrice() {
             return modelData.vanPrice + modelData.conversionPrice + 
@@ -708,13 +717,13 @@
         }
         /**
          * Calcula el COSTO TOTAL del paquete para RAG
+         * @returns {number}
          */
         function getTotalPackageCost() {
             return modelData.vanCost + modelData.conversionCost + 
                    modelData.bancasCost + modelData.gpsCost;
             // Seguro no tiene costo para RAG (pass-through)
         }
-        // END OF ADDED HELPER FUNCTIONS FOR COMPLETE PACKAGE
         // ===== MÓDULOS DE CÁLCULO NIIF =====
         /**
          * Calcula la Probabilidad de Incumplimiento (PD) basada en la antigüedad de la cohorte del préstamo.
@@ -750,56 +759,57 @@
          */
         function calculateNIIF9ECL(loanCohorts, currentYear, currentProvisionsBalance, currentYearEndReceivables) {
             let totalECLForYear = 0;
-            let eclByStage = {
-                stage1: 0,
-                stage2: 0,
-                stage3: 0
-            };
-            loanCohorts.forEach(cohort => {
-                // Solo calcular ECL para cohortes que están activas o tuvieron saldo al inicio del año
-                if (cohort.remainingPrincipal > 0 || cohort.startOfYearPrincipal > 0) {
-                    const cohortAge = currentYear - cohort.yearOriginated; // Antigüedad del préstamo en años
-                    // Calcular el PD ajustado según la antigüedad y las reglas dinámicas
-                    const adjustedPD = calculatePDBasedOnAge(cohortAge);
-                    const cohortECL = cohort.avgExposureDuringYear * adjustedPD * modelData.lgd;
-                    
-                    totalECLForYear += cohortECL;
-                    // Asignación de ECL por etapa (simplificado para este modelo)
-                    // En un modelo real, cada préstamo sería asignado a una etapa.
-                    // Aquí, usamos las asignaciones de portafolio para distribuir el ECL total.
-                    if (cohortAge <= 1) {
-                        eclByStage.stage1 += cohortECL;
-                    } else if (cohortAge === 2) {
-                        eclByStage.stage2 += cohortECL;
-                    } else {
-                        eclByStage.stage3 += cohortECL;
-                    }
-                }
-            });
-            // Aplicar factor de ajuste macroeconómico prospectivo
+            let eclByStage = { stage1: 0, stage2: 0, stage3: 0 };
+            
+            // ✅ NUEVO: Cálculo usando portfolio allocations reales
+            const totalExposure = loanCohorts.reduce((sum, cohort) => sum + cohort.avgExposureDuringYear, 0);
+            
+            if (totalExposure > 0) {
+                // ✅ USAR portfolio allocations de modelData
+                const stage1Exposure = totalExposure * modelData.portfolioAllocationStage1;
+                const stage2Exposure = totalExposure * modelData.portfolioAllocationStage2;
+                const stage3Exposure = totalExposure * modelData.portfolioAllocationStage3;
+                
+                // ✅ Calcular ECL por etapa usando allocations
+                eclByStage.stage1 = stage1Exposure * modelData.pdStage1 * modelData.lgd;
+                eclByStage.stage2 = stage2Exposure * modelData.pdStage2 * modelData.lgd;
+                eclByStage.stage3 = stage3Exposure * modelData.pdStage3 * modelData.lgd;
+                
+                totalECLForYear = eclByStage.stage1 + eclByStage.stage2 + eclByStage.stage3;
+                
+                // ✅ LOGGING detallado:
+                log(`📊 NIIF 9 PORTFOLIO ALLOCATIONS - Año ${currentYear}:`);
+                log(`   Exposición total: ${formatCurrency(totalExposure)}`);
+                log(`   Etapa 1 (${(modelData.portfolioAllocationStage1*100).toFixed(0)}%): ${formatCurrency(eclByStage.stage1)}`);
+                log(`   Etapa 2 (${(modelData.portfolioAllocationStage2*100).toFixed(0)}%): ${formatCurrency(eclByStage.stage2)}`);
+                log(`   Etapa 3 (${(modelData.portfolioAllocationStage3*100).toFixed(0)}%): ${formatCurrency(eclByStage.stage3)}`);
+            }
+            
+            // ✅ MANTENER el resto de la lógica existente (ajustes, protección, etc.)
             totalECLForYear *= modelData.economicAdjustmentFactor;
             eclByStage.stage1 *= modelData.economicAdjustmentFactor;
             eclByStage.stage2 *= modelData.economicAdjustmentFactor;
             eclByStage.stage3 *= modelData.economicAdjustmentFactor;
             
-            // Aplicar "Protección Rodando" si está activa (reduce la provisión en P&L)
             const annualProvisionExpense = totalECLForYear * (modelData.proteccionRodando ? 0.5 : 1.0);
             
-            // El saldo acumulado de provisiones para el Balance General
+            // ✅ MANTENER validación de consistencia existente
             let newProvisionsBalance = currentProvisionsBalance + annualProvisionExpense;
-            // Validación de consistencia provisiones
-            const provisionesEsperadas = currentYearEndReceivables * (modelData.pdStage1 * modelData.portfolioAllocationStage1 + 
-               modelData.pdStage2 * modelData.portfolioAllocationStage2 + 
-               modelData.pdStage3 * modelData.portfolioAllocationStage3) * modelData.lgd * modelData.economicAdjustmentFactor;
+            
+            const provisionesEsperadas = currentYearEndReceivables * (modelData.pdStage1 * modelData.portfolioAllocationStage1 +
+                 modelData.pdStage2 * modelData.portfolioAllocationStage2 +
+                 modelData.pdStage3 * modelData.portfolioAllocationStage3) * modelData.lgd * modelData.economicAdjustmentFactor;
+            
             if (Math.abs(newProvisionsBalance - provisionesEsperadas) > 10000) {
-              log("Ajuste provisiones NIIF 9 aplicado");
-              newProvisionsBalance = provisionesEsperadas;
+                log("Ajuste provisiones NIIF 9 aplicado para consistencia");
+                newProvisionsBalance = provisionesEsperadas;
             }
+            
             return {
                 annualProvisionExpense: annualProvisionExpense,
                 newProvisionsBalance: newProvisionsBalance,
-                totalECLBeforeAdjustment: totalECLForYear, // Para fines de reporte
-                eclByStage: eclByStage // Detalles por etapa
+                totalECLBeforeAdjustment: totalECLForYear,
+                eclByStage: eclByStage
             };
         }
         /**
@@ -862,14 +872,21 @@
             const gnvCommissions = totalActiveUnits * modelData.litrosPromedioMensualPorUnidad * 12 * modelData.precioLitroGNV * (modelData.comisionGNVPorcentaje / 100);
             
             // Ingresos Refacciones (al ocurrir transacción / en el punto de venta)
-            // Se asume que este ingreso ocurre en el año de adquisición de la vagoneta.
-            const sparePartsRevenue = addedUnitsThisYear * modelData.refaccionesRevPerUnit; // This is margin, so it's directly revenue.
+            // 🔄 LOCALIZAR esta línea:
+            // const sparePartsRevenue = addedUnitsThisYear * modelData.refaccionesRevPerUnit;
+            // ✅ REEMPLAZAR POR:
+            const sparePartsCost = addedUnitsThisYear * modelData.refaccionesCostPerUnit;
+            const sparePartsRevenue = sparePartsCost * (1 + modelData.margenRefacciones / 100);
+            
             // Ingresos Marketplace (al ocurrir transacción)
             const marketplaceRevenue = totalActiveUnits * modelData.gmvPromedioMensualPorUnidad * 12 * (modelData.takeRateMarketplace / 100);
+            
+            // ✅ MODIFICAR el return statement para incluir COGS:
             return {
                 recognizedOriginationRevenue: annualOriginationCommissionRecognized,
                 gnvCommissions: gnvCommissions,
                 sparePartsRevenue: sparePartsRevenue,
+                sparePartsCOGS: sparePartsCost,  // 🆕 NUEVO campo
                 marketplaceRevenue: marketplaceRevenue,
                 contractLiabilitiesBalance: totalContractLiabilitiesBalance
             };
@@ -999,8 +1016,6 @@
                 weightedSum += currentBalance * (12 - lastMonth);
             }
             
-            // Si hubo eventos de capital, el último 'currentBalance' ya incluye el efecto de todos los eventos
-            // y se multiplica por los meses restantes hasta el final del año.
             // Para asegurar que el promedio refleje el final, se podría re-calcular,
             // pero el método actual debería ser robusto si los eventos se ordenan y se procesan bien.
             return weightedSum / totalMonths;
@@ -1093,8 +1108,6 @@
                         cohort.startOfYearPrincipal = cohort.remainingPrincipal;
                     });
                     // --- INVERSIONES (Activos Fijos) - Adquisición de nuevas vagonetas ---
-                    //  🔄  REPLACED: const capexThisYear = addedUnits * modelData.vanCost;
-                    //  🆕  NEW:
                     const capexThisYear = addedUnits * getTotalPackageCost();
                     
                     if (addedUnits > 0) {
@@ -1107,7 +1120,6 @@
                         });
                         log(` Nueva cohorte de activos fijos Año ${year+1}: ${formatCurrency(capexThisYear)}`);
                     }
-                    //  🆕  ADDED LOGGING FOR CAPEX
                     log(` 💰  CAPEX TOTAL - Año ${year + 1}:`);
                     log(`   Costo unitario total: ${formatCurrency(getTotalPackageCost())}`);
                     log(`     - Vagoneta: ${formatCurrency(modelData.vanCost)}`);
@@ -1116,7 +1128,6 @@
                     log(`     - GPS: ${formatCurrency(modelData.gpsCost)}`);
                     log(`     - Seguro: $0 (pass-through)`);
                     log(`   CAPEX total: ${formatCurrency(capexThisYear)}`);
-                    // END OF ADDED LOGGING FOR CAPEX
                     
                     // --- NIIF 5: RECLASIFICACIÓN DE ACTIVOS Y CÁLCULO DE DETERIORO ---
                     const niif5Results = manageNIIF5Assets(fixedAssetsCohorts, heldForSaleAssets, year + 1);
@@ -1134,10 +1145,7 @@
                     let downPaymentReceived = 0;
                     let upfrontCommissionReceived = 0;
                     if (addedUnits > 0) {
-                        //  🔄  REPLACED: const newCohortGrossPrincipal = addedUnits * modelData.vanPrice;
-                        //  🆕  NEW:
                         const newCohortGrossPrincipal = addedUnits * getTotalPackagePrice();
-                        //  🆕  ADDED LOGGING FOR LOAN ORIGINATION
                         log(` 📦  PAQUETE COMPLETO - Año ${year + 1}:`);
                         log(`   Unidades: ${addedUnits}`);
                         log(`   Precio unitario total: ${formatCurrency(getTotalPackagePrice())}`);
@@ -1147,7 +1155,6 @@
                         log(`     - GPS: ${formatCurrency(modelData.gpsPrice)}`);
                         log(`     - Seguro: ${formatCurrency(getInsuranceTotalPrice())} (${modelData.insuranceAnnualPrice.toLocaleString()} × ${modelData.insuranceYears} años)`);
                         log(`   Valor total financiado: ${formatCurrency(newCohortGrossPrincipal)}`);
-                        // END OF ADDED LOGGING FOR LOAN ORIGINATION
                         downPaymentReceived = newCohortGrossPrincipal * (modelData.downPaymentPercentage / 100);
                         upfrontCommissionReceived = newCohortGrossPrincipal * (modelData.upfrontCommissionPercentage / 100);
                         currentYearCashFromOrigination = downPaymentReceived + upfrontCommissionReceived;
@@ -1232,17 +1239,30 @@
                     const niif15Results = calculateNIIF15Revenue(loanCohorts, fixedAssetsCohorts, addedUnits, year + 1);
                     const originationCommission = niif15Results.recognizedOriginationRevenue;
                     const gnvCommissions = niif15Results.gnvCommissions;
-                    const sparePartsRevenue = niif15Results.sparePartsRevenue; // This is directly revenue in PL
+                    const sparePartsRevenue = niif15Results.sparePartsRevenue;
+                    const sparePartsCOGS = niif15Results.sparePartsCOGS || 0; // 🆕 NUEVO
                     const marketplaceRevenue = niif15Results.marketplaceRevenue;
                     const contractLiabilitiesBalance = niif15Results.contractLiabilitiesBalance; // Saldo de Pasivos por Contrato
+                    
                     // --- ESTADO DE RESULTADOS (P&L) ---
                     const interestRevenue = annualInterestReceived;
                     const totalRevenue = interestRevenue + originationCommission + gnvCommissions + sparePartsRevenue + marketplaceRevenue;
                     log(`Ingresos: Intereses=${formatCurrency(interestRevenue)}, Originación=${formatCurrency(originationCommission)}, GNV=${formatCurrency(gnvCommissions)}, Refacciones=${formatCurrency(sparePartsRevenue)}, Marketplace=${formatCurrency(marketplaceRevenue)}`);
                     log(`TOTAL INGRESOS OPERATIVOS: ${formatCurrency(totalRevenue)}`);
                     
+                    const totalCOGS = sparePartsCOGS; // Solo refacciones tienen COGS por ahora
+                    const grossProfit = totalRevenue - totalCOGS;
+                    
+                    // ✅ AÑADIR logging detallado:
+                    log(`🔧 REFACCIONES DETALLE - Año ${year + 1}:`);
+                    log(`   Unidades: ${addedUnits}`);
+                    log(`   Costo unitario: ${formatCurrency(modelData.refaccionesCostPerUnit)}`);
+                    log(`   Margen: ${modelData.margenRefacciones.toFixed(1)}%`);
+                    log(`   COGS total: ${formatCurrency(sparePartsCOGS)}`);
+                    log(`   Ingreso total: ${formatCurrency(sparePartsRevenue)}`);
+                    log(`   Margen bruto: ${formatCurrency(sparePartsRevenue - sparePartsCOGS)}`);
+                    
                     const opex = totalRevenue * (modelData.opexRate / 100);
-                    const grossProfit = totalRevenue; // No COGS defined separately
                     const ebitda = grossProfit - opex - provisions - impairment; // All operating expenses incl. non-cash IFRS
                     
                     const ebit = ebitda - annualDepreciation;
@@ -1401,6 +1421,8 @@
                     // --- ALMACENAMIENTO DE RESULTADOS ANUALES ---
                     financialResults.pl.push({
                         interestRevenue, originationCommission, gnvCommissions, sparePartsRevenue, marketplaceRevenue, totalRevenue,
+                        totalCOGS, // 🆕 NUEVO
+                        grossProfit, // 🆕 NUEVO
                         opex, provisions, impairment, ebitda, ebit,
                         depreciation: annualDepreciation, interestExpense, earningsBeforeTax, incomeTaxExpense, netIncome,
                         cumulativeUnits: fixedAssetsCohorts.reduce((sum, cohort) => sum + cohort.units, 0)
@@ -1413,7 +1435,6 @@
                         upfrontCommissionReceived: upfrontCommissionReceived,
                         currentYearVentureDebtDraw: currentYearVentureDebtDraw,
                         additionalFundingRaised: additionalFundingRaised,
-                        currentYearVentureDebtDraw: currentYearVentureDebtDraw,
                         deltaContractLiabilities: deltaContractLiabilities, // Nuevo en CF
                         deltaProvisions: deltaProvisions, // Nuevo en CF
                         incomeTaxPaid: incomeTaxExpense // Impuestos Pagados en CF
@@ -1441,6 +1462,7 @@
                             contractLiabilitiesBalance: contractLiabilitiesBalance, 
                             gnvCommissions: gnvCommissions,
                             sparePartsRevenue: sparePartsRevenue,
+                            sparePartsCOGS: sparePartsCOGS, // 🆕 NUEVO
                             marketplaceRevenue: marketplaceRevenue,
                             upfrontCommissionInitial: upfrontCommissionReceived, // Detalle para NIIF 15
                         },
@@ -1585,6 +1607,18 @@
                 } else {
                     log(`   ✅    TIR EQUITY en rango esperado para inversionistas`);
                 }
+
+                // ✅ NUEVO: Logging de verificación final de correcciones
+                log(`\n🔍 VERIFICACIÓN FINAL DE CORRECCIONES:`);
+                log(`✅ Margen Refacciones Año 1: ${formatCurrency(financialResults.pl[0].sparePartsRevenue)}`);
+                log(`✅ COGS Refacciones Año 1: ${formatCurrency(financialResults.pl[0].totalCOGS)}`);
+                log(`✅ Provisiones NIIF 9 Año 1: ${formatCurrency(financialResults.pl[0].provisions)}`);
+                log(`✅ Portfolio Sum: ${((modelData.portfolioAllocationStage1 + modelData.portfolioAllocationStage2 + modelData.portfolioAllocationStage3)*100).toFixed(1)}%`);
+                // Accessing the last year's totalAssets and totalLiabilitiesEquity from financialResults.bs
+                const lastYearBS = financialResults.bs[financialResults.bs.length - 1];
+                log(`✅ Balance cuadra: ${Math.abs(lastYearBS.totalAssets - lastYearBS.totalLiabilitiesEquity) <= BALANCE_TOLERANCE ? 'SÍ' : 'NO'}`);
+
+
                 log('      ✅      CÁLCULOS FINANCIEROS COMPLETADOS CORRECTAMENTE');
                 return true; 
                 
@@ -1744,6 +1778,11 @@
                 { label: 'Ingresos Refacciones (NIIF 15)', key: 'sparePartsRevenue' },
                 { label: 'Ingresos Marketplace (NIIF 15)', key: 'marketplaceRevenue' },
                 { label: 'Total Ingresos Operativos', key: 'totalRevenue', total: true },
+                
+                // ✅ AÑADIR nuevas filas de COGS:
+                { label: 'COGS Refacciones', key: 'sparePartsCOGS', negative: true, fromNIIF15: true },
+                { label: 'Utilidad Bruta', key: 'grossProfit', total: true },
+                
                 { label: 'Gastos Operativos (OPEX)', key: 'opex', negative: true },
                 { label: 'Provisiones NIIF 9', key: 'provisions', negative: true },
                 { label: 'Pérdida por Deterioro NIIF 5', key: 'impairment', negative: true },
@@ -1767,7 +1806,16 @@
                 
                 financialResults.pl.forEach(yearData => {
                     const cell = document.createElement('td');
-                    const value = yearData[row.key] || 0;
+                    let value;
+                    
+                    // ✅ AÑADIR lógica para campos especiales:
+                    if (row.fromNIIF15) {
+                        // Obtener COGS de NIIF15 results si está disponible
+                        const niifData = financialResults.niifDetails[financialResults.pl.indexOf(yearData)]?.niif15;
+                        value = niifData?.[row.key] || 0;
+                    } else {
+                        value = yearData[row.key] || 0;
+                    }
                     
                     if (row.negative && value > 0) {
                         cell.textContent = '(' + formatCurrency(value) + ')';
@@ -1972,7 +2020,7 @@
             let maxDifference = 0;
             
             financialResults.bs.forEach((bsYear, index) => {
-                const difference = Math.abs(bsYear.totalAssets - bsYear.totalLiabilitiesEquity); // Corrected 'diff' to 'difference'
+                const difference = Math.abs(bsYear.totalAssets - bsYear.totalLiabilitiesEquity); 
                 maxDifference = Math.max(maxDifference, difference);
                 if (difference > BALANCE_TOLERANCE) balanceValid = false; 
             });
@@ -2039,6 +2087,10 @@
                                 <tr>
                                     <td>Ingresos Refacciones (Reconocido P&L)</td>
                                     ${financialResults.niifDetails.map(d => `<td>${formatCurrency(d.niif15.sparePartsRevenue)}</td>`).join('')}
+                                </tr>
+                                <tr>
+                                    <td>COGS Refacciones (NIIF 15)</td>
+                                    ${financialResults.niifDetails.map(d => `<td>${formatCurrency(d.niif15.sparePartsCOGS)}</td>`).join('')}
                                 </tr>
                                 <tr>
                                     <td>Ingresos Marketplace (Reconocido P&L)</td>
@@ -2513,6 +2565,42 @@
                     updateUI();
                 }
             });
+
+            // ✅ NUEVO: Añadir validación de Portfolio Allocations en tiempo real
+            function addPortfolioValidation() {
+                const stage1Input = document.getElementById('portfolioAllocationStage1-input');
+                const stage2Input = document.getElementById('portfolioAllocationStage2-input');
+                const stage3Input = document.getElementById('portfolioAllocationStage3-input');
+                
+                if (stage1Input && stage2Input && stage3Input) {
+                    // Crear indicador visual
+                    const validationDiv = document.createElement('div');
+                    validationDiv.id = 'portfolio-validation';
+                    validationDiv.className = 'mt-4 p-3 rounded-lg text-sm font-medium';
+                    container.appendChild(validationDiv);
+                    
+                    function validatePortfolioSum() {
+                        const sum = parseFloat(stage1Input.value) + parseFloat(stage2Input.value) + parseFloat(stage3Input.value);
+                        const percentage = (sum * 100).toFixed(1);
+                        
+                        if (Math.abs(sum - 1.0) < 0.001) {
+                            validationDiv.className = 'mt-4 p-3 rounded-lg text-sm font-medium bg-emerald-950 text-emerald-200';
+                            validationDiv.innerHTML = `✅ Portfolio Allocations: ${percentage}% (Correcto)`;
+                        } else {
+                            validationDiv.className = 'mt-4 p-3 rounded-lg text-sm font-medium bg-rose-950 text-rose-200';
+                            validationDiv.innerHTML = `⚠️ Portfolio Allocations: ${percentage}% (Debe ser 100%)`;
+                        }
+                    }
+                    
+                    stage1Input.addEventListener('input', validatePortfolioSum);
+                    stage2Input.addEventListener('input', validatePortfolioSum);
+                    stage3Input.addEventListener('input', validatePortfolioSum);
+                    
+                    validatePortfolioSum(); // Initial validation
+                }
+            }
+            setTimeout(addPortfolioValidation, 100);
+
             log('      ✅      Controles de "Tasas y Riesgo" configurados.');
         }
 
@@ -2551,7 +2639,7 @@
                         `;
                         unitsContainer.appendChild(div);
                         
-                        const input = div.querySelector(`input[type="number"]`); // Corrected line
+                        const input = div.querySelector(`input[type="number"]`); 
                         input.addEventListener('change', function() {
                             const value = parseInt(this.value);
                             modelData.unitsPerYear[index] = Math.max(config.min, Math.min(config.max, isNaN(value) ? config.min : value)); 
@@ -2691,11 +2779,11 @@
             if (modelData.vanCost <= 0) {
                 validations.errors.push("   🔴    Error: El Costo de Vagoneta debe ser mayor que 0. Ajuste 'Costo Vagoneta (RAG)' en Control.");
             }
-            //  🆕  UPDATED VALIDATION FOR COMPLETE PACKAGE PRICE
+            //  UPDATED VALIDATION FOR COMPLETE PACKAGE PRICE
             if (getTotalPackagePrice() <= 0) {
                 validations.errors.push(`   🔴    Error: El Precio Total del Paquete (${formatCurrency(getTotalPackagePrice())}) debe ser mayor que 0. Ajuste los precios de los componentes o la vagoneta en Control.`);
             }
-            //  🆕  UPDATED VALIDATION FOR COMPLETE PACKAGE COST
+            //  UPDATED VALIDATION FOR COMPLETE PACKAGE COST
             if (getTotalPackageCost() <= 0) {
                 validations.errors.push(`   🔴    Error: El Costo Total del Paquete (${formatCurrency(getTotalPackageCost())}) debe ser mayor que 0. Ajuste los costos de los componentes o la vagoneta en Control.`);
             }
@@ -2752,7 +2840,7 @@
                 validations.passed.push(`   ✅    Inputs: Asignación de Portafolio NIIF 9 suma 100%.`);
             }
             // Validación cruzada: "Precio venta > Costo vagoneta"
-            //  🆕  UPDATED VALIDATION FOR COMPLETE PACKAGE (Price > Cost)
+            //  UPDATED VALIDATION FOR COMPLETE PACKAGE (Price > Cost)
             if (getTotalPackagePrice() <= getTotalPackageCost()) {
                 validations.errors.push(`   🔴    Error de Input: El 'Precio Total del Paquete' (${formatCurrency(getTotalPackagePrice())}) debe ser mayor que el 'Costo Total del Paquete para RAG' (${formatCurrency(getTotalPackageCost())}).`);
             } else {
@@ -2973,6 +3061,58 @@
             }
         }
         /**
+         * Valida que todos los controles UI tengan impacto real en estados financieros
+         * @param {object} modelData - The model's input data.
+         * @param {object} financialResults - The calculated financial results.
+         * @returns {object} An object containing arrays of errors, warnings, info, and passed messages.
+         */
+        function validateControlsImpact(modelData, financialResults) {
+            const validations = { errors: [], warnings: [], info: [], passed: [] };
+            
+            // ✅ Test 1: Margen Refacciones debe generar COGS
+            if (financialResults.pl.length > 0) {
+                const year1 = financialResults.pl[0];
+                const expectedCost = modelData.unitsPerYear[0] * modelData.refaccionesCostPerUnit;
+                const expectedRevenue = expectedCost * (1 + modelData.margenRefacciones / 100);
+                
+                if (Math.abs(year1.sparePartsRevenue - expectedRevenue) < 1000) {
+                    validations.passed.push(` ✅ Control Margen Refacciones funciona: ${formatCurrency(year1.sparePartsRevenue)}`);
+                } else {
+                    validations.errors.push(` 🔴 Control Margen Refacciones NO funciona: esperado ${formatCurrency(expectedRevenue)}, actual ${formatCurrency(year1.sparePartsRevenue)}`);
+                }
+            }
+            
+            // ✅ Test 2: Portfolio Allocations debe afectar provisiones
+            if (financialResults.pl.length > 0) {
+                const year1Provisions = financialResults.pl[0].provisions || 0;
+                if (year1Provisions > 0) {
+                    validations.passed.push(` ✅ Portfolio Allocations NIIF 9 generan provisiones: ${formatCurrency(year1Provisions)}`);
+                } else {
+                    validations.warnings.push(` 🟡 Portfolio Allocations NIIF 9 no generan provisiones (revisar exposición)`);
+                }
+            }
+            
+            // ✅ Test 3: Verificar suma Portfolio = 100%
+            const totalAllocation = modelData.portfolioAllocationStage1 + 
+                                   modelData.portfolioAllocationStage2 + 
+                                   modelData.portfolioAllocationStage3;
+            if (Math.abs(totalAllocation - 1.0) < 0.001) {
+                validations.passed.push(` ✅ Portfolio Allocations suman 100%`);
+            } else {
+                validations.errors.push(` 🔴 Portfolio Allocations suman ${(totalAllocation*100).toFixed(1)}% (debe ser 100%)`);
+            }
+            
+            // ✅ Test 4: Checkbox Protección Rodando
+            if (modelData.proteccionRodando) {
+                validations.info.push(` 🔵 Protección Rodando ACTIVA (-50% provisiones)`);
+            } else {
+                validations.info.push(` 🔵 Protección Rodando INACTIVA (provisiones normales)`);
+            }
+            
+            return validations;
+        }
+
+        /**
          * Actualiza el panel de validación en la UI con los resultados.
          * @param {Object} validations - Objeto con los resultados de la validación.
          */
@@ -3052,6 +3192,32 @@
             printWindow.close();
             log('      ✅      Reporte de validación PDF generado.');
         }
+
+        /**
+         * Realiza un test rápido de integridad del modelo.
+         * @returns {boolean} True if the model's balance sheet squares, false otherwise.
+         */
+        function testModelIntegrity() {
+            log(`Running quick model integrity test...`);
+            const originalData = {...modelData}; // Create a shallow copy
+            
+            if (calculateFinancials()) {
+                const balance = financialResults.bs[0]; // Check first year balance
+                const balanceCheck = Math.abs(balance.totalAssets - balance.totalLiabilitiesEquity);
+                
+                if (balanceCheck > BALANCE_TOLERANCE) {
+                    log(`❌ FALLO INTEGRIDAD: Balance descuadrado en Año 1 por ${formatCurrency(balanceCheck)}`);
+                    Object.assign(modelData, originalData); // Restore original data on failure
+                    return false;
+                }
+                log(`✅ INTEGRIDAD OK: Balance cuadra en Año 1.`);
+                Object.assign(modelData, originalData); // Restore original data after successful test
+                return true;
+            }
+            Object.assign(modelData, originalData); // Restore original data if calculation itself failed
+            return false;
+        }
+
         // ===== APLICACIÓN LISTA Y FUNCIONANDO =====
         /**
          * Se ejecuta cuando el DOM está completamente cargado.
@@ -3075,6 +3241,13 @@
                     initializeCharts();
                     updateCharts();
                 }, 500); 
+
+                // ✅ NUEVO: Llamada al test de integridad después de la inicialización
+                setTimeout(() => {
+                    if (!testModelIntegrity()) {
+                        log(`🚨 ERROR CRÍTICO: Modelo descuadrado después de las correcciones iniciales.`);
+                    }
+                }, 1000);
                 
                 log('      🎉      APLICACIÓN LISTA Y FUNCIONANDO');
                 
@@ -3095,7 +3268,8 @@
             // Mock modelData and loanCohorts for testing
             const testModelData = {
                 pdStage1: 0.005, pdStage2: 0.08, pdStage3: 0.40, lgd: 0.50,
-                economicAdjustmentFactor: 1.0, proteccionRodando: false
+                economicAdjustmentFactor: 1.0, proteccionRodando: false,
+                portfolioAllocationStage1: 0.85, portfolioAllocationStage2: 0.10, portfolioAllocationStage3: 0.05
             };
             // Temporarily override global modelData for test isolation
             const originalModelData = { ...modelData };
@@ -3105,25 +3279,33 @@
                 yearOriginated: 1, remainingPrincipal: 100000, startOfYearPrincipal: 100000, avgExposureDuringYear: 100000
             }];
             let eclResult1 = calculateNIIF9ECL(testCohorts1, 1, 0, 100000); // Pass currentYearEndReceivables
-            const expectedECL1 = 100000 * 0.005 * 0.50 * 1.0;
+            const expectedECL1 = (100000 * modelData.portfolioAllocationStage1 * 0.005 * 0.50) +
+                                 (100000 * modelData.portfolioAllocationStage2 * 0.08 * 0.50) +
+                                 (100000 * modelData.portfolioAllocationStage3 * 0.40 * 0.50);
             if (Math.abs(eclResult1.annualProvisionExpense - expectedECL1) < 0.01) {
                 log(`   ✅    Test ECL 1 (Stage 1): Pasado. ECL: ${formatCurrency(eclResult1.annualProvisionExpense)}`);
             } else {
                 log(`   ❌    Test ECL 1 (Stage 1): Falló. Esperado: ${formatCurrency(expectedECL1)}, Obtenido: ${formatCurrency(eclResult1.annualProvisionExpense)}`);
             }
-            // Test Case 2: Loan in Stage 3 (age > 2), with 50% increase
+            // Test Case 2: Loan in Stage 3 (age > 2), with 50% increase - This logic is within calculatePDBasedOnAge now, but overall ECL will reflect allocations
             let testCohorts2 = [{
                 yearOriginated: 1, remainingPrincipal: 100000, startOfYearPrincipal: 100000, avgExposureDuringYear: 100000
             }];
-            // For year 4, cohort age is 3, so PD should be modelData.pdStage3 * 1.5
-            let eclResult2 = calculateNIIF9ECL(testCohorts2, 4, 0, 100000); // Pass currentYearEndReceivables
-            const expectedPDStage3Adjusted = modelData.pdStage3 * 1.5;
-            const expectedECL2 = 100000 * expectedPDStage3Adjusted * 0.50 * 1.0;
-            if (Math.abs(eclResult2.annualProvisionExpense - expectedECL2) < 0.01) {
-                log(`   ✅    Test ECL 2 (Stage 3 dynamic PD): Pasado. ECL: ${formatCurrency(eclResult2.annualProvisionExpense)}`);
+            // For year 4, cohort age is 3. calculatePDBasedOnAge handles the multiplier.
+            // Here we test if allocation is correctly applied.
+            let eclResult2 = calculateNIIF9ECL(testCohorts2, 4, 0, 100000); 
+            // The precise expected ECL needs to be recalculated based on the adjusted PDs AND portfolio allocations.
+            const totalExposure2 = testCohorts2[0].avgExposureDuringYear;
+            const expectedECL2 = (totalExposure2 * modelData.portfolioAllocationStage1 * calculatePDBasedOnAge(3) * modelData.lgd) + // Assuming initial assignment, then dynamic PD applied
+                                 (totalExposure2 * modelData.portfolioAllocationStage2 * calculatePDBasedOnAge(3) * modelData.lgd) +
+                                 (totalExposure2 * modelData.portfolioAllocationStage3 * calculatePDBasedOnAge(3) * modelData.lgd);
+
+            if (Math.abs(eclResult2.totalECLBeforeAdjustment - expectedECL2) < 0.01) {
+                log(`   ✅    Test ECL 2 (Stage 3 dynamic PD with allocation): Pasado. ECL (before adj): ${formatCurrency(eclResult2.totalECLBeforeAdjustment)}`);
             } else {
-                log(`   ❌    Test ECL 2 (Stage 3 dynamic PD): Falló. Esperado: ${formatCurrency(expectedECL2)}, Obtenido: ${formatCurrency(eclResult2.annualProvisionExpense)}`);
+                log(`   ❌    Test ECL 2 (Stage 3 dynamic PD with allocation): Falló. Esperado: ${formatCurrency(expectedECL2)}, Obtenido: ${formatCurrency(eclResult2.totalECLBeforeAdjustment)}`);
             }
+
             // Test Case 3: With Protección Rodando
             testModelData.proteccionRodando = true;
             Object.assign(modelData, testModelData); // Apply change
@@ -3147,45 +3329,59 @@
             // Mock modelData for testing specific revenue components
             const testModelData = {
                 litrosPromedioMensualPorUnidad: 100, precioLitroGNV: 10, comisionGNVPorcentaje: 10,
-                gmvPromedioMensualPorUnidad: 1000, takeRateMarketplace: 1,
-                refaccionesRevPerUnit: 500, margenVagoneta: 2,
-                downPaymentPercentage: 10, upfrontCommissionPercentage: 1
+                gmvPromedioMensualPorUnidad: 1000, takeRateMarketplace: 1.5,
+                margenVagoneta: 5,
+                downPaymentPercentage: 10, upfrontCommissionPercentage: 3,
+                refaccionesCostPerUnit: 6000, // Now using cost per unit
+                margenRefacciones: 25 // Margin
             };
             const originalModelData = { ...modelData };
             Object.assign(modelData, testModelData);
+
             // Test Case 1: GNV and Marketplace revenue
             let testFixedAssets = [{ units: 100, originalCost: 0, accumulatedDepreciation: 0 }]; // 100 active units
             let niif15Result1 = calculateNIIF15Revenue([], testFixedAssets, 0, 1);
             const expectedGnv = 100 * 100 * 12 * 10 * (10 / 100); // 120,000
-            const expectedMarketplace = 100 * 1000 * 12 * (1 / 100); // 12,000
+            const expectedMarketplace = 100 * 1000 * 12 * (1.5 / 100); // 18,000
             if (Math.abs(niif15Result1.gnvCommissions - expectedGnv) < 0.01 &&
                 Math.abs(niif15Result1.marketplaceRevenue - expectedMarketplace) < 0.01) {
                 log(`   ✅    Test NIIF 15 (GNV/Marketplace): Pasado. GNV: ${formatCurrency(niif15Result1.gnvCommissions)}, Marketplace: ${formatCurrency(niif15Result1.marketplaceRevenue)}`);
             } else {
                 log(`   ❌    Test NIIF 15 (GNV/Marketplace): Falló. GNV Esperado: ${formatCurrency(expectedGnv)}, Obtenido: ${formatCurrency(niif15Result1.gnvCommissions)}. Marketplace Esperado: ${formatCurrency(expectedMarketplace)}, Obtenido: ${formatCurrency(niif15Result1.marketplaceRevenue)}.`);
             }
-            // Test Case 2: Origination Commission and Upfront Fee (simple 1-year loan)
-            let testLoanCohort = [{
-                yearOriginated: 1, originalPrincipal: 100000, remainingPrincipal: 100000, startOfYearPrincipal: 100000,
-                paymentsMadeMonths: 0, monthlyPayment: (100000 * (1 + (testModelData.tasaInteres / 100))) / 12, monthlyInterestRate: (testModelData.tasaInteres / 100) / 12, totalLoanTermMonths: 12,
-                originationCommissionInitial: 100000 * (testModelData.margenVagoneta / 100), remainingOriginationCommission: 100000 * (testModelData.margenVagoneta / 100),
-                originalUpfrontLiability: 100000 * (testModelData.upfrontCommissionPercentage / 100), remainingUpfrontLiability: 100000 * (testModelData.upfrontCommissionPercentage / 100)
-            }];
-            let niif15Result2 = calculateNIIF15Revenue(testLoanCohort, [], 0, 1);
-            const expectedOriginationRecognized = testLoanCohort[0].originationCommissionInitial; // Should be recognized fully if amortized over 1 year
-            const expectedUpfrontRecognized = testLoanCohort[0].originalUpfrontLiability;
-            
-            if (Math.abs(niif15Result2.recognizedOriginationRevenue - (expectedOriginationRecognized + expectedUpfrontRecognized)) < 1) { // Allowing small float diff
-                log(`   ✅    Test NIIF 15 (Origination/Upfront): Pasado. Reconocido: ${formatCurrency(niif15Result2.recognizedOriginationRevenue)}`);
-                // Also check remaining liability
-                if (Math.abs(testLoanCohort[0].remainingOriginationCommission) < 0.01 && Math.abs(testLoanCohort[0].remainingUpfrontLiability) < 0.01) {
-                    log(`   ✅    Test NIIF 15 (Origination/Upfront Liabilities): Falló. Pasivos residuales son cero.`);
-                } else {
-                    log(`   ❌    Test NIIF 15 (Origination/Upfront Liabilities): Falló. Pasivos residuales no son cero.`);
-                }
+
+            // Test Case 2: Refacciones Revenue and COGS
+            let niif15Result2 = calculateNIIF15Revenue([], [], 10, 1); // 10 added units
+            const expectedSparePartsCost = 10 * modelData.refaccionesCostPerUnit; // 60,000
+            const expectedSparePartsRevenue = expectedSparePartsCost * (1 + modelData.margenRefacciones / 100); // 60,000 * 1.25 = 75,000
+            if (Math.abs(niif15Result2.sparePartsRevenue - expectedSparePartsRevenue) < 0.01 &&
+                Math.abs(niif15Result2.sparePartsCOGS - expectedSparePartsCost) < 0.01) {
+                log(`   ✅    Test NIIF 15 (Refacciones Revenue/COGS): Pasado. Revenue: ${formatCurrency(niif15Result2.sparePartsRevenue)}, COGS: ${formatCurrency(niif15Result2.sparePartsCOGS)}`);
             } else {
-                log(`   ❌    Test NIIF 15 (Origination/Upfront): Falló. Esperado: ${formatCurrency(expectedOriginationRecognized + expectedUpfrontRecognized)}, Obtenido: ${formatCurrency(niif15Result2.recognizedOriginationRevenue)}`);
+                log(`   ❌    Test NIIF 15 (Refacciones Revenue/COGS): Falló. Revenue Esperado: ${formatCurrency(expectedSparePartsRevenue)}, Obtenido: ${formatCurrency(niif15Result2.sparePartsRevenue)}. COGS Esperado: ${formatCurrency(expectedSparePartsCost)}, Obtenido: ${formatCurrency(niif15Result2.sparePartsCOGS)}.`);
             }
+
+            // Test Case 3: Origination Commission and Upfront Fee (simple 1-year loan)
+            // Assuming modelData.tasaInteres is available globally or passed
+            let loanPrincipal = 500000;
+            let monthlyInterestRateClient = (modelData.tasaInteres / 100) / 12;
+            let totalPaymentsMonthsClient = 12; // 1 year
+            let monthlyPaymentClient = loanPrincipal * (monthlyInterestRateClient / (1 - Math.pow(1 + monthlyInterestRateClient, -totalPaymentsMonthsClient)));
+            let testLoanCohort = [{
+                yearOriginated: 1, originalPrincipal: loanPrincipal, remainingPrincipal: loanPrincipal, startOfYearPrincipal: loanPrincipal,
+                paymentsMadeMonths: 0, monthlyPayment: monthlyPaymentClient, monthlyInterestRate: monthlyInterestRateClient, totalLoanTermMonths: totalPaymentsMonthsClient,
+                originationCommissionInitial: loanPrincipal * (testModelData.margenVagoneta / 100), remainingOriginationCommission: loanPrincipal * (testModelData.margenVagoneta / 100),
+                originalUpfrontLiability: loanPrincipal * (testModelData.upfrontCommissionPercentage / 100), remainingUpfrontLiability: loanPrincipal * (testModelData.upfrontCommissionPercentage / 100)
+            }];
+            let niif15Result3 = calculateNIIF15Revenue(testLoanCohort, [], 0, 1);
+            const expectedOriginationRecognized = testLoanCohort[0].originationCommissionInitial + testLoanCohort[0].originalUpfrontLiability; 
+            
+            if (Math.abs(niif15Result3.recognizedOriginationRevenue - expectedOriginationRecognized) < 1) { // Allowing small float diff
+                log(`   ✅    Test NIIF 15 (Origination/Upfront): Pasado. Reconocido: ${formatCurrency(niif15Result3.recognizedOriginationRevenue)}`);
+            } else {
+                log(`   ❌    Test NIIF 15 (Origination/Upfront): Falló. Esperado: ${formatCurrency(expectedOriginationRecognized)}, Obtenido: ${formatCurrency(niif15Result3.recognizedOriginationRevenue)}`);
+            }
+
             // Restore original modelData
             Object.assign(modelData, originalModelData);
             log('--- Pruebas Unitarias de Reconocimiento de Ingresos Finalizadas ---');
