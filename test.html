@@ -1235,11 +1235,11 @@
                 let fixedAssetsCohorts = [];
                 
                 // ===== DEFINITION OF INITIAL INVESTMENTS =====
-                //        🏢        PROJECT IRR: All initial capital (Equity and Debt)
-                const projectCashFlows = [-getOptimizedCapitalCall(0)]; // Start with initial equity for Project IRR
-
+                //        🏢        PROJECT IRR: All initial capital (Equity)
+                // Now, initial cash is from optimized structure. Project IRR includes all capital.
+                const projectCashFlows = [-getOptimizedCapitalCall(0)];
                 //        💎        EQUITY IRR: Only initial equity (original investor perspective)
-                const equityCashFlows = [-getOptimizedCapitalCall(0)]; // Only initial equity
+                const equityCashFlows = [-getOptimizedCapitalCall(0)];
                 
                 log(`       📊        INITIAL INVESTMENTS FOR IRRs:`);
                 log(`          🏢        PROJECT IRR (initial equity): ${formatCurrency(getOptimizedCapitalCall(0))}`);
@@ -1422,16 +1422,11 @@
                     const ebitda = grossProfit - opex - provisions - impairment; // All operating expenses incl. non-cash IFRS
                     
                     const ebit = ebitda - annualDepreciation;
-
+                    
                     // --- DEBT SERVICE (INTEREST EXPENSE) ---
-                    let totalInterestExpense = 0;
-                    if (startOfYearVentureDebt > 0) {
-                        totalInterestExpense += startOfYearVentureDebt * (currentModelData.ventureDebtRate / 100);
-                    }
-                    if (startOfYearCommercialDebt > 0) {
-                        totalInterestExpense += startOfYearCommercialDebt * (currentModelData.commercialDebtRate / 100);
-                    }
-                    const interestExpense = totalInterestExpense;
+                    let ventureDebtInterest = startOfYearVentureDebt * (currentModelData.ventureDebtRate / 100);
+                    let commercialDebtInterest = startOfYearCommercialDebt * (currentModelData.commercialDebtRate / 100);
+                    const interestExpense = ventureDebtInterest + commercialDebtInterest;
 
                     const earningsBeforeTax = ebit - interestExpense;
                     const incomeTaxExpense = Math.max(0, earningsBeforeTax) * (currentModelData.corporateTaxRate / 100);
@@ -1456,54 +1451,58 @@
                     const investingCash = -capexThisYear; 
                     log(` Investment Flow (van CAPEX): ${formatCurrency(investingCash)}`);
                     
+                    // --- FINANCIAMIENTO OPTIMIZADO ---
                     let financingCashThisPeriod = 0;
+                    let newEquityInjectionsThisYear = 0; // Will accumulate total equity injections this year
+                    let currentYearVentureDebtDraw = 0;
+                    let currentYearCommercialDebtDraw = 0;
                     let principalPaymentVentureDebtThisPeriod = 0;
-                    let principalPaymentCommercialDebtThisPeriod = 0; // NEW
-                    
-                    let currentYearVentureDebtDraw = 0; 
-                    let currentYearCommercialDebtDraw = 0; // NEW
-                    let newEquityInjectionsThisYear = getOptimizedCapitalCall(year + 1); // Get equity from optimized structure
+                    let principalPaymentCommercialDebtThisPeriod = 0;
 
-                    financingCashThisPeriod += newEquityInjectionsThisYear;
-                    log(`          🎉          Equity funding received in Year ${year+1}: ${formatCurrency(newEquityInjectionsThisYear)}`);
+                    // 1. Equity Injections (Capital Calls)
+                    const equityCallThisYear = getOptimizedCapitalCall(year + 1);
+                    financingCashThisPeriod += equityCallThisYear;
+                    newEquityInjectionsThisYear += equityCallThisYear;
+                    log(`          🎉          Equity funding received in Year ${year+1}: ${formatCurrency(equityCallThisYear)}`);
 
-                    // Calculate total portfolio size for commercial debt calculation (end of previous year)
-                    const prevYearPortfolioSize = (year === 0) ? 0 : financialResults.bs[year - 1].receivables;
+                    // Get previous year's EBITDA and portfolio size for debt calculations
                     const prevYearEBITDA = (year === 0) ? 0 : financialResults.pl[year - 1].ebitda;
+                    const prevYearPortfolioSize = (year === 0) ? 0 : financialResults.bs[year - 1].receivables;
 
-                    // Venture Debt draw based on previous year's EBITDA (EBITDA is calculated for current year in PL)
-                    currentYearVentureDebtDraw = getOptimizedVentureDebt(year + 1, prevYearEBITDA, startOfYearVentureDebt);
+                    // 2. Venture Debt
+                    currentYearVentureDebtDraw = getOptimizedVentureDebt(year + 1, prevYearEBITDA, totalVentureDebt);
                     financingCashThisPeriod += currentYearVentureDebtDraw;
-                    totalVentureDebt += currentYearVentureDebtDraw;
-                    log('          📈          Venture Debt draw: ' + formatCurrency(currentYearVentureDebtDraw));
+                    totalVentureDebt += currentYearVentureDebtDraw; // Add to total balance
+                    log(`          📈          Venture Debt draw: ${formatCurrency(currentYearVentureDebtDraw)}`);
 
-                    // Commercial Debt draw based on previous year's portfolio size
-                    currentYearCommercialDebtDraw = getOptimizedCommercialDebt(year + 1, prevYearPortfolioSize, startOfYearCommercialDebt);
+                    // 3. Commercial Debt
+                    currentYearCommercialDebtDraw = getOptimizedCommercialDebt(year + 1, prevYearPortfolioSize, totalCommercialDebt);
                     financingCashThisPeriod += currentYearCommercialDebtDraw;
-                    totalCommercialDebt += currentYearCommercialDebtDraw;
-                    log('          📈          Commercial Debt draw: ' + formatCurrency(currentYearCommercialDebtDraw));
-                    
-                    // Principal payment for Venture Debt (assuming same amortization period as before)
+                    totalCommercialDebt += currentYearCommercialDebtDraw; // Add to total balance
+                    log(`          📈          Commercial Debt draw: ${formatCurrency(currentYearCommercialDebtDraw)}`);
+
+                    // 4. Principal Payments (Amortization) for existing debt
                     if (startOfYearVentureDebt > 0 && currentModelData.periodoAmortizacionDeuda > 0) {
                         const annualPrincipalPaymentRate = 1 / currentModelData.periodoAmortizacionDeuda;
-                        principalPaymentVentureDebtThisPeriod = Math.min(startOfYearVentureDebt * annualPrincipalPaymentRate, startOfYearVentureDebt); 
+                        principalPaymentVentureDebtThisPeriod = Math.min(startOfYearVentureDebt * annualPrincipalPaymentRate, startOfYearVentureDebt);
                         totalVentureDebt = Math.max(0, totalVentureDebt - principalPaymentVentureDebtThisPeriod);
                         financingCashThisPeriod -= principalPaymentVentureDebtThisPeriod;
+                        log(`          📉          Venture Debt principal payment: ${formatCurrency(principalPaymentVentureDebtThisPeriod)}`);
                     }
-                    // Principal payment for Commercial Debt (assuming same amortization period as before)
-                    if (startOfYearCommercialDebt > 0 && currentModelData.periodoAmortizacionDeuda > 0) {
+                    if (startOfYearCommercialDebt > 0 && currentModelData.periodoAmortizacionDeuda > 0) { // Assuming same amortization for simplicity
                         const annualPrincipalPaymentRate = 1 / currentModelData.periodoAmortizacionDeuda;
-                        principalPaymentCommercialDebtThisPeriod = Math.min(startOfYearCommercialDebt * annualPrincipalPaymentRate, startOfYearCommercialDebt); 
+                        principalPaymentCommercialDebtThisPeriod = Math.min(startOfYearCommercialDebt * annualPrincipalPaymentRate, startOfYearCommercialDebt);
                         totalCommercialDebt = Math.max(0, totalCommercialDebt - principalPaymentCommercialDebtThisPeriod);
                         financingCashThisPeriod -= principalPaymentCommercialDebtThisPeriod;
+                        log(`          📉          Commercial Debt principal payment: ${formatCurrency(principalPaymentCommercialDebtThisPeriod)}`);
                     }
 
-                    // LIQUIDITY PLUG: If cash falls below zero, assume additional financing (equity)
+                    // 5. LIQUIDITY PLUG: If cash falls below zero, assume additional financing (equity)
                     let netCashBeforePlug = operatingCash + investingCash + financingCashThisPeriod;
                     const prospectiveCash = cash + netCashBeforePlug;
                     let additionalFundingRaised = 0; // For liquidity plug
                     if (prospectiveCash < 0) {
-                        additionalFundingRaised = -prospectiveCash; 
+                        additionalFundingRaised = -prospectiveCash;
                         financingCashThisPeriod += additionalFundingRaised;
                         log(`          ⚠️          Cash deficit in Year ${year+1}. ADDITIONAL funding assumed (Liquidity Plug): ${formatCurrency(additionalFundingRaised)}`);
                     }
@@ -1692,9 +1691,6 @@
                     const totalCurrentDebt = totalVentureDebt + totalCommercialDebt;
                     const totalStartOfYearDebt = startOfYearVentureDebt + startOfYearCommercialDebt;
                     
-                    // Calculate change in total debt during the year
-                    const deltaDebt = totalCurrentDebt - totalStartOfYearDebt;
-
                     // FCFE = NOPAT + Depreciation + Impairment - CAPEX + Delta (Net Working Capital) + Net Debt Issued
                     // Net Debt Issued = Current Year Venture Debt Draw + Current Year Commercial Debt Draw - Principal Payments
                     const netDebtIssued = currentYearVentureDebtDraw + currentYearCommercialDebtDraw - principalPaymentVentureDebtThisPeriod - principalPaymentCommercialDebtThisPeriod;
