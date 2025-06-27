@@ -1,738 +1,109 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rodando a Gas - Resumen Semanal</title>
-    <!-- Font Awesome para íconos -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <style>
-        /* Variables CSS para colores */
-        :root {
-            --color-dark-grey: #212121;
-            --color-medium-grey: #757575;
-            --color-light-grey: #E0E0E0;
-            --color-rodando-gas-green: #4CAF50;
-            --color-rodando-gas-blue: #03A9F4;
-            --color-green-light: #E8F5E9; /* Para botón seleccionado */
-            --color-green-dark-text: #2E7D32; /* Para texto botón seleccionado */
-            --color-red-soft: #F44336;
-            --color-yellow-orange: #FFC107;
-            --color-white: #FFFFFF;
-        }
-
-        body {
-            font-family: 'Inter', 'Roboto', 'Lato', sans-serif; /* Preferencia de fuentes */
-            margin: 0;
-            padding: 20px;
-            background-color: #f0f2f5; /* Un gris muy suave para el fondo del "mundo" */
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            min-height: 100vh;
-        }
-
-        .mobile-container {
-            max-width: 400px;
-            width: 100%;
-            background-color: var(--color-white);
-            border-radius: 20px;
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
-            overflow: hidden; /* Para que el contenido interno no se salga de los bordes redondeados */
-            display: flex;
-            flex-direction: column;
-            padding-bottom: 24px; /* Espacio para el enlace inferior */
-            position: relative; /* Para el toast */
-        }
-
-        .content-padding {
-            padding: 0 24px;
-        }
-
-        /* Encabezado */
-        .header {
-            padding: 24px 24px 0;
-            margin-bottom: 24px;
-        }
-
-        .header h1 {
-            font-size: 28px;
-            font-weight: bold;
-            color: var(--color-dark-grey);
-            margin: 0;
-        }
-
-        .header p {
-            font-size: 16px;
-            color: var(--color-medium-grey);
-            margin: 4px 0 0;
-        }
-
-        /* Tarjetas Base */
-        .card {
-            background-color: var(--color-white);
-            border-radius: 12px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
-            margin-bottom: 16px;
-            padding: 20px;
-        }
-
-        /* Monto a Pagar */
-        .payment-summary {
-            margin: 0 24px 24px; /* Ajustado para estar directamente en el flujo */
-            text-align: center;
-            padding: 24px;
-            border-radius: 16px; /* Más redondeado para destacar */
-        }
-
-        .payment-summary .icon {
-            color: var(--color-rodando-gas-blue);
-            font-size: 36px;
-            margin-bottom: 16px;
-        }
-
-        .payment-summary h2 {
-            font-size: 48px;
-            font-weight: bold;
-            color: var(--color-dark-grey);
-            margin: 0;
-            line-height: 1;
-        }
-
-        .payment-summary p {
-            font-size: 14px;
-            color: var(--color-medium-grey);
-            margin-top: 8px;
-        }
-
-        /* Mensajes Informativos (Ahorro, Vencimiento) */
-        .info-card {
-            display: flex;
-            align-items: center;
-            margin: 0 24px 16px; /* Ajustado para estar directamente en el flujo */
-            padding: 16px;
-            border-radius: 12px;
-        }
-
-        .info-card .icon {
-            font-size: 20px;
-            margin-right: 12px;
-        }
-
-        .savings-message .icon {
-            color: var(--color-yellow-orange);
-        }
-
-        .due-date-reminder .icon {
-            color: var(--color-red-soft);
-        }
-
-        .info-card p {
-            font-size: 16px;
-            font-weight: 500;
-            color: var(--color-dark-grey);
-            margin: 0;
-        }
-
-        /* Selector de Frecuencia de Pago */
-        .payment-frequency-selector {
-            margin: 24px 24px; /* Ajustado para estar directamente en el flujo */
-        }
-
-        .payment-frequency-selector .label {
-            font-size: 14px;
-            font-weight: 500;
-            color: var(--color-medium-grey);
-            margin-bottom: 12px;
-        }
-
-        .frequency-options {
-            display: flex;
-            align-items: center;
-            justify-content: space-between; /* Para separar "Cambiar" */
-            gap: 8px;
-        }
-
-        .frequency-buttons {
-            display: flex;
-            gap: 8px;
-        }
-
-        .frequency-button {
-            padding: 10px 16px;
-            border-radius: 6px;
-            border: 1px solid var(--color-light-grey);
-            background-color: var(--color-white);
-            color: var(--color-medium-grey);
-            font-size: 15px;
-            font-weight: normal;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            white-space: nowrap; /* Evita que el texto se rompa */
-        }
-
-        .frequency-button.selected {
-            background-color: var(--color-green-light);
-            border-color: var(--color-green-light);
-            color: var(--color-green-dark-text);
-            font-weight: 500;
-        }
-
-        .frequency-button.disabled {
-            opacity: 0.7;
-            cursor: not-allowed;
-        }
-
-        .change-button {
-            background: none;
-            border: none;
-            color: var(--color-rodando-gas-blue);
-            font-size: 15px;
-            font-weight: 500;
-            cursor: pointer;
-            padding: 0;
-            text-decoration: none;
-        }
-
-        /* Selector de Forma de Pago */
-        .payment-method-selector {
-            margin: 0 24px 24px; /* Ajustado para estar directamente en el flujo */
-            padding: 24px; /* Padding general */
-        }
-
-        .payment-option {
-            display: flex;
-            align-items: flex-start; /* Alinea ícono con la parte superior del texto */
-            margin-bottom: 20px;
-        }
-
-        .payment-option:last-child {
-            margin-bottom: 0;
-        }
-
-        .payment-option .icon {
-            font-size: 24px;
-            margin-right: 16px;
-            flex-shrink: 0; /* Evita que el ícono se encoja */
-        }
-
-        .payment-option .details {
-            flex-grow: 1;
-        }
-
-        .payment-option .label {
-            font-size: 14px;
-            color: var(--color-medium-grey);
-            margin-bottom: 4px;
-        }
-
-        .payment-option .value {
-            font-size: 17px;
-            font-weight: 500;
-            color: var(--color-dark-grey);
-            display: flex;
-            align-items: center;
-            gap: 8px; /* Espacio entre el número y el icono de copiar */
-            margin-bottom: 4px;
-            word-break: break-all; /* Rompe la palabra si es muy larga */
-        }
-
-        .payment-option .copy-icon {
-            font-size: 16px;
-            color: var(--color-medium-grey);
-            cursor: pointer;
-            transition: color 0.2s ease;
-        }
-
-        .payment-option .copy-icon:hover {
-            color: var(--color-rodando-gas-blue);
-        }
-
-        .payment-option .beneficiary,
-        .payment-option .convenios {
-            font-size: 14px;
-            color: var(--color-medium-grey);
-        }
-
-        .divider {
-            border: none;
-            border-top: 1px solid var(--color-light-grey);
-            margin: 20px 0;
-        }
-
-        /* Instrucciones */
-        .instructions {
-            display: flex;
-            align-items: center;
-            margin: 0 24px 24px; /* Ajustado para estar directamente en el flujo */
-        }
-
-        .instructions .icon {
-            font-size: 18px;
-            color: var(--color-rodando-gas-blue);
-            margin-right: 12px;
-        }
-
-        .instructions p {
-            font-size: 14px;
-            color: var(--color-medium-grey);
-            margin: 0;
-        }
-
-        /* Botón Principal */
-        .main-button {
-            width: calc(100% - 48px); /* 100% menos el padding horizontal */
-            padding: 16px 24px;
-            background-color: var(--color-rodando-gas-green);
-            color: var(--color-white);
-            font-size: 18px;
-            font-weight: bold;
-            border: none;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: background-color 0.2s ease, transform 0.1s ease;
-            margin: 0 24px 24px; /* Centrado y con margen */
-            box-shadow: 0 6px 15px rgba(76, 175, 80, 0.3); /* Sombra para el botón */
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .main-button:hover:not(:disabled) {
-            background-color: #4CAF50; /* Un verde ligeramente más oscuro al pasar el ratón */
-            transform: translateY(-2px);
-            box-shadow: 0 8px 18px rgba(76, 175, 80, 0.4);
-        }
-
-        .main-button:active:not(:disabled) {
-            transform: translateY(0);
-            box-shadow: 0 4px 10px rgba(76, 175, 80, 0.2);
-        }
-
-        .main-button:disabled {
-            background-color: #a5d6a7; /* Color más claro cuando está deshabilitado */
-            cursor: not-allowed;
-            box-shadow: none;
-        }
-
-        .main-button .spinner {
-            border: 3px solid rgba(255, 255, 255, 0.3);
-            border-top: 3px solid var(--color-white);
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        /* Enlace Inferior */
-        .history-link {
-            display: block;
-            text-align: center;
-            margin-top: 0px; /* Ya tenemos el margin-bottom del botón */
-            color: var(--color-rodando-gas-blue);
-            font-size: 14px;
-            font-weight: 500;
-            text-decoration: none;
-            padding-bottom: 24px; /* Espacio extra al final de la pantalla */
-        }
-
-        .history-link:hover {
-            text-decoration: underline;
-        }
-
-        /* Toast Notification */
-        .toast-container {
-            position: fixed; /* O absolute dentro del .mobile-container */
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 1000;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            pointer-events: none; /* Permite clics a través del contenedor */
-        }
-
-        .toast {
-            background-color: rgba(0, 0, 0, 0.8);
-            color: var(--color-white);
-            padding: 10px 15px;
-            border-radius: 8px;
-            font-size: 14px;
-            opacity: 0;
-            transition: opacity 0.3s ease-in-out;
-            text-align: center;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-            white-space: nowrap; /* Evita que el texto del toast se rompa */
-        }
-
-        .toast.show {
-            opacity: 1;
-        }
-
-        /* Modal simple para "Cambiar frecuencia" */
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 999;
-            opacity: 0;
-            visibility: hidden;
-            transition: opacity 0.3s ease, visibility 0.3s ease;
-        }
-
-        .modal-overlay.active {
-            opacity: 1;
-            visibility: visible;
-        }
-
-        .modal-content {
-            background-color: var(--color-white);
-            padding: 24px;
-            border-radius: 16px;
-            width: 90%;
-            max-width: 350px;
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
-            transform: translateY(20px);
-            opacity: 0;
-            transition: transform 0.3s ease, opacity 0.3s ease;
-        }
-
-        .modal-overlay.active .modal-content {
-            transform: translateY(0);
-            opacity: 1;
-        }
-
-        .modal-content h3 {
-            font-size: 20px;
-            font-weight: bold;
-            color: var(--color-dark-grey);
-            margin-top: 0;
-            margin-bottom: 20px;
-        }
-
-        .modal-content .radio-option {
-            display: flex;
-            align-items: center;
-            margin-bottom: 15px;
-            cursor: pointer;
-        }
-
-        .modal-content .radio-option input[type="radio"] {
-            margin-right: 10px;
-            transform: scale(1.2); /* Aumenta el tamaño del radio button */
-        }
-
-        .modal-content .radio-option label {
-            font-size: 16px;
-            color: var(--color-dark-grey);
-        }
-
-        .modal-content .info-text {
-            font-size: 13px;
-            color: var(--color-medium-grey);
-            margin-top: 10px;
-            margin-bottom: 20px;
-            line-height: 1.4;
-        }
-
-        .modal-content .modal-buttons {
-            display: flex;
-            justify-content: flex-end;
-            gap: 10px;
-        }
-
-        .modal-content .modal-buttons button {
-            padding: 10px 18px;
-            border-radius: 8px;
-            font-size: 15px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: background-color 0.2s ease;
-        }
-
-        .modal-content .modal-buttons .cancel-button {
-            background-color: var(--color-light-grey);
-            color: var(--color-dark-grey);
-            border: none;
-        }
-
-        .modal-content .modal-buttons .cancel-button:hover {
-            background-color: #d0d0d0;
-        }
-
-        .modal-content .modal-buttons .save-button {
-            background-color: var(--color-rodando-gas-green);
-            color: var(--color-white);
-            border: none;
-        }
-
-        .modal-content .modal-buttons .save-button:hover {
-            background-color: #43a047;
-        }
-
-    </style>
-</head>
-<body>
-
-    <div class="mobile-container">
-        <!-- 1. Encabezado -->
-        <div class="header">
-            <h1>Resumen semanal</h1>
-            <p>Semana del 23 al 30 de junio</p>
-        </div>
-
-        <!-- 2. Monto a pagar -->
-        <div class="payment-summary card">
-            <i class="fas fa-money-bill-wave icon"></i> <!-- Icono de dinero/billete -->
-            <h2>$845.00 MXN</h2>
-            <p>Pago semanal estimado</p>
-        </div>
-
-        <!-- 3. Mensaje de ahorro -->
-        <div class="savings-message info-card">
-            <i class="fas fa-fire icon"></i> <!-- Icono de flama -->
-            <p>Ahorraste $215.00 esta semana vs gasolina</p>
-        </div>
-
-        <!-- 4. Recordatorio de vencimiento -->
-        <div class="due-date-reminder info-card">
-            <i class="fas fa-clock icon"></i> <!-- Icono de reloj -->
-            <p>Vence el viernes 28 de junio - 11:59 p.m.</p>
-        </div>
-
-        <!-- 5. Selector de frecuencia de pago -->
-        <div class="payment-frequency-selector content-padding">
-            <p class="label">Frecuencia de pago</p>
-            <div class="frequency-options">
-                <div class="frequency-buttons">
-                    <button class="frequency-button selected" id="freqSemanal">Semanal</button>
-                    <button class="frequency-button disabled" id="freqMensual">Mensual</button>
-                </div>
-                <button class="change-button" id="changeFrequencyBtn">Cambiar</button>
-            </div>
-        </div>
-
-        <!-- 6. Selector de forma de pago -->
-        <div class="payment-method-selector card">
-            <!-- Opción 1: Transferencia bancaria -->
-            <div class="payment-option">
-                <i class="fas fa-bank icon" style="color: var(--color-rodando-gas-blue);"></i>
-                <div class="details">
-                    <p class="label">CLABE personalizada</p>
-                    <div class="value">
-                        <span id="clabeValue">646180123456789123</span>
-                        <i class="fas fa-copy copy-icon" data-text="646180123456789123" data-label="CLABE"></i>
-                    </div>
-                    <p class="beneficiary">Rodando a Gas S.A.P.I.</p>
-                </div>
-            </div>
-
-            <hr class="divider">
-
-            <!-- Opción 2: Depósito en tiendas -->
-            <div class="payment-option">
-                <i class="fas fa-store icon" style="color: var(--color-rodando-gas-green);"></i>
-                <div class="details">
-                    <p class="label">Referencia para pago en efectivo</p>
-                    <div class="value">
-                        <span id="referenceValue">834112356987</span>
-                        <i class="fas fa-copy copy-icon" data-text="834112356987" data-label="Referencia"></i>
-                    </div>
-                    <p class="convenios">OXXO, 7Eleven, Farmacias</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- 7. Instrucciones -->
-        <div class="instructions content-padding">
-            <i class="fas fa-info-circle icon"></i>
-            <p>Guarda tu comprobante. El pago puede reflejarse en 1–2 hrs.</p>
-        </div>
-
-        <!-- 8. Botón principal -->
-        <button class="main-button" id="mainPaymentButton">
-            YA REALICÉ MI PAGO
-        </button>
-
-        <!-- 9. Enlace inferior -->
-        <a href="#" class="history-link">Ver historial de pagos</a>
-    </div>
-
-    <!-- Toast Container -->
-    <div class="toast-container" id="toastContainer"></div>
-
-    <!-- Modal para "Cambiar frecuencia" -->
-    <div class="modal-overlay" id="frequencyModalOverlay">
-        <div class="modal-content">
-            <h3>Cambiar Frecuencia de Pago</h3>
-            <div class="radio-option">
-                <input type="radio" id="modalSemanal" name="frequency" value="semnal" checked>
-                <label for="modalSemanal">Semanal</label>
-            </div>
-            <div class="radio-option">
-                <input type="radio" id="modalMensual" name="frequency" value="mensual">
-                <label for="modalMensual">Mensual</label>
-            </div>
-            <p class="info-text">
-                Cambiar a mensual ajustará tus fechas de pago y plan. Esto es una simulación.
-            </p>
-            <div class="modal-buttons">
-                <button class="cancel-button" id="cancelModalBtn">Cancelar</button>
-                <button class="save-button" id="saveModalBtn">Guardar Cambios</button>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // Función para mostrar un mensaje "Toast"
-        function showToast(message) {
-            const toastContainer = document.getElementById('toastContainer');
-            const toast = document.createElement('div');
-            toast.className = 'toast';
-            toast.textContent = message;
-            toastContainer.appendChild(toast);
-
-            setTimeout(() => {
-                toast.classList.add('show');
-            }, 10); // Pequeño retraso para que la transición funcione
-
-            setTimeout(() => {
-                toast.classList.remove('show');
-                toast.addEventListener('transitionend', () => {
-                    toast.remove();
-                });
-            }, 3000); // 3 segundos antes de desaparecer
-        }
-
-        // --- Funcionalidad de Copiar al Portapapeles ---
-        document.querySelectorAll('.copy-icon').forEach(icon => {
-            icon.addEventListener('click', function() {
-                const textToCopy = this.dataset.text;
-                const label = this.dataset.label;
-                navigator.clipboard.writeText(textToCopy).then(() => {
-                    showToast(`${label} copiada al portapapeles`);
-                    // Opcional: Feedback visual en el icono
-                    this.classList.remove('fa-copy');
-                    this.classList.add('fa-check');
-                    this.style.color = 'var(--color-rodando-gas-green)';
-                    setTimeout(() => {
-                        this.classList.remove('fa-check');
-                        this.classList.add('fa-copy');
-                        this.style.color = 'var(--color-medium-grey)';
-                    }, 1000);
-                }).catch(err => {
-                    console.error('Error al copiar:', err);
-                    showToast('No se pudo copiar el texto.');
-                });
-            });
+document.addEventListener('DOMContentLoaded', () => {
+    // Función para mostrar un toast notification
+    function showToast(message) {
+        const toast = document.getElementById('toast');
+        toast.textContent = message;
+        toast.classList.add('show');
+        setTimeout(() => {
+            toast.classList.remove('show');
+        }, 3000); // El toast desaparece después de 3 segundos
+    }
+
+    // Funcionalidad de copiar al portapapeles
+    document.querySelectorAll('.copy-button').forEach(button => {
+        button.addEventListener('click', (event) => {
+            const targetId = event.currentTarget.dataset.copyTarget;
+            const targetElement = document.getElementById(targetId);
+            if (targetElement) {
+                const textToCopy = targetElement.textContent;
+                navigator.clipboard.writeText(textToCopy)
+                    .then(() => {
+                        showToast(`${targetElement.id.toUpperCase()} copiada!`);
+                        // Opcional: feedback visual temporal en el botón
+                        event.currentTarget.textContent = '✅';
+                        setTimeout(() => {
+                            event.currentTarget.textContent = '📋';
+                        }, 1000);
+                    })
+                    .catch(err => {
+                        console.error('Error al copiar: ', err);
+                        showToast('Error al copiar. Intenta manualmente.');
+                    });
+            }
         });
+    });
 
-        // --- Funcionalidad del Botón Principal de Pago ---
-        const mainPaymentButton = document.getElementById('mainPaymentButton');
-        mainPaymentButton.addEventListener('click', function() {
-            // Deshabilitar botón y mostrar spinner
-            this.disabled = true;
-            this.innerHTML = '<span class="spinner"></span>'; // Reemplazar texto con spinner
+    // Funcionalidad del botón principal "YA REALICÉ MI PAGO"
+    const mainActionButton = document.getElementById('mainActionButton');
+    mainActionButton.addEventListener('click', () => {
+        mainActionButton.textContent = 'Cargando...';
+        mainActionButton.disabled = true;
 
-            // Simular un proceso de pago
-            setTimeout(() => {
-                const success = Math.random() < 0.8; // 80% de probabilidad de éxito
+        // Simular una llamada a API
+        setTimeout(() => {
+            const success = Math.random() > 0.3; // 70% de éxito, 30% de error
 
-                if (success) {
-                    showToast('¡Pago registrado con éxito!');
-                    this.innerHTML = '¡PAGO REALIZADO!'; // Texto de éxito
-                    this.style.backgroundColor = 'var(--color-rodando-gas-green)'; // Mantener el color verde
-                    this.style.boxShadow = '0 6px 15px rgba(76, 175, 80, 0.3)';
-                } else {
-                    showToast('Error al registrar el pago. Inténtalo de nuevo.');
-                    this.innerHTML = 'YA REALICÉ MI PAGO'; // Restaurar texto original
-                    this.style.backgroundColor = 'var(--color-rodando-gas-green)'; // Restaurar color
-                    this.style.boxShadow = '0 6px 15px rgba(76, 175, 80, 0.3)';
-                    this.disabled = false; // Habilitar de nuevo
-                }
-
-                // Si fue exitoso, mantenerlo deshabilitado y cambiar texto. Si no, re-habilitar.
-                if (!success) {
-                     this.disabled = false;
-                } else {
-                    // Opcional: Podríamos redirigir o actualizar la pantalla para mostrar "pagado"
-                }
-
-            }, 2000); // Simular 2 segundos de carga
-        });
-
-        // --- Funcionalidad del Modal de Frecuencia de Pago ---
-        const changeFrequencyBtn = document.getElementById('changeFrequencyBtn');
-        const frequencyModalOverlay = document.getElementById('frequencyModalOverlay');
-        const cancelModalBtn = document.getElementById('cancelModalBtn');
-        const saveModalBtn = document.getElementById('saveModalBtn');
-        const freqSemanalBtn = document.getElementById('freqSemanal');
-        const freqMensualBtn = document.getElementById('freqMensual');
-        const modalSemanalRadio = document.getElementById('modalSemanal');
-        const modalMensualRadio = document.getElementById('modalMensual');
-
-        // Mostrar modal
-        changeFrequencyBtn.addEventListener('click', () => {
-            // Sincronizar estado del radio button del modal con el botón de la UI
-            if (freqSemanalBtn.classList.contains('selected')) {
-                modalSemanalRadio.checked = true;
+            if (success) {
+                showToast('✅ ¡Pago registrado con éxito!');
+                mainActionButton.textContent = 'PAGO REGISTRADO';
+                mainActionButton.style.backgroundColor = 'var(--primary-green-dark)'; // Cambiar color si está permanentemente
+                // Aquí podrías redirigir o actualizar la UI para mostrar el nuevo estado
             } else {
-                modalMensualRadio.checked = true;
+                showToast('❌ Error al registrar el pago. Intenta de nuevo.');
+                mainActionButton.textContent = 'YA REALICÉ MI PAGO';
+                mainActionButton.disabled = false;
             }
-            frequencyModalOverlay.classList.add('active');
-        });
+        }, 2000); // Simula 2 segundos de carga
+    });
 
-        // Cerrar modal al hacer clic en el overlay (fuera del contenido)
-        frequencyModalOverlay.addEventListener('click', (event) => {
-            if (event.target === frequencyModalOverlay) {
-                frequencyModalOverlay.classList.remove('active');
-            }
-        });
+    // Funcionalidad de cambiar frecuencia de pago
+    const weeklyBtn = document.getElementById('weeklyBtn');
+    const monthlyBtn = document.getElementById('monthlyBtn');
+    const changeFreqLink = document.getElementById('changeFreqLink');
+    const amountSpan = document.querySelector('.payment-summary-card .amount');
+    const dueDateText = document.querySelector('.due-date-card p');
+    const savingsText = document.querySelector('.savings-card p');
 
-        // Cerrar modal al cancelar
-        cancelModalBtn.addEventListener('click', () => {
-            frequencyModalOverlay.classList.remove('active');
-        });
+    changeFreqLink.addEventListener('click', (e) => {
+        e.preventDefault(); // Evita que el enlace recargue la página
 
-        // Guardar cambios en el modal
-        saveModalBtn.addEventListener('click', () => {
-            if (modalMensualRadio.checked) {
-                freqSemanalBtn.classList.remove('selected');
-                freqSemanalBtn.classList.add('disabled');
-                freqMensualBtn.classList.add('selected');
-                freqMensualBtn.classList.remove('disabled');
-                // Aquí podrías actualizar el monto y la fecha si fuera una app real
-                document.querySelector('.payment-summary h2').textContent = '$3,400.00 MXN'; // Simula cambio a mensual
-                document.querySelector('.due-date-reminder p').textContent = 'Vence el 15 de julio - 11:59 p.m.'; // Simula cambio de fecha
-                document.querySelector('.header p').textContent = 'Mes de julio'; // Simula cambio de fecha
-                showToast('Frecuencia de pago cambiada a Mensual (simulado)');
+        // Simular un modal o navegación a pantalla de cambio
+        // En un wireframe real, esto abriría un modal para confirmar el cambio.
+        // Aquí, simplemente cambiamos el estado directamente para demostrar la interacción.
 
-            } else { // Semanal seleccionado en el modal
-                freqMensualBtn.classList.remove('selected');
-                freqMensualBtn.classList.add('disabled');
-                freqSemanalBtn.classList.add('selected');
-                freqSemanalBtn.classList.remove('disabled');
-                // Restaurar valores semanales (si se hubieran cambiado a mensual antes)
-                document.querySelector('.payment-summary h2').textContent = '$845.00 MXN';
-                document.querySelector('.due-date-reminder p').textContent = 'Vence el viernes 28 de junio - 11:59 p.m.';
-                document.querySelector('.header p').textContent = 'Semana del 23 al 30 de junio';
-                showToast('Frecuencia de pago cambiada a Semanal (simulado)');
-            }
-            frequencyModalOverlay.classList.remove('active');
-        });
+        if (weeklyBtn.classList.contains('selected')) {
+            // Cambiar a Mensual
+            weeklyBtn.classList.remove('selected');
+            weeklyBtn.classList.add('disabled');
+            weeklyBtn.disabled = true;
 
-    </script>
-</body>
-</html>
+            monthlyBtn.classList.add('selected');
+            monthlyBtn.classList.remove('disabled');
+            monthlyBtn.disabled = false;
+
+            // Actualizar montos y fechas simuladas para el pago mensual
+            amountSpan.textContent = '$3,200.00 MXN';
+            document.querySelector('.payment-summary-card .subtext').textContent = 'Pago mensual estimado';
+            dueDateText.textContent = 'Vence el viernes 26 de julio - 11:59 p.m.';
+            savingsText.textContent = 'Ahorraste $950.00 este mes vs gasolina';
+            showToast('Frecuencia cambiada a Mensual.');
+
+        } else {
+            // Cambiar a Semanal (opcional, si quisieras que el usuario pueda volver)
+            // Para este wireframe, solo demostraremos el cambio a mensual.
+            // weeklyBtn.classList.add('selected');
+            // weeklyBtn.classList.remove('disabled');
+            // weeklyBtn.disabled = false;
+
+            // monthlyBtn.classList.remove('selected');
+            // monthlyBtn.classList.add('disabled');
+            // monthlyBtn.disabled = true;
+
+            // amountSpan.textContent = '$845.00 MXN';
+            // document.querySelector('.payment-summary-card .subtext').textContent = 'Pago semanal estimado';
+            // dueDateText.textContent = 'Vence el viernes 28 de junio - 11:59 p.m.';
+            // savingsText.textContent = 'Ahorraste $215.00 esta semana vs gasolina';
+            // showToast('Frecuencia cambiada a Semanal.');
+        }
+    });
+});
