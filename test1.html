@@ -1,7 +1,41 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // Función para mostrar un toast notification
+    // --- Referencias a elementos del DOM ---
+    const toast = document.getElementById('toast');
+    const clabeValue = document.getElementById('clabeValue');
+    const refValue = document.getElementById('refValue');
+    const mainActionButton = document.getElementById('mainActionButton');
+    const weeklyBtn = document.getElementById('weeklyBtn');
+    const monthlyBtn = document.getElementById('monthlyBtn');
+    const changeFreqLink = document.getElementById('changeFreqLink');
+
+    // Elementos que se actualizan al cambiar la frecuencia
+    const periodSubtitle = document.getElementById('periodSubtitle');
+    const paymentAmount = document.getElementById('paymentAmount');
+    const paymentPeriodLabel = document.getElementById('paymentPeriodLabel');
+    const savingsText = document.getElementById('savingsText');
+    const dueDateText = document.getElementById('dueDateText');
+
+    // --- Datos para estados de frecuencia ---
+    const weeklyData = {
+        subtitle: 'Semana del 23 al 30 de junio',
+        amount: '$845.00 MXN',
+        periodLabel: 'Pago semanal estimado',
+        savings: 'Ahorraste $215.00 esta semana vs gasolina',
+        dueDate: 'Vence el viernes 28 de junio - 11:59 p.m.'
+    };
+
+    const monthlyData = {
+        subtitle: 'Mes de julio', // O 'Mes del 1 al 31 de julio'
+        amount: '$3,200.00 MXN',
+        periodLabel: 'Pago mensual estimado',
+        savings: 'Ahorraste $950.00 este mes vs gasolina',
+        dueDate: 'Vence el viernes 26 de julio - 11:59 p.m.'
+    };
+
+    // --- Funciones de Utilidad ---
+
+    // Muestra un toast notification
     function showToast(message) {
-        const toast = document.getElementById('toast');
         toast.textContent = message;
         toast.classList.add('show');
         setTimeout(() => {
@@ -9,20 +43,47 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 3000); // El toast desaparece después de 3 segundos
     }
 
-    // Funcionalidad de copiar al portapapeles
+    // Actualiza la UI según los datos de frecuencia
+    function updateFrequencyUI(data, isWeekly) {
+        periodSubtitle.textContent = data.subtitle;
+        paymentAmount.textContent = data.amount;
+        paymentPeriodLabel.textContent = data.periodLabel;
+        savingsText.textContent = data.savings;
+        dueDateText.textContent = data.dueDate;
+
+        // Actualiza el estado de los botones
+        if (isWeekly) {
+            weeklyBtn.classList.add('selected');
+            weeklyBtn.disabled = false;
+            monthlyBtn.classList.remove('selected');
+            monthlyBtn.disabled = true; // Mensual deshabilitado si no se activa via "Cambiar"
+        } else {
+            weeklyBtn.classList.remove('selected');
+            weeklyBtn.disabled = true;
+            monthlyBtn.classList.add('selected');
+            monthlyBtn.disabled = false;
+        }
+    }
+
+    // --- Event Listeners ---
+
+    // Copiar al portapapeles
     document.querySelectorAll('.copy-button').forEach(button => {
         button.addEventListener('click', (event) => {
             const targetId = event.currentTarget.dataset.copyTarget;
             const targetElement = document.getElementById(targetId);
-            if (targetElement) {
+            const copyIcon = event.currentTarget.querySelector('.material-symbols-outlined');
+
+            if (targetElement && copyIcon) {
                 const textToCopy = targetElement.textContent;
                 navigator.clipboard.writeText(textToCopy)
                     .then(() => {
-                        showToast(`${targetElement.id.toUpperCase()} copiada!`);
-                        // Opcional: feedback visual temporal en el botón
-                        event.currentTarget.textContent = '✅';
+                        showToast(`${targetId.includes('clabe') ? 'CLABE' : 'Referencia'} copiada!`);
+                        copyIcon.textContent = 'check'; // Cambia a ícono de check
+                        copyIcon.style.color = 'var(--primary-green)'; // Verde
                         setTimeout(() => {
-                            event.currentTarget.textContent = '📋';
+                            copyIcon.textContent = 'content_copy'; // Vuelve al ícono original
+                            copyIcon.style.color = ''; // Resetea el color
                         }, 1000);
                     })
                     .catch(err => {
@@ -33,11 +94,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Funcionalidad del botón principal "YA REALICÉ MI PAGO"
-    const mainActionButton = document.getElementById('mainActionButton');
+    // Botón principal "YA REALICÉ MI PAGO"
     mainActionButton.addEventListener('click', () => {
         mainActionButton.textContent = 'Cargando...';
         mainActionButton.disabled = true;
+        mainActionButton.classList.add('loading'); // Opcional: para estilos de carga
 
         // Simular una llamada a API
         setTimeout(() => {
@@ -46,64 +107,35 @@ document.addEventListener('DOMContentLoaded', () => {
             if (success) {
                 showToast('✅ ¡Pago registrado con éxito!');
                 mainActionButton.textContent = 'PAGO REGISTRADO';
-                mainActionButton.style.backgroundColor = 'var(--primary-green-dark)'; // Cambiar color si está permanentemente
-                // Aquí podrías redirigir o actualizar la UI para mostrar el nuevo estado
+                mainActionButton.style.backgroundColor = 'var(--primary-green-dark)';
+                mainActionButton.classList.remove('loading');
+                // Podrías deshabilitarlo permanentemente o navegar a otra pantalla
             } else {
                 showToast('❌ Error al registrar el pago. Intenta de nuevo.');
                 mainActionButton.textContent = 'YA REALICÉ MI PAGO';
                 mainActionButton.disabled = false;
+                mainActionButton.classList.remove('loading');
             }
         }, 2000); // Simula 2 segundos de carga
     });
 
-    // Funcionalidad de cambiar frecuencia de pago
-    const weeklyBtn = document.getElementById('weeklyBtn');
-    const monthlyBtn = document.getElementById('monthlyBtn');
-    const changeFreqLink = document.getElementById('changeFreqLink');
-    const amountSpan = document.querySelector('.payment-summary-card .amount');
-    const dueDateText = document.querySelector('.due-date-card p');
-    const savingsText = document.querySelector('.savings-card p');
-
+    // Cambiar frecuencia de pago
     changeFreqLink.addEventListener('click', (e) => {
         e.preventDefault(); // Evita que el enlace recargue la página
 
-        // Simular un modal o navegación a pantalla de cambio
-        // En un wireframe real, esto abriría un modal para confirmar el cambio.
-        // Aquí, simplemente cambiamos el estado directamente para demostrar la interacción.
-
+        // Si actualmente es semanal, cambia a mensual
         if (weeklyBtn.classList.contains('selected')) {
-            // Cambiar a Mensual
-            weeklyBtn.classList.remove('selected');
-            weeklyBtn.classList.add('disabled');
-            weeklyBtn.disabled = true;
-
-            monthlyBtn.classList.add('selected');
-            monthlyBtn.classList.remove('disabled');
-            monthlyBtn.disabled = false;
-
-            // Actualizar montos y fechas simuladas para el pago mensual
-            amountSpan.textContent = '$3,200.00 MXN';
-            document.querySelector('.payment-summary-card .subtext').textContent = 'Pago mensual estimado';
-            dueDateText.textContent = 'Vence el viernes 26 de julio - 11:59 p.m.';
-            savingsText.textContent = 'Ahorraste $950.00 este mes vs gasolina';
+            updateFrequencyUI(monthlyData, false); // Actualiza con datos mensuales
             showToast('Frecuencia cambiada a Mensual.');
-
         } else {
-            // Cambiar a Semanal (opcional, si quisieras que el usuario pueda volver)
-            // Para este wireframe, solo demostraremos el cambio a mensual.
-            // weeklyBtn.classList.add('selected');
-            // weeklyBtn.classList.remove('disabled');
-            // weeklyBtn.disabled = false;
-
-            // monthlyBtn.classList.remove('selected');
-            // monthlyBtn.classList.add('disabled');
-            // monthlyBtn.disabled = true;
-
-            // amountSpan.textContent = '$845.00 MXN';
-            // document.querySelector('.payment-summary-card .subtext').textContent = 'Pago semanal estimado';
-            // dueDateText.textContent = 'Vence el viernes 28 de junio - 11:59 p.m.';
-            // savingsText.textContent = 'Ahorraste $215.00 esta semana vs gasolina';
+            // Si actualmente es mensual, puedes implementar lógica para volver a semanal
+            // Por el momento, este wireframe solo permite el cambio a mensual.
+            // Si quisieras que se pudiera volver, descomenta lo siguiente:
+            // updateFrequencyUI(weeklyData, true);
             // showToast('Frecuencia cambiada a Semanal.');
         }
     });
+
+    // Asegurarse de que la UI inicie en el estado Semanal
+    updateFrequencyUI(weeklyData, true);
 });
