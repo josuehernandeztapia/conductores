@@ -1625,8 +1625,9 @@
                 const totalAssetsBookValue = financialResults.bs[4].totalAssets;
                 const year5Revenue = financialResults.pl[4].totalRevenue;
 
-                const ebitdaMultipleProjectCapped = Math.min(modelData.ebitdaMultipleProject, 8); // Reduced from 10 to 8
-                let terminalValueProject = year5EBITDA * ebitdaMultipleProjectCapped;
+                // CORRECCIÓN: Eliminar el tope (cap) de los múltiplos para que sean 100% dinámicos
+                const ebitdaMultipleProject = modelData.ebitdaMultipleProject;
+                let terminalValueProject = year5EBITDA * ebitdaMultipleProject;
 
                 const maxTerminalByAssets = totalAssetsBookValue * 3;
                 terminalValueProject = Math.min(terminalValueProject, maxTerminalByAssets);
@@ -1638,13 +1639,13 @@
                 log(`       🏢        PROJECT IRR - Conservative Terminal Value:`);
                 log(`   EBITDA Year 5: ${formatCurrency(year5EBITDA)}`);
                 log(`   Revenue Year 5: ${formatCurrency(year5Revenue)}`);
-                log(`   Multiple Used: ${ebitdaMultipleProjectCapped}X EBITDA`);
+                log(`   Multiple Used: ${ebitdaMultipleProject}X EBITDA`);
                 log(`   Max by Assets (3x): ${formatCurrency(maxTerminalByAssets)}`);
                 log(`   Max by Revenue (2x): ${formatCurrency(maxTerminalByRevenue)}`);
                 log(`   FINAL PROJECT TERMINAL VALUE: ${formatCurrency(terminalValueProject)}`);
 
-                const ebitdaMultipleEquityCapped = Math.min(modelData.ebitdaMultipleEquity, 8); // Reduced from 10 to 8
-                const enterpriseValue = year5EBITDA * ebitdaMultipleEquityCapped;
+                const ebitdaMultipleEquity = modelData.ebitdaMultipleEquity;
+                const enterpriseValue = year5EBITDA * ebitdaMultipleEquity;
                 let terminalValueEquity = Math.max(
                     enterpriseValue - financialResults.bs[4].debt,
                     financialResults.bs[4].equity * modelData.floorEquityMultiple
@@ -1655,7 +1656,7 @@
 
                 equityCashFlows[equityCashFlows.length - 1] += terminalValueEquity;
                 log(`       💎        EQUITY IRR - Conservative Terminal Value:`);
-                log(`   Enterprise Value (${ebitdaMultipleEquityCapped}X): ${formatCurrency(enterpriseValue)}`);
+                log(`   Enterprise Value (${ebitdaMultipleEquity}X): ${formatCurrency(enterpriseValue)}`);
                 log(`   Less: Debt ${formatCurrency(financialResults.bs[4].debt)}`);
                 log(`   Floor: ${modelData.floorEquityMultiple}X Book = ${formatCurrency(financialResults.bs[4].equity * modelData.floorEquityMultiple)}`);
                 log(`   Cap: 3X Book = ${formatCurrency(maxEquityTerminal)}`);
@@ -2817,6 +2818,27 @@
                     createNumberControl(config, container);
                 }
             });
+
+            // Add the "Protección Rodando" checkbox at the end of this specific group
+           if (groupKey === 'riesgoYSalida') {
+                const checkboxDiv = document.createElement('div');
+                checkboxDiv.className = 'flex items-center mt-4 p-3 bg-slate-800 rounded-lg';
+                checkboxDiv.innerHTML = `
+                    <input id="check-proteccion" type="checkbox" class="h-4 w-4 rounded border-slate-600 text-sky-500 focus:ring-sky-500 bg-slate-700">
+                    <label for="check-proteccion" class="ml-3 block text-sm font-medium text-slate-200" data-tooltip="Activa una reducción del 50% en las provisiones por riesgo de crédito.">Activar Protección Rodando™</label>
+                `;
+                container.appendChild(checkboxDiv);
+                const checkbox = document.getElementById('check-proteccion');
+                checkbox.checked = modelData.proteccionRodando; 
+                checkbox.addEventListener('change', function() {
+                    modelData.proteccionRodando = this.checked;
+                    log(`Protección Rodando: ${this.checked ? 'ACTIVATED' : 'DEACTIVATED'}`);
+                    if (calculateFinancials()) {
+                        updateUI();
+                    }
+                });
+           }
+
             log(`           ✅           '${groupKey}' controls configured.`);
         }
         
