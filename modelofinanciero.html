@@ -286,6 +286,21 @@
             -webkit-appearance: none;
             margin: 0;
         }
+        
+        /* Dynamic Validation Styles */
+        .validation-error {
+            border-color: #ef4444 !important;
+            box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2) !important;
+        }
+        .validation-warning {
+            border-color: #f59e0b !important;
+            box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2) !important;
+        }
+        .validation-success {
+            border-color: #10b981 !important;
+            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2) !important;
+        }
+
         @media (max-width: 1024px) {
             .compact-chart {
                 min-height: 280px;
@@ -802,6 +817,84 @@
             return modelData.vanCost + modelData.conversionCost + 
                    modelData.bancasCost + modelData.gpsCost;
         }
+
+        /**
+         * Calculates the total CAPEX required based on current units.
+         * @returns {number} Total CAPEX in MXN.
+         */
+        function calculateTotalCapex() {
+            let totalCapex = 0;
+            for (let i = 0; i < modelData.unitsPerYear.length; i++) {
+                totalCapex += modelData.unitsPerYear[i] * getTotalPackageCost();
+            }
+            return totalCapex;
+        }
+
+        /**
+         * Calculates the total available funding.
+         * @returns {number} Total funding in MXN.
+         */
+        function calculateTotalFunding() {
+            let totalFunding = modelData.seriesA;
+            for (let i = 1; i <= 5; i++) {
+                totalFunding += (modelData[`partnerCapitalizationYear${i}`] || 0) + 
+                                (modelData[`ventureDebtYear${i}`] || 0) + 
+                                (modelData[`commercialDebtYear${i}`] || 0) +
+                                (modelData[`seriesB_newInvestors_year${i}`] || 0);
+            }
+            return totalFunding;
+        }
+
+        /**
+         * Calculates the total Venture Debt.
+         * @returns {number} Total Venture Debt in MXN.
+         */
+        function getTotalVentureDebt() {
+            let total = 0;
+            for (let i = 1; i <= 5; i++) {
+                total += (modelData[`ventureDebtYear${i}`] || 0);
+            }
+            return total;
+        }
+
+        /**
+         * Calculates the maximum sustainable rate for Venture Debt.
+         * @returns {number} Maximum rate as a percentage.
+         */
+        function calculateMaxDebtRate() {
+            const ventureDebt = getTotalVentureDebt();
+            if (ventureDebt === 0) return 20; // Default max
+
+            // Conservative estimate: Year 3 EBITDA * 0.3 / Average Venture Debt
+            const estimatedEBITDA_Y3 = calculateTotalFunding() * 0.15; // 15% return estimate
+            const maxAnnualInterest = estimatedEBITDA_Y3 * 0.3; // 30% of EBITDA for debt service
+            const avgVentureDebt = ventureDebt * 0.7; // Average outstanding
+            
+            const maxRate = avgVentureDebt > 0 ? (maxAnnualInterest / avgVentureDebt) * 100 : 20;
+            return Math.min(20, Math.max(12, maxRate)); // Between 12-20%
+        }
+
+        /**
+         * Shows a temporary warning in the UI.
+         * @param {string} message - Warning message.
+         */
+        function showWarning(message) {
+            const existingWarning = document.getElementById('dynamic-warning');
+            if (existingWarning) existingWarning.remove();
+            
+            const warning = document.createElement('div');
+            warning.id = 'dynamic-warning';
+            warning.className = 'fixed top-20 right-4 bg-amber-900 border border-amber-600 text-amber-200 px-4 py-2 rounded-lg z-50';
+            warning.innerHTML = `<span class="text-sm">${message}</span>`;
+            document.body.appendChild(warning);
+            
+            setTimeout(() => {
+                if (warning && warning.parentNode) {
+                    warning.parentNode.removeChild(warning);
+                }
+            }, 4000);
+        }
+
         // ===== IFRS CALCULATION MODULES =====
         /**
          * Calculates the Probability of Default (PD) based on the age of the loan cohort.
