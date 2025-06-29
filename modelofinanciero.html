@@ -1296,7 +1296,23 @@
                          totalLiabilitiesEquity = totalLiabilities + endOfYearEquity;
                     }
                     // Store results
-                    financialResults.pl.push({ ...niif15Results, totalRevenue, ebitda, ebit, netIncome, interestExpense, depreciation: annualDepreciation, provisions, impairment, totalCOGS: sparePartsCOGS, grossProfit: totalRevenue - sparePartsCOGS, opex, earningsBeforeTax, incomeTaxExpense });
+                    financialResults.pl.push({
+                        ...niif15Results,
+                        interestRevenue: annualInterestReceived, // ✅ AGREGADO - Campo faltante para tabla P&L
+                        totalRevenue,
+                        ebitda,
+                        ebit,
+                        netIncome,
+                        interestExpense,
+                        depreciation: annualDepreciation,
+                        provisions,
+                        impairment,
+                        totalCOGS: sparePartsCOGS,
+                        grossProfit: totalRevenue - sparePartsCOGS,
+                        opex,
+                        earningsBeforeTax,
+                        incomeTaxExpense
+                    });
                     financialResults.cf.push({ operatingCash, investingCash, financingCash, netCash, deltaProvisions, deltaContractLiabilities, incomeTaxPaid: incomeTaxExpense, clientPrincipalPaymentsReceived: annualPrincipalReceived, clientInterestPaymentsReceived: annualInterestReceived, currentYearVentureDebtDraw: newVentureDebt, additionalFundingRaised: newCommercialDebt });
                     financialResults.bs.push({ cash, receivables: currentYearEndReceivables, receivablesNet: currentYearEndReceivables - currentProvisionsBalance, fixedAssets: fixedAssetsNet, assetsHeldForSale: assetsHeldForSaleNet, totalAssets: totalAssets, debt: totalDebt, equity: endOfYearEquity, totalLiabilitiesEquity: totalLiabilitiesEquity, provisions: currentProvisionsBalance, contractLiabilities: niif15Results.contractLiabilitiesBalance });
                     financialResults.niifDetails.push({ niif15: niif15Results, niif5: niif5Results.niif5Details, niif9: {...niif9Results, pdStage1: modelData.pdStage1, pdStage2: modelData.pdStage2, pdStage3: modelData.pdStage3, lgd: modelData.lgd, economicAdjustmentFactor: modelData.economicAdjustmentFactor, proteccionRodandoActiva: modelData.proteccionRodando, provisionesConProteccion: provisions, reduccionPorProteccion: niif9Results.totalECLBeforeAdjustment - provisions, saldoProvisionesAcumulado: currentProvisionsBalance } });
