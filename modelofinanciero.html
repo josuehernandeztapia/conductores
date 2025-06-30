@@ -324,6 +324,11 @@
             <button onclick="toggleDebug()" class="mt-4 bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 rounded-lg font-medium transition duration-300 inline-flex items-center gap-2">
                 <i data-lucide="bug" class="w-5 h-5"></i> Debug
             </button>
+            <div class="mt-4 flex justify-center gap-2">
+                <button class="px-3 py-1 bg-slate-800 text-white rounded border border-slate-600 text-sm">Base Case</button>
+                <button class="px-3 py-1 bg-slate-700 text-slate-300 rounded border border-slate-600 text-sm">Conservative</button>
+                <button class="px-3 py-1 bg-slate-700 text-slate-300 rounded border border-slate-600 text-sm">Stress Test</button>
+            </div>
         </header>
         <!-- Key Metrics Summary Cards -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
@@ -2401,7 +2406,7 @@
                     `;
                 log('             ✅             IFRS 5 updated.');
             } else {
-                     log('             ⚠️             IFRS 5 data for Year 5 incomplete.');
+                     log('             ⚠️             IFRS 9 data for Year 5 incomplete.');
                 }
             }
         }
@@ -3566,6 +3571,28 @@
             Object.assign(modelData, originalData);
             return false;
         }
+
+        function addWarningCards() {
+            const container = document.querySelector('.max-w-7xl.mx-auto.p-4');
+            const warningCard = document.createElement('div');
+            warningCard.className = 'mb-6 p-4 bg-amber-900/30 border border-amber-600/50 rounded-xl';
+            warningCard.innerHTML = `
+                <div class="flex items-start gap-3">
+                    <i data-lucide="alert-triangle" class="w-6 h-6 text-amber-400 shrink-0 mt-1"></i>
+                    <div>
+                        <h3 class="text-amber-200 font-semibold mb-2">Disclaimer de Riesgo - Serie A</h3>
+                        <ul class="text-amber-300 text-sm space-y-1">
+                            <li>• Proyecciones basadas en supuestos de mercado conservadores</li>
+                            <li>• PD assumptions calibrados para secured lending México</li>
+                            <li>• Stress scenarios incluyen competencia bancaria y transición energética</li>
+                            <li>• Modelo sujeto a validación continua con datos de piloto</li>
+                        </ul>
+                    </div>
+                </div>
+            `;
+            container.insertBefore(warningCard, container.firstChild.nextSibling);
+        }
+        
         // ===== APPLICATION READY AND RUNNING =====
         /**
          * Runs when the DOM is fully loaded.
@@ -3577,6 +3604,7 @@
             try {
                 setupTabs();
                 setupControls();
+                // addWarningCards(); // ← COMENTAR ESTA LÍNEA
                 
                 if (!calculateFinancials()) {
                     log('             ❌             Defensive calculation failed at startup. Review initial modelData.');
