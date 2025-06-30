@@ -353,13 +353,16 @@
         </div>
         <!-- Additional row for ROE and ROIC -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-             <div class="metric-card p-4 rounded-lg">
-                <div class="text-sm text-gray-500">ROE (Año 5)</div>
-                <div class="text-2xl font-bold" id="roe-year5">0%</div>
+            <div class="metric-card p-4 rounded-lg" data-tooltip="CAPEX total dividido entre unidades totales. <$750K = excelente eficiencia, >$900K = concerning para Serie A.">
+                <div class="text-sm text-gray-500">Capital Efficiency</div>
+                <div class="text-2xl font-bold" id="capital-per-unit">$0K</div>
+                <div class="text-xs text-blue-400">CAPEX por Unidad</div>
             </div>
-            <div class="metric-card p-4 rounded-lg">
-                <div class="text-sm text-gray-500">ROIC (Año 5)</div>
-                <div class="text-2xl font-bold" id="roic-year5">0%</div>
+
+            <div class="metric-card p-4 rounded-lg" data-tooltip="Margin neto de intereses. >20% = excelente, 15-20% = bueno, <15% = low pricing power.">
+                <div class="text-sm text-gray-500">Portfolio Yield</div>
+                <div class="text-2xl font-bold" id="portfolio-yield">0.0%</div>
+                <div class="text-xs text-emerald-400">Net Interest Margin</div>
             </div>
 
             <!-- Enhanced Debt Metrics -->
@@ -396,6 +399,29 @@
                 <div class="text-sm text-gray-500">Autosuficiencia</div>
                 <div class="text-2xl font-bold" id="autosuficiency-year">Año 0</div>
                 <div class="text-xs text-blue-400">Ingresos > Gastos Operativos</div>
+            </div>
+             <div class="metric-card p-4 rounded-lg" data-tooltip="Valor total del portfolio activo (receivables). Muestra escala del negocio de financiamiento.">
+                <div class="text-sm text-gray-500">Active Portfolio</div>
+                <div class="text-2xl font-bold" id="active-portfolio-value">$0M MXN</div>
+                <div class="text-xs text-purple-400">Receivables + Interest</div>
+            </div>
+
+            <div class="metric-card p-4 rounded-lg" data-tooltip="Revenue generado por cada peso de funding. >0.8x = excelente capital productivity, <0.6x = concerning.">
+                <div class="text-sm text-gray-500">Funding Efficiency</div>
+                <div class="text-2xl font-bold" id="funding-efficiency">0.0x</div>
+                <div class="text-xs text-cyan-400">Revenue/Total Funding</div>
+            </div>
+
+            <div class="metric-card p-4 rounded-lg" data-tooltip="Meses de operación con cash actual. >12 meses = safe, 6-12 = adequate, <6 = risky para Series A.">
+                <div class="text-sm text-gray-500">Cash Runway</div>
+                <div class="text-2xl font-bold" id="cash-runway-months">0</div>
+                <div class="text-xs text-orange-400">Meses de Operación</div>
+            </div>
+
+            <div class="metric-card p-4 rounded-lg" data-tooltip="CAGR de unidades 5 años. >50% = high growth, 30-50% = good, <30% = slow scaling.">
+                <div class="text-sm text-gray-500">Unit CAGR</div>
+                <div class="text-2xl font-bold" id="unit-growth-cagr">0%</div>
+                <div class="text-xs text-pink-400">5-Year Growth Rate</div>
             </div>
         </div>
         <!-- Tab Navigation -->
@@ -1788,17 +1814,7 @@
                     document.getElementById('tir-proyecto').textContent = financialResults.tirProyecto.toFixed(1) + '%';
                     document.getElementById('tir-cartera').textContent = (financialResults.tirCartera || 0).toFixed(1) + '%';
                     document.getElementById('tir-equity').textContent = financialResults.tirEquity.toFixed(1) + '%';
-                    
-                    const roe5 = financialResults.roe && financialResults.roe[4] ? financialResults.roe[4].toFixed(1) + '%' : 'N/A';
-                    const roic5 = financialResults.roic && financialResults.roic[4] ? financialResults.roic[4].toFixed(1) + '%' : 'N/A';
-                    document.getElementById('roe-year5').textContent = roe5;
-                    document.getElementById('roic-year5').textContent = roic5;
-                    
-                    let actualTotalEquity = modelData.seriesA;
-                    for (let i = 1; i <= 5; i++) {
-                        actualTotalEquity += (modelData[`seriesB_newInvestors_year${i}`] || 0) + (modelData[`partnerCapitalizationYear${i}`] || 0);
-                    }
-                    document.getElementById('total-equity-required').textContent = formatCurrency(actualTotalEquity);
+                    document.getElementById('vagonetas-operativas').textContent = Math.round(vagonetasOperativas);
                     
                     const debtMetrics = calculateDebtMetricsBreakdown();
 
@@ -1816,7 +1832,11 @@
                     dscrElement.className = 'text-2xl font-bold ' + 
                         (debtMetrics.isHealthyDSCR ? 'text-emerald-400' : 'text-amber-400');
 
-                    document.getElementById('vagonetas-operativas').textContent = Math.round(vagonetasOperativas);
+                    let actualTotalEquity = modelData.seriesA;
+                    for (let i = 1; i <= 5; i++) {
+                        actualTotalEquity += (modelData[`seriesB_newInvestors_year${i}`] || 0) + (modelData[`partnerCapitalizationYear${i}`] || 0);
+                    }
+                    document.getElementById('total-equity-required').textContent = formatCurrency(actualTotalEquity);
                     
                     let actualFCFBreakevenYear = 0;
                     if(financialResults.cf){
