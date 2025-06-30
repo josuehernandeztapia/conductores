@@ -1908,13 +1908,34 @@
                 // DYNAMIC CALCULATION: Update key metrics with actual calculated values
                 if (year5PL && year5BS) {
                     document.getElementById('ebitda-year5').textContent = formatCurrency(year5PL.ebitda);
-                    document.getElementById('tir-proyecto').textContent = financialResults.tirProyecto.toFixed(1) + '%';
-                    document.getElementById('tir-cartera').textContent = (financialResults.tirCartera || 0).toFixed(1) + '%';
-                    document.getElementById('tir-equity').textContent = financialResults.tirEquity.toFixed(1) + '%';
                     document.getElementById('vagonetas-operativas').textContent = Math.round(vagonetasOperativas);
                     
-                    const debtMetrics = calculateDebtMetricsBreakdown();
                     const seriesAMetrics = calculateSeriesAMetrics();
+                    const correctedIRRs = calculateCorrectedIRRs();
+
+                    document.getElementById('capital-per-unit').textContent = 
+                        seriesAMetrics.capitalPerUnit ? '$' + seriesAMetrics.capitalPerUnit.toFixed(0) + 'K' : '$0K';
+
+                    document.getElementById('portfolio-yield').textContent = 
+                        seriesAMetrics.portfolioYield ? seriesAMetrics.portfolioYield.toFixed(1) + '%' : '0.0%';
+
+                    document.getElementById('active-portfolio-value').textContent = 
+                        formatCurrency(seriesAMetrics.activePortfolioValue || 0);
+
+                    document.getElementById('funding-efficiency').textContent = 
+                        seriesAMetrics.fundingEfficiency ? seriesAMetrics.fundingEfficiency.toFixed(1) + 'x' : '0.0x';
+
+                    document.getElementById('cash-runway-months').textContent = 
+                        seriesAMetrics.cashRunwayMonths === 999 ? '∞' : Math.round(seriesAMetrics.cashRunwayMonths);
+
+                    document.getElementById('unit-growth-cagr').textContent = 
+                        seriesAMetrics.unitCAGR ? seriesAMetrics.unitCAGR.toFixed(1) + '%' : '0%';
+
+                    document.getElementById('tir-proyecto').textContent = correctedIRRs.tirProyecto.toFixed(1) + '%';
+                    document.getElementById('tir-equity').textContent = correctedIRRs.tirEquity.toFixed(1) + '%';
+                    document.getElementById('tir-cartera').textContent = (correctedIRRs.tirCartera || 0).toFixed(1) + '%';
+                    
+                    const debtMetrics = calculateDebtMetricsBreakdown();
 
                     document.getElementById('venture-debt-residual').textContent = 
                         formatCurrency(debtMetrics.ventureDebtResidual);
@@ -1924,14 +1945,6 @@
 
                     document.getElementById('dscr-final').textContent = 
                         debtMetrics.finalDSCR === 999 ? '∞' : debtMetrics.finalDSCR.toFixed(1) + 'x';
-                    
-                    document.getElementById('capital-per-unit').textContent = `$${seriesAMetrics.capitalPerUnit.toFixed(0)}K`;
-                    document.getElementById('portfolio-yield').textContent = `${seriesAMetrics.portfolioYield.toFixed(1)}%`;
-                    document.getElementById('active-portfolio-value').textContent = formatCurrency(seriesAMetrics.activePortfolioValue);
-                    document.getElementById('funding-efficiency').textContent = `${seriesAMetrics.fundingEfficiency.toFixed(1)}x`;
-                    document.getElementById('cash-runway-months').textContent = seriesAMetrics.cashRunwayMonths.toFixed(0);
-                    document.getElementById('unit-growth-cagr').textContent = `${seriesAMetrics.unitCAGR.toFixed(0)}%`;
-
 
                     // Agregar validación visual para DSCR
                     const dscrElement = document.getElementById('dscr-final');
