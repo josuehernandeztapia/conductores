@@ -1041,6 +1041,47 @@
             };
         }
 
+        function calculateCorrectedIRRs() {
+            if (!financialResults.pl || financialResults.pl.length < 5) return { tirProyecto: 0, tirEquity: 0, tirCartera: 0 };
+            
+            const year5EBITDA = financialResults.pl[4].ebitda;
+            const year5Debt = financialResults.bs[4].debt;
+            
+            const projectCashFlows = [-modelData.seriesA];
+            const equityCashFlows = [-modelData.seriesA];
+            
+            for (let year = 0; year < 5; year++) {
+                const pl = financialResults.pl[year];
+                const cf = financialResults.cf[year];
+                
+                const fcff = pl.ebit * (1 - modelData.corporateTaxRate/100) + pl.depreciation + cf.investingCash;
+                projectCashFlows.push(fcff);
+                
+                const newEquity = (modelData[`seriesB_newInvestors_year${year+1}`] || 0) + 
+                                  (modelData[`partnerCapitalizationYear${year+1}`] || 0);
+                const fcfe = pl.netIncome + pl.depreciation + cf.investingCash + cf.financingCash - newEquity;
+                equityCashFlows.push(fcfe);
+            }
+            
+            const conservativeProjectMultiple = Math.min(modelData.ebitdaMultipleProject, 7.5);
+            const conservativeEquityMultiple = Math.min(modelData.ebitdaMultipleEquity, 7.0);
+            
+            const projectTerminalValue = year5EBITDA * conservativeProjectMultiple;
+            const equityTerminalValue = Math.max(
+                year5EBITDA * conservativeEquityMultiple - year5Debt,
+                financialResults.bs[4].equity * modelData.floorEquityMultiple
+            );
+            
+            projectCashFlows[5] += projectTerminalValue;
+            equityCashFlows[5] += equityTerminalValue * 0.85; 
+            
+            return {
+                tirProyecto: calculateIRR(projectCashFlows) || 0,
+                tirEquity: calculateIRR(equityCashFlows) || 0,
+                tirCartera: financialResults.tirCartera || 0
+            };
+        }
+        
         function calculateSeriesAMetrics() {
             if (!financialResults.pl || financialResults.pl.length === 0) return {};
             
