@@ -2485,6 +2485,69 @@
                         }
                     });
                 }
+                // Cash Flow Resilience Chart
+                const ctx3 = document.getElementById('cashFlowResilienceChart');
+                if (ctx3) {
+                    charts.cashFlowResilienceChart = new Chart(ctx3, {
+                        type: 'bar',
+                        data: {
+                            labels: ['Año 1', 'Año 2', 'Año 3', 'Año 4', 'Año 5'],
+                            datasets: [
+                                { label: 'Operativo', data: [0,0,0,0,0], backgroundColor: '#10b981' },
+                                { label: 'Inversión', data: [0,0,0,0,0], backgroundColor: '#ef4444' },
+                                { label: 'Financiamiento', data: [0,0,0,0,0], backgroundColor: '#3b82f6' }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8' } } },
+                            scales: {
+                                x: { ticks: { color: '#94a3b8' } },
+                                y: { ticks: { color: '#94a3b8' } }
+                            }
+                        }
+                    });
+                }
+                // Gamification Impact Chart
+                const ctx4 = document.getElementById('gamificationChart');
+                if (ctx4) {
+                    charts.gamificationChart = new Chart(ctx4, {
+                        type: 'radar',
+                        data: {
+                            labels: ['Retención', 'Eficiencia', 'Puntualidad', 'Satisfacción', 'Seguridad', 'Mantenimiento'],
+                            datasets: [
+                                {
+                                    label: 'Sin Gamificación',
+                                    data: [65, 70, 75, 70, 60, 65],
+                                    borderColor: '#ef4444',
+                                    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                                    pointBackgroundColor: '#ef4444'
+                                },
+                                {
+                                    label: 'Con Gamificación RAG',
+                                    data: [85, 88, 92, 90, 85, 90],
+                                    borderColor: '#10b981',
+                                    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                                    pointBackgroundColor: '#10b981'
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8' } } },
+                            scales: {
+                                r: {
+                                     beginAtZero: true,
+                                     max: 100,
+                                    ticks: { color: '#94a3b8' },
+                                    grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                                }
+                            }
+                        }
+                    });
+                }
                 log('✅ New Rodando charts initialized');
             } catch (error) {
                 log(`❌ Error: ${error.message}`);
@@ -2509,6 +2572,19 @@
                         backgroundColor: ['#10b981', '#3b82f6', '#94a3b8']
                     }];
                     charts.capitalEfficiencyChart.update();
+                }
+                // Update Cash Flow Resilience Chart
+                if (charts.cashFlowResilienceChart && financialResults.cf.length >= 5) {
+                    const operatingCF = financialResults.cf.map(cf => cf.operatingCash / 1000000);
+                    const investingCF = financialResults.cf.map(cf => cf.investingCash / 1000000);
+                    const financingCF = financialResults.cf.map(cf => cf.financingCash / 1000000);                                        
+                    charts.cashFlowResilienceChart.data.labels = ['Año 1', 'Año 2', 'Año 3', 'Año 4', 'Año 5'];
+                    charts.cashFlowResilienceChart.data.datasets = [
+                        { label: 'Operativo', data: operatingCF, backgroundColor: '#10b981' },
+                        { label: 'Inversión', data: investingCF, backgroundColor: '#ef4444' },
+                        { label: 'Financiamiento', data: financingCF, backgroundColor: '#3b82f6' }
+                    ];
+                    charts.cashFlowResilienceChart.update();
                 }
                 log('✅ Rodando charts updated');
             } catch (error) {
