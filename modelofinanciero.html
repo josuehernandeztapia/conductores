@@ -2196,7 +2196,7 @@
                     if (value === 0) {
                         cell.style.color = '#94a3b8';
                     }
-                    if (row.total || row.bold) cell.classList.add('font-bold');
+                    if (row.total) cell.classList.add('font-bold');
                     tr.appendChild(cell);
                 });
                 
@@ -2498,7 +2498,19 @@
             try {
                 if (!financialResults.pl.length) return;
                 // Future functions to update new charts will be called here
-                log('     ✅      All 7 objective charts updated.');
+                // Update Capital Efficiency Chart
+                if (charts.capitalEfficiencyChart) {
+                    const totalUnits = modelData.unitsPerYear.reduce((sum, units) => sum + units, 0);
+                    const totalCapex = totalUnits * getTotalPackageCost();
+                    const capexPerUnit = totalUnits > 0 ? totalCapex / totalUnits / 1000 : 0;                                        
+                    charts.capitalEfficiencyChart.data.labels = ['RAG Actual', 'Target A', 'Industria'];
+                    charts.capitalEfficiencyChart.data.datasets = [{
+                        data: [capexPerUnit, 750, 900],
+                        backgroundColor: ['#10b981', '#3b82f6', '#94a3b8']
+                    }];
+                    charts.capitalEfficiencyChart.update();
+                }
+                log('✅ Rodando charts updated');
             } catch (error) {
                 log(`Error updating charts: ${error.message}`);
             }
