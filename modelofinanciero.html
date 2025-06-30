@@ -361,21 +361,32 @@
                 <div class="text-sm text-gray-500">ROIC (Año 5)</div>
                 <div class="text-2xl font-bold" id="roic-year5">0%</div>
             </div>
-            <div class="metric-card p-4 rounded-lg">
-                <div class="text-sm text-gray-500">Deuda Residual Año 5</div>
-                <div class="text-2xl font-bold" id="deuda-residual">$0M MXN</div>
+
+            <!-- Enhanced Debt Metrics -->
+            <div class="metric-card p-4 rounded-lg" data-tooltip="Venture Debt típicamente 16-18% tasa, mayor flexibilidad pero más caro. Ideal para growth capital inicial.">
+                <div class="text-sm text-gray-500">Venture Debt Residual</div>
+                <div class="text-2xl font-bold" id="venture-debt-residual">$0M MXN</div>
+                <div class="text-xs text-amber-400">Alto costo, flexible</div>
             </div>
-            <!-- NEW METRIC CARDS -->
+
+            <div class="metric-card p-4 rounded-lg" data-tooltip="Deuda Comercial típicamente 12-15% tasa, menor flexibilidad pero más barata. Ideal para scaling operaciones.">
+                <div class="text-sm text-gray-500">Deuda Comercial Residual</div>
+                <div class="text-2xl font-bold" id="commercial-debt-residual">$0M MXN</div>
+                <div class="text-xs text-emerald-400">Bajo costo, scaling</div>
+            </div>
+            
             <div class="metric-card p-4 rounded-lg">
                 <div class="text-sm text-gray-500">Capital Total Requerido</div>
                 <div class="text-2xl font-bold" id="total-equity-required">$0M MXN</div>
                 <div class="text-xs text-blue-400">Serie A + Capital Calls</div>
             </div>
-            <div class="metric-card p-4 rounded-lg">
-                <div class="text-sm text-gray-500">Deuda Financiera Final</div>
-                <div class="text-2xl font-bold" id="final-debt">$0M MXN</div>
-                <div class="text-xs text-blue-400">Venture + Comercial</div>
+
+            <div class="metric-card p-4 rounded-lg" data-tooltip="DSCR = EBITDA / Debt Service. >2.0x = excelente, 1.5-2.0x = bueno, <1.5x = riesgo. Critical para covenant compliance.">
+                <div class="text-sm text-gray-500">Debt Service Coverage</div>
+                <div class="text-2xl font-bold" id="dscr-final">0.0x</div>
+                <div class="text-xs text-sky-400">EBITDA/Debt Service</div>
             </div>
+
             <div class="metric-card p-4 rounded-lg">
                 <div class="text-sm text-gray-500">Break-even FCF</div>
                 <div class="text-2xl font-bold" id="fcf-breakeven-year">Año 0</div>
@@ -870,6 +881,83 @@
             }
             return total;
         }
+
+        /**
+         * Calculates the residual balance of Venture Debt for a given year.
+         * @param {number} year - The projection year (1-5).
+         * @returns {number} The residual balance of Venture Debt.
+         */
+        function getVentureDebtBalance(year) {
+            let balance = 0;
+            for (let i = 1; i <= year; i++) {
+                balance += (modelData[`ventureDebtYear${i}`] || 0);
+            }
+            // Assume linear amortization over an average of 3 years
+            const yearsElapsed = year;
+            const avgAmortizationYears = 3;
+            const amortizationRate = Math.min(yearsElapsed / avgAmortizationYears, 1);
+            return balance * (1 - amortizationRate * 0.6); // 60% average amortization
+        }
+
+        /**
+         * Calculates the residual balance of Commercial Debt for a given year.
+         * @param {number} year - The projection year (1-5).
+         * @returns {number} The residual balance of Commercial Debt.
+         */
+        function getCommercialDebtBalance(year) {
+            let balance = 0;
+            for (let i = 1; i <= year; i++) {
+                balance += (modelData[`commercialDebtYear${i}`] || 0);
+            }
+            // Assume linear amortization over an average of 5 years
+            const yearsElapsed = year;
+            const avgAmortizationYears = 5;
+            const amortizationRate = Math.min(yearsElapsed / avgAmortizationYears, 1);
+            return balance * (1 - amortizationRate * 0.4); // 40% average amortization
+        }
+
+        /**
+         * Calculates the final Debt Service Coverage Ratio.
+         * @returns {number} DSCR based on Year 5 EBITDA and total debt service.
+         */
+        function calculateFinalDSCR() {
+            if (!financialResults.pl || financialResults.pl.length < 5) return 0;
+            
+            const year5EBITDA = financialResults.pl[4].ebitda;
+            const ventureDebtBalance = getVentureDebtBalance(5);
+            const commercialDebtBalance = getCommercialDebtBalance(5);
+            
+            const ventureDebtService = ventureDebtBalance * (modelData.ventureDebtRate / 100);
+            const commercialDebtService = commercialDebtBalance * (modelData.commercialDebtRate / 100);
+            const totalDebtService = ventureDebtService + commercialDebtService;
+            
+            return totalDebtService > 0 ? year5EBITDA / totalDebtService : 999;
+        }
+
+        /**
+         * Calculates granular debt metrics for Serie A analysis.
+         * @returns {Object} Debt metrics breakdown.
+         */
+        function calculateDebtMetricsBreakdown() {
+            const ventureBalance = getVentureDebtBalance(5);
+            const commercialBalance = getCommercialDebtBalance(5);
+            const finalDSCR = calculateFinalDSCR();
+            
+            return {
+                ventureDebtResidual: ventureBalance,
+                commercialDebtResidual: commercialBalance,
+                totalDebtResidual: ventureBalance + commercialBalance,
+                finalDSCR: finalDSCR,
+                debtMix: {
+                    venturePercent: (ventureBalance + commercialBalance) > 0 ? 
+                        (ventureBalance / (ventureBalance + commercialBalance)) * 100 : 0,
+                    commercialPercent: (ventureBalance + commercialBalance) > 0 ? 
+                        (commercialBalance / (ventureBalance + commercialBalance)) * 100 : 0
+                },
+                isHealthyDSCR: finalDSCR >= 1.5,
+                riskLevel: finalDSCR >= 2.0 ? 'low' : finalDSCR >= 1.5 ? 'medium' : 'high'
+            };
+        }
         
         /**
          * Calculates the maximum number of financeable units.
@@ -952,6 +1040,24 @@
             
             // Operational efficiency (10% weight)
             if (modelData.opexRate > 17) { score -= 1; issues.push('🚀 OPEX alto (>17%)'); }
+
+            // Enhanced debt structure analysis (10% weight)
+            const debtMetrics = calculateDebtMetricsBreakdown();
+
+            if (debtMetrics.finalDSCR < 1.5) { 
+                score -= 1; 
+                issues.push('🏦 DSCR final bajo (<1.5x)'); 
+            }
+
+            if (debtMetrics.debtMix.venturePercent > 60) { 
+                score -= 0.5; 
+                issues.push('⚠️ Alta dependencia Venture Debt (>60%)'); 
+            }
+
+            if (financialResults.bs[4] && debtMetrics.totalDebtResidual > financialResults.bs[4].equity * 2) { 
+                score -= 0.5; 
+                issues.push('📊 Leverage alto (Debt/Equity >2x)'); 
+            }
             
             return {
                 score: Math.max(0, score),
@@ -1682,8 +1788,6 @@
                     document.getElementById('tir-proyecto').textContent = financialResults.tirProyecto.toFixed(1) + '%';
                     document.getElementById('tir-cartera').textContent = (financialResults.tirCartera || 0).toFixed(1) + '%';
                     document.getElementById('tir-equity').textContent = financialResults.tirEquity.toFixed(1) + '%';
-                    document.getElementById('deuda-residual').textContent = formatCurrency(year5BS.debt);
-                    document.getElementById('vagonetas-operativas').textContent = Math.round(vagonetasOperativas);
                     
                     const roe5 = financialResults.roe && financialResults.roe[4] ? financialResults.roe[4].toFixed(1) + '%' : 'N/A';
                     const roic5 = financialResults.roic && financialResults.roic[4] ? financialResults.roic[4].toFixed(1) + '%' : 'N/A';
@@ -1695,7 +1799,24 @@
                         actualTotalEquity += (modelData[`seriesB_newInvestors_year${i}`] || 0) + (modelData[`partnerCapitalizationYear${i}`] || 0);
                     }
                     document.getElementById('total-equity-required').textContent = formatCurrency(actualTotalEquity);
-                    document.getElementById('final-debt').textContent = formatCurrency(year5BS.debt);
+                    
+                    const debtMetrics = calculateDebtMetricsBreakdown();
+
+                    document.getElementById('venture-debt-residual').textContent = 
+                        formatCurrency(debtMetrics.ventureDebtResidual);
+
+                    document.getElementById('commercial-debt-residual').textContent = 
+                        formatCurrency(debtMetrics.commercialDebtResidual);
+
+                    document.getElementById('dscr-final').textContent = 
+                        debtMetrics.finalDSCR === 999 ? '∞' : debtMetrics.finalDSCR.toFixed(1) + 'x';
+
+                    // Agregar validación visual para DSCR
+                    const dscrElement = document.getElementById('dscr-final');
+                    dscrElement.className = 'text-2xl font-bold ' + 
+                        (debtMetrics.isHealthyDSCR ? 'text-emerald-400' : 'text-amber-400');
+
+                    document.getElementById('vagonetas-operativas').textContent = Math.round(vagonetasOperativas);
                     
                     let actualFCFBreakevenYear = 0;
                     if(financialResults.cf){
@@ -1734,6 +1855,9 @@
                 updateOptimizationStatus();
                 updateInvestorScore(); // ✅ NUEVO: Update investor dashboard
                 
+                // Debug debt metrics for validation
+                const debtMetrics = calculateDebtMetricsBreakdown();
+                log(`🏦 Debt Metrics Updated: VD=${formatCurrency(debtMetrics.ventureDebtResidual)}, CD=${formatCurrency(debtMetrics.commercialDebtResidual)}, DSCR=${debtMetrics.finalDSCR.toFixed(1)}x`);
             } catch (error) {
                 log(`            ❌            Error in updateUI: ${error.message}`);
                 console.error('Error updating UI:', error);
