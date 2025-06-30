@@ -1041,6 +1041,62 @@
             };
         }
 
+        function calculateSeriesAMetrics() {
+            if (!financialResults.pl || financialResults.pl.length === 0) return {};
+            
+            const totalUnits = modelData.unitsPerYear.reduce((sum, units) => sum + units, 0);
+            const totalCapex = totalUnits * getTotalPackageCost();
+            const year5Index = financialResults.pl.length - 1;
+            
+            const capitalPerUnit = totalUnits > 0 ? totalCapex / totalUnits : 0;
+            
+            const totalInterestRevenue = financialResults.pl.reduce((sum, pl) => sum + (pl.interestRevenue || 0), 0);
+            const totalPortfolioProvisions = financialResults.pl.reduce((sum, pl) => sum + (pl.provisions || 0), 0);
+            const netInterestRevenue = totalInterestRevenue - totalPortfolioProvisions;
+            
+            let totalPortfolioYears = 0;
+            let weightedPortfolio = 0;
+            financialResults.bs.forEach((bs, index) => {
+                if (bs.receivables > 0) {
+                    totalPortfolioYears++;
+                    weightedPortfolio += bs.receivables;
+                }
+            });
+            const avgPortfolio = totalPortfolioYears > 0 ? weightedPortfolio / totalPortfolioYears : 1;
+            const portfolioYield = avgPortfolio > 0 ? (netInterestRevenue / avgPortfolio) * (5 / totalPortfolioYears) * 100 : 0;
+            
+            const activePortfolioValue = financialResults.bs[year5Index]?.receivables || 0;
+            
+            const cumulativeRevenue = financialResults.pl.reduce((sum, pl) => sum + (pl.totalRevenue || 0), 0);
+            const totalFunding = calculateTotalFunding();
+            const fundingEfficiency = totalFunding > 0 ? cumulativeRevenue / totalFunding : 0;
+            
+            const currentCash = financialResults.bs[year5Index]?.cash || 0;
+            const year5Opex = financialResults.pl[year5Index]?.opex || 0;
+            const monthlyBurn = year5Opex > 0 ? year5Opex / 12 : 1;
+            const cashRunwayMonths = currentCash / monthlyBurn;
+            
+            const year1Units = modelData.unitsPerYear[0] || 1;
+            const finalYearUnits = totalUnits;
+            const unitCAGR = year1Units > 0 ? (Math.pow(finalYearUnits / year1Units, 1/5) - 1) * 100 : 0;
+            
+            return {
+                capitalPerUnit: capitalPerUnit / 1000,
+                portfolioYield: Math.max(0, portfolioYield),
+                activePortfolioValue: activePortfolioValue,
+                fundingEfficiency: fundingEfficiency,
+                cashRunwayMonths: Math.min(Math.max(0, cashRunwayMonths), 999),
+                unitCAGR: Math.max(0, unitCAGR),
+                benchmarks: {
+                    capitalPerUnitGood: capitalPerUnit / 1000 <= 750,
+                    portfolioYieldGood: portfolioYield >= 15,
+                    fundingEfficiencyGood: fundingEfficiency >= 0.6,
+                    cashRunwayGood: cashRunwayMonths >= 12,
+                    unitCAGRGood: unitCAGR >= 30
+                }
+            };
+        }
+
         /**
          * Calculates general investor score.
          * @returns {Object} Investor health score.
@@ -1817,6 +1873,7 @@
                     document.getElementById('vagonetas-operativas').textContent = Math.round(vagonetasOperativas);
                     
                     const debtMetrics = calculateDebtMetricsBreakdown();
+                    const seriesAMetrics = calculateSeriesAMetrics();
 
                     document.getElementById('venture-debt-residual').textContent = 
                         formatCurrency(debtMetrics.ventureDebtResidual);
@@ -1826,6 +1883,14 @@
 
                     document.getElementById('dscr-final').textContent = 
                         debtMetrics.finalDSCR === 999 ? '∞' : debtMetrics.finalDSCR.toFixed(1) + 'x';
+                    
+                    document.getElementById('capital-per-unit').textContent = `$${seriesAMetrics.capitalPerUnit.toFixed(0)}K`;
+                    document.getElementById('portfolio-yield').textContent = `${seriesAMetrics.portfolioYield.toFixed(1)}%`;
+                    document.getElementById('active-portfolio-value').textContent = formatCurrency(seriesAMetrics.activePortfolioValue);
+                    document.getElementById('funding-efficiency').textContent = `${seriesAMetrics.fundingEfficiency.toFixed(1)}x`;
+                    document.getElementById('cash-runway-months').textContent = seriesAMetrics.cashRunwayMonths.toFixed(0);
+                    document.getElementById('unit-growth-cagr').textContent = `${seriesAMetrics.unitCAGR.toFixed(0)}%`;
+
 
                     // Agregar validación visual para DSCR
                     const dscrElement = document.getElementById('dscr-final');
