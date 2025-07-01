@@ -616,82 +616,65 @@
          * This object holds all the dynamic inputs for the financial model.
          */
         let modelData = {
+            tasaInteres: 25.5,
+            pdStage1: 0.008,
+            ebitdaMultipleProject: 7,
+            ebitdaMultipleEquity: 7,
+            
+            proteccionRodando: true,
+            pdStage2: 0.08,
+            pdStage3: 0.40,
+            lgd: 0.50,
+            portfolioAllocationStage1: 0.85,
+            portfolioAllocationStage2: 0.10,
+            portfolioAllocationStage3: 0.05,
+            economicAdjustmentFactor: 1.0,
+            margenRefacciones: 50,
+            periodoAmortizacionDeuda: 5,
+            unitsPerYear: [40, 120, 180, 220, 220],
+            vanCost: 641000,
+            vanPrice: 729000,
+            clientLoanTermYears: 4,
+            depreciationYears: 10,
             // =================================================================
-            // ========= PASO 1: AJUSTES DE SUPUESTOS BASE - INICIO ============
+            // ========= PASO 2: LÓGICA DE OPEX VARIABLE - INICIO ==============
             // =================================================================
-            tasaInteres: 25.5,      // Annual interest rate, default set to pitch deck value
-            pdStage1: 0.008, // Increased from 0.5% to 0.8% for a more conservative risk base
-            ebitdaMultipleProject: 7, // Conservative exit multiple, adjusted from 9x
-            ebitdaMultipleEquity: 7, // Conservative exit multiple, adjusted from 9x
+            opexRates: [17, 17, 15, 15, 15], // Replaces single opexRate
             // =================================================================
-            // ========= PASO 1: AJUSTES DE SUPUESTOS BASE - FIN ===============
+            // ========= PASO 2: LÓGICA DE OPEX VARIABLE - FIN =================
             // =================================================================
-            
-            proteccionRodando: true,// Boolean to activate/deactivate provision reduction
-            // IFRS 9 Parameters
-            pdStage2: 0.08,  // 8% Probability of Default (lifetime) for Stage 2 loans
-            pdStage3: 0.40,  // 40% Probability of Default (lifetime) for Stage 3 loans (impairment)
-            lgd: 0.50,       // Loss Given Default (percentage of exposure lost if default occurs)
-            portfolioAllocationStage1: 0.85, // 85% of active portfolio in Stage 1
-            portfolioAllocationStage2: 0.10, // 10% of active portfolio in Stage 2
-            portfolioAllocationStage3: 0.05, // 5% of active portfolio in Stage 3
-            economicAdjustmentFactor: 1.0, // Factor for macroeconomic prospective adjustments (1.0 = no adjustment)
-            // Operations and Debt Parameters
-            margenRefacciones: 50,  // Profit margin on spare parts (maintained existing)
-            periodoAmortizacionDeuda: 5, // Years to amortize initial Venture Debt
-            // Units per Year (dynamic inputs)
-            unitsPerYear: [40, 120, 180, 220, 220], // Units (vans) added each year
-            // Model Constants
-            vanCost: 641000,        // Acquisition cost of each van (Fixed Asset)
-            vanPrice: 729000,       // Sale/financing price to customer (for loan amount calculation)
-            clientLoanTermYears: 4, // Amortization term for customer loans (in years)
-            depreciationYears: 10,  // Years of straight-line depreciation for vans (RAG assets)
-            opexRate: 15,           // Percentage of operating income allocated to OPEX
-            margenVagoneta: 5,      // Percentage of origination commission per financed van
-            tasaReposicion: 5,      // Percentage of units repossessed/classified as Assets Held for Sale annually
-            fairValueVenta: 85,     // Percentage of fair value of repossessed vans
-            costosVenta: 5,          // Percentage of costs associated with the sale of repossessed vans
-            corporateTaxRate: 31,   // Corporate tax rate (%)
-            // NEW PARAMETERS: GNV granular
-            litrosPromedioMensualPorUnidad: 900, // Range: 800-1000 liters
-            precioLitroGNV: 13.99,             // Range: 11.00-13.99 MXN
-            comisionGNVPorcentaje: 10,          // Range: 7-15% (replaces previous GNV commission)
-            // NEW PARAMETERS: Transactional Marketplace
-            gmvPromedioMensualPorUnidad: 9000, // Range: 8000-15000 MXN (gross GNV sales for marketplace)
-            takeRateMarketplace: 2.5,                 // Range: 1.0-2.0% (commission on gross marketplace sales)
-            
-            // NEW PARAMETERS: Contingent Venture Debt
-            ventureDebtLineMax: 50000000, // Maximum Venture Debt line limit
-            // NEW PARAMETERS: Financing Business Model
-            downPaymentPercentage: 15, // 15% customer down payment
-            upfrontCommissionPercentage: 3, // 3% upfront commission charged
-            //          🆕          START OF ADDED PARAMETERS FOR COMPLETE PACKAGE
-            conversionPrice: 54000,        // GNV conversion price
-            bancasPrice: 21000,           // GNV seats price
-            gpsPrice: 12000,              // GPS/telematics price
-            
-            insuranceAnnualPrice: 37205,   // Annual insurance price (variable 20K-40K)
-            insuranceYears: 4,            // Years of insurance to finance (variable 1-5)
-            
-            conversionCost: 50000,        // Conversion cost for RAG
-            bancasCost: 20000,            // Seats cost for RAG
-            gpsCost: 11000,               // GPS cost for RAG
-            
-            //          🆕          NEW: Base cost for spare parts
+            margenVagoneta: 5,
+            tasaReposicion: 5,
+            fairValueVenta: 85,
+            costosVenta: 5,
+            corporateTaxRate: 31,
+            litrosPromedioMensualPorUnidad: 900,
+            precioLitroGNV: 13.99,
+            comisionGNVPorcentaje: 10,
+            gmvPromedioMensualPorUnidad: 9000,
+            takeRateMarketplace: 2.5,
+            ventureDebtLineMax: 50000000,
+            downPaymentPercentage: 15,
+            upfrontCommissionPercentage: 3,
+            conversionPrice: 54000,
+            bancasPrice: 21000,
+            gpsPrice: 12000,
+            insuranceAnnualPrice: 37205,
+            insuranceYears: 4,
+            conversionCost: 50000,
+            bancasCost: 20000,
+            gpsCost: 11000,
             refaccionesCostPerUnit: 8000,
-            
-            // NEW: Valuation Sensitivity Parameters
-            avgRemainingTermCartera: 2.5, // Average remaining years to discount portfolio residual value for Portfolio IRR
-            floorEquityMultiple: 1.5, // Minimum multiple over book value for Equity IRR terminal value
-            // REESTRUCTURADO: Matriz de Financiamiento
+            avgRemainingTermCartera: 2.5,
+            floorEquityMultiple: 1.5,
             seriesA: 45000000,
             seriesB_newInvestors_year2: 200000000,
-            partnerCapitalizationYear2: 50000000, // Replaces old capital calls
+            partnerCapitalizationYear2: 50000000,
             partnerCapitalizationYear3: 50000000,
             partnerCapitalizationYear4: 50000000,
             partnerCapitalizationYear5: 50000000,
-            ventureDebtYear1: 55000000, // Was 30M
-            ventureDebtYear2: 35000000, // Was 25M
+            ventureDebtYear1: 55000000,
+            ventureDebtYear2: 35000000,
             ventureDebtYear3: 0,
             ventureDebtYear4: 0,
             ventureDebtYear5: 0,
@@ -719,13 +702,7 @@
                 { id: 'gpsCost', label: 'Costo GPS/Telemática', min: 9000, max: 18000, step: 500, type: 'number', format: val => formatCurrency(val, true), tooltip: 'Hardware + instalación: Optimizar para escala' },
             ],
             condicionesCredito: [
-                // =================================================================
-                // ========= PASO 1: AJUSTES DE SUPUESTOS BASE - INICIO ============
-                // =================================================================
                 { id: 'tasaInteres', label: 'Tasa de Interés (Clientes)', min: 22, max: 30, step: 0.5, type: 'range', format: val => val.toFixed(1) + '%', tooltip: '  📊   Serie A benchmark: 25-30% sweet spot. <22% = unsustainable unit economics, >30% = regulatory risk', investorRange: { green: [25, 30], yellow: [22, 25], red: [30, 35] } },
-                // =================================================================
-                // ========= PASO 1: AJUSTES DE SUPUESTOS BASE - FIN ===============
-                // =================================================================
                 { id: 'downPaymentPercentage', label: '% Enganche Cliente', min: 12, max: 25, step: 0.5, type: 'range', format: val => val.toFixed(1) + '%', tooltip: '  💰   Cash flow vs accessibility: 15-20% optimal. <12% = cash flow stress, >25% = market limitation', investorRange: { green: [15, 20], yellow: [12, 15], red: [20, 25] } },
                 { id: 'clientLoanTermYears', label: 'Plazo Préstamo Cliente (Años)', min: 3, max: 5, step: 1, type: 'range', format: val => val.toFixed(0) + ' años', tooltip: '  ⚖️   Payment vs interest: 4 años = optimal balance. 3 años = high payments, 5+ años = interest rate risk', investorRange: { green: [4, 4], yellow: [3, 4], red: [5, 5] } },
                 { id: 'upfrontCommissionPercentage', label: '% Comisión Upfront', min: 1, max: 4, step: 0.1, type: 'range', format: val => val.toFixed(1) + '%', tooltip: 'NIIF 15 deferral: 2-3% típico para cash flow inicial sin penalizar accesibilidad' },
@@ -741,7 +718,6 @@
             ],
             planCrecimiento: [
                  { id: 'unitsPerYear', label: 'Unidades Año', type: 'array', min: 0, max: 'dynamic', step: 1, format: val => val.toFixed(0), tooltip: '  💸   Capital efficiency crítica: Más unidades = más capital needs. ROI debe mantenerse >25%. Máximo basado en funding disponible.', dynamicMax: true },
-                { id: 'opexRate', label: 'Tasa OPEX (% Ingresos)', min: 12, max: 18, step: 1, type: 'number', format: val => val.toFixed(0) + '%', tooltip: '  🚀   Scalability indicator: <15% = best-in-class, >18% = operational inefficiencies concern investors', investorRange: { green: [12, 15], yellow: [15, 17], red: [17, 18] } },
                 { id: 'depreciationYears', label: 'Años Depreciación (Vagoneta)', min: 8, max: 12, step: 1, type: 'number', format: val => val.toFixed(0) + ' años', tooltip: 'Asset life: 10 años = standard. 8 años = conservative, 12 años = aggressive' },
             ],
             riesgoYSalida: [
@@ -756,14 +732,8 @@
                 { id: 'tasaReposicion', label: '% Unidades Reposición', min: 3, max: 7, step: 0.5, type: 'number', format: val => val.toFixed(1) + '%', tooltip: '  🔄   Repossession rate: 4-6% realistic. <3% = recovery overestimate, >7% = business model stress' },
                 { id: 'fairValueVenta', label: '% Fair Value Venta', min: 80, max: 88, step: 1, type: 'number', format: val => val.toFixed(0) + '%', tooltip: '  💰   Recovery value: 85% reasonable for well-maintained vehicles. Market dependent' },
                 { id: 'costosVenta', label: '% Costos Venta', min: 4, max: 8, step: 0.5, type: 'number', format: val => val.toFixed(1) + '%', tooltip: '  💸   Transaction costs: 5-6% typical (storage, auction, legal, transport)' },
-                // =================================================================
-                // ========= PASO 1: AJUSTES DE SUPUESTOS BASE - INICIO ============
-                // =================================================================
                 { id: 'ebitdaMultipleProject', label: 'Múltiplo EBITDA TIR Proyecto', min: 5, max: 9, step: 0.5, type: 'range', format: val => val.toFixed(1) + 'X', tooltip: '  🎯   Valuation realista: 7x es una base conservadora. Equipment finance típico 6-8x.' },
                 { id: 'ebitdaMultipleEquity', label: 'Múltiplo EBITDA TIR Equity', min: 5, max: 9, step: 0.5, type: 'range', format: val => val.toFixed(1) + 'X', tooltip: '  💎   Exit multiple: 7x es una base conservadora. 8-9x = IPO/escenario optimista.' },
-                // =================================================================
-                // ========= PASO 1: AJUSTES DE SUPUESTOS BASE - FIN ===============
-                // =================================================================
                 { id: 'avgRemainingTermCartera', label: 'Término Residual Cartera (Años)', min: 2, max: 4, step: 0.1, type: 'range', format: val => val.toFixed(1) + ' años', tooltip: 'Portfolio maturity: 2.5 años = weighted average remaining term' },
                 { id: 'floorEquityMultiple', label: 'Floor Book Value Equity', min: 1.0, max: 2.0, step: 0.1, type: 'range', format: val => val.toFixed(1) + 'X', tooltip: '  📚   Downside protection: 1.2-1.5x = conservative liquidation scenario, >1.5x = optimistic asset recovery.' },
                 { id: 'ventureDebtRate', label: 'Tasa Venture Debt', min: 14, max: 20, step: 0.5, type: 'range', format: val => val.toFixed(1) + '%', tooltip: '  ⚖️   Risk balance: 16-18% market rate. >18% = covenant risk, debt service stress con commercial debt', investorRange: { green: [16, 18], yellow: [14, 16], red: [18, 20] } },
@@ -1122,7 +1092,11 @@
             if (modelData.tasaInteres < 22) { score -= 1; issues.push('  💰   Tasa cliente insostenible'); }
             
             // Operational efficiency (10% weight)
-            if (modelData.opexRate > 17) { score -= 1; issues.push('  🚀   OPEX alto (>17%)'); }
+            if (modelData.opexRates.some(rate => rate > 18)) { 
+                score -= 1; 
+                issues.push('  🚀   OPEX alto (>18% en algún año)'); 
+            }
+            
             // Enhanced debt structure analysis (10% weight)
             const debtMetrics = calculateDebtMetricsBreakdown();
             if (debtMetrics.finalDSCR < 1.5) { 
@@ -1664,7 +1638,14 @@
                     const marketplaceRevenue = totalActiveUnits * modelData.gmvPromedioMensualPorUnidad * 12 * (modelData.takeRateMarketplace / 100);
                     const totalRevenue = annualInterestReceived + niif15Results.recognizedOriginationRevenue + gnvCommissions + sparePartsRevenue + marketplaceRevenue;
                     
-                    const opex = totalRevenue * (modelData.opexRate / 100);
+                    // =================================================================
+                    // ========= PASO 2: LÓGICA DE OPEX VARIABLE - INICIO ==============
+                    // =================================================================
+                    const opex = totalRevenue * (modelData.opexRates[year] / 100);
+                    // =================================================================
+                    // ========= PASO 2: LÓGICA DE OPEX VARIABLE - FIN =================
+                    // =================================================================
+                    
                     const ebitda = totalRevenue - sparePartsCOGS - opex - provisions - impairment;
                     const ebit = ebitda - annualDepreciation;
                     // Debt calculations
@@ -2801,19 +2782,6 @@
                     }
                 }
                 
-                // OPEX Efficiency Validation
-                if (config.id === 'opexRate') {
-                    if (value > 18) {
-                        this.classList.add('validation-error');
-                        showWarning(`  🚀   OPEX alto: ${value}%. Scalability concern para Series A. Target: <15%`);
-                    } else if (value > 15) {
-                        this.classList.add('validation-warning');
-                        showWarning(`  ⚠️   OPEX moderado: ${value}%. Best-in-class fintech: <15%`);
-                    } else {
-                        this.classList.add('validation-success');
-                    }
-                }
-                
                 log(`${config.label} changed to: ${value}`);
                 if (calculateFinancials()) {
                     updateUI();
@@ -3200,7 +3168,6 @@
             const percentageInputs = [
                 { id: 'tasaInteres', label: 'Tasa de Interés (Clientes)' }, 
                 { id: 'margenRefacciones', label: 'Margen Refacciones' },
-                { id: 'opexRate', label: 'Tasa OPEX (% Ingresos)' }, 
                 { id: 'margenVagoneta', label: 'Margen Originación Vagoneta' },
                 { id: 'tasaReposicion', label: '% Unidades Reposición' },
                 { id: 'fairValueVenta', label: '% Fair Value Venta' }, 
