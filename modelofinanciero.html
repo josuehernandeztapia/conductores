@@ -1025,46 +1025,6 @@
                 investorGrade: marginPercent >= 20 ? 'excellent' : marginPercent >= 15 ? 'good' : marginPercent >= 10 ? 'concerning' : 'critical'
             };
         }
-        function calculateCorrectedIRRs() {
-            if (!financialResults.pl || financialResults.pl.length < 5) return { tirProyecto: 0, tirEquity: 0, tirCartera: 0 };
-            
-            const year5EBITDA = financialResults.pl[4].ebitda;
-            const year5Debt = financialResults.bs[4].debt;
-            
-            const projectCashFlows = [-modelData.seriesA];
-            const equityCashFlows = [-modelData.seriesA];
-            
-            for (let year = 0; year < 5; year++) {
-                const pl = financialResults.pl[year];
-                const cf = financialResults.cf[year];
-                
-                const fcff = pl.ebit * (1 - modelData.corporateTaxRate/100) + pl.depreciation + cf.investingCash;
-                projectCashFlows.push(fcff);
-                
-                const newEquity = (modelData[`seriesB_newInvestors_year${year+1}`] || 0) + 
-                                  (modelData[`partnerCapitalizationYear${year+1}`] || 0);
-                const fcfe = pl.netIncome + pl.depreciation + cf.investingCash + cf.financingCash - newEquity;
-                equityCashFlows.push(fcfe);
-            }
-            
-            const conservativeProjectMultiple = Math.min(modelData.ebitdaMultipleProject, 7.5);
-            const conservativeEquityMultiple = Math.min(modelData.ebitdaMultipleEquity, 7.0);
-            
-            const projectTerminalValue = year5EBITDA * conservativeProjectMultiple;
-            const equityTerminalValue = Math.max(
-                year5EBITDA * conservativeEquityMultiple - year5Debt,
-                financialResults.bs[4].equity * modelData.floorEquityMultiple
-            );
-            
-            projectCashFlows[5] += projectTerminalValue;
-            equityCashFlows[5] += equityTerminalValue * 0.85; 
-            
-            return {
-                tirProyecto: calculateIRR(projectCashFlows) || 0,
-                tirEquity: calculateIRR(equityCashFlows) || 0,
-                tirCartera: financialResults.tirCartera || 0
-            };
-        }
         
         function calculateSeriesAMetrics() {
             if (!financialResults.pl || financialResults.pl.length === 0) return {};
@@ -1883,7 +1843,7 @@
                     document.getElementById('vagonetas-operativas').textContent = Math.round(vagonetasOperativas);
                     
                     const seriesAMetrics = calculateSeriesAMetrics();
-                    const correctedIRRs = calculateCorrectedIRRs();
+                    
                     document.getElementById('capital-per-unit').textContent = 
                         seriesAMetrics.capitalPerUnit ? '$' + seriesAMetrics.capitalPerUnit.toFixed(0) + 'K' : '$0K';
                     document.getElementById('portfolio-yield').textContent = 
@@ -1896,9 +1856,9 @@
                         seriesAMetrics.cashRunwayMonths === 999 ? '∞' : Math.round(seriesAMetrics.cashRunwayMonths);
                     document.getElementById('unit-growth-cagr').textContent = 
                         seriesAMetrics.unitCAGR ? seriesAMetrics.unitCAGR.toFixed(1) + '%' : '0%';
-                    document.getElementById('tir-proyecto').textContent = correctedIRRs.tirProyecto.toFixed(1) + '%';
-                    document.getElementById('tir-equity').textContent = correctedIRRs.tirEquity.toFixed(1) + '%';
-                    document.getElementById('tir-cartera').textContent = (correctedIRRs.tirCartera || 0).toFixed(1) + '%';
+                    document.getElementById('tir-proyecto').textContent = financialResults.tirProyecto.toFixed(1) + '%';
+                    document.getElementById('tir-equity').textContent = financialResults.tirEquity.toFixed(1) + '%';
+                    document.getElementById('tir-cartera').textContent = (financialResults.tirCartera || 0).toFixed(1) + '%';
                     
                     const debtMetrics = calculateDebtMetricsBreakdown();
                     document.getElementById('venture-debt-residual').textContent = 
@@ -2406,7 +2366,7 @@
                     `;
                 log('             ✅             IFRS 5 updated.');
             } else {
-                     log('             ⚠️             IFRS 9 data for Year 5 incomplete.');
+                     log('             ⚠️             IFRS 5 data for Year 5 incomplete.');
                 }
             }
         }
