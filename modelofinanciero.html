@@ -462,13 +462,7 @@
                     <div class="card">
                         <h4 class="font-semibold text-lg mb-4 text-white">   💰    Matriz de Financiamiento <span class="text-sm text-slate-400">(La Historia del Capital)</span></h4>
                         <div id="matriz-financiamiento-controls" class="space-y-4"></div>
-                        <!-- ================================================================= -->
-                        <!-- ========= PASO 3: UI PARA COBERTURA - INICIO ==================== -->
-                        <!-- ================================================================= -->
                         <div id="funding-coverage-card-container" class="mt-4"></div>
-                        <!-- ================================================================= -->
-                        <!-- ========= PASO 3: UI PARA COBERTURA - FIN ======================= -->
-                        <!-- ================================================================= -->
                     </div>
                     <!-- Tarjeta 6: Riesgo y Supuestos de Salida -->
                     <div class="card">
@@ -719,13 +713,7 @@
             ],
             planCrecimiento: [
                 { id: 'unitsPerYear', label: 'Unidades por Año', type: 'array', min: 0, max: 'dynamic', step: 1, format: val => val.toFixed(0), tooltip: '  💸   Capital efficiency crítica: Más unidades = más capital needs. ROI debe mantenerse >25%. Máximo basado en funding disponible.', dynamicMax: true },
-                // =================================================================
-                // ========= PASO 3: UI PARA OPEX - INICIO =========================
-                // =================================================================
                 { id: 'opexRates', label: 'Tasa OPEX por Año (%)', type: 'array', min: 12, max: 20, step: 0.5, format: val => val.toFixed(1) + '%', tooltip: 'Eficiencia operativa por año. Se espera que disminuya con la escala.' },
-                // =================================================================
-                // ========= PASO 3: UI PARA OPEX - FIN ============================
-                // =================================================================
                 { id: 'depreciationYears', label: 'Años Depreciación (Vagoneta)', min: 8, max: 12, step: 1, type: 'number', format: val => val.toFixed(0) + ' años', tooltip: 'Asset life: 10 años = standard. 8 años = conservative, 12 años = aggressive' },
             ],
             riesgoYSalida: [
@@ -1827,6 +1815,32 @@
             log(`IRR did not converge completely after ${maxIterations} iterations. Returning ${Math.max(-99, Math.min(500, guess * 100)).toFixed(2)}%.`);
             return Math.max(-99, Math.min(500, guess * 100));
         }
+        
+        // =================================================================
+        // ========= PASO 4: LÓGICA DE COBERTURA - INICIO ====================
+        // =================================================================
+        /**
+         * Calculates funding coverage and logs it for validation.
+         */
+        function updateFundingCoverageCard() {
+            const totalFunding = calculateTotalFunding();
+            const totalCapex = calculateTotalCapex();
+            const surplus = totalFunding - totalCapex;
+            const coverageRatio = totalCapex > 0 ? (totalFunding / totalCapex) * 100 : 0;
+
+            console.log('💰 Funding Coverage Calculated:', {
+                totalFunding: formatCurrency(totalFunding),
+                totalCapex: formatCurrency(totalCapex),
+                surplus: formatCurrency(surplus),
+                coverageRatio: coverageRatio.toFixed(1) + '%'
+            });
+
+            // The visual part will be added in the next step.
+        }
+        // =================================================================
+        // ========= PASO 4: LÓGICA DE COBERTURA - FIN =======================
+        // =================================================================
+
         // ===== USER INTERFACE (UI) UPDATE =====
         /**
          * Updates the key metrics in the summary cards and then the tables and charts.
@@ -1920,7 +1934,8 @@
                 const validations = validateModelComprehensively(modelData, financialResults);
                 updateValidationPanel(validations);
                 updateOptimizationStatus();
-                updateInvestorScore(); //   ✅   NUEVO: Update investor dashboard
+                updateInvestorScore(); 
+                updateFundingCoverageCard(); // Call the new logic function
                 
                 // Debug debt metrics for validation
                 const debtMetrics = calculateDebtMetricsBreakdown();
