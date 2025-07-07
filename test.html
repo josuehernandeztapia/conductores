@@ -204,14 +204,45 @@
         .validation-summary.bg-yellow-200 { background-color: #422006; border-color: #f59e0b; color: #fffbeb; }
         .validation-summary.bg-green-200 { background-color: #064e3b; border-color: #10b981; color: #d1fae5; }
         /* Tooltips - Maintain visibility and readability */
+        [data-tooltip] {
+            position: relative;
+            cursor: help;
+        }
         [data-tooltip]:before, [data-tooltip]:after {
-            background-color: #334155; /* slate-700 */
+            position: absolute;
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.2s ease-in-out;
+            pointer-events: none;
+            background-color: #1e293b; /* slate-800 */
             color: #f8fafc;
-            border-radius: 0.375rem;
-            font-size: 0.75rem;
+            border: 1px solid #334155; /* slate-700 */
+            border-radius: 0.5rem;
+            font-size: 0.8rem;
+            line-height: 1.4;
+            padding: 0.75rem;
+            width: 280px;
+            z-index: 100;
+        }
+        [data-tooltip]:before {
+            content: attr(data-tooltip);
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
         }
         [data-tooltip]:after {
-            border-top-color: #334155; /* slate-700 */
+            content: '';
+            bottom: 125%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #1e293b transparent transparent transparent;
+            transform: translateY(100% + 5px) translateX(-50%);
+        }
+        [data-tooltip]:hover:before, [data-tooltip]:hover:after {
+            visibility: visible;
+            opacity: 1;
         }
         /* Inputs and Selects */
         input[type="number"], input[type="range"] {
@@ -348,22 +379,22 @@
             <div>
                 <h3 class="metric-row-title">Retorno y Escala</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <div class="metric-card">
+                    <div class="metric-card" data-tooltip="Indicador clave de la rentabilidad operativa del negocio al final del periodo de proyección.">
                         <div class="text-sm">EBITDA Año 5</div>
                         <div class="text-2xl font-bold" id="ebitda-year5">$0M</div>
                         <div class="text-xs text-emerald-400">Rentabilidad Operativa</div>
                     </div>
-                    <div class="metric-card">
+                    <div class="metric-card" data-tooltip="Calculada sobre los flujos de efectivo para el accionista (después de deuda) y un valor terminal conservador (Múltiplo P/B de 1.8x). Es el retorno real y magnificado de su inversión gracias al apalancamiento.">
                         <div class="text-sm">TIR Equity</div>
                         <div class="text-2xl font-bold" id="tir-equity">0%</div>
                         <div class="text-xs text-sky-400">Retorno para el Inversionista</div>
                     </div>
-                    <div class="metric-card">
+                    <div class="metric-card" data-tooltip="Fórmula: Efectivo + Cuentas por Cobrar Netas + Activos Fijos Netos. Es el indicador estándar de la industria para medir la escala total del negocio que hemos construido.">
                         <div class="text-sm">Activos Totales Bajo Gestión</div>
                         <div class="text-2xl font-bold" id="aum-value">$0M</div>
                         <div class="text-xs text-purple-400">Magnitud del Negocio</div>
                     </div>
-                    <div class="metric-card">
+                    <div class="metric-card" data-tooltip="Número acumulado de unidades financiadas en 5 años. Mide nuestra capacidad para capturar clientes y la penetración de mercado.">
                         <div class="text-sm">Vagonetas Totales Financiadas</div>
                         <div class="text-2xl font-bold" id="total-vans-financed">0</div>
                         <div class="text-xs text-pink-400">Penetración de Mercado</div>
@@ -375,22 +406,22 @@
             <div>
                 <h3 class="metric-row-title">La Maquinaria de Crecimiento</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <div class="metric-card">
+                    <div class="metric-card" data-tooltip="Capital total aportado por los socios (Serie A y futuras capitalizaciones). Es el 'costo' de la inversión para los accionistas.">
                         <div class="text-sm">Capital de Socios Levantado</div>
                         <div class="text-2xl font-bold" id="equity-raised">$0M</div>
                         <div class="text-xs text-blue-400">Serie A + Capital Calls</div>
                     </div>
-                    <div class="metric-card">
+                    <div class="metric-card" data-tooltip="Deuda total (Venture + Comercial) levantada para financiar la flota. Demuestra nuestra capacidad para apalancar el capital de socios.">
                         <div class="text-sm">Deuda Total Levantada</div>
                         <div class="text-2xl font-bold" id="total-debt-raised">$0M</div>
                         <div class="text-xs text-amber-400">Apalancamiento para Escalar</div>
                     </div>
-                    <div class="metric-card">
+                    <div class="metric-card" data-tooltip="Mide cuántos ingresos generamos por cada peso de financiamiento total (Equity + Deuda). Un ratio >0.8x indica una excelente productividad del capital.">
                         <div class="text-sm">Funding Efficiency</div>
                         <div class="text-2xl font-bold" id="funding-efficiency">0.0x</div>
                         <div class="text-xs text-cyan-400">Revenue / Total Funding</div>
                     </div>
-                    <div class="metric-card">
+                    <div class="metric-card" data-tooltip="CAPEX total dividido entre unidades totales. Un valor <$750K demuestra una excelente eficiencia en la adquisición y preparación de activos.">
                         <div class="text-sm">Capital Efficiency</div>
                         <div class="text-2xl font-bold" id="capital-per-unit">$0K</div>
                         <div class="text-xs text-blue-400">CAPEX por Unidad</div>
@@ -402,22 +433,22 @@
             <div>
                 <h3 class="metric-row-title">Resiliencia y Sostenibilidad</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <div class="metric-card">
+                    <div class="metric-card" data-tooltip="Métrica de resiliencia. No solo muestra cuántas unidades financiamos, sino cuántas mantenemos productivas gracias a nuestro ecosistema de IA (PMA). Ajustado por NIIF 5.">
                         <div class="text-sm">Vagonetas Operativas (Año 5)</div>
                         <div class="text-2xl font-bold" id="vagonetas-operativas">0</div>
                         <div class="text-xs text-emerald-400">Ajustado por NIIF 5</div>
                     </div>
-                    <div class="metric-card">
+                    <div class="metric-card" data-tooltip="Fórmula: EBITDA / Servicio de Deuda. Un ratio >1.5x es saludable y demuestra nuestra capacidad para pagar cómodamente la deuda, un requisito para futuros prestamistas.">
                         <div class="text-sm">Debt Service Coverage</div>
                         <div class="text-2xl font-bold" id="dscr-final">0.0x</div>
                         <div class="text-xs text-sky-400">EBITDA / Servicio de Deuda</div>
                     </div>
-                    <div class="metric-card">
+                    <div class="metric-card" data-tooltip="La rentabilidad pura de nuestra cartera de crédito. Un yield saludable demuestra la efectividad de nuestro motor de scoring (HASE) para fijar precios según el riesgo.">
                         <div class="text-sm">Portfolio Yield</div>
                         <div class="text-2xl font-bold" id="portfolio-yield">0.0%</div>
                         <div class="text-xs text-emerald-400">Net Interest Margin</div>
                     </div>
-                    <div class="metric-card">
+                    <div class="metric-card" data-tooltip="El año en que los ingresos operativos superan los gastos operativos, marcando el punto en que el negocio se sostiene por sí mismo sin necesidad de nuevas inyecciones de capital.">
                         <div class="text-sm">Autosuficiencia</div>
                         <div class="text-2xl font-bold" id="autosuficiency-year">Año 0</div>
                         <div class="text-xs text-blue-400">Ingresos > Gastos Operativos</div>
@@ -713,8 +744,8 @@
                 { id: 'gpsCost', label: 'Costo GPS/Telemática', min: 9000, max: 18000, step: 500, type: 'number', format: val => formatCurrency(val, true), tooltip: 'Hardware + instalación: Optimizar para escala' },
             ],
             condicionesCredito: [
-                { id: 'tasaInteres', label: 'Tasa de Interés (Clientes)', min: 24, max: 28, step: 0.5, type: 'range', format: val => val.toFixed(1) + '%', tooltip: '      📊       Serie A benchmark: 25-28% sweet spot. <24% = unsustainable unit economics, >28% = regulatory risk', investorRange: { green: [25, 28], yellow: [24, 25], red: [28, 35] } }, // ADJUSTED
-                { id: 'downPaymentPercentage', label: '% Enganche Cliente', min: 12, max: 20, step: 0.5, type: 'range', format: val => val.toFixed(1) + '%', tooltip: '      💰       Cash flow vs accessibility: 15-20% optimal. <12% = cash flow stress, >20% = market limitation', investorRange: { green: [15, 20], yellow: [12, 15], red: [20, 25] } }, // ADJUSTED
+                { id: 'tasaInteres', label: 'Tasa de Interés (Clientes)', min: 24, max: 28, step: 0.5, type: 'range', format: val => val.toFixed(1) + '%', tooltip: "Palanca clave de rentabilidad. El rango 24-28% balancea la competitividad del mercado (nuestro lema 'tasas justas') con la viabilidad financiera requerida para la Serie A.", investorRange: { green: [25, 28], yellow: [24, 25], red: [28, 35] } }, // ADJUSTED
+                { id: 'downPaymentPercentage', label: '% Enganche Cliente', min: 12, max: 20, step: 0.5, type: 'range', format: val => val.toFixed(1) + '%', tooltip: "Balance entre accesibilidad para el cliente y flujo de caja para RAG. Por debajo del 12% aumenta nuestro riesgo; por encima del 20% limita nuestro mercado objetivo.", investorRange: { green: [15, 20], yellow: [12, 15], red: [20, 25] } }, // ADJUSTED
                 { id: 'clientLoanTermYears', label: 'Plazo Préstamo Cliente (Años)', min: 3, max: 5, step: 1, type: 'range', format: val => val.toFixed(0) + ' años', tooltip: '      ⚖️       Payment vs interest: 4 años = optimal balance. 3 años = high payments, 5+ años = interest rate risk', investorRange: { green: [4, 4], yellow: [3, 4], red: [5, 5] } },
                 { id: 'upfrontCommissionPercentage', label: '% Comisión Upfront', min: 1, max: 6, step: 0.1, type: 'range', format: val => val.toFixed(1) + '%', tooltip: 'NIIF 15 deferral: 2-3% típico para cash flow inicial sin penalizar accesibilidad' },
             ],
@@ -733,7 +764,7 @@
                 { id: 'depreciationYears', label: 'Años Depreciación (Vagoneta)', min: 8, max: 12, step: 1, type: 'number', format: val => val.toFixed(0) + ' años', tooltip: 'Asset life: 10 años = standard. 8 años = conservative, 12 años = aggressive' },
             ],
             riesgoYSalida: [
-                { id: 'proteccionRodando', label: 'Protección Rodando™', type: 'checkbox', tooltip: '      🛡️       Competitive advantage: 50% provision reduction vs traditional lending' },
+                { id: 'proteccionRodando', label: 'Protección Rodando™', type: 'checkbox', tooltip: "Activa nuestro foso competitivo clave. Reduce las provisiones NIIF 9 en un 50%, cuantificando el impacto de nuestra tecnología de intervención proactiva para estabilizar la cartera." },
                 { id: 'pdStage1', label: 'PD Etapa 1 (12M)', min: 0.003, max: 0.012, step: 0.001, type: 'range', format: val => (val * 100).toFixed(1) + '%', tooltip: '      📊       Serie A reality check: 0.8% es una base conservadora. <0.5% = optimista, >1.2% = riesgo alto.', investorRange: { green: [0.004, 0.008], yellow: [0.003, 0.004], red: [0.008, 0.012] } },
                 { id: 'pdStage2', label: 'PD Etapa 2 (Lifetime)', min: 0.06, max: 0.12, step: 0.005, type: 'range', format: val => (val * 100).toFixed(1) + '%', tooltip: '      ⚖️       Lifetime default: 7-10% benchmark. <6% = optimistic, >12% = high risk segment', investorRange: { green: [0.07, 0.10], yellow: [0.06, 0.07], red: [0.10, 0.12] } },
                 { id: 'pdStage3', label: 'PD Etapa 3 (Lifetime)', min: 0.30, max: 0.50, step: 0.01, type: 'range', format: val => (val * 100).toFixed(1) + '%', tooltip: '      🚨       Impaired assets: 35-45% realistic. <30% = recovery overestimate, >50% = write-off territory' },
@@ -745,8 +776,8 @@
                 { id: 'fairValueVenta', label: '% Fair Value Venta', min: 75, max: 90, step: 1, type: 'number', format: val => val.toFixed(0) + '%', tooltip: '      💰       Recovery value: 85% reasonable for well-maintained vehicles. Market dependent' },
                 { id: 'costosVenta', label: '% Costos Venta', min: 4, max: 8, step: 0.5, type: 'number', format: val => val.toFixed(1) + '%', tooltip: '      💸       Transaction costs: 5-6% typical (storage, auction, legal, transport)' },
                 { id: 'ebitdaMultipleProject', label: 'Múltiplo EBITDA TIR Proyecto', min: 5, max: 9, step: 0.5, type: 'range', format: val => val.toFixed(1) + 'X', tooltip: '      🎯       Valuation realista: 7x es una base conservadora. Equipment finance típico 6-8x.' },
-                { id: 'floorEquityMultiple', label: 'Múltiplo Valor en Libros (P/B)', min: 1.0, max: 2.0, step: 0.1, type: 'range', format: val => val.toFixed(1) + 'X', tooltip: '      📚       Método de valoración estándar para financieras. 1.2-1.5x = conservador, >1.5x = optimista.' },
-                { id: 'ventureDebtRate', label: 'Tasa Venture Debt', min: 14, max: 20, step: 0.5, type: 'range', format: val => val.toFixed(1) + '%', tooltip: '      ⚖️       Risk balance: 16-18% market rate. >18% = covenant risk, debt service stress con commercial debt', investorRange: { green: [16, 18], yellow: [14, 16], red: [18, 20] } },
+                { id: 'floorEquityMultiple', label: 'Múltiplo Valor en Libros (P/B)', min: 1.0, max: 2.0, step: 0.1, type: 'range', format: val => val.toFixed(1) + 'X', tooltip: "Método de valoración estándar para financieras. 1.2-1.5x es conservador. Nuestro 1.8x asume la prima de valor generada por nuestra plataforma tecnológica y flujos de ingresos diversificados." },
+                { id: 'ventureDebtRate', label: 'Tasa Venture Debt', min: 14, max: 20, step: 0.5, type: 'range', format: val => val.toFixed(1) + '%', tooltip: "Costo del capital de crecimiento. Tasas superiores al 18% impactan directamente la TIR Equity y pueden poner en riesgo el cumplimiento de covenants de deuda (DSCR).", investorRange: { green: [16, 18], yellow: [14, 16], red: [18, 20] } },
                 { id: 'commercialDebtRate', label: 'Tasa Deuda Comercial', min: 12, max: 16, step: 0.5, type: 'range', format: val => val.toFixed(1) + '%', tooltip: '      🏦       Blended target: Total debt service <35% EBITDA. Monitor combined with venture debt para DSCR saludable', investorRange: { green: [13, 15], yellow: [12, 13], red: [15, 16] } }
             ],
         };
