@@ -339,6 +339,13 @@ margin: 0;
     background-color: rgba(14, 165, 233, 0.1);
     color: #7dd3fc; /* sky-300 */
 }
+.instrument-header {
+    background-color: #1a233b;
+    color: #f8fafc;
+    font-weight: 600;
+    text-align: left;
+    padding-left: 1rem;
+}
 
 
 /* Dynamic Validation Styles */
@@ -628,7 +635,7 @@ min-height: 280px;
 </div>
 <!-- Row 3: Future & Leadership -->
 <div class="card">
-<h4 class="text-lg font-semibold mb-3 text-white">🎮 Gamification Impact</h4>
+<h4 class="font-semibold text-lg mb-3 text-white">🎮 Gamification Impact</h4>
 <div style="height: 280px;"><canvas id="gamificationChart"></canvas></div>
 </div>
 <div class="card">
@@ -697,9 +704,9 @@ portfolioAllocationStage3: 0.08,
 unitsPerYear: [80, 200, 400, 620, 600], // Totals 1900 units
 
 // Capital Structure
-seriesA: 60000000,
+seriesA: 80000000,
 ventureDebtLineAvailable: 100000000, 
-commercialDebtLineAvailable: 400000000, 
+commercialDebtLineAvailable: 300000000, 
 ventureDebtRate: 18.0,
 commercialDebtRate: 14.0,
 // Planned Drawdowns
@@ -710,7 +717,7 @@ ventureDebtYear4: 0,
 ventureDebtYear5: 0,
 commercialDebtYear1: 0,
 commercialDebtYear2: 0,
-commercialDebtYear3: 200000000,
+commercialDebtYear3: 100000000,
 commercialDebtYear4: 100000000,
 commercialDebtYear5: 100000000,
 partnerCapitalizationYear1: 50000000,
@@ -719,11 +726,11 @@ partnerCapitalizationYear3: 0,
 partnerCapitalizationYear4: 0,
 partnerCapitalizationYear5: 0,
 seriesB_newInvestors_year2: 0,
-seriesB_newInvestors_year3: 100000000,
+seriesB_newInvestors_year3: 70000000,
 
 // Other Assumptions
-ebitdaProject: 7.5,
-floorEquity: 1.4,
+ebitdaMultipleProject: 7.5,
+floorEquityMultiple: 1.4,
 proteccionRodando: true,
 economicAdjustmentFactor: 1.0,
 margenRefacciones: 30,
@@ -790,7 +797,7 @@ riesgoYSalida: [
 { id: 'tasaReposicion', label: '% Unidades Reposición', min: 3, max: 7, step: 0.5, type: 'number', format: val => val.toFixed(1) + '%', tooltip: '🔄 Repossession rate: 4-6% realistic. <3% = recovery overestimate, >7% = business model stress' },
 { id: 'fairValueVenta', label: '% Fair Value Venta', min: 75, max: 90, step: 1, type: 'number', format: val => val.toFixed(0) + '%', tooltip: '💰 Recovery value: 85% reasonable for well-maintained vehicles. Market dependent' },
 { id: 'costosVenta', label: '% Costos Venta', min: 4, max: 8, step: 0.5, type: 'number', format: val => val.toFixed(1) + '%', tooltip: '💸 Transaction costs: 5-6% typical (storage, auction, legal, transport)' },
-{ id: 'ebitdaMultipleProject', label: 'Múltiplo EBITDA TIR Proyecto', min: 6, max: 9, step: 0.5, type: 'range', format: val => val.toFixed(1) + 'X', tooltip: '🎯 Tech-enabled equipment finance: 6-8x base, hasta 9x con plataforma IA/data. RAG target: 7.5x.' },
+{ id: 'ebitdaMultipleProject', label: 'Múltiplo EBITDA TIR', min: 6, max: 9, step: 0.5, type: 'range', format: val => val.toFixed(1) + 'X', tooltip: '🎯 Tech-enabled equipment finance: 6-8x base, hasta 9x con plataforma IA/data. RAG target: 7.5x.' },
 { id: 'floorEquityMultiple', label: 'Múltiplo Valor en Libros (P/B)', min: 1.2, max: 1.8, step: 0.1, type: 'range', format: val => val.toFixed(1) + 'X', tooltip: "Floor value protection. 1.2-1.4x conservative, 1.4-1.6x growth, 1.6x+ aggressive. Solo como valor mínimo vs EBITDA multiple." },
 { id: 'ventureDebtRate', label: 'Tasa Venture Debt', min: 17.0, max: 21.0, step: 0.5, type: 'range', format: val => val.toFixed(1) + '%', tooltip: "Costo del capital de crecimiento. 18-19% es el estándar del mercado mexicano. Tasas superiores impactan la TIR y el DSCR." },
 { id: 'commercialDebtRate', label: 'Tasa Deuda Comercial', min: 13.0, max: 16.0, step: 0.5, type: 'range', format: val => val.toFixed(1) + '%', tooltip: "Costo del capital de escala. 14-15% es el estándar para deuda bancaria en esta etapa." }
@@ -3363,12 +3370,7 @@ function setupFinancingMatrix() {
     // Header
     const thead = table.createTHead();
     const headerRow = thead.insertRow();
-    headerRow.innerHTML = `<th>Instrumento</th>` + Array.from({length: 5}, (_, i) => `<th colspan="3">Año ${i+1}</th>`).join('');
-    const subHeaderRow = thead.insertRow();
-    subHeaderRow.insertCell();
-    for(let i=0; i<5; i++) {
-        subHeaderRow.innerHTML += `<th class="font-normal text-xs text-slate-400">Planeado</th><th class="font-normal text-xs text-slate-400">Adicional</th><th class="font-normal text-xs text-slate-400">Total</th>`;
-    }
+    headerRow.innerHTML = `<th>Instrumento</th><th>Año 1</th><th>Año 2</th><th>Año 3</th><th>Año 4</th><th>Año 5</th>`;
 
     // Body
     const tbody = table.createTBody();
@@ -3380,25 +3382,32 @@ function setupFinancingMatrix() {
     ];
     
     rowsData.forEach(rowData => {
-        const row = tbody.insertRow();
-        row.insertCell().textContent = rowData.label;
-        for (let year = 1; year <= 5; year++) {
-            const modelKey = `${rowData.key}${year}`;
-            const plannedCell = row.insertCell();
-            const additionalCell = row.insertCell();
-            const totalCell = row.insertCell();
+        // Instrument Header Row
+        const headerTr = tbody.insertRow();
+        const headerTd = headerTr.insertCell();
+        headerTd.colSpan = 6;
+        headerTd.className = 'instrument-header';
+        headerTd.textContent = rowData.label;
 
-            plannedCell.innerHTML = `<input type="number" id="planned-${modelKey}" step="1000000" min="0" value="${modelData[modelKey] || 0}" class="w-full">`;
-            additionalCell.id = `additional-${modelKey}`;
-            additionalCell.className = 'additional-value';
-            totalCell.id = `total-${modelKey}`;
-            totalCell.className = 'total-value';
-            
-            plannedCell.querySelector('input').addEventListener('change', (e) => {
-                modelData[modelKey] = parseFloat(e.target.value) || 0;
-                forceCalculate();
-            });
-        }
+        // Planned, Additional, Total Rows
+        ['Planeado', 'Adicional', 'Total'].forEach(type => {
+            const dataRow = tbody.insertRow();
+            dataRow.insertCell().textContent = type;
+            for(let year = 1; year <= 5; year++) {
+                const cell = dataRow.insertCell();
+                const modelKey = `${rowData.key}${year}`;
+                if (type === 'Planeado') {
+                    cell.innerHTML = `<input type="number" id="planned-${modelKey}" step="1000000" min="0" value="${modelData[modelKey] || 0}" class="w-full">`;
+                    cell.querySelector('input').addEventListener('change', (e) => {
+                        modelData[modelKey] = parseFloat(e.target.value) || 0;
+                        forceCalculate();
+                    });
+                } else {
+                    cell.id = `${type.toLowerCase()}-${modelKey}`;
+                    cell.className = type === 'Adicional' ? 'additional-value' : 'total-value';
+                }
+            }
+        });
     });
 
     container.appendChild(table);
@@ -3432,8 +3441,17 @@ function updateFinancingMatrixWithOptimized() {
     for (let year = 1; year <= 5; year++) {
         equityKeys.forEach(key => {
             const modelKey = `${key}${year}`;
-            totalPlannedEquity += plannedFinancingData[modelKey] || 0;
-            totalOptimizedEquity += modelData[modelKey] || 0;
+            const plannedValue = plannedFinancingData[modelKey] || 0;
+            const totalValue = modelData[modelKey] || 0;
+            const additionalValue = totalValue - plannedValue;
+
+            totalPlannedEquity += plannedValue;
+            totalOptimizedEquity += totalValue;
+
+            const additionalCell = document.getElementById(`adicional-${modelKey}`);
+            const totalCell = document.getElementById(`total-${modelKey}`);
+            if (additionalCell) additionalCell.textContent = formatCurrency(additionalValue);
+            if (totalCell) totalCell.textContent = formatCurrency(totalValue);
         });
         debtKeys.forEach(key => {
             const modelKey = `${key}${year}`;
@@ -3444,7 +3462,7 @@ function updateFinancingMatrixWithOptimized() {
             totalPlannedDebt += plannedValue;
             totalOptimizedDebt += totalValue;
 
-            const additionalCell = document.getElementById(`additional-${modelKey}`);
+            const additionalCell = document.getElementById(`adicional-${modelKey}`);
             const totalCell = document.getElementById(`total-${modelKey}`);
             if (additionalCell) additionalCell.textContent = formatCurrency(additionalValue);
             if (totalCell) totalCell.textContent = formatCurrency(totalValue);
