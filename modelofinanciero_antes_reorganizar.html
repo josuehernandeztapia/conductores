@@ -663,55 +663,19 @@ min-height: 280px;
 // Initializes Lucide icons
 lucide.createIcons();
 
-// ========== SECCIÓN 1: CONFIGURACIÓN CENTRALIZADA ==========
-const MODEL_CONFIG = {
-    BALANCE_TOLERANCE: 1000,
-    IRR_TOLERANCE: 1e-7,
-    MAX_IRR_ITERATIONS: 500,
-    BUFFER_CASH: 5000000
-};
+// ===================================================================
+// ===== FASE 1: CONFIGURACIÓN Y DATOS INICIALES (EL QUÉ) =========
+// ===================================================================
+// (Aquí se definen todas las variables y la configuración inicial del modelo)
+let debugLogs = []; // Array to store debug logs
+let charts = {}; // Object to store Chart.js instances
+let plannedFinancingData = {}; // NEW: To store pre-calculation financing plan
 
-const VALIDATION_RULES = {
-    MIN_EBITDA_MARGIN: 10,
-    MAX_EBITDA_MARGIN: 40,
-    MIN_ROE: 20,
-    MAX_ROE: 30,
-    MIN_DSCR: 1.5,
-    MAX_DEBT_EQUITY_RATIO: 3
-};
-
-// ========== SECCIÓN 2: DATOS Y ESTADO ==========
-class ModelState {
-    constructor() {
-        this.modelData = {};
-        this.plannedFinancingData = {};
-        this.financialResults = { 
-            pl: [], 
-            cf: [], 
-            bs: [], 
-            niifDetails: [], 
-            tirProyecto: 0, 
-            tirCartera: 0, 
-            tirEquity: 0, 
-            roe: [], 
-            roic: [] 
-        };
-        this.heldForSaleAssets = [];
-        this.charts = {};
-        this.debugLogs = [];
-    }
-}
-
-// Instancia global del estado
-const appState = new ModelState();
-
-// Variables globales para compatibilidad con código existente
-let debugLogs = appState.debugLogs;
-let charts = appState.charts;
-let plannedFinancingData = appState.plannedFinancingData;
-
-// Inicialización del modelData en el estado global
-appState.modelData = {
+/**
+* @typedef {Object} ModelData
+* This object holds all the dynamic inputs for the financial model.
+*/
+let modelData = {
 // Unit Economics & Pricing
 tasaInteres: 25.5,
 downPaymentPercentage: 15,
@@ -787,11 +751,6 @@ takeRateMarketplace: 3.0,
 avgRemainingTermCartera: 2.5,
 };
 
-// Variables globales para compatibilidad
-let modelData = appState.modelData;
-let financialResults = appState.financialResults;
-let heldForSaleAssets = appState.heldForSaleAssets;
-
 // UI controls configuration by section
 const controlsConfig = {
 paqueteFinanciado: [
@@ -845,13 +804,28 @@ riesgoYSalida: [
 ],
 };
 
-// Tolerance for balance sheet validation (MXN) - MOVED TO MODEL_CONFIG
-const BALANCE_TOLERANCE = MODEL_CONFIG.BALANCE_TOLERANCE;
-// ========== SECCIÓN 3: MOTOR DE CÁLCULOS FINANCIEROS ==========
-class FinancialCalculator {
-    constructor(modelState) {
-        this.state = modelState;
-    }
+// Object to store calculated financial results
+let financialResults = {
+pl: [], // Profit & Loss
+cf: [], // Cash Flow
+bs: [], // Balance Sheet
+niifDetails: [], // IFRS application details
+tirProyecto: 0, // Project Internal Rate of Return
+tirCartera: 0, // Customer Portfolio Internal Rate of Return
+tirEquity: 0, // Equity Internal Rate of Return
+roe: [], // Annual Return on Equity
+roic: [] // Annual Return on Invested Capital
+};
+
+// New global array for IFRS 5 assets
+let heldForSaleAssets = [];
+
+// Tolerance for balance sheet validation (MXN)
+const BALANCE_TOLERANCE = 1000;
+// ===================================================================
+// ===== FASE 2: MOTOR DE CÁLCULO FINANCIERO (EL CÓMO) ============
+// ===================================================================
+// (Aquí se encuentran todas las funciones de cálculo puro que no tocan el DOM)
 
 /**
 * Formats a numeric value to currency format (millions, thousands, or no prefix).
@@ -1565,13 +1539,13 @@ annualDepreciation += depreciationThisYear;
 return annualDepreciation;
 }
 
-    /**
-     * Central function to calculate all financial statements of the model.
-     * Process: Iterates year by year, calculating revenues, expenses, flows, and balances,
-     * integrating IFRS logic and validations.
-     * @returns {boolean} True if the calculation was successful, false if there was a critical error (e.g., unbalanced balance sheet).
-     */
-    calculateFinancials() {
+/**
+* Central function to calculate all financial statements of the model.
+* Process: Iterates year by year, calculating revenues, expenses, flows, and balances,
+* integrating IFRS logic and validations.
+* @returns {boolean} True if the calculation was successful, false if there was a critical error (e.g., unbalanced balance sheet).
+*/
+function calculateFinancials() {
 log('🚀 calculateFinancials (v23 - Strategic Case) INICIANDO');
 try {
 // --- Reset results ---
@@ -1793,10 +1767,7 @@ log(`❌ ERROR in calculateFinancials (v23): ${error.message}`);
 document.getElementById('balance-validation').innerHTML = `<span class="text-red-600">❌ ${error.message}</span>`;
 return false;
 }
-    }
-
-    // CONSERVAR EXACTAMENTE todas las funciones NIIF y auxiliares:
-    // (Las funciones de cálculo se mantendrán como métodos de la clase)
+}
 
 /**
 * Calculates the Internal Rate of Return (IRR) using the Newton-Raphson method.
