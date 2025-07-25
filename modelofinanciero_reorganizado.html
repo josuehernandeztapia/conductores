@@ -789,16 +789,32 @@ class ModelState {
     }
 }
 
-// Instancia global del estado
-const appState = new ModelState();
-
 // Variables globales para compatibilidad con código existente
-let debugLogs = appState.debugLogs;
-let charts = appState.charts;
-let plannedFinancingData = appState.plannedFinancingData;
-let modelData = appState.modelData;
-let financialResults = appState.financialResults;
-let heldForSaleAssets = appState.heldForSaleAssets;
+let debugLogs = [];
+let charts = {};
+let plannedFinancingData = {};
+let financialResults = { 
+    pl: [], 
+    cf: [], 
+    bs: [], 
+    niifDetails: [], 
+    tirProyecto: 0, 
+    tirCartera: 0, 
+    tirEquity: 0, 
+    roe: [], 
+    roic: [] 
+};
+let heldForSaleAssets = [];
+
+// Instancia global del estado
+const appState = {
+    modelData: {},
+    plannedFinancingData: plannedFinancingData,
+    financialResults: financialResults,
+    heldForSaleAssets: heldForSaleAssets,
+    charts: charts,
+    debugLogs: debugLogs
+};
 
 // Tolerance for balance sheet validation (MXN)
 const BALANCE_TOLERANCE = MODEL_CONFIG.BALANCE_TOLERANCE;
@@ -903,143 +919,139 @@ const controlsConfig = {
 };
 
 // ========== SECCIÓN 3: MOTOR DE CÁLCULOS FINANCIEROS ==========
-class FinancialCalculator {
-    constructor(modelState) {
-        this.state = modelState;
+
+/**
+ * Formats a numeric value to currency format (millions, thousands, or no prefix).
+ * @param {number} value - The numeric value to format.
+ * @param {boolean} [full=false] - If true, use full format with commas; otherwise, use abbreviations.
+ * @returns {string} The value formatted as a string.
+ */
+function formatCurrency(value, full = false) {
+    if (value === null || value === undefined || isNaN(value)) return '$0 MXN';
+    value = parseFloat(value);
+
+    if (full) {
+        return '$' + value.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + ' MXN';
+    } else if (Math.abs(value) >= 1000000) {
+        return '$' + (value / 1000000).toFixed(1) + 'M';
+    } else if (Math.abs(value) >= 1000) {
+        return '$' + (value / 1000).toFixed(1) + 'K';
     }
+    return '$' + Math.round(value).toLocaleString();
+}
 
-    /**
-     * Formats a numeric value to currency format (millions, thousands, or no prefix).
-     * @param {number} value - The numeric value to format.
-     * @param {boolean} [full=false] - If true, use full format with commas; otherwise, use abbreviations.
-     * @returns {string} The value formatted as a string.
-     */
-    formatCurrency(value, full = false) {
-        if (value === null || value === undefined || isNaN(value)) return '$0 MXN';
-        value = parseFloat(value);
+/**
+ * Calculates the total price of financed insurance.
+ * @returns {number}
+ */
+function getInsuranceTotalPrice() {
+    return modelData.insuranceAnnualPrice * modelData.insuranceYears;
+}
 
-        if (full) {
-            return '$' + value.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + ' MXN';
-        } else if (Math.abs(value) >= 1000000) {
-            return '$' + (value / 1000000).toFixed(1) + 'M';
-        } else if (Math.abs(value) >= 1000) {
-            return '$' + (value / 1000).toFixed(1) + 'K';
-        }
-        return '$' + Math.round(value).toLocaleString();
-    }
+/**
+ * Calculates the TOTAL PRICE of the complete package.
+ * @returns {number}
+ */
+function getTotalPackagePrice() {
+    return modelData.vanPrice + modelData.conversionPrice +
+        modelData.bancasPrice + modelData.gpsPrice + getInsuranceTotalPrice();
+}
 
-    /**
-     * Calculates the total price of financed insurance.
-     * @returns {number}
-     */
-    getInsuranceTotalPrice() {
-        return modelData.insuranceAnnualPrice * modelData.insuranceYears;
-    }
+/**
+ * Calculates the TOTAL COST of the package for RAG.
+ * @returns {number}
+ */
+function getTotalPackageCost() {
+    // Insurance has no cost for RAG (pass-through)
+    return modelData.vanCost + modelData.conversionCost +
+        modelData.bancasCost + modelData.gpsCost;
+}
 
-    /**
-     * Calculates the TOTAL PRICE of the complete package.
-     * @returns {number}
-     */
-    getTotalPackagePrice() {
-        return modelData.vanPrice + modelData.conversionPrice +
-            modelData.bancasPrice + modelData.gpsPrice + this.getInsuranceTotalPrice();
-    }
+/**
+ * Calculates the total CAPEX required based on current units.
+ * @returns {number}
+ */
+function calculateTotalCapex() {
+    return modelData.unitsPerYear.reduce((sum, units) => sum + (units * getTotalPackageCost()), 0);
+}
 
-    /**
-     * Calculates the TOTAL COST of the package for RAG.
-     * @returns {number}
-     */
-    getTotalPackageCost() {
-        // Insurance has no cost for RAG (pass-through)
-        return modelData.vanCost + modelData.conversionCost +
-            modelData.bancasCost + modelData.gpsCost;
-    }
+/**
+ * Central function to calculate all financial statements of the model.
+ * Process: Iterates year by year, calculating revenues, expenses, flows, and balances,
+ * integrating IFRS logic and validations.
+ * @returns {boolean} True if the calculation was successful, false if there was a critical error (e.g., unbalanced balance sheet).
+ */
+function calculateFinancials() {
+    log('🚀 calculateFinancials (v23 - Strategic Case) INICIANDO');
+    try {
+        // --- Reset results ---
+        financialResults = { pl: [], cf: [], bs: [], niifDetails: [], tirProyecto: 0, tirCartera: 0, tirEquity: 0, roe: [], roic: [] };
+        heldForSaleAssets = [];
 
-    /**
-     * Calculates the total CAPEX required based on current units.
-     * @returns {number}
-     */
-    calculateTotalCapex() {
-        return modelData.unitsPerYear.reduce((sum, units) => sum + (units * this.getTotalPackageCost()), 0);
-    }
+        // --- Initial state variables ---
+        let cash = modelData.seriesA;
+        let currentProvisionsBalance = 0;
+        let endOfYearEquity = modelData.seriesA;
 
-    /**
-     * Central function to calculate all financial statements of the model.
-     * Process: Iterates year by year, calculating revenues, expenses, flows, and balances,
-     * integrating IFRS logic and validations.
-     * @returns {boolean} True if the calculation was successful, false if there was a critical error (e.g., unbalanced balance sheet).
-     */
-    calculateFinancials() {
-        log('🚀 calculateFinancials (v23 - Strategic Case) INICIANDO');
-        try {
-            // --- Reset results ---
-            financialResults = { pl: [], cf: [], bs: [], niifDetails: [], tirProyecto: 0, tirCartera: 0, tirEquity: 0, roe: [], roic: [] };
-            heldForSaleAssets = [];
+        // --- Cohort tracking ---
+        let loanCohorts = [];
+        let fixedAssetsCohorts = [];
+        let ventureDebtCohorts = [];
+        let commercialDebtCohorts = [];
 
-            // --- Initial state variables ---
-            let cash = modelData.seriesA;
-            let currentProvisionsBalance = 0;
-            let endOfYearEquity = modelData.seriesA;
+        // --- Balance tracking ---
+        let ventureDebtBalance = 0;
+        let commercialDebtBalance = 0;
 
-            // --- Cohort tracking ---
-            let loanCohorts = [];
-            let fixedAssetsCohorts = [];
-            let ventureDebtCohorts = [];
-            let commercialDebtCohorts = [];
+        // --- IRR Cash Flow arrays ---
+        let equityCashFlows = [-modelData.seriesA];
+        let projectCashFlows = [-modelData.seriesA];
+        let portfolioCashFlows = [];
+        log(`Initial Series A capital: ${formatCurrency(modelData.seriesA)}`);
 
-            // --- Balance tracking ---
-            let ventureDebtBalance = 0;
-            let commercialDebtBalance = 0;
+        // --- Main annual loop (5 years) ---
+        for (let year = 0; year < 5; year++) {
+            const currentYear = year + 1;
+            log(`\n--- Calculating Year ${currentYear} ---`);
 
-            // --- IRR Cash Flow arrays ---
-            let equityCashFlows = [-modelData.seriesA];
-            let projectCashFlows = [-modelData.seriesA];
-            let portfolioCashFlows = [];
-            log(`Initial Series A capital: ${this.formatCurrency(modelData.seriesA)}`);
+            const startOfYearCash = cash;
+            const startOfYearEquity = endOfYearEquity;
+            const startOfYearVentureDebt = ventureDebtBalance;
+            const startOfYearCommercialDebt = commercialDebtBalance;
 
-            // --- Main annual loop (5 years) ---
-            for (let year = 0; year < 5; year++) {
-                const currentYear = year + 1;
-                log(`\n--- Calculating Year ${currentYear} ---`);
+            loanCohorts.forEach(cohort => { cohort.startOfYearPrincipal = cohort.remainingPrincipal; });
 
-                const startOfYearCash = cash;
-                const startOfYearEquity = endOfYearEquity;
-                const startOfYearVentureDebt = ventureDebtBalance;
-                const startOfYearCommercialDebt = commercialDebtBalance;
+            const addedUnits = modelData.unitsPerYear[year];
+            const capexThisYear = addedUnits * getTotalPackageCost();
 
-                loanCohorts.forEach(cohort => { cohort.startOfYearPrincipal = cohort.remainingPrincipal; });
-
-                const addedUnits = modelData.unitsPerYear[year];
-                const capexThisYear = addedUnits * this.getTotalPackageCost();
-
-                if (addedUnits > 0) {
-                    fixedAssetsCohorts.push({ yearAcquired: currentYear, units: addedUnits, totalOriginalCost: capexThisYear, accumulatedDepreciation: 0 });
-                }
-
-                // Continue with complete original calculation logic...
-                // [Rest of the 200+ line function would be copied here]
-
-                log('✅ FINANCIAL CALCULATIONS (v23) COMPLETED');
-                return true;
+            if (addedUnits > 0) {
+                fixedAssetsCohorts.push({ yearAcquired: currentYear, units: addedUnits, totalOriginalCost: capexThisYear, accumulatedDepreciation: 0 });
             }
-        } catch (error) {
-            log(`❌ ERROR in calculateFinancials (v23): ${error.message}`);
-            if (document.getElementById('balance-validation')) {
-                document.getElementById('balance-validation').innerHTML = `<span class="text-red-600">❌ ${error.message}</span>`;
-            }
-            return false;
-        }
-    }
 
-    /**
-     * Calculates Expected Credit Loss (ECL) under IFRS 9 based on a three-stage model.
-     * @param {Array<Object>} loanCohorts - Array of active loan cohorts.
-     * @param {number} currentYear - The current projection year (1-5).
-     * @param {number} currentProvisionsBalance - Current accumulated provisions balance.
-     * @param {number} currentYearEndReceivables - Total receivables at year-end.
-     * @returns {Object} Contains annual provision, accumulated balance, and details by stage.
-     */
-    calculateNIIF9ECL(loanCohorts, currentYear, currentProvisionsBalance, currentYearEndReceivables) {
+            // Continue with complete original calculation logic...
+            // [Rest of the 200+ line function would be copied here]
+
+            log('✅ FINANCIAL CALCULATIONS (v23) COMPLETED');
+            return true;
+        }
+    } catch (error) {
+        log(`❌ ERROR in calculateFinancials (v23): ${error.message}`);
+        if (document.getElementById('balance-validation')) {
+            document.getElementById('balance-validation').innerHTML = `<span class="text-red-600">❌ ${error.message}</span>`;
+        }
+        return false;
+    }
+}
+
+/**
+ * Calculates Expected Credit Loss (ECL) under IFRS 9 based on a three-stage model.
+ * @param {Array<Object>} loanCohorts - Array of active loan cohorts.
+ * @param {number} currentYear - The current projection year (1-5).
+ * @param {number} currentProvisionsBalance - Current accumulated provisions balance.
+ * @param {number} currentYearEndReceivables - Total receivables at year-end.
+ * @returns {Object} Contains annual provision, accumulated balance, and details by stage.
+ */
+function calculateNIIF9ECL(loanCohorts, currentYear, currentProvisionsBalance, currentYearEndReceivables) {
         const loanTermAdjustmentFactor = modelData.clientLoanTermYears === 4 ? 0.8 : 1.0;
         const adjustedPDStage1 = modelData.pdStage1 * loanTermAdjustmentFactor;
         const adjustedPDStage2 = modelData.pdStage2 * loanTermAdjustmentFactor;
@@ -1060,10 +1072,10 @@ class FinancialCalculator {
             totalECLForYear = eclByStage.stage1 + eclByStage.stage2 + eclByStage.stage3;
 
             log(`📊 NIIF 9 PORTFOLIO ALLOCATIONS - Año ${currentYear}:`);
-            log(`   Total exposure: ${this.formatCurrency(totalExposure)}`);
-            log(`   Stage 1 (${(modelData.portfolioAllocationStage1*100).toFixed(0)}%): ${this.formatCurrency(eclByStage.stage1)}`);
-            log(`   Stage 2 (${(modelData.portfolioAllocationStage2*100).toFixed(0)}%): ${this.formatCurrency(eclByStage.stage2)}`);
-            log(`   Stage 3 (${(modelData.portfolioAllocationStage3*100).toFixed(0)}%): ${this.formatCurrency(eclByStage.stage3)}`);
+            log(`   Total exposure: ${formatCurrency(totalExposure)}`);
+            log(`   Stage 1 (${(modelData.portfolioAllocationStage1*100).toFixed(0)}%): ${formatCurrency(eclByStage.stage1)}`);
+            log(`   Stage 2 (${(modelData.portfolioAllocationStage2*100).toFixed(0)}%): ${formatCurrency(eclByStage.stage2)}`);
+            log(`   Stage 3 (${(modelData.portfolioAllocationStage3*100).toFixed(0)}%): ${formatCurrency(eclByStage.stage3)}`);
         }
 
         totalECLForYear *= modelData.economicAdjustmentFactor;
@@ -1084,20 +1096,20 @@ class FinancialCalculator {
             newProvisionsBalance = provisionesEsperadas;
         }
 
-        return {
-            annualProvisionExpense: annualProvisionExpense,
-            newProvisionsBalance: newProvisionsBalance,
-            totalECLBeforeAdjustment: totalECLForYear,
-            eclByStage: eclByStage
-        };
-    }
+                 return {
+             annualProvisionExpense: annualProvisionExpense,
+             newProvisionsBalance: newProvisionsBalance,
+             totalECLBeforeAdjustment: totalECLForYear,
+             eclByStage: eclByStage
+         };
+     }
 
-    /**
-     * Conceptually validates if a performance obligation is met to recognize revenue under IFRS 15.
-     * @param {Object} cohort - The loan cohort to validate.
-     * @returns {boolean} True if revenue can be recognized.
-     */
-    validatePerformanceObligation(cohort) {
+/**
+ * Conceptually validates if a performance obligation is met to recognize revenue under IFRS 15.
+ * @param {Object} cohort - The loan cohort to validate.
+ * @returns {boolean} True if revenue can be recognized.
+ */
+function validatePerformanceObligation(cohort) {
         // A simple but effective check: revenue is earned as the service (loan) is provided.
         // This is true if payments have started and the principal has been reduced.
         const isServiceBeingProvided = cohort.paymentsMadeMonths > 0 && cohort.remainingPrincipal < cohort.originalPrincipal;
