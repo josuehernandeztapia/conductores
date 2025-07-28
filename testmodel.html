@@ -391,6 +391,39 @@ input[type="range"]::-webkit-slider-track {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
+/* Scenario button styles */
+.scenario-btn {
+    transition: all 0.3s ease;
+    transform: scale(1);
+}
+
+.scenario-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.scenario-btn.active {
+    border-color: #0ea5e9;
+    background-color: #0c4a6e;
+    box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.3);
+}
+
+/* Comparison table styles */
+#comparison-table-body tr:hover {
+    background-color: rgba(51, 65, 85, 0.3);
+}
+
+/* Animation for optimization */
+@keyframes optimizing {
+    0% { opacity: 0.5; }
+    50% { opacity: 1; }
+    100% { opacity: 0.5; }
+}
+
+.optimizing {
+    animation: optimizing 1s infinite;
+}
+
 @media (max-width: 1024px) {
 .compact-chart {
 min-height: 280px;
@@ -780,6 +813,605 @@ gmvPromedioMensualPorUnidad: 9000,
 takeRateMarketplace: 3.0,
 avgRemainingTermCartera: 2.5,
 };
+
+// ===================================================================
+// ===== FASE 3: SCENARIO PRESETS & INTELLIGENT OPTIMIZATION =======
+// ===================================================================
+
+/**
+ * Definición de escenarios estratégicos predefinidos
+ */
+const strategicScenarios = {
+    seed: {
+        id: 'seed',
+        name: 'SEED Validation',
+        description: 'Conservative validation with minimal units and 100% tech focus',
+        icon: '🌱',
+        funding: 6600000,
+        timeline: '18 meses',
+        unitsPerYear: [0, 10, 0, 0, 0],
+        focus: 'Technology Development + Pilot Validation',
+        
+        // Financing structure
+        seriesA: 6600000,
+        ventureDebtLineAvailable: 0,
+        commercialDebtLineAvailable: 0,
+        
+        // Conservative parameters
+        tasaInteres: 24.0,
+        downPaymentPercentage: 20,
+        pdStage1: 0.010,
+        
+        // All venture debt/commercial set to 0
+        ventureDebtYear1: 0, ventureDebtYear2: 0, ventureDebtYear3: 0, ventureDebtYear4: 0, ventureDebtYear5: 0,
+        commercialDebtYear1: 0, commercialDebtYear2: 0, commercialDebtYear3: 0, commercialDebtYear4: 0, commercialDebtYear5: 0,
+        partnerCapitalizationYear1: 0, partnerCapitalizationYear2: 0, partnerCapitalizationYear3: 0, partnerCapitalizationYear4: 0, partnerCapitalizationYear5: 0,
+        seriesB_newInvestors_year2: 0, seriesB_newInvestors_year3: 0,
+        
+        expectedOutcomes: {
+            tirEquity: '15-20%',
+            cashFlowPositive: 'N/A (validation only)',
+            totalUnits: 10,
+            riskLevel: 'Low'
+        }
+    },
+    
+    serieA: {
+        id: 'serieA',
+        name: 'SERIE A Scale',
+        description: 'Post-validation controlled scaling with debt optimization',
+        icon: '🚀',
+        funding: 50000000,
+        timeline: '36 meses',
+        unitsPerYear: [0, 0, 70, 150, 0],
+        focus: 'Controlled Scaling in Known Market',
+        
+        // Financing structure
+        seriesA: 50000000,
+        ventureDebtLineAvailable: 75000000,
+        commercialDebtLineAvailable: 150000000,
+        
+        // Optimized parameters
+        tasaInteres: 25.5,
+        downPaymentPercentage: 15,
+        pdStage1: 0.008,
+        
+        // Debt deployment
+        ventureDebtYear1: 0, ventureDebtYear2: 30000000, ventureDebtYear3: 45000000, ventureDebtYear4: 0, ventureDebtYear5: 0,
+        commercialDebtYear1: 0, commercialDebtYear2: 0, commercialDebtYear3: 50000000, commercialDebtYear4: 100000000, commercialDebtYear5: 0,
+        partnerCapitalizationYear1: 0, partnerCapitalizationYear2: 25000000, partnerCapitalizationYear3: 0, partnerCapitalizationYear4: 0, partnerCapitalizationYear5: 0,
+        seriesB_newInvestors_year2: 0, seriesB_newInvestors_year3: 0,
+        
+        expectedOutcomes: {
+            tirEquity: '22-28%',
+            cashFlowPositive: 'Year 4',
+            totalUnits: 220,
+            riskLevel: 'Medium'
+        }
+    },
+    
+    expansion: {
+        id: 'expansion',
+        name: 'EXPANSION Ready',
+        description: 'Full scale deployment for market leadership',
+        icon: '📈',
+        funding: 250000000,
+        timeline: '60 meses',
+        unitsPerYear: [0, 0, 0, 200, 300],
+        focus: 'Market Leadership + Geographic Expansion',
+        
+        // Financing structure
+        seriesA: 80000000,
+        ventureDebtLineAvailable: 100000000,
+        commercialDebtLineAvailable: 300000000,
+        
+        // Aggressive parameters
+        tasaInteres: 25.5,
+        downPaymentPercentage: 15,
+        pdStage1: 0.008,
+        
+        // Full debt utilization
+        ventureDebtYear1: 50000000, ventureDebtYear2: 50000000, ventureDebtYear3: 0, ventureDebtYear4: 0, ventureDebtYear5: 0,
+        commercialDebtYear1: 0, commercialDebtYear2: 0, commercialDebtYear3: 100000000, commercialDebtYear4: 100000000, commercialDebtYear5: 100000000,
+        partnerCapitalizationYear1: 50000000, partnerCapitalizationYear2: 50000000, partnerCapitalizationYear3: 0, partnerCapitalizationYear4: 0, partnerCapitalizationYear5: 0,
+        seriesB_newInvestors_year2: 0, seriesB_newInvestors_year3: 70000000,
+        
+        expectedOutcomes: {
+            tirEquity: '25-35%',
+            cashFlowPositive: 'Year 3',
+            totalUnits: 500,
+            riskLevel: 'High'
+        }
+    }
+};
+
+/**
+ * Aplicar escenario predefinido
+ */
+function applyScenario(scenarioId) {
+    const scenario = strategicScenarios[scenarioId];
+    if (!scenario) return false;
+    
+    log(`🎯 Applying scenario: ${scenario.name}`);
+    
+    // Apply all scenario parameters to modelData
+    Object.keys(scenario).forEach(key => {
+        if (key !== 'id' && key !== 'name' && key !== 'description' && 
+            key !== 'icon' && key !== 'timeline' && key !== 'focus' && 
+            key !== 'expectedOutcomes' && modelData.hasOwnProperty(key)) {
+            modelData[key] = scenario[key];
+        }
+    });
+    
+    // Update UI controls to reflect new values
+    updateAllControlsFromModelData();
+    
+    // Force recalculation
+    forceCalculate();
+    
+    // Update active scenario indicator
+    updateActiveScenarioIndicator(scenarioId);
+    
+    log(`✅ Scenario ${scenario.name} applied successfully`);
+    return true;
+}
+
+/**
+ * Actualizar todos los controles UI con valores de modelData
+ */
+function updateAllControlsFromModelData() {
+    // Update all inputs that have corresponding modelData values
+    Object.keys(modelData).forEach(key => {
+        if (Array.isArray(modelData[key])) {
+            // Handle arrays (like unitsPerYear, opexRates)
+            modelData[key].forEach((value, index) => {
+                const input = document.getElementById(`${key}-${index + 1}`);
+                if (input) input.value = value;
+            });
+        } else {
+            // Handle single values
+            const input = document.getElementById(`${key}-input`) || document.getElementById(key);
+            if (input) {
+                input.value = modelData[key];
+                // Trigger change event to update displays
+                input.dispatchEvent(new Event('input'));
+            }
+        }
+    });
+    
+    // Update summary displays
+    updatePackageSummary();
+    updateCapitalSummaryDashboard();
+}
+
+/**
+ * Crear botones de escenarios en el header
+ */
+function createScenarioButtons() {
+    const header = document.querySelector('header');
+    let scenarioContainer = document.getElementById('scenario-buttons');
+    
+    if (!scenarioContainer) {
+        scenarioContainer = document.createElement('div');
+        scenarioContainer.id = 'scenario-buttons';
+        scenarioContainer.className = 'mt-6 flex flex-wrap justify-center gap-3';
+        header.appendChild(scenarioContainer);
+    }
+    
+    scenarioContainer.innerHTML = `
+        <div class="w-full text-center mb-4">
+            <h3 class="text-lg font-semibold text-slate-300 mb-2">🎯 Strategic Scenarios</h3>
+            <p class="text-sm text-slate-400">Choose a predefined strategy or optimize current configuration</p>
+        </div>
+        
+        <div class="flex flex-wrap justify-center gap-3 mb-4">
+            ${Object.values(strategicScenarios).map(scenario => `
+                <button onclick="applyScenario('${scenario.id}')" 
+                        id="scenario-btn-${scenario.id}"
+                        class="scenario-btn px-4 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-lg transition-all duration-200 min-w-[160px]">
+                    <div class="text-2xl mb-1">${scenario.icon}</div>
+                    <div class="font-semibold text-white text-sm">${scenario.name}</div>
+                    <div class="text-xs text-slate-400 mt-1">${scenario.timeline}</div>
+                    <div class="text-xs text-emerald-400 mt-1">${scenario.expectedOutcomes.tirEquity}</div>
+                </button>
+            `).join('')}
+        </div>
+        
+        <div class="flex justify-center gap-3">
+            <button onclick="optimizeCapitalStructure()" 
+                    class="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-medium transition-all duration-200">
+                🤖 Auto-Optimize WACC
+            </button>
+            <button onclick="openScenarioComparison()" 
+                    class="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition-all duration-200">
+                📊 Compare Scenarios
+            </button>
+        </div>
+        
+        <div id="active-scenario-indicator" class="mt-3 text-center hidden">
+            <div class="inline-block px-3 py-1 bg-sky-900 border border-sky-600 rounded-full text-xs text-sky-200">
+                <span id="active-scenario-name">No scenario active</span>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Actualizar indicador de escenario activo
+ */
+function updateActiveScenarioIndicator(scenarioId) {
+    const indicator = document.getElementById('active-scenario-indicator');
+    const nameElement = document.getElementById('active-scenario-name');
+    
+    if (indicator && nameElement) {
+        const scenario = strategicScenarios[scenarioId];
+        indicator.classList.remove('hidden');
+        nameElement.textContent = `${scenario.icon} ${scenario.name} - ${scenario.focus}`;
+        
+        // Update button styles
+        document.querySelectorAll('.scenario-btn').forEach(btn => {
+            btn.classList.remove('border-sky-500', 'bg-sky-900');
+            btn.classList.add('border-slate-600', 'bg-slate-800');
+        });
+        
+        const activeBtn = document.getElementById(`scenario-btn-${scenarioId}`);
+        if (activeBtn) {
+            activeBtn.classList.remove('border-slate-600', 'bg-slate-800');
+            activeBtn.classList.add('border-sky-500', 'bg-sky-900');
+        }
+    }
+}
+
+/**
+ * Motor de optimización automática de estructura de capital
+ */
+function optimizeCapitalStructure() {
+    log('🤖 Starting WACC optimization...');
+    
+    const currentCapex = calculateTotalCapex();
+    const availableFunding = calculateTotalAvailableFunding();
+    
+    if (currentCapex > availableFunding) {
+        alert(`⚠️ Cannot optimize: CAPEX (${formatCurrency(currentCapex)}) exceeds available funding (${formatCurrency(availableFunding)})`);
+        return;
+    }
+    
+    // Calculate optimal debt/equity mix to minimize WACC
+    const optimizationResults = calculateOptimalMix(currentCapex);
+    
+    // Apply optimization results
+    applyOptimizationResults(optimizationResults);
+    
+    // Show optimization summary
+    showOptimizationSummary(optimizationResults);
+}
+
+function calculateOptimalMix(totalCapexNeeded) {
+    const scenarios = [];
+    
+    // Test different debt/equity ratios
+    for (let debtRatio = 0.3; debtRatio <= 0.8; debtRatio += 0.1) {
+        const debtAmount = totalCapexNeeded * debtRatio;
+        const equityAmount = totalCapexNeeded * (1 - debtRatio);
+        
+        // Distribute debt optimally (cheaper first)
+        let ventureDebt = Math.min(debtAmount * 0.3, modelData.ventureDebtLineAvailable);
+        let commercialDebt = Math.min(debtAmount - ventureDebt, modelData.commercialDebtLineAvailable);
+        
+        if (ventureDebt + commercialDebt < debtAmount) continue; // Skip if can't fund
+        
+        // Calculate WACC for this mix
+        const wacc = calculateWACC(equityAmount, ventureDebt, commercialDebt);
+        const dscr = calculateProjectedDSCR(ventureDebt, commercialDebt);
+        
+        scenarios.push({
+            debtRatio,
+            equityAmount,
+            ventureDebt,
+            commercialDebt,
+            wacc,
+            dscr,
+            feasible: dscr >= 1.5 // Minimum DSCR requirement
+        });
+    }
+    
+    // Find optimal feasible scenario
+    const feasibleScenarios = scenarios.filter(s => s.feasible);
+    
+    if (feasibleScenarios.length === 0) {
+        // If no feasible scenarios, return best available scenario with warning
+        const bestAvailable = scenarios.reduce((best, current) => 
+            current.dscr > best.dscr ? current : best
+        );
+        log(`⚠️ No feasible scenarios found (DSCR >= 1.5). Using best available with DSCR: ${bestAvailable.dscr.toFixed(2)}x`);
+        return {
+            optimal: bestAvailable,
+            allScenarios: scenarios,
+            currentWACC: calculateCurrentWACC(),
+            warning: 'No feasible scenarios found with DSCR >= 1.5'
+        };
+    }
+    
+    const optimal = feasibleScenarios.reduce((best, current) => 
+        current.wacc < best.wacc ? current : best
+    );
+    
+    return {
+        optimal,
+        allScenarios: scenarios,
+        currentWACC: calculateCurrentWACC()
+    };
+}
+
+function calculateWACC(equity, ventureDebt, commercialDebt) {
+    const totalCapital = equity + ventureDebt + commercialDebt;
+    const equityWeight = equity / totalCapital;
+    const vdWeight = ventureDebt / totalCapital;
+    const cdWeight = commercialDebt / totalCapital;
+    
+    // Simplified WACC (assuming cost of equity = 20%)
+    const costOfEquity = 0.20;
+    const costOfVD = modelData.ventureDebtRate / 100;
+    const costOfCD = modelData.commercialDebtRate / 100;
+    const taxRate = modelData.corporateTaxRate / 100;
+    
+    return (equityWeight * costOfEquity) + 
+           (vdWeight * costOfVD * (1 - taxRate)) + 
+           (cdWeight * costOfCD * (1 - taxRate));
+}
+
+function calculateCurrentWACC() {
+    const totalEquity = calculateTotalEquityRaised();
+    const totalDebt = calculateTotalDebtRaised();
+    return calculateWACC(totalEquity, totalDebt * 0.5, totalDebt * 0.5);
+}
+
+function calculateProjectedDSCR(ventureDebt, commercialDebt) {
+    // Simplified DSCR calculation
+    const totalDebt = ventureDebt + commercialDebt;
+    const annualDebtService = totalDebt * 0.25; // Assuming 25% annual service
+    const projectedEBITDA = totalDebt * 0.4; // Assuming 40% EBITDA/Debt ratio
+    return projectedEBITDA / annualDebtService;
+}
+
+function calculateTotalAvailableFunding() {
+    let totalFunding = modelData.seriesA;
+    totalFunding += modelData.ventureDebtLineAvailable;
+    totalFunding += modelData.commercialDebtLineAvailable;
+    
+    for (let i = 1; i <= 5; i++) {
+        totalFunding += (modelData[`partnerCapitalizationYear${i}`] || 0);
+        totalFunding += (modelData[`seriesB_newInvestors_year${i}`] || 0);
+    }
+    
+    return totalFunding;
+}
+
+function applyOptimizationResults(results) {
+    const optimal = results.optimal;
+    
+    // Distribute funding across years intelligently
+    const totalUnits = modelData.unitsPerYear.reduce((a, b) => a + b, 0);
+    let remainingVD = optimal.ventureDebt;
+    let remainingCD = optimal.commercialDebt;
+    
+    // Reset all debt allocations
+    for (let year = 1; year <= 5; year++) {
+        modelData[`ventureDebtYear${year}`] = 0;
+        modelData[`commercialDebtYear${year}`] = 0;
+    }
+    
+    // Allocate debt based on unit deployment
+    for (let year = 0; year < 5; year++) {
+        const yearUnits = modelData.unitsPerYear[year];
+        if (yearUnits > 0 && (remainingVD > 0 || remainingCD > 0)) {
+            const yearCapex = yearUnits * getTotalPackageCost();
+            
+            // Use venture debt first (if cheaper), then commercial
+            if (remainingVD > 0) {
+                const vdThisYear = Math.min(remainingVD, yearCapex * 0.6);
+                modelData[`ventureDebtYear${year + 1}`] = vdThisYear;
+                remainingVD -= vdThisYear;
+            }
+            
+            if (remainingCD > 0) {
+                const cdThisYear = Math.min(remainingCD, yearCapex * 0.8);
+                modelData[`commercialDebtYear${year + 1}`] = cdThisYear;
+                remainingCD -= cdThisYear;
+            }
+        }
+    }
+    
+    // Update Series A if needed for equity portion
+    const currentEquity = calculateTotalEquityRaised();
+    if (currentEquity < optimal.equityAmount) {
+        modelData.seriesA += (optimal.equityAmount - currentEquity);
+    }
+    
+    // Refresh UI and recalculate
+    updateAllControlsFromModelData();
+    forceCalculate();
+}
+
+function showOptimizationSummary(results) {
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+    modal.innerHTML = `
+        <div class="bg-slate-800 p-6 rounded-lg max-w-2xl mx-4 border ${results.warning ? 'border-amber-500' : 'border-emerald-500'} max-h-[80vh] overflow-y-auto">
+            <h3 class="text-xl font-semibold ${results.warning ? 'text-amber-400' : 'text-emerald-400'} mb-4">🤖 WACC Optimization Results</h3>
+            
+            ${results.warning ? `
+                <div class="mb-4 p-3 bg-amber-900/30 border border-amber-600 rounded">
+                    <div class="text-amber-300 text-sm">⚠️ ${results.warning}</div>
+                </div>
+            ` : ''}
+            
+            <div class="grid grid-cols-2 gap-4 mb-6">
+                <div class="p-3 bg-slate-900 rounded border">
+                    <div class="text-sm text-slate-400">Previous WACC</div>
+                    <div class="text-xl font-bold text-red-400">${(results.currentWACC * 100).toFixed(1)}%</div>
+                </div>
+                <div class="p-3 bg-slate-900 rounded border">
+                    <div class="text-sm text-slate-400">Optimized WACC</div>
+                    <div class="text-xl font-bold ${results.warning ? 'text-amber-400' : 'text-emerald-400'}">${(results.optimal.wacc * 100).toFixed(1)}%</div>
+                </div>
+            </div>
+            
+            <div class="mb-4">
+                <h4 class="font-semibold text-white mb-2">Optimal Capital Structure:</h4>
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-slate-300">Equity:</span>
+                        <span class="text-sky-300">${formatCurrency(results.optimal.equityAmount)} (${(results.optimal.equityAmount / (results.optimal.equityAmount + results.optimal.ventureDebt + results.optimal.commercialDebt) * 100).toFixed(0)}%)</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-300">Venture Debt:</span>
+                        <span class="text-purple-300">${formatCurrency(results.optimal.ventureDebt)}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-300">Commercial Debt:</span>
+                        <span class="text-blue-300">${formatCurrency(results.optimal.commercialDebt)}</span>
+                    </div>
+                    <div class="flex justify-between border-t border-slate-600 pt-2">
+                        <span class="text-slate-300 font-medium">DSCR:</span>
+                        <span class="${results.optimal.dscr >= 1.5 ? 'text-emerald-300' : 'text-amber-300'} font-bold">${results.optimal.dscr.toFixed(1)}x</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex gap-3">
+                <button onclick="this.closest('.fixed').remove();" 
+                        class="flex-1 ${results.warning ? 'bg-amber-600 hover:bg-amber-500' : 'bg-emerald-600 hover:bg-emerald-500'} text-white px-4 py-2 rounded">
+                    ✅ Applied - Close
+                </button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+/**
+ * Abrir modal de comparación de escenarios
+ */
+function openScenarioComparison() {
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+    modal.innerHTML = `
+        <div class="bg-slate-800 p-6 rounded-lg max-w-6xl mx-4 border border-blue-500 max-h-[90vh] overflow-y-auto">
+            <h3 class="text-xl font-semibold text-blue-400 mb-4">📊 Scenario Comparison Analysis</h3>
+            
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-b border-slate-600">
+                            <th class="text-left p-2 text-slate-300">Metric</th>
+                            <th class="text-center p-2 text-emerald-400">🌱 SEED</th>
+                            <th class="text-center p-2 text-sky-400">🚀 SERIE A</th>
+                            <th class="text-center p-2 text-purple-400">📈 EXPANSION</th>
+                        </tr>
+                    </thead>
+                    <tbody id="comparison-table-body">
+                        <!-- Content will be populated by generateComparisonData() -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="mt-6 p-4 bg-slate-900 rounded border border-slate-600">
+                <h4 class="font-semibold text-white mb-2">💡 Strategic Recommendations</h4>
+                <div id="strategic-recommendations" class="text-sm text-slate-300 space-y-1">
+                    <!-- Recommendations will be generated -->
+                </div>
+            </div>
+            
+            <div class="flex justify-between mt-6">
+                <button onclick="exportComparisonToPDF()" 
+                        class="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded">
+                    📄 Export PDF
+                </button>
+                <button onclick="this.closest('.fixed').remove();" 
+                        class="bg-slate-600 hover:bg-slate-500 text-white px-4 py-2 rounded">
+                    Close
+                </button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    
+    // Populate comparison data
+    generateComparisonData();
+}
+
+function generateComparisonData() {
+    const comparisonMetrics = [
+        { label: 'Total Funding Required', key: 'funding', format: val => formatCurrency(val) },
+        { label: 'Timeline', key: 'timeline', format: val => val },
+        { label: 'Total Units (5Y)', key: 'totalUnits', format: val => val.toLocaleString() },
+        { label: 'Expected TIR Equity', key: 'expectedTirEquity', format: val => val },
+        { label: 'Cash Flow Positive', key: 'cashFlowPositive', format: val => val },
+        { label: 'Risk Level', key: 'riskLevel', format: val => val },
+        { label: 'Capital Efficiency', key: 'capitalEfficiency', format: val => formatCurrency(val) + '/unit' },
+        { label: 'Max Debt/Equity Ratio', key: 'maxDebtEquity', format: val => val.toFixed(1) + 'x' }
+    ];
+    
+    const tbody = document.getElementById('comparison-table-body');
+    tbody.innerHTML = comparisonMetrics.map(metric => {
+        const seedValue = getScenarioMetric('seed', metric.key);
+        const serieAValue = getScenarioMetric('serieA', metric.key);
+        const expansionValue = getScenarioMetric('expansion', metric.key);
+        
+        return `
+            <tr class="border-b border-slate-700">
+                <td class="p-2 text-slate-300 font-medium">${metric.label}</td>
+                <td class="p-2 text-center text-emerald-300">${metric.format(seedValue)}</td>
+                <td class="p-2 text-center text-sky-300">${metric.format(serieAValue)}</td>
+                <td class="p-2 text-center text-purple-300">${metric.format(expansionValue)}</td>
+            </tr>
+        `;
+    }).join('');
+    
+    // Generate strategic recommendations
+    generateStrategicRecommendations();
+}
+
+function getScenarioMetric(scenarioId, metricKey) {
+    const scenario = strategicScenarios[scenarioId];
+    
+    switch(metricKey) {
+        case 'funding': return scenario.funding;
+        case 'timeline': return scenario.timeline;
+        case 'totalUnits': return scenario.unitsPerYear.reduce((a, b) => a + b, 0);
+        case 'expectedTirEquity': return scenario.expectedOutcomes.tirEquity;
+        case 'cashFlowPositive': return scenario.expectedOutcomes.cashFlowPositive;
+        case 'riskLevel': return scenario.expectedOutcomes.riskLevel;
+        case 'capitalEfficiency': 
+            const totalUnits = scenario.unitsPerYear.reduce((a, b) => a + b, 0);
+            return totalUnits > 0 ? scenario.funding / totalUnits : 0;
+        case 'maxDebtEquity':
+            const totalDebt = (scenario.ventureDebtLineAvailable || 0) + (scenario.commercialDebtLineAvailable || 0);
+            return totalDebt / scenario.funding;
+        default: return 'N/A';
+    }
+}
+
+function generateStrategicRecommendations() {
+    const recommendationsDiv = document.getElementById('strategic-recommendations');
+    if (!recommendationsDiv) return;
+    
+    const recommendations = [
+        "🌱 <strong>SEED Strategy:</strong> Ideal for proof-of-concept and market validation. Low risk, minimal capital requirements, focus on technology development.",
+        "🚀 <strong>SERIE A Strategy:</strong> Balanced approach for post-validation scaling. Optimal debt/equity mix, controlled growth, strong unit economics.",
+        "📈 <strong>EXPANSION Strategy:</strong> Aggressive market capture strategy. High capital efficiency, maximum leverage, requires strong operational capabilities.",
+        "💡 <strong>Recommendation:</strong> Start with SEED for validation, transition to SERIE A for controlled scaling, then EXPANSION for market leadership.",
+        "⚖️ <strong>Risk Assessment:</strong> Each scenario has different risk profiles. Consider market conditions, team capabilities, and investor appetite."
+    ];
+    
+    recommendationsDiv.innerHTML = recommendations.map(rec => `<div>${rec}</div>`).join('');
+}
+
+function exportComparisonToPDF() {
+    // Simplified PDF export functionality
+    alert('📄 PDF export functionality would be implemented here. For now, you can screenshot the comparison table.');
+}
 
 // UI controls configuration by section
 const controlsConfig = {
@@ -2738,7 +3370,7 @@ ${year5NIIF9.proteccionRodandoActiva ?
 <p class="mb-1">• <strong>ECL Calculation:</strong> ECL = Average Exposure × Probability of Default (PD) × Loss Given Default (LGD).</p>
 <p class="mb-1">• <strong>Dynamic PD:</strong> PD is adjusted according to loan age (increases 50% if > 2 years) to reflect increasing risk.</p>
 <p class="mb-1">• <strong>Prospective Information:</strong> The economic adjustment factor allows incorporating future expectations about credit risk.</p>
-<p class="mb-1">• "Protección Rodando" simulates a mechanism that reduces the final provision expense.</p>
+<p class="mb-1">• "Protección Rodando" simula un mecanismo que reduce el gasto por provisiones finales.</p>
 </div>
 `;
 log('✅ IFRS 9 updated.');
@@ -4283,6 +4915,7 @@ log('🚀 STARTING FINANCIAL MODEL APPLICATION');
 try {
 setupTabs();
 setupControls();
+createScenarioButtons(); // Nueva función
 
 // --- UI calls re-enabled ---
 log('✅ UI updates enabled.');
@@ -4296,7 +4929,7 @@ initializeCharts();
 updateCharts();
 }, 500);
 
-log('🎉 APPLICATION READY AND RUNNING - Capital Intelligence Engine Active');
+log('🎉 APPLICATION READY WITH SCENARIO MANAGEMENT');
 
 } catch (error) {
 log(`❌ CRITICAL ERROR DURING INITIALIZATION: ${error.message}`);
