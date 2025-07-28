@@ -361,6 +361,36 @@ box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2) !important;
 border-color: #10b981 !important;
 box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2) !important;
 }
+/* Slider customization */
+input[type="range"]::-webkit-slider-thumb {
+    appearance: none;
+    height: 20px;
+    width: 20px;
+    border-radius: 50%;
+    background: #0ea5e9;
+    cursor: pointer;
+    box-shadow: 0 0 2px 0 #000;
+}
+
+input[type="range"]::-webkit-slider-track {
+    height: 8px;
+    cursor: pointer;
+    background: #334155;
+    border-radius: 5px;
+}
+
+/* Progress bars */
+.progress-bar {
+    transition: width 0.3s ease-in-out;
+}
+
+/* Card hover effects */
+.financing-card:hover {
+    transform: translateY(-2px);
+    transition: transform 0.2s ease-in-out;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
 @media (max-width: 1024px) {
 .compact-chart {
 min-height: 280px;
@@ -3631,171 +3661,406 @@ log(`✅ '${groupKey}' controls configured.`);
 }
 
 /**
- * Sets up the financing matrix with available lines and planned drawdowns.
+ * Professional Capital Structure Dashboard - Investor-Grade UX
  */
 function setupFinancingMatrix() {
+    setupFinancingMatrixProfessional();
+}
+
+/**
+ * Nueva matriz de financiamiento con UX profesional
+ */
+function setupFinancingMatrixProfessional() {
     const container = document.getElementById('matriz-financiamiento-controls');
-    container.innerHTML = ''; // Clear previous content
+    container.innerHTML = '';
 
-    // Available Credit Lines
-    const linesDiv = document.createElement('div');
-    linesDiv.className = 'space-y-4 mb-4';
-    createNumberControl({ id: 'ventureDebtLineAvailable', label: 'Línea Venture Debt Disponible', min: 0, step: 1000000, type: 'number', format: val => formatCurrency(val, true), tooltip: 'Monto total de la línea de crédito de Venture Debt autorizada.' }, linesDiv);
-    createNumberControl({ id: 'commercialDebtLineAvailable', label: 'Línea Deuda Comercial Disponible', min: 0, step: 1000000, type: 'number', format: val => formatCurrency(val, true), tooltip: 'Monto total de la línea de crédito Comercial autorizada.' }, linesDiv);
-    container.appendChild(linesDiv);
-
-    // Serie A (Año 0)
-    const seriesADiv = document.createElement('div');
-    seriesADiv.className = 'control-grid mb-4';
-    seriesADiv.innerHTML = `
-        <label for="seriesA-input" class="text-sm font-medium text-slate-300" data-tooltip="Capital semilla inicial que arranca la operación.">Serie A (Año 0)</label>
-        <input type="number" id="seriesA-input" min="0" step="1000000" value="${modelData.seriesA}" class="p-2 border border-slate-700 rounded-md shadow-sm focus:ring-sky-500 focus:border-sky-500 bg-slate-800 text-white w-full">
+    // Header Section - Líneas Disponibles
+    const headerSection = document.createElement('div');
+    headerSection.className = 'space-y-4 mb-6';
+    headerSection.innerHTML = `
+        <h5 class="text-sm font-semibold text-slate-300 mb-3">💰 Líneas de Capital Disponibles</h5>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="p-3 bg-slate-800 rounded-lg">
+                <label class="text-xs text-slate-400">Venture Debt Line</label>
+                <input type="number" id="ventureDebtLine" value="${modelData.ventureDebtLineAvailable}" 
+                       class="w-full mt-1 p-2 bg-slate-700 border border-slate-600 rounded text-white" 
+                       step="1000000" min="0">
+                <div class="text-xs text-slate-500 mt-1">Línea autorizada</div>
+            </div>
+            <div class="p-3 bg-slate-800 rounded-lg">
+                <label class="text-xs text-slate-400">Commercial Debt Line</label>
+                <input type="number" id="commercialDebtLine" value="${modelData.commercialDebtLineAvailable}" 
+                       class="w-full mt-1 p-2 bg-slate-700 border border-slate-600 rounded text-white" 
+                       step="1000000" min="0">
+                <div class="text-xs text-slate-500 mt-1">Línea autorizada</div>
+            </div>
+        </div>
     `;
-    container.appendChild(seriesADiv);
-    document.getElementById('seriesA-input').addEventListener('change', (e) => {
-        modelData.seriesA = parseFloat(e.target.value) || 0;
+    container.appendChild(headerSection);
+
+    // Serie A Section
+    const seriesASection = document.createElement('div');
+    seriesASection.className = 'mb-6 p-4 bg-gradient-to-r from-sky-900/20 to-sky-800/20 rounded-lg border border-sky-700/50';
+    seriesASection.innerHTML = `
+        <h5 class="text-sm font-semibold text-sky-300 mb-3">🚀 Serie A Capital (Año 0)</h5>
+        <div class="flex items-center justify-between">
+            <div>
+                <input type="number" id="seriesA" value="${modelData.seriesA}" 
+                       class="p-2 bg-slate-700 border border-slate-600 rounded text-white w-32" 
+                       step="1000000" min="0">
+                <div class="text-xs text-slate-400 mt-1">Capital semilla inicial</div>
+            </div>
+            <div class="text-right">
+                <div class="text-lg font-bold text-sky-300">${formatCurrency(modelData.seriesA)}</div>
+                <div class="text-xs text-slate-400">Disponible inmediatamente</div>
+            </div>
+        </div>
+    `;
+    container.appendChild(seriesASection);
+
+    // Financing Sources Cards
+    createFinancingSourcesCards(container);
+    
+    // Summary Dashboard
+    createCapitalSummaryDashboard(container);
+    
+    // Rates Section
+    createRatesControls(container);
+
+    // Event listeners para líneas de crédito
+    document.getElementById('ventureDebtLine').addEventListener('change', (e) => {
+        modelData.ventureDebtLineAvailable = parseFloat(e.target.value) || 0;
+        updateCapitalSummaryDashboard();
         forceCalculate();
     });
 
-    const table = document.createElement('table');
-    table.id = 'financing-matrix-table';
-    
-    // Header
-    const thead = table.createTHead();
-    const headerRow = thead.insertRow();
-    headerRow.innerHTML = `<th>Instrumento</th><th>Año 1</th><th>Año 2</th><th>Año 3</th><th>Año 4</th><th>Año 5</th>`;
-
-    // Body
-    const tbody = table.createTBody();
-    const rowsData = [
-        { label: 'Venture Debt', key: 'ventureDebtYear' },
-        { label: 'Deuda Comercial', key: 'commercialDebtYear' },
-        { label: 'Capitalización Socios', key: 'partnerCapitalizationYear' },
-        { label: 'Serie B (Nuevos)', key: 'seriesB_newInvestors_year' },
-    ];
-    
-    rowsData.forEach(rowData => {
-        // Instrument Header Row
-        const headerTr = tbody.insertRow();
-        const headerTd = headerTr.insertCell();
-        headerTd.colSpan = 6;
-        headerTd.className = 'instrument-header';
-        headerTd.textContent = rowData.label;
-
-        // Planned, Additional, Total Rows
-        ['Planeado', 'Adicional', 'Total'].forEach(type => {
-            const dataRow = tbody.insertRow();
-            dataRow.insertCell().textContent = type;
-            for(let year = 1; year <= 5; year++) {
-                const cell = dataRow.insertCell();
-                const modelKey = `${rowData.key}${year}`;
-                if (type === 'Planeado') {
-                    cell.innerHTML = `<input type="number" id="planned-${modelKey}" step="1000000" min="0" value="${modelData[modelKey] || 0}" class="w-full">`;
-                    cell.querySelector('input').addEventListener('change', (e) => {
-                        modelData[modelKey] = parseFloat(e.target.value) || 0;
-                        forceCalculate();
-                    });
-                } else {
-                    cell.id = `${type.toLowerCase()}-${modelKey}`;
-                    cell.className = type === 'Adicional' ? 'additional-value' : 'total-value';
-                }
-            }
-        });
+    document.getElementById('commercialDebtLine').addEventListener('change', (e) => {
+        modelData.commercialDebtLineAvailable = parseFloat(e.target.value) || 0;
+        updateCapitalSummaryDashboard();
+        forceCalculate();
     });
 
-    container.appendChild(table);
+    document.getElementById('seriesA').addEventListener('change', (e) => {
+        modelData.seriesA = parseFloat(e.target.value) || 0;
+        updateCapitalSummaryDashboard();
+        forceCalculate();
+    });
+}
 
-    // Summary Card Placeholder
-    const summaryCard = document.createElement('div');
-    summaryCard.id = 'financing-summary-card';
-    summaryCard.className = 'mt-4 p-4 bg-slate-800 rounded-lg';
-    container.appendChild(summaryCard);
+/**
+ * Cards para fuentes de financiamiento por año
+ */
+function createFinancingSourcesCards(container) {
+    const sourcesSection = document.createElement('div');
+    sourcesSection.className = 'space-y-4';
+    
+    const sources = [
+        { key: 'ventureDebt', label: 'Venture Debt', color: 'purple', icon: '🏦' },
+        { key: 'commercialDebt', label: 'Deuda Comercial', color: 'blue', icon: '🏢' },
+        { key: 'partnerCapitalization', label: 'Capitalización Socios', color: 'emerald', icon: '👥' },
+        { key: 'seriesB_newInvestors', label: 'Serie B (Nuevos)', color: 'amber', icon: '💎' }
+    ];
 
-    // Add rates controls below
-    const ratesDiv = document.createElement('div');
-    ratesDiv.className = 'mt-4 space-y-4';
-    createSliderControl({ id: 'ventureDebtRate', label: 'Tasa Venture Debt', min: 12, max: 20, step: 0.5, type: 'range', format: val => val.toFixed(1) + '%', tooltip: 'Tasa de interés anual del Venture Debt.' }, ratesDiv);
-    createSliderControl({ id: 'commercialDebtRate', label: 'Tasa Deuda Comercial', min: 10, max: 18, step: 0.5, type: 'range', format: val => val.toFixed(1) + '%', tooltip: 'Tasa de interés anual de la deuda comercial.' }, ratesDiv);
-    container.appendChild(ratesDiv);
+    sources.forEach(source => {
+        const card = document.createElement('div');
+        card.className = `p-4 bg-slate-800/50 rounded-lg border border-slate-700 financing-card`;
+        
+        let cardContent = `
+            <div class="flex items-center justify-between mb-3">
+                <h6 class="font-semibold text-slate-200 flex items-center gap-2">
+                    ${source.icon} ${source.label}
+                </h6>
+                <div id="${source.key}-status" class="text-xs px-2 py-1 rounded"></div>
+            </div>
+            <div class="grid grid-cols-5 gap-2">
+        `;
+        
+        for (let year = 1; year <= 5; year++) {
+            const value = modelData[`${source.key}Year${year}`] || 0;
+            cardContent += `
+                <div class="text-center">
+                    <label class="text-xs text-slate-400 block mb-1">Año ${year}</label>
+                    <input type="number" 
+                           id="${source.key}Year${year}" 
+                           value="${value}"
+                           min="0" 
+                           step="1000000"
+                           class="w-full p-1 text-xs bg-slate-700 border border-slate-600 rounded text-white text-center">
+                    <div class="text-xs text-slate-500 mt-1">${formatCurrency(value)}</div>
+                </div>
+            `;
+        }
+        
+        cardContent += `</div>`;
+        card.innerHTML = cardContent;
+        sourcesSection.appendChild(card);
+        
+        // Event listeners para inputs
+        for (let year = 1; year <= 5; year++) {
+            const input = card.querySelector(`#${source.key}Year${year}`);
+            input.addEventListener('change', (e) => {
+                const value = parseFloat(e.target.value) || 0;
+                modelData[`${source.key}Year${year}`] = value;
+                e.target.nextElementSibling.textContent = formatCurrency(value);
+                updateCapitalSummaryDashboard();
+                forceCalculate();
+            });
+        }
+    });
+    
+    const sourcesContainer = document.createElement('div');
+    sourcesContainer.innerHTML = '<h5 class="text-sm font-semibold text-slate-300 mb-4">📊 Fuentes de Financiamiento por Año</h5>';
+    sourcesContainer.appendChild(sourcesSection);
+    container.appendChild(sourcesContainer);
+}
+
+/**
+ * Dashboard resumen con métricas clave y visualización
+ */
+function createCapitalSummaryDashboard(container) {
+    const dashboard = document.createElement('div');
+    dashboard.id = 'capital-summary-dashboard';
+    dashboard.className = 'mt-6 p-4 bg-gradient-to-br from-slate-800 to-slate-900 rounded-lg border border-slate-700';
+    
+    container.appendChild(dashboard);
+    updateCapitalSummaryDashboard();
+}
+
+function updateCapitalSummaryDashboard() {
+    const dashboard = document.getElementById('capital-summary-dashboard');
+    if (!dashboard) return;
+
+    // Calcular métricas
+    let totalEquity = modelData.seriesA;
+    let totalDebt = 0;
+    let equityByYear = [modelData.seriesA, 0, 0, 0, 0, 0];
+    let debtByYear = [0, 0, 0, 0, 0, 0];
+
+    for (let year = 1; year <= 5; year++) {
+        const equity = (modelData[`partnerCapitalizationYear${year}`] || 0) + 
+                      (modelData[`seriesB_newInvestors_year${year}`] || 0);
+        const debt = (modelData[`ventureDebtYear${year}`] || 0) + 
+                    (modelData[`commercialDebtYear${year}`] || 0);
+        
+        totalEquity += equity;
+        totalDebt += debt;
+        equityByYear[year] = equity;
+        debtByYear[year] = debt;
+    }
+
+    const totalFunding = totalEquity + totalDebt;
+    const debtEquityRatio = totalEquity > 0 ? totalDebt / totalEquity : 0;
+    
+    // Calcular utilización de líneas
+    const vdUsed = [1,2,3,4,5].reduce((sum, y) => sum + (modelData[`ventureDebtYear${y}`] || 0), 0);
+    const cdUsed = [1,2,3,4,5].reduce((sum, y) => sum + (modelData[`commercialDebtYear${y}`] || 0), 0);
+    
+    const vdUtilization = modelData.ventureDebtLineAvailable > 0 ? (vdUsed / modelData.ventureDebtLineAvailable) * 100 : 0;
+    const cdUtilization = modelData.commercialDebtLineAvailable > 0 ? (cdUsed / modelData.commercialDebtLineAvailable) * 100 : 0;
+
+    dashboard.innerHTML = `
+        <h5 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            📈 Capital Structure Analysis
+        </h5>
+        
+        <!-- Métricas principales -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="text-center p-3 bg-sky-900/30 rounded border border-sky-700/50">
+                <div class="text-2xl font-bold text-sky-300">${formatCurrency(totalEquity)}</div>
+                <div class="text-xs text-sky-400">Total Equity</div>
+            </div>
+            <div class="text-center p-3 bg-purple-900/30 rounded border border-purple-700/50">
+                <div class="text-2xl font-bold text-purple-300">${formatCurrency(totalDebt)}</div>
+                <div class="text-xs text-purple-400">Total Debt</div>
+            </div>
+            <div class="text-center p-3 bg-emerald-900/30 rounded border border-emerald-700/50">
+                <div class="text-2xl font-bold text-emerald-300">${formatCurrency(totalFunding)}</div>
+                <div class="text-xs text-emerald-400">Total Funding</div>
+            </div>
+            <div class="text-center p-3 bg-amber-900/30 rounded border border-amber-700/50">
+                <div class="text-2xl font-bold text-amber-300">${debtEquityRatio.toFixed(1)}x</div>
+                <div class="text-xs text-amber-400">Debt/Equity Ratio</div>
+            </div>
+        </div>
+
+        <!-- Utilización de líneas -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div class="p-3 bg-slate-800/50 rounded border border-slate-600">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-sm font-medium text-slate-300">Venture Debt Line</span>
+                    <span class="text-xs px-2 py-1 rounded ${vdUtilization > 100 ? 'bg-red-900 text-red-300' : vdUtilization > 85 ? 'bg-amber-900 text-amber-300' : 'bg-emerald-900 text-emerald-300'}">
+                        ${vdUtilization.toFixed(0)}%
+                    </span>
+                </div>
+                <div class="w-full bg-slate-700 rounded-full h-2">
+                    <div class="h-2 rounded-full transition-all duration-300 ${vdUtilization > 100 ? 'bg-red-500' : vdUtilization > 85 ? 'bg-amber-500' : 'bg-emerald-500'}" 
+                         style="width: ${Math.min(vdUtilization, 100)}%"></div>
+                </div>
+                <div class="text-xs text-slate-400 mt-1">
+                    ${formatCurrency(vdUsed)} / ${formatCurrency(modelData.ventureDebtLineAvailable)}
+                    ${vdUtilization > 100 ? `(⚠️ Exceso: ${formatCurrency(vdUsed - modelData.ventureDebtLineAvailable)})` : ''}
+                </div>
+            </div>
+            
+            <div class="p-3 bg-slate-800/50 rounded border border-slate-600">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-sm font-medium text-slate-300">Commercial Debt Line</span>
+                    <span class="text-xs px-2 py-1 rounded ${cdUtilization > 100 ? 'bg-red-900 text-red-300' : cdUtilization > 85 ? 'bg-amber-900 text-amber-300' : 'bg-emerald-900 text-emerald-300'}">
+                        ${cdUtilization.toFixed(0)}%
+                    </span>
+                </div>
+                <div class="w-full bg-slate-700 rounded-full h-2">
+                    <div class="h-2 rounded-full transition-all duration-300 ${cdUtilization > 100 ? 'bg-red-500' : cdUtilization > 85 ? 'bg-amber-500' : 'bg-emerald-500'}" 
+                         style="width: ${Math.min(cdUtilization, 100)}%"></div>
+                </div>
+                <div class="text-xs text-slate-400 mt-1">
+                    ${formatCurrency(cdUsed)} / ${formatCurrency(modelData.commercialDebtLineAvailable)}
+                    ${cdUtilization > 100 ? `(🚨 Déficit: ${formatCurrency(cdUsed - modelData.commercialDebtLineAvailable)})` : ''}
+                </div>
+            </div>
+        </div>
+
+        <!-- Timeline de funding -->
+        <div class="p-3 bg-slate-800/30 rounded border border-slate-600">
+            <h6 class="text-sm font-semibold text-slate-300 mb-3">Funding Timeline</h6>
+            <div class="grid grid-cols-6 gap-2 text-xs">
+                <div class="text-center text-slate-400 font-medium">Año 0</div>
+                ${[1,2,3,4,5].map(year => `<div class="text-center text-slate-400 font-medium">Año ${year}</div>`).join('')}
+                
+                <div class="text-center p-2 bg-sky-900/50 rounded border border-sky-700/50">
+                    <div class="font-bold text-sky-300">${formatCurrency(modelData.seriesA)}</div>
+                    <div class="text-sky-400">Serie A</div>
+                </div>
+                ${[1,2,3,4,5].map(year => {
+                    const yearFunding = equityByYear[year] + debtByYear[year];
+                    return `
+                        <div class="text-center p-2 bg-slate-700/50 rounded border border-slate-600">
+                            <div class="font-bold ${yearFunding > 0 ? 'text-emerald-300' : 'text-slate-500'}">${formatCurrency(yearFunding)}</div>
+                            <div class="text-slate-400">E+D</div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Controles de tasas con visualización de impacto
+ */
+function createRatesControls(container) {
+    const ratesSection = document.createElement('div');
+    ratesSection.className = 'mt-6 p-4 bg-slate-800/30 rounded-lg border border-slate-600';
+    ratesSection.innerHTML = `
+        <h5 class="text-sm font-semibold text-slate-300 mb-4">📊 Tasas de Financiamiento</h5>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="space-y-3">
+                <div>
+                    <label class="text-sm text-slate-300 block mb-2">Venture Debt Rate</label>
+                    <div class="flex items-center space-x-3">
+                        <input type="range" 
+                               id="ventureDebtRate" 
+                               min="12" 
+                               max="25" 
+                               step="0.5" 
+                               value="${modelData.ventureDebtRate}"
+                               class="flex-1 h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer">
+                        <span id="ventureDebtRateValue" class="text-purple-300 font-bold w-16">${modelData.ventureDebtRate.toFixed(1)}%</span>
+                    </div>
+                    <div class="text-xs text-slate-400 mt-1">Market range: 15-22%</div>
+                </div>
+                
+                <div>
+                    <label class="text-sm text-slate-300 block mb-2">Commercial Debt Rate</label>
+                    <div class="flex items-center space-x-3">
+                        <input type="range" 
+                               id="commercialDebtRate" 
+                               min="10" 
+                               max="20" 
+                               step="0.5" 
+                               value="${modelData.commercialDebtRate}"
+                               class="flex-1 h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer">
+                        <span id="commercialDebtRateValue" class="text-blue-300 font-bold w-16">${modelData.commercialDebtRate.toFixed(1)}%</span>
+                    </div>
+                    <div class="text-xs text-slate-400 mt-1">Market range: 12-18%</div>
+                </div>
+            </div>
+            
+            <div class="p-3 bg-slate-900/50 rounded border border-slate-700">
+                <h6 class="text-sm font-semibold text-slate-300 mb-2">Blended Cost of Capital</h6>
+                <div id="blendedCostDisplay" class="text-xl font-bold text-emerald-300">calculating...</div>
+                <div class="text-xs text-slate-400 mt-1">Weighted average cost</div>
+                
+                <div class="mt-3 space-y-1 text-xs">
+                    <div class="flex justify-between">
+                        <span class="text-slate-400">Equity Weight:</span>
+                        <span id="equityWeight" class="text-sky-300">--</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-400">Debt Weight:</span>
+                        <span id="debtWeight" class="text-purple-300">--</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    container.appendChild(ratesSection);
+    
+    // Event listeners para tasas
+    ['ventureDebtRate', 'commercialDebtRate'].forEach(rateId => {
+        const slider = document.getElementById(rateId);
+        const display = document.getElementById(rateId + 'Value');
+        
+        slider.addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            modelData[rateId] = value;
+            display.textContent = value.toFixed(1) + '%';
+            updateBlendedCostDisplay();
+            forceCalculate();
+        });
+    });
+    
+    updateBlendedCostDisplay();
+}
+
+function updateBlendedCostDisplay() {
+    // Calcular weighted average cost of capital
+    let totalEquity = modelData.seriesA;
+    let totalDebt = 0;
+    
+    for (let year = 1; year <= 5; year++) {
+        totalEquity += (modelData[`partnerCapitalizationYear${year}`] || 0) + 
+                      (modelData[`seriesB_newInvestors_year${year}`] || 0);
+        totalDebt += (modelData[`ventureDebtYear${year}`] || 0) + 
+                    (modelData[`commercialDebtYear${year}`] || 0);
+    }
+    
+    const totalCapital = totalEquity + totalDebt;
+    const equityWeight = totalCapital > 0 ? totalEquity / totalCapital : 0;
+    const debtWeight = totalCapital > 0 ? totalDebt / totalCapital : 0;
+    
+    // Simplified blended cost (debt cost only, equity cost is complex)
+    const blendedDebtCost = debtWeight * ((modelData.ventureDebtRate + modelData.commercialDebtRate) / 2);
+    
+    const blendedCostElement = document.getElementById('blendedCostDisplay');
+    const equityWeightElement = document.getElementById('equityWeight');
+    const debtWeightElement = document.getElementById('debtWeight');
+    
+    if (blendedCostElement) blendedCostElement.textContent = blendedDebtCost.toFixed(1) + '%';
+    if (equityWeightElement) equityWeightElement.textContent = (equityWeight * 100).toFixed(0) + '%';
+    if (debtWeightElement) debtWeightElement.textContent = (debtWeight * 100).toFixed(0) + '%';
 }
 
 /**
  * NEW: Updates the financing matrix with optimized values and color coding.
  */
 function updateFinancingMatrixWithOptimized() {
-    let totalPlannedEquity = 0;
-    let totalOptimizedEquity = 0;
-    let totalPlannedDebt = 0;
-    let totalOptimizedDebt = 0;
-
-    const equityKeys = ['partnerCapitalizationYear', 'seriesB_newInvestors_year'];
-    const debtKeys = ['ventureDebtYear', 'commercialDebtYear'];
-
-    for (let year = 1; year <= 5; year++) {
-        equityKeys.forEach(key => {
-            const modelKey = `${key}${year}`;
-            const plannedValue = plannedFinancingData[modelKey] || 0;
-            const totalValue = modelData[modelKey] || 0;
-            const additionalValue = totalValue - plannedValue;
-
-            totalPlannedEquity += plannedValue;
-            totalOptimizedEquity += totalValue;
-
-            const additionalCell = document.getElementById(`adicional-${modelKey}`);
-            const totalCell = document.getElementById(`total-${modelKey}`);
-            if (additionalCell) additionalCell.textContent = formatCurrency(additionalValue);
-            if (totalCell) totalCell.textContent = formatCurrency(totalValue);
-        });
-        debtKeys.forEach(key => {
-            const modelKey = `${key}${year}`;
-            const plannedValue = plannedFinancingData[modelKey] || 0;
-            const totalValue = modelData[modelKey] || 0;
-            const additionalValue = totalValue - plannedValue;
-
-            totalPlannedDebt += plannedValue;
-            totalOptimizedDebt += totalValue;
-
-            const additionalCell = document.getElementById(`adicional-${modelKey}`);
-            const totalCell = document.getElementById(`total-${modelKey}`);
-            if (additionalCell) additionalCell.textContent = formatCurrency(additionalValue);
-            if (totalCell) totalCell.textContent = formatCurrency(totalValue);
-        });
-    }
-
-    const summaryCard = document.getElementById('financing-summary-card');
-    if (summaryCard) {
-        let vdUsed = 0, cdUsed = 0;
-        for (let i = 1; i <= 5; i++) {
-            vdUsed += modelData[`ventureDebtYear${i}`] || 0;
-            cdUsed += modelData[`commercialDebtYear${i}`] || 0;
-        }
-        const vdUtilization = modelData.ventureDebtLineAvailable > 0 ? (vdUsed / modelData.ventureDebtLineAvailable) * 100 : 0;
-        const cdUtilization = modelData.commercialDebtLineAvailable > 0 ? (cdUsed / modelData.commercialDebtLineAvailable) * 100 : 0;
-        
-        const vdStatus = vdUsed > modelData.ventureDebtLineAvailable ? `🚨 Déficit de ${formatCurrency(vdUsed - modelData.ventureDebtLineAvailable)}` : '✅ Cubierto';
-        const cdStatus = cdUsed > modelData.commercialDebtLineAvailable ? `🚨 Déficit de ${formatCurrency(cdUsed - modelData.commercialDebtLineAvailable)}` : '✅ Cubierto';
-
-        summaryCard.innerHTML = `
-            <h5 class="font-semibold text-white mb-2">📊 Análisis de Estructura de Capital</h5>
-            <div class="text-sm space-y-2 text-slate-300">
-                <div class="font-semibold text-sky-400">Capital de Socios (Equity)</div>
-                <div class="flex justify-between"><span>• Plan de Inversión:</span> <strong>${formatCurrency(totalPlannedEquity + modelData.seriesA)}</strong></div>
-                <div class="flex justify-between"><span>• Capital Adicional Requerido:</span> <strong class="text-amber-400">${formatCurrency(totalOptimizedEquity - totalPlannedEquity)}</strong></div>
-                <div class="flex justify-between border-t border-slate-700 pt-1"><span>• Total Equity Desplegado:</span> <strong>${formatCurrency(totalOptimizedEquity + modelData.seriesA)}</strong></div>
-            </div>
-            <div class="text-sm space-y-2 text-slate-300 mt-3 pt-3 border-t border-slate-700">
-                <div class="font-semibold text-sky-400">Capital de Deuda</div>
-                <div class="flex justify-between"><span>• Plan de Retiros (Drawdown):</span> <strong>${formatCurrency(totalPlannedDebt)}</strong></div>
-                <div class="flex justify-between"><span>• Deuda Adicional Requerida:</span> <strong class="text-amber-400">${formatCurrency(totalOptimizedDebt - totalPlannedDebt)}</strong></div>
-                <div class="flex justify-between border-t border-slate-700 pt-1"><span>• Total Deuda Desplegada:</span> <strong>${formatCurrency(totalOptimizedDebt)}</strong></div>
-            </div>
-            <div class="text-sm space-y-2 text-slate-300 mt-3 pt-3 border-t border-slate-700">
-                 <div class="font-semibold text-sky-400">Estado de Líneas de Crédito</div>
-                 <div class="flex justify-between"><span>• Línea Venture Debt:</span> <strong>${formatCurrency(modelData.ventureDebtLineAvailable)}</strong> | <span>Utilizado:</span> <strong>${formatCurrency(vdUsed)} (${vdUtilization.toFixed(0)}%)</strong> | <strong class="${vdUsed > modelData.ventureDebtLineAvailable ? 'text-red-400' : 'text-emerald-400'}">${vdStatus}</strong></div>
-                 <div class="flex justify-between"><span>• Línea Deuda Comercial:</span> <strong>${formatCurrency(modelData.commercialDebtLineAvailable)}</strong> | <span>Utilizado:</span> <strong>${formatCurrency(cdUsed)} (${cdUtilization.toFixed(0)}%)</strong> | <strong class="${cdUsed > modelData.commercialDebtLineAvailable ? 'text-red-400' : 'text-emerald-400'}">${cdStatus}</strong></div>
-            </div>
-        `;
-    }
+    // Update the capital summary dashboard
+    updateCapitalSummaryDashboard();
+    
+    // Update blended cost display
+    updateBlendedCostDisplay();
 }
 
 
@@ -3846,11 +4111,11 @@ setupControlGroup('paqueteFinanciado', 'paquete-financiado-controls');
 setupControlGroup('condicionesCredito', 'condiciones-credito-controls');
 setupControlGroup('ingresosAdicionales', 'ingresos-adicionales-controls');
 setupControlGroup('planCrecimiento', 'plan-crecimiento-controls');
-setupFinancingMatrix(); // New matrix setup
+setupFinancingMatrixProfessional(); // Nueva implementación profesional
 setupControlGroup('riesgoYSalida', 'riesgo-salida-controls');
 
 updatePackageSummary();
-updateOptimizationStatus();
+updateCapitalSummaryDashboard();
 }
 /**
 * Updates the automatic summary for the "Package and Prices" section.
