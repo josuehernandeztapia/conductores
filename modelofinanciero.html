@@ -399,6 +399,9 @@ min-height: 280px;
 <button onclick="toggleDebug()" class="mt-4 bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 rounded-lg font-medium transition duration-300 inline-flex items-center gap-2">
 <i data-lucide="bug" class="w-5 h-5"></i> Debug
 </button>
+<button onclick="testSinosureImpact()" class="mt-4 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg font-medium transition duration-300 inline-flex items-center gap-2">
+<i data-lucide="test-tube" class="w-5 h-5"></i> Test SINOSURE TIR
+</button>
 <div class="mt-4 flex justify-center gap-2">
 <button class="px-3 py-1 bg-slate-800 text-white rounded border border-slate-600 text-sm">Base Case</button>
 <button class="px-3 py-1 bg-slate-700 text-slate-300 rounded border border-slate-600 text-sm">Conservative</button>
@@ -1799,6 +1802,10 @@ const opex = totalRevenue * (modelData.opexRates[year] / 100);
         });
         
         const interestExpense = ventureDebtInterest + commercialDebtInterest + sinosureInterest;
+        
+        if (sinosureInterest > 0) {
+            log(`💸 Interest Expense Year ${currentYear}: VD=${formatCurrency(ventureDebtInterest)}, CD=${formatCurrency(commercialDebtInterest)}, SINOSURE=${formatCurrency(sinosureInterest)}, Total=${formatCurrency(interestExpense)}`);
+        }
 
 let ventureDebtPrincipalRepayment = 0;
 ventureDebtCohorts.forEach(cohort => {
@@ -1896,6 +1903,7 @@ const operatingCash = netIncome + annualDepreciation + impairment + deltaProvisi
                     log(`  • Replaced VD: ${formatCurrency(ventureDebtReplaced)} (18% → 6% = ${(modelData.ventureDebtRate - sinosureConfig.rate).toFixed(1)}pp savings)`);
                     log(`  • Replaced CD: ${formatCurrency(commercialDebtReplaced)} (14% → 6% = ${(modelData.commercialDebtRate - sinosureConfig.rate).toFixed(1)}pp savings)`);
                     log(`  • Annual interest savings: ${formatCurrency(totalAnnualSavings)}`);
+                    log(`  • TIR Impact: Lower interest expense should INCREASE TIR`);
                 }
             } else {
                 log(`🇨🇳 SINOSURE FAILED for Year ${currentYear} (${100-sinosureConfig.probability}% probability)`);
@@ -1968,7 +1976,10 @@ const avgInvestedCapital = avgEquity + avgDebt;
 financialResults.roic.push(avgInvestedCapital > 0 ? (nopat / avgInvestedCapital) * 100 : 0);
 
 projectCashFlows.push(ebit * (1 - modelData.corporateTaxRate/100) + annualDepreciation - capexThisYear);
-const freeCashFlowToEquity = operatingCash + investingCash + (finalNewVentureDebt + finalNewCommercialDebt - totalDebtPrincipalRepayment);
+const freeCashFlowToEquity = operatingCash + investingCash + (finalNewVentureDebt + finalNewCommercialDebt + sinosureDrawdowns - totalDebtPrincipalRepayment);
+if (sinosureDrawdowns > 0) {
+    log(`💰 Equity Cash Flow Year ${currentYear}: Operating=${formatCurrency(operatingCash)}, Investing=${formatCurrency(investingCash)}, VD=${formatCurrency(finalNewVentureDebt)}, CD=${formatCurrency(finalNewCommercialDebt)}, SINOSURE=${formatCurrency(sinosureDrawdowns)}, Principal=${formatCurrency(totalDebtPrincipalRepayment)}, Total=${formatCurrency(freeCashFlowToEquity)}`);
+}
 equityCashFlows.push(freeCashFlowToEquity);
 let portfolioCashFlowThisYear = -netLoanPrincipal + annualPrincipalReceived + annualInterestReceived;
 if (year === 4) {
@@ -1986,6 +1997,14 @@ equityCashFlows[equityCashFlows.length - 1] += finalTerminalValue;
 financialResults.tirProyecto = calculateIRR(projectCashFlows) || 0;
 financialResults.tirEquity = calculateIRR(equityCashFlows) || 0;
 financialResults.tirCartera = calculateIRR(portfolioCashFlows) || 0;
+
+log(`📊 FINAL TIR RESULTS:`);
+log(`  • TIR Proyecto: ${financialResults.tirProyecto.toFixed(1)}%`);
+log(`  • TIR Equity: ${financialResults.tirEquity.toFixed(1)}%`);
+log(`  • TIR Cartera: ${financialResults.tirCartera.toFixed(1)}%`);
+if (modelData.sinosureAvailable) {
+    log(`  • SINOSURE Active: Should see HIGHER TIR due to lower interest costs`);
+}
 
 log('✅ FINANCIAL CALCULATIONS (v23) COMPLETED');
 return true;
@@ -3356,6 +3375,42 @@ function forceCalculate() {
         log('✅ Manual recalculation completed.');
     }
 }
+
+// TEST FUNCTION: Enable SINOSURE and force success for testing
+function testSinosureImpact() {
+    log('🧪 TESTING SINOSURE IMPACT ON TIR...');
+    console.log('🧪 TESTING SINOSURE IMPACT ON TIR...');
+    
+    log('📋 Step 1: Calculating baseline (without SINOSURE)');
+    modelData.sinosureAvailable = false;
+    calculateFinancials();
+    const baselineTIR = financialResults.tirEquity;
+    log(`📊 Baseline TIR Equity: ${baselineTIR.toFixed(1)}%`);
+    console.log(`📊 Baseline TIR Equity: ${baselineTIR.toFixed(1)}%`);
+
+    log('📋 Step 2: Enabling SINOSURE with forced success');
+    modelData.sinosureAvailable = true;
+    modelData.sinosureForcedSuccess = true;
+    calculateFinancials();
+    const sinosureTIR = financialResults.tirEquity;
+    log(`📊 SINOSURE TIR Equity: ${sinosureTIR.toFixed(1)}%`);
+    console.log(`📊 SINOSURE TIR Equity: ${sinosureTIR.toFixed(1)}%`);
+
+    const tirDifference = sinosureTIR - baselineTIR;
+    log(`📊 TIR DIFFERENCE: ${tirDifference.toFixed(1)}pp`);
+    console.log(`📊 TIR DIFFERENCE: ${tirDifference.toFixed(1)}pp`);
+    
+    if (tirDifference > 0) {
+        log(`✅ SUCCESS: SINOSURE INCREASED TIR by ${tirDifference.toFixed(1)}pp`);
+        console.log(`✅ SUCCESS: SINOSURE INCREASED TIR by ${tirDifference.toFixed(1)}pp`);
+    } else {
+        log(`❌ ISSUE: SINOSURE DECREASED TIR by ${Math.abs(tirDifference).toFixed(1)}pp`);
+        console.log(`❌ ISSUE: SINOSURE DECREASED TIR by ${Math.abs(tirDifference).toFixed(1)}pp`);
+    }
+
+    updateUI();
+}
+
 // ===== USER CONTROL CONFIGURATION =====
 
 /**
