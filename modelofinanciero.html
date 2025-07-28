@@ -794,6 +794,471 @@ function emergencyRollback() {
 }
 // Test: emergencyRollback() in console if anything breaks
 
+// ===================================================================
+// ===== STEP 1: CONSTRAINT ANALYSIS ENGINE (CORE - NO UI YET) ====
+// ===================================================================
+
+// Dynamic constraint calculation
+function calculateDynamicConstraints() {
+    const scenarioLimits = {
+        pesimista: [8, 25, 45, 70, 90],
+        base: [15, 50, 100, 180, 250],
+        optimista: [25, 80, 180, 320, 450]
+    };
+    
+    const constraints = {
+        capitalHealth: analyzeCapitalHealth(),
+        dscrStatus: analyzeDSCRStatus(),
+        cashFlowHealth: analyzeCashFlowHealth(),
+        sinosureOpportunity: analyzeSinosureOpportunity(),
+        unitLimits: calculateUnitLimits(scenarioLimits),
+        recommendations: []
+    };
+    
+    constraints.recommendations = generateSmartRecommendations(constraints);
+    
+    return constraints;
+}
+
+function analyzeCapitalHealth() {
+    const totalCapex = modelData.unitsPerYear.reduce((sum, units) => sum + (units * getTotalPackageCost()), 0);
+    const totalFunding = calculateTotalFunding();
+    const coverage = totalFunding > 0 ? (totalFunding / totalCapex) * 100 : 0;
+    
+    return {
+        totalCapex,
+        totalFunding,
+        coverage,
+        gap: Math.max(0, totalCapex - totalFunding),
+        status: coverage >= 100 ? 'sufficient' : coverage >= 90 ? 'tight' : 'insufficient'
+    };
+}
+
+function analyzeDSCRStatus() {
+    let finalDSCR = 0;
+    if (financialResults.pl && financialResults.pl.length >= 5) {
+        const year5EBITDA = financialResults.pl[4].ebitda || 0;
+        const year5Interest = financialResults.pl[4].interestExpense || 0;
+        const year5Principal = financialResults.cf[4].debtPrincipalRepayment || 0;
+        const totalDebtService = year5Interest + year5Principal;
+        finalDSCR = totalDebtService > 0 ? year5EBITDA / totalDebtService : 999;
+    }
+    
+    return {
+        current: finalDSCR,
+        covenant: 1.5,
+        status: finalDSCR >= 2.0 ? 'healthy' : finalDSCR >= 1.5 ? 'adequate' : finalDSCR >= 1.2 ? 'warning' : 'critical'
+    };
+}
+
+function analyzeCashFlowHealth() {
+    let worstCash = 0;
+    let worstYear = 0;
+    
+    if (financialResults.bs && financialResults.bs.length > 0) {
+        financialResults.bs.forEach((bs, index) => {
+            if (bs.cash < worstCash) {
+                worstCash = bs.cash;
+                worstYear = index + 1;
+            }
+        });
+    }
+    
+    return {
+        worstBalance: worstCash,
+        worstYear: worstYear,
+        status: worstCash >= 0 ? 'positive' : worstCash >= -10000000 ? 'manageable' : 'critical'
+    };
+}
+
+function analyzeSinosureOpportunity() {
+    const totalUnits = modelData.unitsPerYear.reduce((sum, units) => sum + units, 0);
+    const maxSinosureAmount = totalUnits * 365000; // $365K per unit
+    
+    // Calculate potential savings vs Venture Debt
+    const ventureDebtUsed = calculateTotalDebtRaised(); // Current VD usage
+    const potentialSavings = Math.min(maxSinosureAmount, ventureDebtUsed) * (modelData.ventureDebtRate - 6.0) / 100;
+    
+    return {
+        available: maxSinosureAmount,
+        currentlyEnabled: modelData.sinosureAvailable,
+        potentialSavings: potentialSavings,
+        coverage: maxSinosureAmount,
+        recommendation: !modelData.sinosureAvailable && maxSinosureAmount > 0 ? 'enable' : 'enabled'
+    };
+}
+
+function calculateUnitLimits(scenarioLimits) {
+    const limits = [];
+    
+    for (let year = 0; year < 5; year++) {
+        const minUnits = scenarioLimits.pesimista[year];
+        const maxUnits = scenarioLimits.optimista[year];
+        const baseUnits = scenarioLimits.base[year];
+        
+        // Calculate capital-constrained maximum
+        const availableCapitalForYear = calculateAvailableCapitalForYear(year + 1);
+        const capitalConstrainedMax = Math.floor(availableCapitalForYear / getTotalPackageCost());
+        
+        // Apply DSCR constraint (simplified)
+        const dscrConstrainedMax = Math.floor(capitalConstrainedMax * 0.8); // Conservative factor
+        
+        // Final safe maximum
+        const safeMax = Math.min(maxUnits, capitalConstrainedMax, dscrConstrainedMax);
+        
+        limits.push({
+            year: year + 1,
+            hardMin: minUnits,
+            hardMax: Math.max(minUnits, safeMax), // Ensure min <= max
+            recommended: baseUnits,
+            current: modelData.unitsPerYear[year],
+            status: modelData.unitsPerYear[year] >= minUnits && modelData.unitsPerYear[year] <= safeMax ? 'safe' : 'warning'
+        });
+    }
+    
+    return limits;
+}
+
+function calculateAvailableCapitalForYear(year) {
+    // Simplified calculation of available capital
+    let available = modelData.seed + modelData.seriesA;
+    
+    for (let y = 1; y <= year; y++) {
+        available += (modelData[`ventureDebtYear${y}`] || 0);
+        available += (modelData[`commercialDebtYear${y}`] || 0);
+        available += (modelData[`partnerCapitalizationYear${y}`] || 0);
+        available += (modelData[`seriesB_newInvestors_year${y}`] || 0);
+    }
+    
+    if (modelData.sinosureAvailable) {
+        const unitsUpToYear = modelData.unitsPerYear.slice(0, year).reduce((sum, units) => sum + units, 0);
+        available += unitsUpToYear * 365000; // SINOSURE coverage
+    }
+    
+    return available;
+}
+
+// Smart recommendations generator
+function generateSmartRecommendations(constraints) {
+    const recommendations = [];
+    
+    // Capital recommendations
+    if (constraints.capitalHealth.status === 'insufficient') {
+        recommendations.push({
+            type: 'capital',
+            priority: 'high',
+            title: 'Funding Gap Detected',
+            message: `Need additional ${formatCurrency(constraints.capitalHealth.gap)} funding`,
+            action: 'Reduce units or increase funding lines'
+        });
+    }
+    
+    // DSCR recommendations
+    if (constraints.dscrStatus.status === 'critical') {
+        recommendations.push({
+            type: 'dscr',
+            priority: 'high',
+            title: 'DSCR Critical',
+            message: `DSCR ${constraints.dscrStatus.current.toFixed(1)}x below covenant ${constraints.dscrStatus.covenant}x`,
+            action: 'Reduce debt or increase equity ratio'
+        });
+    }
+    
+    // SINOSURE recommendations
+    if (constraints.sinosureOpportunity.recommendation === 'enable') {
+        recommendations.push({
+            type: 'sinosure',
+            priority: 'medium',
+            title: 'SINOSURE Opportunity',
+            message: `Potential annual savings: ${formatCurrency(constraints.sinosureOpportunity.potentialSavings)}`,
+            action: 'Enable SINOSURE to reduce financing costs'
+        });
+    }
+    
+    // Cash flow recommendations
+    if (constraints.cashFlowHealth.status === 'critical') {
+        recommendations.push({
+            type: 'cashflow',
+            priority: 'high',
+            title: 'Cash Flow Warning',
+            message: `Year ${constraints.cashFlowHealth.worstYear} shows ${formatCurrency(constraints.cashFlowHealth.worstBalance)} cash`,
+            action: 'Review timing of capital deployment'
+        });
+    }
+    
+    return recommendations;
+}
+
+// ===================================================================
+// ===== STEP 2: CONSTRAINT DASHBOARD FUNCTIONS (UI READY) =========
+// ===================================================================
+
+function createConstraintDashboard() {
+    const dashboardHTML = `
+        <div id="constraint-dashboard" class="mt-6 p-4 bg-gradient-to-r from-slate-900 to-slate-800 rounded-lg border border-slate-700">
+            <h3 class="text-sm font-semibold text-white mb-3 flex items-center">
+                🛡️ Financial Health Monitor
+                <span id="overall-status" class="ml-2 px-2 py-1 text-xs rounded bg-emerald-900 text-emerald-300">✅ Healthy</span>
+            </h3>
+            
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                <div id="capital-status" class="p-2 bg-slate-800 rounded border-l-2 border-blue-500">
+                    <div class="font-medium text-blue-400">💰 Capital</div>
+                    <div class="text-white" id="capital-value">Loading...</div>
+                </div>
+                
+                <div id="dscr-status" class="p-2 bg-slate-800 rounded border-l-2 border-green-500">
+                    <div class="font-medium text-green-400">📊 DSCR</div>
+                    <div class="text-white" id="dscr-value">Loading...</div>
+                </div>
+                
+                <div id="cashflow-status" class="p-2 bg-slate-800 rounded border-l-2 border-yellow-500">
+                    <div class="font-medium text-yellow-400">💸 Cash Flow</div>
+                    <div class="text-white" id="cashflow-value">Loading...</div>
+                </div>
+                
+                <div id="sinosure-status" class="p-2 bg-slate-800 rounded border-l-2 border-purple-500">
+                    <div class="font-medium text-purple-400">🇨🇳 SINOSURE</div>
+                    <div class="text-white" id="sinosure-value">Loading...</div>
+                </div>
+            </div>
+            
+            <div id="recommendations-container" class="mt-3 space-y-1"></div>
+        </div>
+    `;
+    
+    // Insert after scenario selector
+    const scenarioSelector = document.querySelector('.scenario-selector');
+    if (scenarioSelector) {
+        scenarioSelector.insertAdjacentHTML('afterend', dashboardHTML);
+    }
+}
+
+function updateConstraintDashboard() {
+    const constraints = calculateDynamicConstraints();
+    const recommendations = constraints.recommendations;
+    
+    // Update capital status
+    const capitalElement = document.getElementById('capital-value');
+    if (capitalElement) {
+        capitalElement.textContent = `${constraints.capitalHealth.coverage.toFixed(0)}% covered`;
+        const capitalPanel = document.getElementById('capital-status');
+        capitalPanel.className = `p-2 bg-slate-800 rounded border-l-2 ${
+            constraints.capitalHealth.status === 'sufficient' ? 'border-green-500' :
+            constraints.capitalHealth.status === 'tight' ? 'border-yellow-500' : 'border-red-500'
+        }`;
+    }
+    
+    // Update DSCR status
+    const dscrElement = document.getElementById('dscr-value');
+    if (dscrElement) {
+        dscrElement.textContent = `${constraints.dscrStatus.current.toFixed(1)}x`;
+        const dscrPanel = document.getElementById('dscr-status');
+        dscrPanel.className = `p-2 bg-slate-800 rounded border-l-2 ${
+            constraints.dscrStatus.status === 'healthy' ? 'border-green-500' :
+            constraints.dscrStatus.status === 'adequate' ? 'border-green-500' :
+            constraints.dscrStatus.status === 'warning' ? 'border-yellow-500' : 'border-red-500'
+        }`;
+    }
+    
+    // Update cash flow status
+    const cashflowElement = document.getElementById('cashflow-value');
+    if (cashflowElement) {
+        cashflowElement.textContent = constraints.cashFlowHealth.status === 'positive' ? 'Positive' : 
+            `${formatCurrency(constraints.cashFlowHealth.worstBalance, false)} Y${constraints.cashFlowHealth.worstYear}`;
+        const cashflowPanel = document.getElementById('cashflow-status');
+        cashflowPanel.className = `p-2 bg-slate-800 rounded border-l-2 ${
+            constraints.cashFlowHealth.status === 'positive' ? 'border-green-500' :
+            constraints.cashFlowHealth.status === 'manageable' ? 'border-yellow-500' : 'border-red-500'
+        }`;
+    }
+    
+    // Update SINOSURE status
+    const sinosureElement = document.getElementById('sinosure-value');
+    if (sinosureElement) {
+        sinosureElement.textContent = constraints.sinosureOpportunity.currentlyEnabled ? 
+            'Active' : `${formatCurrency(constraints.sinosureOpportunity.potentialSavings, false)} potential`;
+        const sinosurePanel = document.getElementById('sinosure-status');
+        sinosurePanel.className = `p-2 bg-slate-800 rounded border-l-2 ${
+            constraints.sinosureOpportunity.currentlyEnabled ? 'border-green-500' : 'border-purple-500'
+        }`;
+    }
+    
+    // Update overall status
+    const overallElement = document.getElementById('overall-status');
+    if (overallElement) {
+        const criticalIssues = recommendations.filter(r => r.priority === 'high').length;
+        if (criticalIssues > 0) {
+            overallElement.textContent = `⚠️ ${criticalIssues} Issues`;
+            overallElement.className = 'ml-2 px-2 py-1 text-xs rounded bg-red-900 text-red-300';
+        } else {
+            overallElement.textContent = '✅ Healthy';
+            overallElement.className = 'ml-2 px-2 py-1 text-xs rounded bg-emerald-900 text-emerald-300';
+        }
+    }
+    
+    // Update recommendations
+    const recsContainer = document.getElementById('recommendations-container');
+    if (recsContainer && recommendations.length > 0) {
+        const topRecs = recommendations.slice(0, 2); // Show top 2 recommendations
+        recsContainer.innerHTML = topRecs.map(rec => `
+            <div class="text-xs p-2 rounded ${
+                rec.priority === 'high' ? 'bg-red-900/30 text-red-300' : 'bg-yellow-900/30 text-yellow-300'
+            }">
+                <strong>${rec.title}:</strong> ${rec.message}
+            </div>
+        `).join('');
+    }
+}
+
+// ===================================================================
+// ===== STEP 3: SMART UNIT CONSTRAINTS (PROTECT INPUTS) ===========
+// ===================================================================
+
+function enhanceUnitInputsWithConstraints() {
+    const constraints = calculateDynamicConstraints();
+    
+    constraints.unitLimits.forEach((limit, index) => {
+        const input = document.getElementById(`unitsPerYear-${limit.year}`);
+        if (input) {
+            // Set hard limits
+            input.min = limit.hardMin;
+            input.max = limit.hardMax;
+            
+            // Add visual guidance
+            input.addEventListener('input', function() {
+                const value = parseInt(this.value);
+                
+                // CONSTRAINT ENFORCEMENT - AUTO-CORRECT OUT OF BOUNDS
+                if (value < limit.hardMin) {
+                    this.value = limit.hardMin;
+                    showTemporaryMessage(`Minimum ${limit.hardMin} units required for Year ${limit.year}`, 'warning');
+                } else if (value > limit.hardMax) {
+                    this.value = limit.hardMax;
+                    showTemporaryMessage(`Maximum ${limit.hardMax} units available for Year ${limit.year} (capital constraint)`, 'warning');
+                }
+                
+                // Visual feedback
+                const finalValue = parseInt(this.value);
+                if (finalValue >= limit.hardMin && finalValue <= limit.hardMax) {
+                    if (Math.abs(finalValue - limit.recommended) <= 10) {
+                        this.style.borderColor = '#10b981'; // Green - optimal
+                        this.style.boxShadow = '0 0 0 2px rgba(16, 185, 129, 0.2)';
+                    } else {
+                        this.style.borderColor = '#f59e0b'; // Yellow - acceptable
+                        this.style.boxShadow = '0 0 0 2px rgba(245, 158, 11, 0.2)';
+                    }
+                } else {
+                    this.style.borderColor = '#ef4444'; // Red - constrained
+                    this.style.boxShadow = '0 0 0 2px rgba(239, 68, 68, 0.2)';
+                }
+                
+                // Update modelData and recalculate
+                modelData.unitsPerYear[index] = finalValue;
+                forceCalculate();
+            });
+            
+            // Add tooltip with constraints info
+            input.setAttribute('title', `Range: ${limit.hardMin} - ${limit.hardMax} units (Recommended: ${limit.recommended})`);
+        }
+    });
+}
+
+function showTemporaryMessage(message, type = 'info') {
+    const existingMsg = document.getElementById('temp-constraint-message');
+    if (existingMsg) existingMsg.remove();
+    
+    const msgDiv = document.createElement('div');
+    msgDiv.id = 'temp-constraint-message';
+    msgDiv.className = `fixed top-20 right-4 p-3 rounded-lg shadow-lg z-50 text-sm ${
+        type === 'warning' ? 'bg-amber-900 border border-amber-600 text-amber-200' :
+        type === 'error' ? 'bg-red-900 border border-red-600 text-red-200' :
+        'bg-blue-900 border border-blue-600 text-blue-200'
+    }`;
+    msgDiv.textContent = message;
+    
+    document.body.appendChild(msgDiv);
+    
+    setTimeout(() => {
+        if (msgDiv.parentNode) msgDiv.parentNode.removeChild(msgDiv);
+    }, 3000);
+}
+
+// ===================================================================
+// ===== STEP 4: PROTECTED CAPITAL MOTOR DISPLAY ===================
+// ===================================================================
+
+function updateProtectedCapitalMotor() {
+    const constraints = calculateDynamicConstraints();
+    const totalUnits = modelData.unitsPerYear.reduce((sum, units) => sum + units, 0);
+    const totalCapex = totalUnits * getTotalPackageCost();
+    
+    const statusContainer = document.querySelector('#financing-summary-card');
+    if (statusContainer) {
+        statusContainer.innerHTML = `
+            <h5 class="font-semibold text-white mb-3 flex items-center">
+                🧠 Protected Capital Engine
+                <span class="ml-2 text-xs px-2 py-1 rounded bg-slate-700 text-slate-300">Auto-Managed</span>
+            </h5>
+            
+            <div class="text-sm space-y-3 text-slate-300">
+                <div class="p-2 bg-slate-800/50 rounded border border-slate-700">
+                    <div class="font-semibold text-blue-400 mb-1">Input Analysis</div>
+                    <div class="flex justify-between text-xs">
+                        <span>Total Units:</span> <strong class="text-white">${totalUnits}</strong>
+                    </div>
+                    <div class="flex justify-between text-xs">
+                        <span>CAPEX Required:</span> <strong class="text-white">${formatCurrency(totalCapex)}</strong>
+                    </div>
+                    <div class="flex justify-between text-xs">
+                        <span>Scenario:</span> <strong class="text-emerald-400">${currentScenario.toUpperCase()}</strong>
+                    </div>
+                </div>
+                
+                <div class="p-2 bg-slate-800/50 rounded border border-slate-700">
+                    <div class="font-semibold text-green-400 mb-1">Auto-Allocation Cascade</div>
+                    <div class="space-y-1 text-xs">
+                        <div class="flex justify-between">
+                            <span>1. Seed (Fixed):</span> <strong class="text-blue-400">${formatCurrency(modelData.seed)}</strong>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>2. Serie A:</span> <strong class="text-emerald-400">${formatCurrency(modelData.seriesA)}</strong>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>3. SINOSURE (6%):</span> <strong class="${modelData.sinosureAvailable ? 'text-yellow-400' : 'text-slate-500'}">${modelData.sinosureAvailable ? formatCurrency(constraints.sinosureOpportunity.available) : 'Disabled'}</strong>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>4. Commercial (14%):</span> <strong class="text-orange-400">${formatCurrency(calculateTotalDebtRaised() - (modelData.sinosureAvailable ? constraints.sinosureOpportunity.available : 0))}</strong>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>5. Venture (18%):</span> <strong class="text-red-400">${modelData.sinosureAvailable ? '$0 (Displaced)' : formatCurrency(Math.max(0, totalCapex - modelData.seed - modelData.seriesA - 300000000))}</strong>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="p-2 bg-slate-800/50 rounded border border-slate-700">
+                    <div class="font-semibold text-purple-400 mb-1">Engine Output</div>
+                    <div class="flex justify-between text-xs">
+                        <span>Total Funding:</span> <strong class="text-white">${formatCurrency(constraints.capitalHealth.totalFunding)}</strong>
+                    </div>
+                    <div class="flex justify-between text-xs">
+                        <span>Coverage:</span> <strong class="${constraints.capitalHealth.coverage >= 100 ? 'text-emerald-400' : 'text-amber-400'}">${constraints.capitalHealth.coverage.toFixed(1)}%</strong>
+                    </div>
+                    <div class="flex justify-between text-xs">
+                        <span>DSCR Impact:</span> <strong class="${constraints.dscrStatus.current >= 1.5 ? 'text-emerald-400' : 'text-red-400'}">${constraints.dscrStatus.current.toFixed(1)}x</strong>
+                    </div>
+                    ${constraints.capitalHealth.gap > 0 ? `<div class="flex justify-between text-xs text-red-400"><span>Funding Gap:</span> <strong>${formatCurrency(constraints.capitalHealth.gap)}</strong></div>` : ''}
+                </div>
+                
+                <div class="text-xs p-2 bg-slate-700/30 rounded border border-slate-600">
+                    🛡️ <strong>Protected:</strong> This allocation is auto-managed to prevent model breakage. 
+                    Modify units above to see real-time optimization.
+                </div>
+            </div>
+        `;
+    }
+}
+
 // SCENARIO DEFINITIONS
 const scenarios = {
     pesimista: [8, 25, 45, 70, 90],
@@ -890,6 +1355,7 @@ let debtOptimizationHistory = [];
 
 // Tolerance for balance sheet validation (MXN)
 const BALANCE_TOLERANCE = 1000;
+
 // ===================================================================
 // ===== FASE 2: MOTOR DE CÁLCULO FINANCIERO (EL CÓMO) ============
 // ===================================================================
@@ -3572,6 +4038,24 @@ function forceCalculate() {
     } else {
         updateUI();
         runGlobalChecks(); // Run global checks after manual recalculation
+        
+        // ===== STEP 5: INTEGRATE CONSTRAINT SYSTEM SAFELY =====
+        try {
+            // Update constraint dashboard
+            updateConstraintDashboard();
+            
+            // Update protected capital motor
+            updateProtectedCapitalMotor();
+            
+            // Apply smart constraints to inputs
+            enhanceUnitInputsWithConstraints();
+            
+            log('✅ Constraint system updated successfully');
+        } catch (error) {
+            log(`⚠️ Constraint system error (non-critical): ${error.message}`);
+            // Don't break the main calculation if constraints fail
+        }
+        
         log('✅ Manual recalculation completed.');
     }
 }
@@ -4285,6 +4769,16 @@ setupTabs();
 setupControls();
 setupScenarioListeners(); // ADD SCENARIO LISTENERS
 
+// ===== STEP 6: INITIALIZE CONSTRAINT SYSTEM (SAFE STARTUP) =====
+setTimeout(() => {
+    try {
+        createConstraintDashboard();
+        log('✅ Constraint dashboard created');
+    } catch (error) {
+        log(`⚠️ Constraint dashboard creation failed: ${error.message}`);
+    }
+}, 200);
+
 // --- UI calls re-enabled ---
 log('✅ UI updates enabled.');
 
@@ -4296,13 +4790,23 @@ setTimeout(() => {
 setTimeout(() => {
 initializeCharts();
 updateCharts();
+
+// INITIALIZE CONSTRAINT SYSTEM AFTER EVERYTHING IS LOADED
+try {
+    updateConstraintDashboard();
+    updateProtectedCapitalMotor();
+    enhanceUnitInputsWithConstraints();
+    log('✅ Constraint system fully initialized');
+} catch (error) {
+    log(`⚠️ Constraint system initialization failed: ${error.message}`);
+}
 }, 500);
 
-log('🎉 APPLICATION READY AND RUNNING');
+log('🎉 APPLICATION READY AND RUNNING WITH CONSTRAINTS');
 
 } catch (error) {
 log(`❌ CRITICAL ERROR DURING INITIALIZATION: ${error.message}`);
-// Emergency rollback available in console: emergencyRollback()
+console.log('Emergency rollback available: emergencyRollback()');
 }
 });
 

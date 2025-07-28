@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Constraint System Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 text-white p-8">
+    <h1 class="text-2xl font-bold mb-4">🛡️ Constraint System Test</h1>
+    
+    <div class="space-y-4">
+        <div class="p-4 bg-slate-800 rounded">
+            <h2 class="font-semibold mb-2">Test Results:</h2>
+            <div id="test-results"></div>
+        </div>
+        
+        <button onclick="runTests()" class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded">
+            Run Constraint Tests
+        </button>
+    </div>
+
+    <script>
+        // Mock minimal data for testing
+        const modelData = {
+            unitsPerYear: [15, 50, 100, 180, 250],
+            seed: 5000000,
+            seriesA: 50000000,
+            sinosureAvailable: false,
+            ventureDebtRate: 18.0,
+            ventureDebtYear1: 50000000,
+            ventureDebtYear2: 50000000,
+            ventureDebtYear3: 0,
+            ventureDebtYear4: 0,
+            ventureDebtYear5: 0,
+            commercialDebtYear1: 0,
+            commercialDebtYear2: 0,
+            commercialDebtYear3: 100000000,
+            commercialDebtYear4: 100000000,
+            commercialDebtYear5: 100000000,
+            partnerCapitalizationYear1: 50000000,
+            partnerCapitalizationYear2: 50000000,
+            partnerCapitalizationYear3: 0,
+            partnerCapitalizationYear4: 0,
+            partnerCapitalizationYear5: 0,
+            seriesB_newInvestors_year1: 0,
+            seriesB_newInvestors_year2: 0,
+            seriesB_newInvestors_year3: 70000000,
+            seriesB_newInvestors_year4: 0,
+            seriesB_newInvestors_year5: 0,
+            vanPrice: 750000,
+            vanCost: 625000,
+            conversionPrice: 54000,
+            conversionCost: 50000,
+            bancasPrice: 21000,
+            bancasCost: 20000,
+            gpsPrice: 12000,
+            gpsCost: 11000,
+            insuranceAnnualPrice: 37205,
+            insuranceYears: 4
+        };
+
+        const financialResults = {
+            pl: [
+                { ebitda: 10000000, interestExpense: 5000000 },
+                { ebitda: 25000000, interestExpense: 8000000 },
+                { ebitda: 50000000, interestExpense: 12000000 },
+                { ebitda: 100000000, interestExpense: 18000000 },
+                { ebitda: 181000000, interestExpense: 25000000 }
+            ],
+            cf: [
+                { debtPrincipalRepayment: 10000000 },
+                { debtPrincipalRepayment: 15000000 },
+                { debtPrincipalRepayment: 20000000 },
+                { debtPrincipalRepayment: 25000000 },
+                { debtPrincipalRepayment: 30000000 }
+            ],
+            bs: [
+                { cash: 45000000 },
+                { cash: 35000000 },
+                { cash: 50000000 },
+                { cash: 75000000 },
+                { cash: 100000000 }
+            ]
+        };
+
+        let currentScenario = 'base';
+
+        // Helper functions
+        function formatCurrency(value, full = false) {
+            if (value === null || value === undefined || isNaN(value)) return '$0 MXN';
+            value = parseFloat(value);
+
+            if (full) {
+                return '$' + value.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + ' MXN';
+            } else if (Math.abs(value) >= 1000000) {
+                return '$' + (value / 1000000).toFixed(1) + 'M';
+            } else if (Math.abs(value) >= 1000) {
+                return '$' + (value / 1000).toFixed(1) + 'K';
+            }
+            return '$' + Math.round(value).toLocaleString();
+        }
+
+        function getTotalPackageCost() {
+            return modelData.vanCost + modelData.conversionCost + 
+                   modelData.bancasCost + modelData.gpsCost;
+        }
+
+        function calculateTotalFunding() {
+            let total = modelData.seriesA;
+            for (let i = 1; i <= 5; i++) {
+                total += (modelData[`partnerCapitalizationYear${i}`] || 0) +
+                        (modelData[`ventureDebtYear${i}`] || 0) +
+                        (modelData[`commercialDebtYear${i}`] || 0) +
+                        (modelData[`seriesB_newInvestors_year${i}`] || 0);
+            }
+            return total;
+        }
+
+        function calculateTotalDebtRaised() {
+            let total = 0;
+            for (let i = 1; i <= 5; i++) {
+                total += (modelData[`ventureDebtYear${i}`] || 0);
+                total += (modelData[`commercialDebtYear${i}`] || 0);
+            }
+            return total;
+        }
+
+        // Load constraint functions from the main model
+        function loadConstraintFunctions() {
+            // Dynamic constraint calculation
+            function calculateDynamicConstraints() {
+                const scenarioLimits = {
+                    pesimista: [8, 25, 45, 70, 90],
+                    base: [15, 50, 100, 180, 250],
+                    optimista: [25, 80, 180, 320, 450]
+                };
+                
+                const constraints = {
+                    capitalHealth: analyzeCapitalHealth(),
+                    dscrStatus: analyzeDSCRStatus(),
+                    cashFlowHealth: analyzeCashFlowHealth(),
+                    sinosureOpportunity: analyzeSinosureOpportunity(),
+                    unitLimits: calculateUnitLimits(scenarioLimits),
+                    recommendations: []
+                };
+                
+                constraints.recommendations = generateSmartRecommendations(constraints);
+                
+                return constraints;
+            }
+
+            function analyzeCapitalHealth() {
+                const totalCapex = modelData.unitsPerYear.reduce((sum, units) => sum + (units * getTotalPackageCost()), 0);
+                const totalFunding = calculateTotalFunding();
+                const coverage = totalFunding > 0 ? (totalFunding / totalCapex) * 100 : 0;
+                
+                return {
+                    totalCapex,
+                    totalFunding,
+                    coverage,
+                    gap: Math.max(0, totalCapex - totalFunding),
+                    status: coverage >= 100 ? 'sufficient' : coverage >= 90 ? 'tight' : 'insufficient'
+                };
+            }
+
+            function analyzeDSCRStatus() {
+                let finalDSCR = 0;
+                if (financialResults.pl && financialResults.pl.length >= 5) {
+                    const year5EBITDA = financialResults.pl[4].ebitda || 0;
+                    const year5Interest = financialResults.pl[4].interestExpense || 0;
+                    const year5Principal = financialResults.cf[4].debtPrincipalRepayment || 0;
+                    const totalDebtService = year5Interest + year5Principal;
+                    finalDSCR = totalDebtService > 0 ? year5EBITDA / totalDebtService : 999;
+                }
+                
+                return {
+                    current: finalDSCR,
+                    covenant: 1.5,
+                    status: finalDSCR >= 2.0 ? 'healthy' : finalDSCR >= 1.5 ? 'adequate' : finalDSCR >= 1.2 ? 'warning' : 'critical'
+                };
+            }
+
+            function analyzeCashFlowHealth() {
+                let worstCash = 0;
+                let worstYear = 0;
+                
+                if (financialResults.bs && financialResults.bs.length > 0) {
+                    financialResults.bs.forEach((bs, index) => {
+                        if (bs.cash < worstCash) {
+                            worstCash = bs.cash;
+                            worstYear = index + 1;
+                        }
+                    });
+                }
+                
+                return {
+                    worstBalance: worstCash,
+                    worstYear: worstYear,
+                    status: worstCash >= 0 ? 'positive' : worstCash >= -10000000 ? 'manageable' : 'critical'
+                };
+            }
+
+            function analyzeSinosureOpportunity() {
+                const totalUnits = modelData.unitsPerYear.reduce((sum, units) => sum + units, 0);
+                const maxSinosureAmount = totalUnits * 365000; // $365K per unit
+                
+                // Calculate potential savings vs Venture Debt
+                const ventureDebtUsed = calculateTotalDebtRaised(); // Current VD usage
+                const potentialSavings = Math.min(maxSinosureAmount, ventureDebtUsed) * (modelData.ventureDebtRate - 6.0) / 100;
+                
+                return {
+                    available: maxSinosureAmount,
+                    currentlyEnabled: modelData.sinosureAvailable,
+                    potentialSavings: potentialSavings,
+                    coverage: maxSinosureAmount,
+                    recommendation: !modelData.sinosureAvailable && maxSinosureAmount > 0 ? 'enable' : 'enabled'
+                };
+            }
+
+            function calculateUnitLimits(scenarioLimits) {
+                const limits = [];
+                
+                for (let year = 0; year < 5; year++) {
+                    const minUnits = scenarioLimits.pesimista[year];
+                    const maxUnits = scenarioLimits.optimista[year];
+                    const baseUnits = scenarioLimits.base[year];
+                    
+                    // Calculate capital-constrained maximum
+                    const availableCapitalForYear = calculateAvailableCapitalForYear(year + 1);
+                    const capitalConstrainedMax = Math.floor(availableCapitalForYear / getTotalPackageCost());
+                    
+                    // Apply DSCR constraint (simplified)
+                    const dscrConstrainedMax = Math.floor(capitalConstrainedMax * 0.8); // Conservative factor
+                    
+                    // Final safe maximum
+                    const safeMax = Math.min(maxUnits, capitalConstrainedMax, dscrConstrainedMax);
+                    
+                    limits.push({
+                        year: year + 1,
+                        hardMin: minUnits,
+                        hardMax: Math.max(minUnits, safeMax), // Ensure min <= max
+                        recommended: baseUnits,
+                        current: modelData.unitsPerYear[year],
+                        status: modelData.unitsPerYear[year] >= minUnits && modelData.unitsPerYear[year] <= safeMax ? 'safe' : 'warning'
+                    });
+                }
+                
+                return limits;
+            }
+
+            function calculateAvailableCapitalForYear(year) {
+                // Simplified calculation of available capital
+                let available = modelData.seed + modelData.seriesA;
+                
+                for (let y = 1; y <= year; y++) {
+                    available += (modelData[`ventureDebtYear${y}`] || 0);
+                    available += (modelData[`commercialDebtYear${y}`] || 0);
+                    available += (modelData[`partnerCapitalizationYear${y}`] || 0);
+                    available += (modelData[`seriesB_newInvestors_year${y}`] || 0);
+                }
+                
+                if (modelData.sinosureAvailable) {
+                    const unitsUpToYear = modelData.unitsPerYear.slice(0, year).reduce((sum, units) => sum + units, 0);
+                    available += unitsUpToYear * 365000; // SINOSURE coverage
+                }
+                
+                return available;
+            }
+
+            function generateSmartRecommendations(constraints) {
+                const recommendations = [];
+                
+                // Capital recommendations
+                if (constraints.capitalHealth.status === 'insufficient') {
+                    recommendations.push({
+                        type: 'capital',
+                        priority: 'high',
+                        title: 'Funding Gap Detected',
+                        message: `Need additional ${formatCurrency(constraints.capitalHealth.gap)} funding`,
+                        action: 'Reduce units or increase funding lines'
+                    });
+                }
+                
+                // DSCR recommendations
+                if (constraints.dscrStatus.status === 'critical') {
+                    recommendations.push({
+                        type: 'dscr',
+                        priority: 'high',
+                        title: 'DSCR Critical',
+                        message: `DSCR ${constraints.dscrStatus.current.toFixed(1)}x below covenant ${constraints.dscrStatus.covenant}x`,
+                        action: 'Reduce debt or increase equity ratio'
+                    });
+                }
+                
+                // SINOSURE recommendations
+                if (constraints.sinosureOpportunity.recommendation === 'enable') {
+                    recommendations.push({
+                        type: 'sinosure',
+                        priority: 'medium',
+                        title: 'SINOSURE Opportunity',
+                        message: `Potential annual savings: ${formatCurrency(constraints.sinosureOpportunity.potentialSavings)}`,
+                        action: 'Enable SINOSURE to reduce financing costs'
+                    });
+                }
+                
+                // Cash flow recommendations
+                if (constraints.cashFlowHealth.status === 'critical') {
+                    recommendations.push({
+                        type: 'cashflow',
+                        priority: 'high',
+                        title: 'Cash Flow Warning',
+                        message: `Year ${constraints.cashFlowHealth.worstYear} shows ${formatCurrency(constraints.cashFlowHealth.worstBalance)} cash`,
+                        action: 'Review timing of capital deployment'
+                    });
+                }
+                
+                return recommendations;
+            }
+
+            // Expose functions for testing
+            window.calculateDynamicConstraints = calculateDynamicConstraints;
+            window.analyzeCapitalHealth = analyzeCapitalHealth;
+            window.analyzeDSCRStatus = analyzeDSCRStatus;
+            window.analyzeCashFlowHealth = analyzeCashFlowHealth;
+            window.analyzeSinosureOpportunity = analyzeSinosureOpportunity;
+        }
+
+        function runTests() {
+            const resultsDiv = document.getElementById('test-results');
+            resultsDiv.innerHTML = '<div class="text-yellow-400">Running tests...</div>';
+            
+            try {
+                loadConstraintFunctions();
+                
+                const results = [];
+                
+                // Test 1: Basic constraint calculation
+                try {
+                    const constraints = calculateDynamicConstraints();
+                    results.push(`✅ calculateDynamicConstraints() - Success`);
+                    results.push(`   • Capital Health: ${constraints.capitalHealth.status} (${constraints.capitalHealth.coverage.toFixed(1)}% coverage)`);
+                    results.push(`   • DSCR Status: ${constraints.dscrStatus.status} (${constraints.dscrStatus.current.toFixed(1)}x)`);
+                    results.push(`   • Cash Flow: ${constraints.cashFlowHealth.status}`);
+                    results.push(`   • SINOSURE: ${constraints.sinosureOpportunity.recommendation}`);
+                    results.push(`   • Recommendations: ${constraints.recommendations.length} found`);
+                } catch (error) {
+                    results.push(`❌ calculateDynamicConstraints() - Error: ${error.message}`);
+                }
+                
+                // Test 2: Capital health analysis
+                try {
+                    const capitalHealth = analyzeCapitalHealth();
+                    results.push(`✅ analyzeCapitalHealth() - Success`);
+                    results.push(`   • Total CAPEX: ${formatCurrency(capitalHealth.totalCapex)}`);
+                    results.push(`   • Total Funding: ${formatCurrency(capitalHealth.totalFunding)}`);
+                    results.push(`   • Coverage: ${capitalHealth.coverage.toFixed(1)}%`);
+                    results.push(`   • Status: ${capitalHealth.status}`);
+                } catch (error) {
+                    results.push(`❌ analyzeCapitalHealth() - Error: ${error.message}`);
+                }
+                
+                // Test 3: DSCR analysis
+                try {
+                    const dscrStatus = analyzeDSCRStatus();
+                    results.push(`✅ analyzeDSCRStatus() - Success`);
+                    results.push(`   • Current DSCR: ${dscrStatus.current.toFixed(1)}x`);
+                    results.push(`   • Covenant: ${dscrStatus.covenant}x`);
+                    results.push(`   • Status: ${dscrStatus.status}`);
+                } catch (error) {
+                    results.push(`❌ analyzeDSCRStatus() - Error: ${error.message}`);
+                }
+                
+                // Test 4: SINOSURE opportunity
+                try {
+                    const sinosureOpp = analyzeSinosureOpportunity();
+                    results.push(`✅ analyzeSinosureOpportunity() - Success`);
+                    results.push(`   • Available: ${formatCurrency(sinosureOpp.available)}`);
+                    results.push(`   • Currently Enabled: ${sinosureOpp.currentlyEnabled}`);
+                    results.push(`   • Potential Savings: ${formatCurrency(sinosureOpp.potentialSavings)}`);
+                    results.push(`   • Recommendation: ${sinosureOpp.recommendation}`);
+                } catch (error) {
+                    results.push(`❌ analyzeSinosureOpportunity() - Error: ${error.message}`);
+                }
+                
+                // Test 5: Enable SINOSURE and test again
+                try {
+                    modelData.sinosureAvailable = true;
+                    const sinosureOppEnabled = analyzeSinosureOpportunity();
+                    results.push(`✅ SINOSURE Enabled Test - Success`);
+                    results.push(`   • Now Enabled: ${sinosureOppEnabled.currentlyEnabled}`);
+                    results.push(`   • Recommendation: ${sinosureOppEnabled.recommendation}`);
+                    // Reset
+                    modelData.sinosureAvailable = false;
+                } catch (error) {
+                    results.push(`❌ SINOSURE Enabled Test - Error: ${error.message}`);
+                }
+                
+                resultsDiv.innerHTML = results.map(r => `<div class="text-sm font-mono">${r}</div>`).join('');
+                
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="text-red-400">Critical Error: ${error.message}</div>`;
+            }
+        }
+
+        // Auto-run tests on load
+        setTimeout(runTests, 1000);
+    </script>
+</body>
+</html>
