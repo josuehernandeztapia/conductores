@@ -1845,6 +1845,8 @@ const operatingCash = netIncome + annualDepreciation + impairment + deltaProvisi
 
         // --- SINOSURE INTEGRATION ---
         let finalNewVentureDebt = sourcingPlan.newVentureDebt;
+        let finalNewCommercialDebt = sourcingPlan.newCommercialDebt;
+        
         if (modelData.sinosureAvailable && currentYear >= 2 && addedUnits > 0) {
             const sinosureSuccess = modelData.sinosureForcedSuccess || 
                                    (Math.random() < (sinosureConfig.probability / 100));
@@ -1853,21 +1855,47 @@ const operatingCash = netIncome + annualDepreciation + impairment + deltaProvisi
                 const productionCostPerUnit = sinosureConfig.productionCostUSD * sinosureConfig.exchangeRate;
                 const maxSinosureThisYear = addedUnits * productionCostPerUnit;
                 
-                // Replace portion of higher-cost debt with SINOSURE
-                const sinosureDrawn = Math.min(maxSinosureThisYear, sourcingPlan.newVentureDebt);
+                // SMART SUBSTITUTION: Replace most expensive debt first
+                let remainingSinosure = maxSinosureThisYear;
+                let ventureDebtReplaced = 0;
+                let commercialDebtReplaced = 0;
                 
-                if (sinosureDrawn > 0) {
-                    // Reduce venture debt by SINOSURE amount
-                    finalNewVentureDebt -= sinosureDrawn;
-                    
-                    // Create SINOSURE cohort with 6% rate
+                // Replace Venture Debt (18%) first - highest savings
+                if (remainingSinosure > 0 && sourcingPlan.newVentureDebt > 0) {
+                    ventureDebtReplaced = Math.min(remainingSinosure, sourcingPlan.newVentureDebt);
+                    finalNewVentureDebt -= ventureDebtReplaced;
+                    remainingSinosure -= ventureDebtReplaced;
+                }
+                
+                // Replace Commercial Debt (14%) second
+                if (remainingSinosure > 0 && sourcingPlan.newCommercialDebt > 0) {
+                    commercialDebtReplaced = Math.min(remainingSinosure, sourcingPlan.newCommercialDebt);
+                    finalNewCommercialDebt -= commercialDebtReplaced;
+                    remainingSinosure -= commercialDebtReplaced;
+                }
+                
+                const totalSinosureAmount = ventureDebtReplaced + commercialDebtReplaced;
+                
+                if (totalSinosureAmount > 0) {
+                    // Create SINOSURE cohort at 6% rate
                     sinosureCohorts.push({
                         yearOriginated: currentYear,
-                        originalAmount: sinosureDrawn,
-                        rate: sinosureConfig.rate
+                        originalAmount: totalSinosureAmount,
+                        rate: sinosureConfig.rate, // 6.0%
+                        ventureDebtReplaced: ventureDebtReplaced,
+                        commercialDebtReplaced: commercialDebtReplaced
                     });
                     
-                    log(`🇨🇳 SINOSURE SUCCESS: ${formatCurrency(sinosureDrawn)} at 6% rate for ${addedUnits} units`);
+                    // Calculate annual interest savings
+                    const ventureDebtSavings = ventureDebtReplaced * (modelData.ventureDebtRate - sinosureConfig.rate) / 100;
+                    const commercialDebtSavings = commercialDebtReplaced * (modelData.commercialDebtRate - sinosureConfig.rate) / 100;
+                    const totalAnnualSavings = ventureDebtSavings + commercialDebtSavings;
+                    
+                    log(`🇨🇳 SINOSURE SUCCESS Year ${currentYear}:`);
+                    log(`  • Amount: ${formatCurrency(totalSinosureAmount)} at 6.0%`);
+                    log(`  • Replaced VD: ${formatCurrency(ventureDebtReplaced)} (18% → 6% = ${(modelData.ventureDebtRate - sinosureConfig.rate).toFixed(1)}pp savings)`);
+                    log(`  • Replaced CD: ${formatCurrency(commercialDebtReplaced)} (14% → 6% = ${(modelData.commercialDebtRate - sinosureConfig.rate).toFixed(1)}pp savings)`);
+                    log(`  • Annual interest savings: ${formatCurrency(totalAnnualSavings)}`);
                 }
             } else {
                 log(`🇨🇳 SINOSURE FAILED for Year ${currentYear} (${100-sinosureConfig.probability}% probability)`);
@@ -1875,7 +1903,6 @@ const operatingCash = netIncome + annualDepreciation + impairment + deltaProvisi
         }
 
         // Usar valores de cascada para el flujo
-        const finalNewCommercialDebt = sourcingPlan.newCommercialDebt;
         const finalNewEquityInjections = sourcingPlan.newEquity;
 
 // Actualizar modelData con los valores optimizados/totales
