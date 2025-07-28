@@ -404,6 +404,25 @@ min-height: 280px;
 <button class="px-3 py-1 bg-slate-700 text-slate-300 rounded border border-slate-600 text-sm">Conservative</button>
 <button class="px-3 py-1 bg-slate-700 text-slate-300 rounded border border-slate-600 text-sm">Stress Test</button>
 </div>
+
+<!-- NEW SCENARIO SELECTOR -->
+<div class="scenario-selector mt-6 flex justify-center gap-3">
+  <h3 class="w-full text-center text-slate-400 text-sm font-medium mb-2">📊 Escenarios de Crecimiento</h3>
+  <div class="flex gap-2">
+    <button id="scenario-pesimista" class="scenario-btn px-4 py-2 bg-slate-700 text-slate-300 rounded-lg border border-slate-600 text-sm hover:bg-slate-600 transition-all duration-200 hover:border-slate-500">
+      📉 <strong>Pesimista</strong><br>
+      <small class="text-xs opacity-75">238 units · $149M CAPEX</small>
+    </button>
+    <button id="scenario-base" class="scenario-btn active px-4 py-2 bg-emerald-700 text-white rounded-lg border border-emerald-600 text-sm font-medium shadow-lg">
+      📊 <strong>Base</strong><br>
+      <small class="text-xs opacity-90">595 units · $372M CAPEX</small>
+    </button>
+    <button id="scenario-optimista" class="scenario-btn px-4 py-2 bg-slate-700 text-slate-300 rounded-lg border border-slate-600 text-sm hover:bg-slate-600 transition-all duration-200 hover:border-slate-500">
+      📈 <strong>Optimista</strong><br>
+      <small class="text-xs opacity-75">1,055 units · $659M CAPEX</small>
+    </button>
+  </div>
+</div>
 </header>
 
 <!-- =================================================================== -->
@@ -715,10 +734,11 @@ portfolioAllocationStage2: 0.10,
 portfolioAllocationStage3: 0.08,
 
 // Growth Strategy
-unitsPerYear: [80, 200, 400, 620, 600], // Totals 1900 units
+unitsPerYear: [15, 50, 100, 180, 250], // Base scenario - Updated
 
-// Capital Structure
-seriesA: 80000000,
+// Capital Structure - CORRECTED SEED + SERIES A
+seed: 5000000,     // $5M MXN - Tech inicial + 2-3 units proof (6 months)
+seriesA: 50000000, // $50M MXN - Growth capital Year 0 for scaling
 ventureDebtLineAvailable: 100000000, 
 commercialDebtLineAvailable: 300000000, 
 ventureDebtRate: 18.0,
@@ -766,6 +786,22 @@ avgRemainingTermCartera: 2.5,
 // SINOSURE Configuration
 sinosureAvailable: false
 };
+
+// EMERGENCY ROLLBACK FUNCTION
+function emergencyRollback() {
+    console.log('🚨 EMERGENCY ROLLBACK INITIATED');
+    location.reload(); // Nuclear option - reload page
+}
+// Test: emergencyRollback() in console if anything breaks
+
+// SCENARIO DEFINITIONS
+const scenarios = {
+    pesimista: [8, 25, 45, 70, 90],
+    base: [15, 50, 100, 180, 250],
+    optimista: [25, 80, 180, 320, 450]
+};
+
+let currentScenario = 'base';
 
 // UI controls configuration by section
 const controlsConfig = {
@@ -2944,7 +2980,7 @@ ${year5NIIF9.proteccionRodandoActiva ?
 <p class="mb-1">• <strong>ECL Calculation:</strong> ECL = Average Exposure × Probability of Default (PD) × Loss Given Default (LGD).</p>
 <p class="mb-1">• <strong>Dynamic PD:</strong> PD is adjusted according to loan age (increases 50% if > 2 years) to reflect increasing risk.</p>
 <p class="mb-1">• <strong>Prospective Information:</strong> The economic adjustment factor allows incorporating future expectations about credit risk.</p>
-<p class="mb-1">• "Protección Rodando" simulates a mechanism that reduces the final provision expense.</p>
+<p class="mb-1">• "Protección Rodando" simula un mecanismo que reduce el gasto de provisiones finales.</p>
 </div>
 `;
 log('✅ IFRS 9 updated.');
@@ -3340,6 +3376,191 @@ function capturePlannedFinancing() {
 /**
 * Forces a manual recalculation of the model.
 */
+// INTELLIGENT CAPITAL ALLOCATION FUNCTIONS
+function optimizeCapitalAllocation(scenarioUnits) {
+    const totalUnits = scenarioUnits.reduce((sum, units) => sum + units, 0);
+    const totalCapex = totalUnits * 625000; // $625K per unit cost
+    
+    log(`🧠 Optimizing capital for ${totalUnits} units, $${(totalCapex/1000000).toFixed(0)}M CAPEX needed`);
+    
+    // INTELLIGENT FUNDING CASCADA
+    let remainingNeed = totalCapex;
+    const allocation = {
+        seed: modelData.seed,                                           // $5M fixed
+        seriesA: Math.min(modelData.seriesA, remainingNeed),           // Up to $50M
+        sinosure: 0,
+        ventureDebt: 0,
+        commercialDebt: 0,
+        seriesB: 0
+    };
+    
+    remainingNeed -= (allocation.seed + allocation.seriesA);
+    
+    // SINOSURE FIRST (if available, year 2+, 6% vs 18% VD)
+    if (modelData.sinosureAvailable && remainingNeed > 0) {
+        const sinosureMax = totalUnits * 365000; // $365K per unit coverage
+        allocation.sinosure = Math.min(sinosureMax, remainingNeed);
+        remainingNeed -= allocation.sinosure;
+        log(`🇨🇳 SINOSURE: $${(allocation.sinosure/1000000).toFixed(0)}M at 6% (vs 18% VD savings)`);
+    }
+    
+    // VENTURE DEBT (up to $100M line, 18%)
+    if (remainingNeed > 0) {
+        allocation.ventureDebt = Math.min(100000000, remainingNeed);
+        remainingNeed -= allocation.ventureDebt;
+    }
+    
+    // COMMERCIAL DEBT (up to $300M line, 14%)
+    if (remainingNeed > 0) {
+        allocation.commercialDebt = Math.min(300000000, remainingNeed);
+        remainingNeed -= allocation.commercialDebt;
+    }
+    
+    // SERIES B (if still needed, year 3)
+    if (remainingNeed > 0) {
+        allocation.seriesB = Math.max(70000000, remainingNeed); // At least planned $70M
+        remainingNeed -= allocation.seriesB;
+    }
+    
+    const deficit = Math.max(0, remainingNeed);
+    
+    log(`💰 Allocation: Seed=$${(allocation.seed/1000000).toFixed(0)}M, SeriesA=$${(allocation.seriesA/1000000).toFixed(0)}M, VD=$${(allocation.ventureDebt/1000000).toFixed(0)}M, CD=$${(allocation.commercialDebt/1000000).toFixed(0)}M, SINOSURE=$${(allocation.sinosure/1000000).toFixed(0)}M`);
+    
+    if (deficit > 0) {
+        log(`🚨 FUNDING DEFICIT: $${(deficit/1000000).toFixed(0)}M additional capital needed`);
+    }
+    
+    return { allocation, deficit, totalCapex };
+}
+
+function updateCapitalStructure(capitalPlan) {
+    const { allocation } = capitalPlan;
+    
+    // RESET all planned financing to 0 first
+    for (let i = 1; i <= 5; i++) {
+        modelData[`ventureDebtYear${i}`] = 0;
+        modelData[`commercialDebtYear${i}`] = 0;
+        modelData[`partnerCapitalizationYear${i}`] = 0;
+        modelData[`seriesB_newInvestors_year${i}`] = 0;
+    }
+    
+    // INTELLIGENT ALLOCATION OVER TIME
+    if (allocation.ventureDebt > 0) {
+        modelData.ventureDebtYear1 = Math.min(50000000, allocation.ventureDebt);
+        if (allocation.ventureDebt > 50000000) {
+            modelData.ventureDebtYear2 = allocation.ventureDebt - 50000000;
+        }
+    }
+    
+    if (allocation.commercialDebt > 0) {
+        const yearlyCommercial = allocation.commercialDebt / 3; // Spread over years 3-5
+        modelData.commercialDebtYear3 = yearlyCommercial;
+        modelData.commercialDebtYear4 = yearlyCommercial;
+        if (allocation.commercialDebt > (yearlyCommercial * 2)) {
+            modelData.commercialDebtYear5 = allocation.commercialDebt - (yearlyCommercial * 2);
+        }
+    }
+    
+    if (allocation.seriesB > 0) {
+        modelData.seriesB_newInvestors_year3 = allocation.seriesB;
+    }
+    
+    log(`✅ Capital structure updated for ${currentScenario} scenario`);
+}
+
+function switchScenario(scenarioName) {
+    log(`🎯 Switching to scenario: ${scenarioName.toUpperCase()}`);
+    
+    try {
+        // 1. Update units safely
+        modelData.unitsPerYear = [...scenarios[scenarioName]];
+        currentScenario = scenarioName;
+        
+        // 2. Auto-optimize capital allocation
+        const capitalPlan = optimizeCapitalAllocation(scenarios[scenarioName]);
+        updateCapitalStructure(capitalPlan);
+        
+        // 3. Update UI elements
+        updateUnitInputs(scenarios[scenarioName]);
+        updateScenarioButtons(scenarioName);
+        updateCapitalStatus(capitalPlan);
+        
+        // 4. Recalculate model safely
+        forceCalculate();
+        
+        const totalUnits = scenarios[scenarioName].reduce((a,b) => a+b, 0);
+        log(`✅ Scenario ${scenarioName.toUpperCase()} loaded successfully: ${totalUnits} total units`);
+        
+    } catch (error) {
+        log(`❌ ERROR in switchScenario: ${error.message}`);
+        // Don't break - just log the error
+    }
+}
+
+function updateUnitInputs(units) {
+    units.forEach((value, index) => {
+        const input = document.getElementById(`unitsPerYear-${index+1}`);
+        if (input) {
+            input.value = value;
+            // Visual feedback for scenario change
+            input.style.borderColor = '#10b981';
+            input.style.boxShadow = '0 0 0 2px rgba(16, 185, 129, 0.2)';
+            setTimeout(() => { 
+                input.style.borderColor = ''; 
+                input.style.boxShadow = '';
+            }, 1500);
+        }
+    });
+}
+
+function updateScenarioButtons(activeScenario) {
+    document.querySelectorAll('.scenario-btn').forEach(btn => {
+        btn.classList.remove('active', 'bg-emerald-700', 'text-white', 'border-emerald-600', 'font-medium', 'shadow-lg');
+        btn.classList.add('bg-slate-700', 'text-slate-300', 'border-slate-600');
+    });
+    
+    const activeBtn = document.getElementById(`scenario-${activeScenario}`);
+    if (activeBtn) {
+        activeBtn.classList.remove('bg-slate-700', 'text-slate-300', 'border-slate-600');
+        activeBtn.classList.add('active', 'bg-emerald-700', 'text-white', 'border-emerald-600', 'font-medium', 'shadow-lg');
+    }
+}
+
+function updateCapitalStatus(capitalPlan) {
+    const { allocation, deficit, totalCapex } = capitalPlan;
+    const totalFunding = Object.values(allocation).reduce((sum, val) => sum + val, 0);
+    const coverage = totalCapex > 0 ? (totalFunding / totalCapex) * 100 : 0;
+    
+    // Update "Análisis de Estructura de Capital" section
+    const statusContainer = document.querySelector('#financing-summary-card');
+    if (statusContainer) {
+        statusContainer.innerHTML = `
+            <h5 class="font-semibold text-white mb-3 flex items-center">
+                🧠 Intelligent Capital Allocation 
+                <span class="ml-2 text-xs px-2 py-1 rounded ${coverage >= 100 ? 'bg-emerald-900 text-emerald-300' : 'bg-amber-900 text-amber-300'}">${coverage.toFixed(0)}% covered</span>
+            </h5>
+            <div class="text-sm space-y-2 text-slate-300">
+                <div class="font-semibold text-sky-400 border-b border-slate-700 pb-1">Escenario: ${currentScenario.toUpperCase()}</div>
+                
+                <div class="space-y-1">
+                    <div class="flex justify-between"><span>• Seed Capital:</span> <strong class="text-blue-400">$${(allocation.seed/1000000).toFixed(0)}M</strong></div>
+                    <div class="flex justify-between"><span>• Serie A:</span> <strong class="text-emerald-400">$${(allocation.seriesA/1000000).toFixed(0)}M</strong></div>
+                    <div class="flex justify-between"><span>• SINOSURE (6%):</span> <strong class="${allocation.sinosure > 0 ? 'text-yellow-400' : 'text-slate-500'}">${allocation.sinosure > 0 ? '$' + (allocation.sinosure/1000000).toFixed(0) + 'M' : 'No disponible'}</strong></div>
+                    <div class="flex justify-between"><span>• Venture Debt (18%):</span> <strong class="text-red-400">$${(allocation.ventureDebt/1000000).toFixed(0)}M</strong></div>
+                    <div class="flex justify-between"><span>• Commercial Debt (14%):</span> <strong class="text-orange-400">$${(allocation.commercialDebt/1000000).toFixed(0)}M</strong></div>
+                    <div class="flex justify-between"><span>• Serie B:</span> <strong class="text-purple-400">$${(allocation.seriesB/1000000).toFixed(0)}M</strong></div>
+                </div>
+                
+                <div class="border-t border-slate-700 pt-2 mt-2">
+                    <div class="flex justify-between font-semibold"><span>Total CAPEX Needed:</span> <strong class="text-white">$${(totalCapex/1000000).toFixed(0)}M</strong></div>
+                    <div class="flex justify-between font-semibold"><span>Total Funding:</span> <strong class="text-sky-400">$${(totalFunding/1000000).toFixed(0)}M</strong></div>
+                    ${deficit > 0 ? `<div class="flex justify-between text-red-400 font-semibold"><span>• Funding Gap:</span> <strong>$${(deficit/1000000).toFixed(0)}M ⚠️</strong></div>` : '<div class="text-emerald-400 font-semibold">✅ Fully Funded</div>'}
+                </div>
+            </div>
+        `;
+    }
+}
+
 function forceCalculate() {
     log('🔄 Manual recalculation requested.');
     capturePlannedFinancing();
@@ -3634,10 +3855,16 @@ if (groupKey === 'riesgoYSalida') {
 
     container.appendChild(sinosureDiv);
 
-    // Event listeners
+    // Event listeners - ENHANCED FOR SCENARIOS
     document.getElementById('sinosure-available').addEventListener('change', (e) => {
         modelData.sinosureAvailable = e.target.checked;
-        log(`SINOSURE ${e.target.checked ? 'ENABLED' : 'DISABLED'} - Deterministic mode`);
+        log(`🇨🇳 SINOSURE ${e.target.checked ? 'ENABLED' : 'DISABLED'} - Auto-optimizing for ${currentScenario} scenario`);
+        
+        // Re-optimize capital allocation with new SINOSURE status
+        const capitalPlan = optimizeCapitalAllocation(scenarios[currentScenario]);
+        updateCapitalStructure(capitalPlan);
+        updateCapitalStatus(capitalPlan);
+        
         forceCalculate();
     });
 }
@@ -3659,16 +3886,26 @@ function setupFinancingMatrix() {
     createNumberControl({ id: 'commercialDebtLineAvailable', label: 'Línea Deuda Comercial Disponible', min: 0, step: 1000000, type: 'number', format: val => formatCurrency(val, true), tooltip: 'Monto total de la línea de crédito Comercial autorizada.' }, linesDiv);
     container.appendChild(linesDiv);
 
+    // Seed (Año -1)
+    const seedDiv = document.createElement('div');
+    seedDiv.className = 'control-grid mb-4';
+    seedDiv.innerHTML = `
+        <label for="seed-input" class="text-sm font-medium text-slate-300" data-tooltip="Capital semilla para tech inicial y 2-3 unidades de prueba (6 meses de validación).">Seed (Año -1)</label>
+        <input type="number" id="seed-input" readonly min="0" step="1000000" value="${modelData.seed}" class="p-2 border border-slate-600 rounded-md shadow-sm bg-slate-700 text-slate-400 w-full cursor-not-allowed">
+    `;
+    container.appendChild(seedDiv);
+
     // Serie A (Año 0)
     const seriesADiv = document.createElement('div');
     seriesADiv.className = 'control-grid mb-4';
     seriesADiv.innerHTML = `
-        <label for="seriesA-input" class="text-sm font-medium text-slate-300" data-tooltip="Capital semilla inicial que arranca la operación.">Serie A (Año 0)</label>
+        <label for="seriesA-input" class="text-sm font-medium text-slate-300" data-tooltip="Capital de crecimiento para escalar a cientos de unidades y validar métricas Serie A.">Serie A (Año 0)</label>
         <input type="number" id="seriesA-input" min="0" step="1000000" value="${modelData.seriesA}" class="p-2 border border-slate-700 rounded-md shadow-sm focus:ring-sky-500 focus:border-sky-500 bg-slate-800 text-white w-full">
     `;
     container.appendChild(seriesADiv);
     document.getElementById('seriesA-input').addEventListener('change', (e) => {
         modelData.seriesA = parseFloat(e.target.value) || 0;
+        log(`💰 Serie A updated to: ${formatCurrency(modelData.seriesA)}`);
         forceCalculate();
     });
 
@@ -3856,6 +4093,19 @@ statusElement.innerHTML = `
 /**
 * Main function to set up all UI controls.
 */
+// SCENARIO EVENT LISTENERS SETUP
+function setupScenarioListeners() {
+    try {
+        document.getElementById('scenario-pesimista')?.addEventListener('click', () => switchScenario('pesimista'));
+        document.getElementById('scenario-base')?.addEventListener('click', () => switchScenario('base'));
+        document.getElementById('scenario-optimista')?.addEventListener('click', () => switchScenario('optimista'));
+        
+        log('✅ Scenario listeners configured successfully');
+    } catch (error) {
+        log(`❌ Error setting up scenario listeners: ${error.message}`);
+    }
+}
+
 function setupControls() {
 setupControlGroup('paqueteFinanciado', 'paquete-financiado-controls');
 setupControlGroup('condicionesCredito', 'condiciones-credito-controls');
@@ -4033,10 +4283,15 @@ log('🚀 STARTING FINANCIAL MODEL APPLICATION');
 try {
 setupTabs();
 setupControls();
+setupScenarioListeners(); // ADD SCENARIO LISTENERS
 
 // --- UI calls re-enabled ---
 log('✅ UI updates enabled.');
-forceCalculate(); // Initial calculation
+
+// SET DEFAULT TO BASE SCENARIO
+setTimeout(() => {
+    switchScenario('base');
+}, 100);
 
 setTimeout(() => {
 initializeCharts();
@@ -4047,8 +4302,10 @@ log('🎉 APPLICATION READY AND RUNNING');
 
 } catch (error) {
 log(`❌ CRITICAL ERROR DURING INITIALIZATION: ${error.message}`);
+// Emergency rollback available in console: emergencyRollback()
 }
 });
+
 </script>
 </body>
 </html>
