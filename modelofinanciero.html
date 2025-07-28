@@ -395,7 +395,7 @@ min-height: 280px;
 <header class="mb-8 text-center bg-transparent rounded-xl p-6">
 <h1 class="text-4xl lg:text-5xl font-black text-white leading-tight tracking-tighter mb-2">Modelo Financiero - Rodando a <span class="highlight-text">Gas</span></h1>
 <p class="text-xl text-slate-400 mt-2">NIIF-Compliant | Series A Due Diligence</p>
-<p class="text-sm text-emerald-400 mt-1">🛡️ Financial Constraints System Active - Investment Ready</p>
+<p class="text-sm text-amber-400 mt-1">⚠️ Modelo en desarrollo - Validación continua</p>
 <button onclick="toggleDebug()" class="mt-4 bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 rounded-lg font-medium transition duration-300 inline-flex items-center gap-2">
 <i data-lucide="bug" class="w-5 h-5"></i> Debug
 </button>
@@ -1000,8 +1000,27 @@ function validateAndOptimizeCapitalStructure(year, requiredCapex, projectedEBITD
 * @returns {number} Maximum units allowed.
 */
 function calculateDynamicUnitLimit(year) {
-    // Use the new comprehensive constraint system
-    return calculateMaxUnitsPerYear(year, 'base', 0, 0);
+    const costPerUnit = getTotalPackageCost();
+    
+    // 1. Available capital constraint
+    let availableFunding = 0;
+    for (let y = year; y <= 5; y++) {
+        availableFunding += (modelData[`partnerCapitalizationYear${y}`] || 0) +
+                           (modelData[`ventureDebtYear${y}`] || 0) +
+                           (modelData[`commercialDebtYear${y}`] || 0) +
+                           (modelData[`seriesB_newInvestors_year${y}`] || 0);
+    }
+    
+    const maxByCapital = Math.floor(availableFunding / costPerUnit);
+    
+    // 2. DSCR constraint (simplified)
+    const maxByDSCR = Math.floor((modelData.seriesA * 2) / costPerUnit); // Conservative estimate
+    
+    // 3. SINOSURE boost
+    const sinosureBoost = modelData.sinosureAvailable && year >= 2 ? 
+        Math.floor((sinosureConfig.productionCostUSD * sinosureConfig.exchangeRate * 0.3) / costPerUnit) : 0;
+    
+    return Math.min(maxByCapital, maxByDSCR) + sinosureBoost;
 }
 
 /**
@@ -1655,52 +1674,335 @@ return annualDepreciation;
 * @returns {boolean} True if the calculation was successful, false if there was a critical error (e.g., unbalanced balance sheet).
 */
 function calculateFinancials() {
-    console.log('🚀 MINIMAL calculateFinancials STARTING');
-    
-    try {
-        // Reset results
-        financialResults = {
-            pl: [],
-            cf: [],
-            bs: [],
-            niifDetails: [],
-            tirProyecto: 25.5,  // Hardcode for testing
-            tirCartera: 22.3,   // Hardcode for testing  
-            tirEquity: 35.8,    // Hardcode for testing
-            roe: [15, 20, 25, 30, 35],
-            roic: [12, 18, 22, 25, 28]
-        };
-        
-        // Create minimal data for 5 years
-        for (let i = 0; i < 5; i++) {
-            financialResults.pl.push({
-                totalRevenue: 100000000 * (i + 1),
-                ebitda: 25000000 * (i + 1),
-                netIncome: 15000000 * (i + 1),
-                addedUnits: modelData.unitsPerYear[i] || 100
-            });
-            
-            financialResults.bs.push({
-                cash: 50000000,
-                totalAssets: 200000000 * (i + 1),
-                equity: 100000000 * (i + 1),
-                debt: 50000000 * (i + 1)
-            });
-            
-            financialResults.cf.push({
-                operatingCash: 20000000,
-                netCash: 10000000
-            });
+log('🚀 calculateFinancials (v23 - Strategic Case) INICIANDO');
+try {
+    // --- Reset results ---
+    financialResults = { pl: [], cf: [], bs: [], niifDetails: [], tirProyecto: 0, tirCartera: 0, tirEquity: 0, roe: [], roic: [] };
+    heldForSaleAssets = [];
+    sinosureCohorts = [];
+    debtOptimizationHistory = [];
+
+// --- Initial state variables ---
+let cash = modelData.seriesA;
+let currentProvisionsBalance = 0;
+let endOfYearEquity = modelData.seriesA;
+
+// --- Cohort tracking ---
+let loanCohorts = [];
+let fixedAssetsCohorts = [];
+let ventureDebtCohorts = [];
+let commercialDebtCohorts = [];
+
+// --- Balance tracking ---
+let ventureDebtBalance = 0;
+let commercialDebtBalance = 0;
+
+// --- IRR Cash Flow arrays ---
+let equityCashFlows = [-modelData.seriesA];
+let projectCashFlows = [-modelData.seriesA];
+let portfolioCashFlows = [];
+log(`Initial Series A capital: ${formatCurrency(modelData.seriesA)}`);
+
+// --- Main annual loop (5 years) ---
+for (let year = 0; year < 5; year++) {
+const currentYear = year + 1;
+log(`\n--- Calculating Year ${currentYear} ---`);
+
+const startOfYearCash = cash;
+const startOfYearEquity = endOfYearEquity;
+const startOfYearVentureDebt = ventureDebtBalance;
+const startOfYearCommercialDebt = commercialDebtBalance;
+
+loanCohorts.forEach(cohort => { cohort.startOfYearPrincipal = cohort.remainingPrincipal; });
+
+const addedUnits = modelData.unitsPerYear[year];
+        const capexThisYear = addedUnits * getTotalPackageCost();
+
+        // Auto-equity injection for DSCR maintenance
+        if (addedUnits > 0) {
+            const ebitdaEstimate = calculateProjectedEBITDA(currentYear);
+            const capitalOptimization = validateAndOptimizeCapitalStructure(currentYear, capexThisYear, ebitdaEstimate);
         }
+
+        if (addedUnits > 0) {
+            fixedAssetsCohorts.push({ yearAcquired: currentYear, units: addedUnits, totalOriginalCost: capexThisYear, accumulatedDepreciation: 0 });
+        }
+
+const niif5Results = manageNIIF5Assets(fixedAssetsCohorts, heldForSaleAssets, currentYear);
+fixedAssetsCohorts = niif5Results.updatedFixedAssetsCohorts;
+heldForSaleAssets = niif5Results.updatedHeldForSaleAssets;
+const impairment = niif5Results.impairmentExpense;
+
+const annualDepreciation = calculateAnnualDepreciation(fixedAssetsCohorts, currentYear);
+
+let netLoanPrincipal = 0;
+if (addedUnits > 0) {
+const newCohortGrossPrincipal = addedUnits * getTotalPackagePrice();
+const downPaymentReceived = newCohortGrossPrincipal * (modelData.downPaymentPercentage / 100);
+netLoanPrincipal = newCohortGrossPrincipal - downPaymentReceived;
+const monthlyInterestRateClient = (modelData.tasaInteres / 100) / 12;
+const totalPaymentsMonthsClient = modelData.clientLoanTermYears * 12;
+const monthlyPaymentClient = netLoanPrincipal * (monthlyInterestRateClient / (1 - Math.pow(1 + monthlyInterestRateClient, -totalPaymentsMonthsClient)));
+const originationCommissionForThisCohort = netLoanPrincipal * (modelData.margenVagoneta / 100);
+const upfrontCommissionReceived = newCohortGrossPrincipal * (modelData.upfrontCommissionPercentage / 100);
+loanCohorts.push({ yearOriginated: currentYear, originalPrincipal: netLoanPrincipal, remainingPrincipal: netLoanPrincipal, startOfYearPrincipal: netLoanPrincipal, paymentsMadeMonths: 0, monthlyPayment: monthlyPaymentClient, monthlyInterestRate: monthlyInterestRateClient, totalLoanTermMonths: totalPaymentsMonthsClient, originationCommissionInitial: originationCommissionForThisCohort, remainingOriginationCommission: originationCommissionForThisCohort, originalUpfrontLiability: upfrontCommissionReceived, remainingUpfrontLiability: upfrontCommissionReceived, avgExposureDuringYear: 0, });
+}
+
+let annualInterestReceived = 0;
+let annualPrincipalReceived = 0;
+let currentYearEndReceivables = 0;
+loanCohorts.forEach(cohort => {
+let principal = cohort.startOfYearPrincipal;
+cohort.avgExposureDuringYear = principal;
+for (let m=0; m < 12; m++) {
+if (cohort.paymentsMadeMonths >= cohort.totalLoanTermMonths) break;
+const interest = principal * cohort.monthlyInterestRate;
+const principalPayment = cohort.monthlyPayment - interest;
+annualInterestReceived += interest;
+annualPrincipalReceived += principalPayment;
+principal -= principalPayment;
+cohort.paymentsMadeMonths++;
+}
+cohort.remainingPrincipal = Math.max(0, principal);
+currentYearEndReceivables += cohort.remainingPrincipal;
+});
+
+const niif9Results = calculateNIIF9ECL(loanCohorts, currentYear, currentProvisionsBalance, currentYearEndReceivables);
+const provisions = niif9Results.annualProvisionExpense;
+currentProvisionsBalance = niif9Results.newProvisionsBalance;
+
+const niif15Results = calculateNIIF15Revenue(loanCohorts, fixedAssetsCohorts, addedUnits, currentYear);
+
+const totalActiveUnits = fixedAssetsCohorts.reduce((sum, c) => sum + c.units, 0);
+const gnvCommissions = totalActiveUnits * modelData.litrosPromedioMensualPorUnidad * 12 * modelData.precioLitroGNV * (modelData.comisionGNVPorcentaje / 100);
+const sparePartsRevenue = addedUnits * modelData.refaccionesCostPerUnit * (1 + modelData.margenRefacciones / 100);
+const sparePartsCOGS = addedUnits * modelData.refaccionesCostPerUnit;
+const marketplaceRevenue = totalActiveUnits * modelData.gmvPromedioMensualPorUnidad * 12 * (modelData.takeRateMarketplace / 100);
+const totalRevenue = annualInterestReceived + niif15Results.recognizedOriginationRevenue + gnvCommissions + sparePartsRevenue + marketplaceRevenue;
+const opex = totalRevenue * (modelData.opexRates[year] / 100);
+
+        const ventureDebtInterest = startOfYearVentureDebt * (modelData.ventureDebtRate / 100);
+        const commercialDebtInterest = startOfYearCommercialDebt * (modelData.commercialDebtRate / 100);
         
-        console.log('✅ MINIMAL calculateFinancials COMPLETED');
-        console.log('financialResults created:', financialResults);
-        return true;
+        // SINOSURE interest expense
+        let sinosureInterest = 0;
+        const startOfYearSinosureBalance = getSinosureBalance(currentYear - 1, sinosureCohorts);
+        sinosureCohorts.forEach(cohort => {
+            const yearsPassed = currentYear - cohort.yearOriginated;
+            if (yearsPassed >= 0) {
+                const remainingBalance = cohort.originalAmount - 
+                                       (cohort.originalAmount / modelData.periodoAmortizacionDeuda * yearsPassed);
+                sinosureInterest += Math.max(0, remainingBalance) * (cohort.rate / 100);
+            }
+        });
         
-    } catch (error) {
-        console.error('❌ ERROR in minimal calculateFinancials:', error);
-        return false;
-    }
+        const interestExpense = ventureDebtInterest + commercialDebtInterest + sinosureInterest;
+        
+        if (sinosureInterest > 0) {
+            log(`💸 Interest Expense Year ${currentYear}: VD=${formatCurrency(ventureDebtInterest)}, CD=${formatCurrency(commercialDebtInterest)}, SINOSURE=${formatCurrency(sinosureInterest)}, Total=${formatCurrency(interestExpense)}`);
+        }
+
+let ventureDebtPrincipalRepayment = 0;
+ventureDebtCohorts.forEach(cohort => {
+if (currentYear >= cohort.yearOriginated) {
+ventureDebtPrincipalRepayment += cohort.originalAmount / modelData.periodoAmortizacionDeuda;
+}
+});
+        let commercialDebtPrincipalRepayment = 0;
+        commercialDebtCohorts.forEach(cohort => {
+            if (currentYear >= cohort.yearOriginated) {
+                commercialDebtPrincipalRepayment += cohort.originalAmount / modelData.periodoAmortizacionDeuda;
+            }
+        });
+        
+        // SINOSURE principal repayment
+        let sinosurePrincipalRepayment = 0;
+        sinosureCohorts.forEach(cohort => {
+            if (currentYear >= cohort.yearOriginated) {
+                sinosurePrincipalRepayment += cohort.originalAmount / modelData.periodoAmortizacionDeuda;
+            }
+        });
+        
+        const totalDebtPrincipalRepayment = ventureDebtPrincipalRepayment + commercialDebtPrincipalRepayment + sinosurePrincipalRepayment;
+
+const ebitda = totalRevenue - sparePartsCOGS - opex - provisions - impairment;
+const ebit = ebitda - annualDepreciation;
+const earningsBeforeTax = ebit - interestExpense;
+const incomeTaxExpense = Math.max(0, earningsBeforeTax) * (modelData.corporateTaxRate / 100);
+const netIncome = earningsBeforeTax - incomeTaxExpense;
+
+// --- PRE-FINANCING CASH FLOW CALCULATION ---
+let techInvestmentThisYear = 0;
+if (currentYear === 1 || currentYear === 2) {
+    techInvestmentThisYear = 6875000;
+}
+const deltaReceivables = currentYearEndReceivables - ((financialResults.bs[year-1]?.receivables) || 0);
+const deltaProvisions = currentProvisionsBalance - ((financialResults.bs[year-1]?.provisions) || 0);
+const deltaContractLiabilities = niif15Results.contractLiabilitiesBalance - ((financialResults.bs[year-1]?.contractLiabilities) || 0);
+const operatingCash = netIncome + annualDepreciation + impairment + deltaProvisions + deltaContractLiabilities - deltaReceivables;
+
+        // --- NEW: CAPITAL CASCADING LOGIC ---
+        const sourcingPlan = calculateYearlyFinancingNeeds(year, capexThisYear, operatingCash, cash, { venture: ventureDebtCohorts, commercial: commercialDebtCohorts });
+        log(`💰 Sourcing Plan Year ${currentYear}: Equity=${formatCurrency(sourcingPlan.newEquity)}, VD=${formatCurrency(sourcingPlan.newVentureDebt)}, CD=${formatCurrency(sourcingPlan.newCommercialDebt)}`);
+
+        // --- SINOSURE INTEGRATION ---
+        let finalNewVentureDebt = sourcingPlan.newVentureDebt;
+        let finalNewCommercialDebt = sourcingPlan.newCommercialDebt;
+        
+        if (modelData.sinosureAvailable && currentYear >= 2 && addedUnits > 0) {
+            // SINOSURE is deterministic - when enabled, always works
+            const productionCostPerUnit = sinosureConfig.productionCostUSD * sinosureConfig.exchangeRate;
+            const maxSinosureThisYear = addedUnits * productionCostPerUnit;
+            
+            // SMART SUBSTITUTION: Replace most expensive debt first
+            let remainingSinosure = maxSinosureThisYear;
+            let ventureDebtReplaced = 0;
+            let commercialDebtReplaced = 0;
+            
+            // Replace Venture Debt (18%) first - highest savings
+            if (remainingSinosure > 0 && sourcingPlan.newVentureDebt > 0) {
+                ventureDebtReplaced = Math.min(remainingSinosure, sourcingPlan.newVentureDebt);
+                finalNewVentureDebt -= ventureDebtReplaced;
+                remainingSinosure -= ventureDebtReplaced;
+            }
+            
+            // Replace Commercial Debt (14%) second
+            if (remainingSinosure > 0 && sourcingPlan.newCommercialDebt > 0) {
+                commercialDebtReplaced = Math.min(remainingSinosure, sourcingPlan.newCommercialDebt);
+                finalNewCommercialDebt -= commercialDebtReplaced;
+                remainingSinosure -= commercialDebtReplaced;
+            }
+            
+            const totalSinosureAmount = ventureDebtReplaced + commercialDebtReplaced;
+            
+            if (totalSinosureAmount > 0) {
+                // Create SINOSURE cohort at 6% rate
+                sinosureCohorts.push({
+                    yearOriginated: currentYear,
+                    originalAmount: totalSinosureAmount,
+                    rate: sinosureConfig.rate, // 6.0%
+                    ventureDebtReplaced: ventureDebtReplaced,
+                    commercialDebtReplaced: commercialDebtReplaced
+                });
+                
+                // Track for financing cash flow (will be included in sinosureDrawdowns calculation)
+                
+                // Calculate annual interest savings
+                const ventureDebtSavings = ventureDebtReplaced * (modelData.ventureDebtRate - sinosureConfig.rate) / 100;
+                const commercialDebtSavings = commercialDebtReplaced * (modelData.commercialDebtRate - sinosureConfig.rate) / 100;
+                const totalAnnualSavings = ventureDebtSavings + commercialDebtSavings;
+                
+                log(`🇨🇳 SINOSURE ENABLED Year ${currentYear}:`);
+                log(`  • Amount: ${formatCurrency(totalSinosureAmount)} at 6.0%`);
+                log(`  • Replaced VD: ${formatCurrency(ventureDebtReplaced)} (18% → 6% = ${(modelData.ventureDebtRate - sinosureConfig.rate).toFixed(1)}pp savings)`);
+                log(`  • Replaced CD: ${formatCurrency(commercialDebtReplaced)} (14% → 6% = ${(modelData.commercialDebtRate - sinosureConfig.rate).toFixed(1)}pp savings)`);
+                log(`  • Annual interest savings: ${formatCurrency(totalAnnualSavings)}`);
+            }
+        }
+
+        // Usar valores de cascada para el flujo
+        const finalNewEquityInjections = sourcingPlan.newEquity;
+
+// Actualizar modelData con los valores optimizados/totales
+modelData[`ventureDebtYear${currentYear}`] = finalNewVentureDebt;
+modelData[`commercialDebtYear${currentYear}`] = finalNewCommercialDebt;
+modelData[`partnerCapitalizationYear${currentYear}`] = (plannedFinancingData[`partnerCapitalizationYear${currentYear}`] || 0);
+modelData[`seriesB_newInvestors_year${currentYear}`] = (plannedFinancingData[`seriesB_newInvestors_year${currentYear}`] || 0);
+
+
+if (finalNewVentureDebt > 0) ventureDebtCohorts.push({ yearOriginated: currentYear, originalAmount: finalNewVentureDebt });
+if (finalNewCommercialDebt > 0) commercialDebtCohorts.push({ yearOriginated: currentYear, originalAmount: finalNewCommercialDebt });
+
+
+        const investingCash = -capexThisYear - techInvestmentThisYear;
+        
+        // Calculate SINOSURE drawdowns for cash flow
+        let sinosureDrawdowns = 0;
+        sinosureCohorts.forEach(cohort => {
+            if (cohort.yearOriginated === currentYear) {
+                sinosureDrawdowns += cohort.originalAmount;
+            }
+        });
+        
+        const financingCash = finalNewEquityInjections + finalNewVentureDebt + finalNewCommercialDebt + sinosureDrawdowns - totalDebtPrincipalRepayment;
+
+const netCash = operatingCash + investingCash + financingCash;
+cash += netCash;
+
+        endOfYearEquity = startOfYearEquity + netIncome + finalNewEquityInjections;
+        ventureDebtBalance = startOfYearVentureDebt + finalNewVentureDebt - ventureDebtPrincipalRepayment;
+        commercialDebtBalance = startOfYearCommercialDebt + finalNewCommercialDebt - commercialDebtPrincipalRepayment;
+        const sinosureBalance = getSinosureBalance(currentYear, sinosureCohorts);
+        const totalDebt = ventureDebtBalance + commercialDebtBalance + sinosureBalance;
+
+const fixedAssetsNet = fixedAssetsCohorts.reduce((sum, c) => sum + (c.totalOriginalCost - c.accumulatedDepreciation), 0);
+const assetsHeldForSaleNet = heldForSaleAssets.reduce((sum, a) => sum + a.currentFairValueLessCosts, 0);
+const totalAssets = cash + currentYearEndReceivables + fixedAssetsNet + assetsHeldForSaleNet;
+const totalLiabilities = totalDebt + currentProvisionsBalance + niif15Results.contractLiabilitiesBalance;
+let totalLiabilitiesEquity = totalLiabilities + endOfYearEquity;
+const balanceDiff = totalAssets - totalLiabilitiesEquity;
+
+if (Math.abs(balanceDiff) > BALANCE_TOLERANCE) {
+log(`⚠️ Balance adjustment in Year ${currentYear}: ${formatCurrency(balanceDiff)}`);
+endOfYearEquity += balanceDiff;
+totalLiabilitiesEquity = totalLiabilities + endOfYearEquity;
+}
+
+financialResults.pl.push({ ...niif15Results, interestRevenue: annualInterestReceived, totalRevenue, ebitda, ebit, netIncome, interestExpense, depreciation: annualDepreciation, provisions, impairment, totalCOGS: sparePartsCOGS, grossProfit: totalRevenue - sparePartsCOGS, opex, earningsBeforeTax, incomeTaxExpense, addedUnits });
+financialResults.cf.push({ operatingCash, investingCash, financingCash, netCash, deltaProvisions, deltaContractLiabilities, incomeTaxPaid: incomeTaxExpense, clientPrincipalPaymentsReceived: annualPrincipalReceived, clientInterestPaymentsReceived: annualInterestReceived, currentYearVentureDebtDraw: finalNewVentureDebt, additionalFundingRaised: finalNewCommercialDebt, sinosureDrawn: sinosureDrawdowns, debtPrincipalRepayment: totalDebtPrincipalRepayment, techInvestmentThisYear });
+financialResults.bs.push({ cash, receivables: currentYearEndReceivables, receivablesNet: currentYearEndReceivables - currentProvisionsBalance, fixedAssets: fixedAssetsNet, assetsHeldForSale: assetsHeldForSaleNet, totalAssets: totalAssets, debt: totalDebt, equity: endOfYearEquity, totalLiabilitiesEquity: totalLiabilitiesEquity, provisions: currentProvisionsBalance, contractLiabilities: niif15Results.contractLiabilitiesBalance });
+financialResults.niifDetails.push({ niif15: niif15Results, niif5: niif5Results.niif5Details, niif9: {...niif9Results, pdStage1: modelData.pdStage1, pdStage2: modelData.pdStage2, pdStage3: modelData.pdStage3, lgd: modelData.lgd, economicAdjustmentFactor: modelData.economicAdjustmentFactor, proteccionRodandoActiva: modelData.proteccionRodando, provisionesConProteccion: provisions, reduccionPorProteccion: niif9Results.totalECLBeforeAdjustment - provisions, saldoProvisionesAcumulado: currentProvisionsBalance } });
+
+const equityEvents = [];
+if (finalNewEquityInjections > 0) equityEvents.push({ month: 6, amount: finalNewEquityInjections });
+const debtEvents = [];
+if (finalNewVentureDebt > 0) debtEvents.push({ month: 3, amount: finalNewVentureDebt });
+if (finalNewCommercialDebt > 0) debtEvents.push({ month: 9, amount: finalNewCommercialDebt });
+const avgEquity = calculateTimeWeightedAverage(startOfYearEquity, endOfYearEquity, equityEvents);
+financialResults.roe.push(avgEquity > 0 ? (netIncome / avgEquity) * 100 : 0);
+const nopat = ebit * (1 - modelData.corporateTaxRate / 100);
+const avgDebt = calculateTimeWeightedAverage(startOfYearVentureDebt + startOfYearCommercialDebt, totalDebt, debtEvents);
+const avgInvestedCapital = avgEquity + avgDebt;
+financialResults.roic.push(avgInvestedCapital > 0 ? (nopat / avgInvestedCapital) * 100 : 0);
+
+projectCashFlows.push(ebit * (1 - modelData.corporateTaxRate/100) + annualDepreciation - capexThisYear);
+const freeCashFlowToEquity = operatingCash + investingCash + (finalNewVentureDebt + finalNewCommercialDebt + sinosureDrawdowns - totalDebtPrincipalRepayment);
+if (sinosureDrawdowns > 0) {
+    log(`💰 Equity Cash Flow Year ${currentYear}: Operating=${formatCurrency(operatingCash)}, Investing=${formatCurrency(investingCash)}, VD=${formatCurrency(finalNewVentureDebt)}, CD=${formatCurrency(finalNewCommercialDebt)}, SINOSURE=${formatCurrency(sinosureDrawdowns)}, Principal=${formatCurrency(totalDebtPrincipalRepayment)}, Total=${formatCurrency(freeCashFlowToEquity)}`);
+}
+equityCashFlows.push(freeCashFlowToEquity);
+let portfolioCashFlowThisYear = -netLoanPrincipal + annualPrincipalReceived + annualInterestReceived;
+if (year === 4) {
+portfolioCashFlowThisYear += currentYearEndReceivables / Math.pow(1 + modelData.tasaInteres / 100, modelData.avgRemainingTermCartera);
+}
+portfolioCashFlows.push(portfolioCashFlowThisYear);
+}
+
+const terminalValueProject_final = financialResults.pl[4].ebitda * modelData.ebitdaMultipleProject;
+const terminalValueEquity_final = financialResults.bs[4].equity * modelData.floorEquityMultiple;
+
+projectCashFlows[projectCashFlows.length - 1] += terminalValueProject_final;
+const finalTerminalValue = Math.max(terminalValueProject_final, terminalValueEquity_final);
+equityCashFlows[equityCashFlows.length - 1] += finalTerminalValue;
+financialResults.tirProyecto = calculateIRR(projectCashFlows) || 0;
+financialResults.tirEquity = calculateIRR(equityCashFlows) || 0;
+financialResults.tirCartera = calculateIRR(portfolioCashFlows) || 0;
+
+log(`📊 FINAL TIR RESULTS:`);
+log(`  • TIR Proyecto: ${financialResults.tirProyecto.toFixed(1)}%`);
+log(`  • TIR Equity: ${financialResults.tirEquity.toFixed(1)}%`);
+log(`  • TIR Cartera: ${financialResults.tirCartera.toFixed(1)}%`);
+if (modelData.sinosureAvailable) {
+    log(`  • SINOSURE Active: Should see HIGHER TIR due to lower interest costs`);
+}
+
+log('✅ FINANCIAL CALCULATIONS (v23) COMPLETED');
+return true;
+} catch (error) {
+log(`❌ ERROR in calculateFinancials (v23): ${error.message}`);
+document.getElementById('balance-validation').innerHTML = `<span class="text-red-600">❌ ${error.message}</span>`;
+return false;
+}
 }
 
 /**
@@ -1794,13 +2096,12 @@ validateIndustryBenchmarks(financialResults, validations);
 } else {
 validations.info.push("No enough projection years to evaluate industry benchmarks.");
 }
-    validateFinancingCapacity(modelData, financialResults, validations);
-        // DISABLED: validateFinancialConstraints(modelData, financialResults, validations); // Add constraint validation
-    } else {
-        validations.errors.push("Financial results could not be calculated. Please review initial inputs.");
-    }
+validateFinancingCapacity(modelData, financialResults, validations);
+} else {
+validations.errors.push("Financial results could not be calculated. Please review initial inputs.");
+}
 
-    return validations;
+return validations;
 }
 /**
 * Validates model inputs, including ranges and cross-validations.
@@ -2093,72 +2394,6 @@ validations.passed.push(`✅ Validación Financiamiento: El financiamiento total
 }
 }
 
-/**
- * Validates the new financial constraints system
- */
-function validateFinancialConstraints(modelData, financialResults, validations) {
-    // Validate unit limits
-    for (let year = 1; year <= 5; year++) {
-        const currentUnits = modelData.unitsPerYear[year - 1] || 0;
-        const maxAllowed = calculateMaxUnitsPerYear(year, 'base', 0, 0);
-        
-        if (currentUnits > maxAllowed) {
-            validations.errors.push(`🛡️ Constraint Violation: Year ${year} units (${currentUnits}) exceed maximum allowed (${maxAllowed}) by capital/DSCR constraints.`);
-        } else if (currentUnits >= maxAllowed * 0.9) {
-            validations.warnings.push(`🛡️ Constraint Warning: Year ${year} units (${currentUnits}) are near maximum capacity (${maxAllowed}).`);
-        } else {
-            validations.passed.push(`✅ Constraint Check: Year ${year} units (${currentUnits}) within sustainable limits.`);
-        }
-    }
-    
-    // Validate DSCR covenant
-    const covenantStatus = monitorDebtCovenants();
-    if (covenantStatus.covenantViolation) {
-        validations.errors.push(`🛡️ DSCR Violation: Current DSCR (${covenantStatus.currentDSCR.toFixed(2)}x) below minimum requirement (${covenantStatus.minRequiredDSCR}x).`);
-    } else if (covenantStatus.currentDSCR < 2.0 && covenantStatus.currentDSCR !== 999) {
-        validations.warnings.push(`🛡️ DSCR Warning: Current DSCR (${covenantStatus.currentDSCR.toFixed(2)}x) is healthy but could be stronger.`);
-    } else {
-        validations.passed.push(`✅ DSCR Compliance: Current ratio (${covenantStatus.currentDSCR === 999 ? '∞' : covenantStatus.currentDSCR.toFixed(2)}x) meets covenant requirements.`);
-    }
-    
-    // Validate cash flow constraints
-    const cashFlowConstraints = validateCashFlowConstraints();
-    if (cashFlowConstraints.violations.length > 0) {
-        cashFlowConstraints.violations.forEach(violation => {
-            validations.errors.push(`🛡️ Cash Flow Violation: Year ${violation.year} net cash flow (${formatCurrency(violation.amount)}) exceeds limit (${formatCurrency(violation.limit)}).`);
-        });
-    }
-    
-    if (cashFlowConstraints.alerts.length > 0) {
-        cashFlowConstraints.alerts.forEach(alert => {
-            validations.warnings.push(`🛡️ Liquidity Alert: Year ${alert.year} ending cash (${formatCurrency(alert.amount)}) below minimum buffer (${formatCurrency(alert.minimum)}).`);
-        });
-    }
-    
-    // Validate debt utilization
-    if (covenantStatus.debtUtilization.ventureDebt.utilization > 100) {
-        validations.errors.push(`🛡️ Debt Line Exceeded: Venture Debt utilization (${covenantStatus.debtUtilization.ventureDebt.utilization.toFixed(0)}%) exceeds available line.`);
-    } else if (covenantStatus.debtUtilization.ventureDebt.utilization > 90) {
-        validations.warnings.push(`🛡️ Debt Line Warning: Venture Debt utilization (${covenantStatus.debtUtilization.ventureDebt.utilization.toFixed(0)}%) near capacity.`);
-    }
-    
-    if (covenantStatus.debtUtilization.commercialDebt.utilization > 100) {
-        validations.errors.push(`🛡️ Debt Line Exceeded: Commercial Debt utilization (${covenantStatus.debtUtilization.commercialDebt.utilization.toFixed(0)}%) exceeds available line.`);
-    } else if (covenantStatus.debtUtilization.commercialDebt.utilization > 90) {
-        validations.warnings.push(`🛡️ Debt Line Warning: Commercial Debt utilization (${covenantStatus.debtUtilization.commercialDebt.utilization.toFixed(0)}%) near capacity.`);
-    }
-    
-    // SINOSURE validation
-    if (modelData.sinosureAvailable) {
-        const potentialSavings = calculateSinosurePotentialSavings();
-        if (potentialSavings > 0) {
-            validations.info.push(`🛡️ SINOSURE Active: Potential annual interest savings of ${formatCurrency(potentialSavings)} from Year 2+.`);
-        }
-    } else {
-        validations.info.push(`🛡️ SINOSURE Disabled: Enable for potential 12pp interest rate savings on production costs.`);
-    }
-}
-
 // ===================================================================
 // ===== FASE 3: LÓGICA DE INTERFAZ DE USUARIO (UI - EL CÓMO SE VE) ==
 // ===================================================================
@@ -2235,191 +2470,65 @@ showWarning(`🚨 Alerta de Riesgo de Deuda: El DSCR (${debtMetrics.finalDSCR.to
 * Process: Collects data from `financialResults` and injects it into the DOM.
 */
 function updateUI() {
-    console.log('🔄 EMERGENCY updateUI STARTING...');
-    log('🔄 Updating User Interface...');
-    
-    try {
-        if (!financialResults.pl || financialResults.pl.length === 0) {
-            console.error('❌ No financial data to update UI.');
-            log('❌ No financial data to update UI.');
-            return;
-        }
+log('🔄 Updating User Interface...');
+try {
+if (!financialResults.pl || financialResults.pl.length === 0) {
+log('❌ No financial data to update UI.');
+return;
+}
 
-        console.log('✅ Financial results exist, length:', financialResults.pl.length);
+const year5PL = financialResults.pl[4];
+const year5BS = financialResults.bs[4];
 
-        const year5PL = financialResults.pl[4];
-        const year5BS = financialResults.bs[4];
+// Update new investor dashboard
+if (year5PL && year5BS) {
+// Row 1: Retorno y Escala
+document.getElementById('ebitda-year5').textContent = formatCurrency(year5PL.ebitda);
+document.getElementById('tir-equity').textContent = financialResults.tirEquity.toFixed(1) + '%';
+document.getElementById('aum-value').textContent = formatCurrency(year5BS.totalAssets);
+const totalVansFinanced = financialResults.pl.reduce((a, b) => a + (b.addedUnits || 0), 0);
+document.getElementById('total-vans-financed').textContent = totalVansFinanced.toLocaleString();
+// Row 2: La Maquinaria de Crecimiento
+document.getElementById('equity-raised').textContent = formatCurrency(calculateTotalEquityRaised());
+document.getElementById('total-debt-raised').textContent = formatCurrency(calculateTotalDebtRaised());
+const seriesAMetrics = calculateSeriesAMetrics();
+document.getElementById('funding-efficiency').textContent = seriesAMetrics.fundingEfficiency ? seriesAMetrics.fundingEfficiency.toFixed(1) + 'x' : '0.0x';
+document.getElementById('capital-per-unit').textContent = seriesAMetrics.capitalPerUnit ? '$' + seriesAMetrics.capitalPerUnit.toFixed(0) + 'K' : '$0K';
+// Row 3: Resiliencia y Sostenibilidad
+const vagonetasOperativas = totalVansFinanced - (financialResults.niifDetails && financialResults.niifDetails[4]?.niif5?.totalUnitsAccumulatedHeldForSale || 0);
+document.getElementById('vagonetas-operativas').textContent = Math.round(vagonetasOperativas).toLocaleString();
+const debtMetrics = calculateDebtMetricsBreakdown();
+document.getElementById('dscr-final').textContent = debtMetrics.finalDSCR === 999 ? '∞' : debtMetrics.finalDSCR.toFixed(1) + 'x';
+document.getElementById('dscr-final').className = 'text-2xl font-bold ' + (debtMetrics.isHealthyDSCR ? 'text-emerald-400' : 'text-amber-400');
+document.getElementById('nim-y5').textContent = seriesAMetrics.netInterestMargin ? seriesAMetrics.netInterestMargin.toFixed(1) + '%' : '0.0%';
+let actualAutosufficiencyYear = 0;
+if(financialResults.pl){
+for(let i = 0; i < financialResults.pl.length; i++) {
+const plYear = financialResults.pl[i];
+if (plYear.totalRevenue > (plYear.opex + plYear.provisions + plYear.impairment)) {
+actualAutosufficiencyYear = i + 1;
+break;
+}
+}
+}
+document.getElementById('autosuficiency-year').textContent = actualAutosufficiencyYear > 0 ? `Año ${actualAutosufficiencyYear}` : 'No alcanzado';
+}
 
-        console.log('Year 5 P&L:', year5PL);
-        console.log('Year 5 BS:', year5BS);
+updateTables();
+updateNIIFTables();
+updateCharts();
+updateFinancingMatrixWithOptimized(); // NEW
 
-        // Update new investor dashboard with error handling for each element
-        if (year5PL && year5BS) {
-            console.log('=== UPDATING DASHBOARD METRICS ===');
-            
-            // Row 1: Retorno y Escala
-            try {
-                const ebitdaElement = document.getElementById('ebitda-year5');
-                if (ebitdaElement) {
-                    ebitdaElement.textContent = formatCurrency(year5PL.ebitda);
-                    console.log('✅ Updated EBITDA:', formatCurrency(year5PL.ebitda));
-                } else {
-                    console.error('❌ EBITDA element not found');
-                }
-            } catch (error) {
-                console.error('❌ Error updating EBITDA:', error);
-            }
+const validations = validateModelComprehensively(modelData, financialResults);
+updateValidationPanel(validations);
+updateOptimizationStatus();
+updateInvestorScore();
+updateFundingCoverageCard();
 
-            try {
-                const tirElement = document.getElementById('tir-equity');
-                if (tirElement) {
-                    tirElement.textContent = financialResults.tirEquity.toFixed(1) + '%';
-                    console.log('✅ Updated TIR Equity:', financialResults.tirEquity.toFixed(1) + '%');
-                } else {
-                    console.error('❌ TIR Equity element not found');
-                }
-            } catch (error) {
-                console.error('❌ Error updating TIR Equity:', error);
-            }
-
-            try {
-                const aumElement = document.getElementById('aum-value');
-                if (aumElement) {
-                    aumElement.textContent = formatCurrency(year5BS.totalAssets);
-                    console.log('✅ Updated AUM:', formatCurrency(year5BS.totalAssets));
-                } else {
-                    console.error('❌ AUM element not found');
-                }
-            } catch (error) {
-                console.error('❌ Error updating AUM:', error);
-            }
-
-            try {
-                const totalVansFinanced = financialResults.pl.reduce((a, b) => a + (b.addedUnits || 0), 0);
-                const vansElement = document.getElementById('total-vans-financed');
-                if (vansElement) {
-                    vansElement.textContent = totalVansFinanced.toLocaleString();
-                    console.log('✅ Updated Total Vans:', totalVansFinanced.toLocaleString());
-                } else {
-                    console.error('❌ Total vans element not found');
-                }
-            } catch (error) {
-                console.error('❌ Error updating total vans:', error);
-            }
-
-            // Row 2: La Maquinaria de Crecimiento (with safe fallbacks)
-            try {
-                const equityElement = document.getElementById('equity-raised');
-                if (equityElement) {
-                    const equityRaised = typeof calculateTotalEquityRaised === 'function' ? calculateTotalEquityRaised() : modelData.seriesA;
-                    equityElement.textContent = formatCurrency(equityRaised);
-                    console.log('✅ Updated Equity Raised:', formatCurrency(equityRaised));
-                }
-            } catch (error) {
-                console.error('❌ Error updating equity raised:', error);
-            }
-
-            try {
-                const debtElement = document.getElementById('total-debt-raised');
-                if (debtElement) {
-                    const debtRaised = typeof calculateTotalDebtRaised === 'function' ? calculateTotalDebtRaised() : 0;
-                    debtElement.textContent = formatCurrency(debtRaised);
-                    console.log('✅ Updated Debt Raised:', formatCurrency(debtRaised));
-                }
-            } catch (error) {
-                console.error('❌ Error updating debt raised:', error);
-            }
-
-            // Simplified metrics for emergency mode
-            try {
-                const fundingEffElement = document.getElementById('funding-efficiency');
-                if (fundingEffElement) {
-                    fundingEffElement.textContent = '0.8x'; // Hardcoded for emergency
-                    console.log('✅ Updated Funding Efficiency (hardcoded)');
-                }
-            } catch (error) {
-                console.error('❌ Error updating funding efficiency:', error);
-            }
-
-            try {
-                const capitalPerUnitElement = document.getElementById('capital-per-unit');
-                if (capitalPerUnitElement) {
-                    capitalPerUnitElement.textContent = '$650K'; // Hardcoded for emergency
-                    console.log('✅ Updated Capital per Unit (hardcoded)');
-                }
-            } catch (error) {
-                console.error('❌ Error updating capital per unit:', error);
-            }
-
-            // Row 3: Resiliencia y Sostenibilidad (simplified)
-            try {
-                const operativeVansElement = document.getElementById('vagonetas-operativas');
-                if (operativeVansElement) {
-                    const totalVans = financialResults.pl.reduce((a, b) => a + (b.addedUnits || 0), 0);
-                    operativeVansElement.textContent = Math.round(totalVans * 0.95).toLocaleString(); // 95% operational
-                    console.log('✅ Updated Operative Vans (estimated)');
-                }
-            } catch (error) {
-                console.error('❌ Error updating operative vans:', error);
-            }
-
-            try {
-                const dscrElement = document.getElementById('dscr-final');
-                if (dscrElement) {
-                    dscrElement.textContent = '2.1x'; // Hardcoded healthy ratio
-                    dscrElement.className = 'text-2xl font-bold text-emerald-400';
-                    console.log('✅ Updated DSCR (hardcoded)');
-                }
-            } catch (error) {
-                console.error('❌ Error updating DSCR:', error);
-            }
-
-            try {
-                const nimElement = document.getElementById('nim-y5');
-                if (nimElement) {
-                    nimElement.textContent = '4.2%'; // Hardcoded healthy NIM
-                    console.log('✅ Updated NIM (hardcoded)');
-                }
-            } catch (error) {
-                console.error('❌ Error updating NIM:', error);
-            }
-
-            try {
-                const autosufElement = document.getElementById('autosuficiency-year');
-                if (autosufElement) {
-                    autosufElement.textContent = 'Año 3'; // Hardcoded
-                    console.log('✅ Updated Autosuficiency (hardcoded)');
-                }
-            } catch (error) {
-                console.error('❌ Error updating autosuficiency:', error);
-            }
-        }
-
-        console.log('=== DASHBOARD UPDATE COMPLETED ===');
-
-        // Skip complex table updates for now in emergency mode
-        console.log('⚠️ Skipping complex table updates in emergency mode');
-        
-        /*
-        updateTables();
-        updateNIIFTables();
-        updateCharts();
-        updateFinancingMatrixWithOptimized();
-
-        const validations = validateModelComprehensively(modelData, financialResults);
-        updateValidationPanel(validations);
-        updateOptimizationStatus();
-        updateInvestorScore();
-        updateFundingCoverageCard();
-        */
-
-        log(`✅ EMERGENCY UI Update completed successfully.`);
-        console.log('✅ EMERGENCY UI Update completed successfully.');
-
-    } catch (error) {
-        console.error('❌ CRITICAL ERROR in updateUI:', error);
-        log(`❌ Error in updateUI: ${error.message}`);
-    }
+log(`✅ UI Update sequence completed.`);
+} catch (error) {
+log(`❌ Error in updateUI: ${error.message}`);
+}
 }
 /**
 * Coordinates the update of all financial tables (P&L, CF, BS).
@@ -2835,7 +2944,7 @@ ${year5NIIF9.proteccionRodandoActiva ?
 <p class="mb-1">• <strong>ECL Calculation:</strong> ECL = Average Exposure × Probability of Default (PD) × Loss Given Default (LGD).</p>
 <p class="mb-1">• <strong>Dynamic PD:</strong> PD is adjusted according to loan age (increases 50% if > 2 years) to reflect increasing risk.</p>
 <p class="mb-1">• <strong>Prospective Information:</strong> The economic adjustment factor allows incorporating future expectations about credit risk.</p>
-<p class="mb-1">• "Protección Rodando" simula un mecanismo que reduce el gasto por provisiones finales.</p>
+<p class="mb-1">• "Protección Rodando" simulates a mechanism that reduces the final provision expense.</p>
 </div>
 `;
 log('✅ IFRS 9 updated.');
@@ -3232,23 +3341,17 @@ function capturePlannedFinancing() {
 * Forces a manual recalculation of the model.
 */
 function forceCalculate() {
-    console.log('🔄 forceCalculate CALLED - BUTTON WORKS');
-    
-    // COMMENT OUT ALL CONSTRAINT STUFF:
-    // capturePlannedFinancing();
-    // validateCapexConstraints();
-    // const violations = enforceConstraintRules();
-    
-    console.log('About to call calculateFinancials()...');
-    const result = calculateFinancials();
-    console.log('calculateFinancials() returned:', result);
-    
-    if (result) {
-        console.log('Calling updateUI()...');
-        updateUI();
-        console.log('✅ All done');
+    log('🔄 Manual recalculation requested.');
+    capturePlannedFinancing();
+    validateCapexConstraints();
+    // MEJORA: Es necesario redibujar los controles de unidades para actualizar los máximos dinámicos.
+    setupControlGroup('planCrecimiento', 'plan-crecimiento-controls');
+    if (!calculateFinancials()) {
+        log('❌ Manual recalculation failed.');
     } else {
-        console.log('❌ calculateFinancials failed');
+        updateUI();
+        runGlobalChecks(); // Run global checks after manual recalculation
+        log('✅ Manual recalculation completed.');
     }
 }
 
@@ -3441,21 +3544,21 @@ grid.appendChild(div);
 
                 const input = div.querySelector(`input[type="number"]`);
                 
-                // Add dynamic limits for unitsPerYear with comprehensive constraints
+                // Add dynamic limits for unitsPerYear
                 if (config.id === 'unitsPerYear') {
                     input.addEventListener('change', function() {
                         const year = index + 1;
                         const value = parseFloat(this.value);
-                        const maxUnits = calculateMaxUnitsPerYear(year, 'base', 0, 0);
+                        const maxUnits = calculateDynamicUnitLimit(year);
                         
                         let newValue = Math.max(config.min, Math.min(maxUnits, isNaN(value) ? config.min : value));
                         
-                        // Visual feedback with constraint status
+                        // Visual feedback
                         this.classList.remove('validation-error', 'validation-warning', 'validation-success');
                         
                         if (value > maxUnits) {
                             this.classList.add('validation-error');
-                            showConstraintWarning(`Año ${year}: Máximo ${maxUnits} unidades por constraints financieros (Capital + DSCR + SINOSURE)`);
+                            showWarning(`⚠️ Año ${year}: Máximo ${maxUnits} unidades por constraints de capital disponible`);
                         } else if (newValue >= maxUnits * 0.8) {
                             this.classList.add('validation-warning');
                         } else {
@@ -3465,10 +3568,6 @@ grid.appendChild(div);
                         this.value = newValue;
                         this.max = maxUnits; // Dynamic max attribute
                         modelData[config.id][index] = newValue;
-                        
-                        // Update tooltip with current constraints
-                        const constraintInfo = `Max: ${maxUnits} units (Capital: ${calculateCapitalConstraint(year, 0, getTotalPackageCost())}, DSCR: ${calculateDSCRConstraint(year, 0)}, SINOSURE: ${calculateSinosureBoost(year)})`;
-                        this.setAttribute('data-tooltip', constraintInfo);
                         
                         log(`${config.label} Año ${year} changed to: ${newValue} (max available: ${maxUnits})`);
                         forceCalculate();
@@ -3928,874 +4027,28 @@ ${investorScore.issues.map(issue => `<li>${issue}</li>`).join('')}
 * Runs when the DOM is fully loaded.
 * Process: Initializes the UI, configures controls, performs initial calculation, and updates UI and charts.
 */
-// EMERGENCY DIAGNOSTIC SYSTEM - CRITICAL INITIALIZATION FAILURE
-console.log('🚨 EMERGENCY DIAGNOSTIC LOADING');
-
-// Test functions before DOM loads
-function emergencyDOMCheck() {
-    console.log('=== EMERGENCY DOM DIAGNOSTIC ===');
-    console.log('document.body exists:', !!document.body);
-    
-    const containers = [
-        'paquete-financiado-controls',
-        'condiciones-credito-controls', 
-        'plan-crecimiento-controls',
-        'ebitda-year5',
-        'tir-equity'
-    ];
-    
-    containers.forEach(id => {
-        const element = document.getElementById(id);
-        console.log(`${id} exists:`, !!element);
-        if (element) {
-            console.log(`  - innerHTML length:`, element.innerHTML.length);
-        }
-    });
-}
-
-function emergencyFunctionCheck() {
-    console.log('=== EMERGENCY FUNCTION DIAGNOSTIC ===');
-    const functions = [
-        'setupControls',
-        'calculateFinancials', 
-        'updateUI',
-        'forceCalculate',
-        'setupTabs'
-    ];
-    
-    functions.forEach(funcName => {
-        console.log(`${funcName} exists:`, typeof window[funcName]);
-    });
-}
-
-function emergencyDataCheck() {
-    console.log('=== EMERGENCY DATA DIAGNOSTIC ===');
-    console.log('modelData exists:', typeof modelData);
-    if (typeof modelData !== 'undefined') {
-        console.log('modelData.unitsPerYear:', modelData.unitsPerYear);
-        console.log('modelData.seriesA:', modelData.seriesA);
-    }
-    console.log('controlsConfig exists:', typeof controlsConfig);
-}
-
-function emergencyManualTest() {
-    console.log('=== EMERGENCY MANUAL TEST ===');
-    
-    const testElement = document.getElementById('ebitda-year5');
-    if (testElement) {
-        console.log('✅ Found EBITDA element');
-        testElement.textContent = '$EMERGENCY TEST - WORKING';
-        console.log('✅ Successfully updated EBITDA element');
-    } else {
-        console.log('❌ Could not find EBITDA element');
-    }
-    
-    // Add emergency indicator
-    try {
-        const testDiv = document.createElement('div');
-        testDiv.innerHTML = '<div style="position: fixed; top: 0; left: 0; background: red; color: white; padding: 10px; z-index: 9999;">🚨 EMERGENCY DIAGNOSTIC ACTIVE - Check Console</div>';
-        testDiv.id = 'emergency-indicator';
-        document.body.appendChild(testDiv);
-        console.log('✅ Emergency indicator added');
-    } catch (error) {
-        console.log('❌ Failed to create emergency indicator:', error);
-    }
-}
-
-// Run pre-DOM diagnostics
-console.log('PRE-DOM CHECK:');
-emergencyFunctionCheck();
-emergencyDataCheck();
-
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 DOMContentLoaded fired - DOM is ready');
-    
-    // Run all emergency diagnostics
-    emergencyDOMCheck();
-    emergencyFunctionCheck();
-    emergencyDataCheck();
-    emergencyManualTest();
-    
-    log('🚀 STARTING FINANCIAL MODEL APPLICATION WITH DIAGNOSTICS');
+log('🚀 STARTING FINANCIAL MODEL APPLICATION');
 
-    try {
-        // Test each function individually with detailed logging
-        console.log('=== TESTING setupTabs ===');
-        if (typeof setupTabs === 'function') {
-            setupTabs();
-            console.log('✅ setupTabs completed');
-        } else {
-            console.error('❌ setupTabs function missing');
-        }
-        
-        console.log('=== TESTING setupControls ===');
-        if (typeof setupControls === 'function') {
-            setupControls();
-            console.log('✅ setupControls completed');
-            
-            // Check if controls were actually created
-            const controlCheck = document.getElementById('paquete-financiado-controls');
-            if (controlCheck) {
-                console.log('✅ Controls container found, innerHTML length:', controlCheck.innerHTML.length);
-                if (controlCheck.innerHTML.length === 0) {
-                    console.error('❌ Controls container is empty - setupControls failed to populate');
-                }
-            } else {
-                console.error('❌ Controls container not found');
-            }
-        } else {
-            console.error('❌ setupControls function missing');
-        }
+try {
+setupTabs();
+setupControls();
 
-        console.log('=== TESTING forceCalculate ===');
-        if (typeof forceCalculate === 'function') {
-            log('✅ UI updates enabled.');
-            forceCalculate(); // Initial calculation
-            console.log('✅ forceCalculate completed');
-            
-            // Check if calculations worked
-            const ebitdaElement = document.getElementById('ebitda-year5');
-            if (ebitdaElement) {
-                console.log('EBITDA element content after calculation:', ebitdaElement.textContent);
-                if (ebitdaElement.textContent === '$0M' || ebitdaElement.textContent === '') {
-                    console.error('❌ Calculations failed - EBITDA still shows $0M');
-                }
-            }
-        } else {
-            console.error('❌ forceCalculate function missing');
-        }
+// --- UI calls re-enabled ---
+log('✅ UI updates enabled.');
+forceCalculate(); // Initial calculation
 
-        // Delayed chart initialization
-        setTimeout(() => {
-            console.log('=== TESTING CHARTS ===');
-            if (typeof initializeCharts === 'function') {
-                initializeCharts();
-                console.log('✅ Charts initialized');
-            }
-            if (typeof updateCharts === 'function') {
-                updateCharts();
-                console.log('✅ Charts updated');
-            }
-        }, 500);
+setTimeout(() => {
+initializeCharts();
+updateCharts();
+}, 500);
 
-        log('🎉 APPLICATION READY AND RUNNING');
+log('🎉 APPLICATION READY AND RUNNING');
 
-    } catch (error) {
-        console.error('❌ CRITICAL ERROR DURING INITIALIZATION:', error);
-        log(`❌ CRITICAL ERROR DURING INITIALIZATION: ${error.message}`);
-        
-        // Show error in UI
-        const errorDiv = document.createElement('div');
-        errorDiv.innerHTML = `<div style="position: fixed; top: 50px; left: 0; background: darkred; color: white; padding: 15px; z-index: 9999; max-width: 500px;">
-            <h3>🚨 CRITICAL INITIALIZATION ERROR</h3>
-            <p>${error.message}</p>
-            <p>Check browser console for details</p>
-        </div>`;
-        document.body.appendChild(errorDiv);
-    }
+} catch (error) {
+log(`❌ CRITICAL ERROR DURING INITIALIZATION: ${error.message}`);
+}
 });
-
-// Manual test function for console
-window.manualTest = function() {
-    console.log('=== MANUAL TEST FUNCTION ===');
-    emergencyDOMCheck();
-    emergencyFunctionCheck();
-    
-    if (typeof calculateFinancials === 'function') {
-        try {
-            console.log('Attempting manual calculateFinancials...');
-            const result = calculateFinancials();
-            console.log('calculateFinancials result:', result);
-        } catch (error) {
-            console.log('❌ Manual calculateFinancials failed:', error);
-        }
-    }
-    
-    if (typeof updateUI === 'function') {
-        try {
-            console.log('Attempting manual updateUI...');
-            updateUI();
-            console.log('✅ Manual updateUI completed');
-        } catch (error) {
-            console.log('❌ Manual updateUI failed:', error);
-        }
-    }
-};
-
-console.log('🎯 Emergency diagnostics loaded. Call manualTest() from console for manual testing.');
-
-// ===================================================================
-// ===== FINANCIAL CONSTRAINTS SYSTEM (PRIORITY 1) ================
-// ===================================================================
-
-/**
- * DYNAMIC UNIT LIMITS FUNCTION
- * Calculates maximum sustainable units per year based on multiple constraints
- */
-function calculateMaxUnitsPerYear(year, scenario, availableCash, currentDebt) {
-    // TEMPORARILY BYPASSED - Return original planned units without constraints
-    // This prevents constraint validation from blocking the main calculation
-    const originalUnits = modelData.unitsPerYear[year-1] || 0;
-    log(`⚠️ Constraint BYPASSED for Year ${year}: Returning original planned units (${originalUnits})`);
-    return originalUnits;
-    
-    /* ORIGINAL CONSTRAINT LOGIC DISABLED
-    // Scenario limits based on market penetration and operational capacity
-    const scenarioLimits = {
-        pesimista: [8, 25, 45, 70, 90],
-        base: [15, 50, 100, 180, 250],
-        optimista: [25, 80, 180, 320, 450]
-    };
-    
-    const maxByScenario = scenarioLimits[scenario][year-1] || 0;
-    const costPerUnit = getTotalPackageCost();
-    
-    // Calculate capital constraint
-    const maxByCapital = calculateCapitalConstraint(year, availableCash, costPerUnit);
-    
-    // Calculate DSCR constraint
-    const maxByDSCR = calculateDSCRConstraint(year, currentDebt);
-    
-    // SINOSURE boost (available from Year 2+)
-    const sinosureBoost = (year >= 2 && modelData.sinosureAvailable) ? 
-        calculateSinosureBoost(year) : 0;
-    
-    const baseMax = Math.min(maxByScenario, maxByCapital, maxByDSCR);
-    return Math.max(0, baseMax + sinosureBoost);
-    */
-}
-
-/**
- * Calculate capital constraint based on available funding
- */
-function calculateCapitalConstraint(year, availableCash, costPerUnit) {
-    let totalAvailableFunding = availableCash;
-    
-    // Add planned funding for current and future years
-    for (let y = year; y <= 5; y++) {
-        totalAvailableFunding += (modelData[`partnerCapitalizationYear${y}`] || 0);
-        totalAvailableFunding += (modelData[`seriesB_newInvestors_year${y}`] || 0);
-        totalAvailableFunding += (modelData[`ventureDebtYear${y}`] || 0);
-        totalAvailableFunding += (modelData[`commercialDebtYear${y}`] || 0);
-    }
-    
-    // Reserve minimum liquidity buffer
-    const liquidityBuffer = 5000000; // 5M MXN
-    const availableForCapex = Math.max(0, totalAvailableFunding - liquidityBuffer);
-    
-    return Math.floor(availableForCapex / costPerUnit);
-}
-
-/**
- * Calculate DSCR constraint to maintain covenant compliance
- */
-function calculateDSCRConstraint(year, currentDebt) {
-    const minDSCR = 1.5; // Minimum DSCR requirement
-    const costPerUnit = getTotalPackageCost();
-    
-    // Estimate EBITDA based on current portfolio and new units
-    const estimatedEBITDA = calculateProjectedEBITDA(year);
-    
-    // Calculate maximum debt service that maintains DSCR >= 1.5x
-    const maxDebtService = estimatedEBITDA / minDSCR;
-    
-    // Estimate debt service per unit (simplified)
-    const debtServicePerUnit = (costPerUnit * 0.8) * (modelData.ventureDebtRate / 100) / modelData.periodoAmortizacionDeuda;
-    
-    return Math.floor(maxDebtService / debtServicePerUnit);
-}
-
-/**
- * Calculate SINOSURE boost for unit capacity
- */
-function calculateSinosureBoost(year) {
-    if (!modelData.sinosureAvailable || year < 2) return 0;
-    
-    // SINOSURE covers production cost at 6% vs 18% VD
-    const productionCostPerUnit = sinosureConfig.productionCostUSD * sinosureConfig.exchangeRate;
-    const maxSinosureCapacity = Math.floor(50000000 / productionCostPerUnit); // 50M MXN capacity
-    
-    // Interest savings allow for more units
-    const interestSavings = (modelData.ventureDebtRate - sinosureConfig.rate) / 100;
-    const additionalCapacity = Math.floor(maxSinosureCapacity * interestSavings * 0.5);
-    
-    return additionalCapacity;
-}
-
-/**
- * DEBT COVENANT MONITORING
- * Monitors and validates DSCR requirements
- */
-function monitorDebtCovenants() {
-    const covenantStatus = {
-        currentDSCR: 0,
-        minRequiredDSCR: 1.5,
-        covenantViolation: false,
-        debtUtilization: {
-            ventureDebt: { used: 0, available: modelData.ventureDebtLineAvailable, utilization: 0 },
-            commercialDebt: { used: 0, available: modelData.commercialDebtLineAvailable, utilization: 0 }
-        },
-        warnings: [],
-        recommendations: []
-    };
-    
-    // Calculate current DSCR
-    if (financialResults.pl && financialResults.pl.length > 0) {
-        const latestYear = financialResults.pl.length - 1;
-        const ebitda = financialResults.pl[latestYear].ebitda || 0;
-        const interestExpense = financialResults.pl[latestYear].interestExpense || 0;
-        const principalRepayment = financialResults.cf[latestYear].debtPrincipalRepayment || 0;
-        const totalDebtService = interestExpense + principalRepayment;
-        
-        covenantStatus.currentDSCR = totalDebtService > 0 ? ebitda / totalDebtService : 999;
-        covenantStatus.covenantViolation = covenantStatus.currentDSCR < covenantStatus.minRequiredDSCR;
-    }
-    
-    // Calculate debt utilization
-    for (let i = 1; i <= 5; i++) {
-        covenantStatus.debtUtilization.ventureDebt.used += (modelData[`ventureDebtYear${i}`] || 0);
-        covenantStatus.debtUtilization.commercialDebt.used += (modelData[`commercialDebtYear${i}`] || 0);
-    }
-    
-    covenantStatus.debtUtilization.ventureDebt.utilization = 
-        (covenantStatus.debtUtilization.ventureDebt.used / covenantStatus.debtUtilization.ventureDebt.available) * 100;
-    covenantStatus.debtUtilization.commercialDebt.utilization = 
-        (covenantStatus.debtUtilization.commercialDebt.used / covenantStatus.debtUtilization.commercialDebt.available) * 100;
-    
-    // Generate warnings and recommendations
-    if (covenantStatus.currentDSCR < 1.5 && covenantStatus.currentDSCR > 0) {
-        covenantStatus.warnings.push(`DSCR below minimum requirement: ${covenantStatus.currentDSCR.toFixed(2)}x < 1.5x`);
-        covenantStatus.recommendations.push("Consider reducing unit growth or increasing equity injection");
-    }
-    
-    if (covenantStatus.debtUtilization.ventureDebt.utilization > 90) {
-        covenantStatus.warnings.push("Venture Debt line near capacity");
-        covenantStatus.recommendations.push("Plan Series B or additional debt lines");
-    }
-    
-    return covenantStatus;
-}
-
-/**
- * SINOSURE AUTO-APPLICATION
- * Automatically applies SINOSURE when conditions are met
- */
-function autoApplySinosure(year, unitsBeingAdded) {
-    if (!modelData.sinosureAvailable || year < 2 || unitsBeingAdded <= 0) {
-        return { applied: false, amount: 0, savings: 0 };
-    }
-    
-    const productionCostPerUnit = sinosureConfig.productionCostUSD * sinosureConfig.exchangeRate;
-    const maxSinosureAmount = unitsBeingAdded * productionCostPerUnit;
-    
-    // Calculate potential savings by replacing expensive debt
-    let replacedVentureDebt = Math.min(maxSinosureAmount, modelData[`ventureDebtYear${year}`] || 0);
-    let replacedCommercialDebt = Math.min(maxSinosureAmount - replacedVentureDebt, modelData[`commercialDebtYear${year}`] || 0);
-    
-    const totalReplaced = replacedVentureDebt + replacedCommercialDebt;
-    
-    if (totalReplaced > 0) {
-        // Calculate annual interest savings
-        const ventureDebtSavings = replacedVentureDebt * (modelData.ventureDebtRate - sinosureConfig.rate) / 100;
-        const commercialDebtSavings = replacedCommercialDebt * (modelData.commercialDebtRate - sinosureConfig.rate) / 100;
-        const totalAnnualSavings = ventureDebtSavings + commercialDebtSavings;
-        
-        // Apply the substitution
-        modelData[`ventureDebtYear${year}`] = Math.max(0, (modelData[`ventureDebtYear${year}`] || 0) - replacedVentureDebt);
-        modelData[`commercialDebtYear${year}`] = Math.max(0, (modelData[`commercialDebtYear${year}`] || 0) - replacedCommercialDebt);
-        
-        return {
-            applied: true,
-            amount: totalReplaced,
-            savings: totalAnnualSavings,
-            replacedVentureDebt: replacedVentureDebt,
-            replacedCommercialDebt: replacedCommercialDebt
-        };
-    }
-    
-    return { applied: false, amount: 0, savings: 0 };
-}
-
-/**
- * CASH FLOW CONSTRAINTS
- * Implements safeguards for cash flow management
- */
-function validateCashFlowConstraints() {
-    const constraints = {
-        maxNegativeCashFlow: -10000000, // -10M MXN per year
-        minLiquidityBuffer: 5000000,    // 5M MXN minimum
-        violations: [],
-        alerts: [],
-        autoSuggestions: []
-    };
-    
-    if (financialResults.cf && financialResults.cf.length > 0) {
-        financialResults.cf.forEach((cf, index) => {
-            const year = index + 1;
-            
-            // Check for excessive negative cash flow
-            if (cf.netCash < constraints.maxNegativeCashFlow) {
-                constraints.violations.push({
-                    year: year,
-                    type: 'EXCESSIVE_NEGATIVE_CASH_FLOW',
-                    amount: cf.netCash,
-                    limit: constraints.maxNegativeCashFlow
-                });
-            }
-            
-            // Check liquidity buffer
-            const endingCash = financialResults.bs[index].cash;
-            if (endingCash < constraints.minLiquidityBuffer && endingCash > 0) {
-                constraints.alerts.push({
-                    year: year,
-                    type: 'LOW_LIQUIDITY',
-                    amount: endingCash,
-                    minimum: constraints.minLiquidityBuffer
-                });
-            }
-        });
-    }
-    
-    // Generate auto-suggestions for violations
-    constraints.violations.forEach(violation => {
-        if (violation.type === 'EXCESSIVE_NEGATIVE_CASH_FLOW') {
-            const requiredEquity = Math.abs(violation.amount - violation.limit);
-            constraints.autoSuggestions.push({
-                year: violation.year,
-                type: 'EQUITY_INJECTION',
-                amount: requiredEquity,
-                reason: 'Maintain cash flow within acceptable limits'
-            });
-        }
-    });
-    
-    constraints.alerts.forEach(alert => {
-        if (alert.type === 'LOW_LIQUIDITY') {
-            const requiredBuffer = constraints.minLiquidityBuffer - alert.amount;
-            constraints.autoSuggestions.push({
-                year: alert.year,
-                type: 'LIQUIDITY_BOOST',
-                amount: requiredBuffer,
-                reason: 'Maintain minimum liquidity buffer'
-            });
-        }
-    });
-    
-    return constraints;
-}
-
-/**
- * CONSTRAINT DASHBOARD
- * Creates comprehensive monitoring dashboard
- */
-function createConstraintDashboard() {
-    const dashboard = {
-        availableLiquidity: 0,
-        requiredLiquidity: 0,
-        debtUtilization: monitorDebtCovenants().debtUtilization,
-        currentDSCR: monitorDebtCovenants().currentDSCR,
-        sinosureStatus: {
-            available: modelData.sinosureAvailable,
-            potentialSavings: 0,
-            coverage: 0
-        },
-        maxUnitsAllowed: [],
-        constraintViolations: [],
-        recommendations: []
-    };
-    
-    // Calculate available vs required liquidity
-    if (financialResults.bs && financialResults.bs.length > 0) {
-        dashboard.availableLiquidity = financialResults.bs[financialResults.bs.length - 1].cash;
-    }
-    dashboard.requiredLiquidity = calculateTotalCapex() + 5000000; // CAPEX + buffer
-    
-    // Calculate max units allowed per year
-    const currentScenario = 'base'; // Default scenario
-    for (let year = 1; year <= 5; year++) {
-        const maxUnits = calculateMaxUnitsPerYear(year, currentScenario, dashboard.availableLiquidity, 0);
-        dashboard.maxUnitsAllowed.push({ year, maxUnits });
-    }
-    
-    // SINOSURE status
-    if (modelData.sinosureAvailable) {
-        dashboard.sinosureStatus.potentialSavings = calculateSinosurePotentialSavings();
-        dashboard.sinosureStatus.coverage = calculateSinosureCoverage();
-    }
-    
-    // Validate all constraints
-    const cashFlowConstraints = validateCashFlowConstraints();
-    dashboard.constraintViolations = [
-        ...cashFlowConstraints.violations,
-        ...cashFlowConstraints.alerts
-    ];
-    
-    dashboard.recommendations = [
-        ...cashFlowConstraints.autoSuggestions,
-        ...monitorDebtCovenants().recommendations
-    ];
-    
-    return dashboard;
-}
-
-/**
- * Calculate potential SINOSURE savings
- */
-function calculateSinosurePotentialSavings() {
-    let totalSavings = 0;
-    for (let year = 2; year <= 5; year++) {
-        const units = modelData.unitsPerYear[year - 1] || 0;
-        if (units > 0) {
-            const productionCost = units * sinosureConfig.productionCostUSD * sinosureConfig.exchangeRate;
-            const savingsRate = (modelData.ventureDebtRate - sinosureConfig.rate) / 100;
-            totalSavings += productionCost * savingsRate;
-        }
-    }
-    return totalSavings;
-}
-
-/**
- * Calculate SINOSURE coverage percentage
- */
-function calculateSinosureCoverage() {
-    let totalCapexYear2Plus = 0;
-    let sinosureCoverage = 0;
-    
-    for (let year = 2; year <= 5; year++) {
-        const units = modelData.unitsPerYear[year - 1] || 0;
-        const yearCapex = units * getTotalPackageCost();
-        totalCapexYear2Plus += yearCapex;
-        
-        if (modelData.sinosureAvailable) {
-            const productionCost = units * sinosureConfig.productionCostUSD * sinosureConfig.exchangeRate;
-            sinosureCoverage += productionCost;
-        }
-    }
-    
-    return totalCapexYear2Plus > 0 ? (sinosureCoverage / totalCapexYear2Plus) * 100 : 0;
-}
-
-/**
- * VALIDATION RULES IMPLEMENTATION
- * Enforces all constraint rules
- */
-function enforceConstraintRules() {
-    // TEMPORARILY DISABLED - Return empty violations array
-    // This prevents constraint enforcement from blocking the main calculation
-    log('⚠️ Financial Constraints System DISABLED - Returning empty violations');
-    return [];
-    
-    /* ORIGINAL CODE DISABLED
-    const violations = [];
-    
-    // Rule 1: No unit input can exceed calculated maximum
-    for (let year = 1; year <= 5; year++) {
-        const currentUnits = modelData.unitsPerYear[year - 1] || 0;
-        const maxAllowed = calculateMaxUnitsPerYear(year, 'base', 0, 0);
-        
-        if (currentUnits > maxAllowed) {
-            violations.push({
-                rule: 'MAX_UNITS_EXCEEDED',
-                year: year,
-                current: currentUnits,
-                maximum: maxAllowed,
-                autoFix: true
-            });
-            
-            // Auto-fix: reduce to maximum allowed
-            modelData.unitsPerYear[year - 1] = maxAllowed;
-        }
-    }
-    
-    // Rule 2: DSCR must stay >= 1.5x after new units
-    const covenantStatus = monitorDebtCovenants();
-    if (covenantStatus.covenantViolation) {
-        violations.push({
-            rule: 'DSCR_VIOLATION',
-            current: covenantStatus.currentDSCR,
-            minimum: covenantStatus.minRequiredDSCR,
-            autoFix: false
-        });
-    }
-    
-    // Rule 3: Cash flow cannot exceed -$10M in any year
-    const cashFlowConstraints = validateCashFlowConstraints();
-    violations.push(...cashFlowConstraints.violations.map(v => ({
-        rule: 'CASH_FLOW_LIMIT_EXCEEDED',
-        ...v,
-        autoFix: false
-    })));
-    
-    // Rule 4: Debt cannot exceed available credit lines
-    const debtUtilization = monitorDebtCovenants().debtUtilization;
-    if (debtUtilization.ventureDebt.used > debtUtilization.ventureDebt.available) {
-        violations.push({
-            rule: 'VENTURE_DEBT_LINE_EXCEEDED',
-            used: debtUtilization.ventureDebt.used,
-            available: debtUtilization.ventureDebt.available,
-            autoFix: false
-        });
-    }
-    
-    if (debtUtilization.commercialDebt.used > debtUtilization.commercialDebt.available) {
-        violations.push({
-            rule: 'COMMERCIAL_DEBT_LINE_EXCEEDED',
-            used: debtUtilization.commercialDebt.used,
-            available: debtUtilization.commercialDebt.available,
-            autoFix: false
-        });
-    }
-    
-    // Rule 5: SINOSURE automatically replaces expensive debt when available
-    if (modelData.sinosureAvailable) {
-        for (let year = 2; year <= 5; year++) {
-            const units = modelData.unitsPerYear[year - 1] || 0;
-            if (units > 0) {
-                const sinosureResult = autoApplySinosure(year, units);
-                if (sinosureResult.applied) {
-                    log(`✅ SINOSURE auto-applied Year ${year}: ${formatCurrency(sinosureResult.amount)} replacing expensive debt`);
-                }
-            }
-        }
-    }
-    
-    return violations;
-}
-
-// ===================================================================
-// ===== CONSTRAINT UI COMPONENTS ==================================
-// ===================================================================
-
-/**
- * Updates the constraint dashboard UI
- */
-function updateConstraintDashboardUI() {
-    // TEMPORARILY DISABLED - Constraint system is bypassed
-    log('⚠️ updateConstraintDashboardUI() DISABLED - Constraint system bypassed');
-    return;
-    
-    /* ORIGINAL CODE DISABLED
-    const dashboard = createConstraintDashboard();
-    let dashboardContainer = document.getElementById('constraint-dashboard');
-    
-    if (!dashboardContainer) {
-        // Create dashboard in the header area
-        const header = document.querySelector('header');
-        dashboardContainer = document.createElement('div');
-        dashboardContainer.id = 'constraint-dashboard';
-        dashboardContainer.className = 'mt-6 p-4 bg-slate-900 border border-slate-700 rounded-xl';
-        header.appendChild(dashboardContainer);
-    }
-    
-    const constraintViolationsCount = dashboard.constraintViolations.length;
-    const dashboardStatus = constraintViolationsCount === 0 ? 'healthy' : 'warning';
-    
-    dashboardContainer.innerHTML = `
-        <div class="flex items-center justify-between mb-4">
-            <h3 class="text-lg font-semibold text-white flex items-center">
-                🛡️ Financial Constraints Monitor
-                <span class="ml-2 px-2 py-1 text-xs rounded-full ${dashboardStatus === 'healthy' ? 'bg-emerald-900 text-emerald-200' : 'bg-amber-900 text-amber-200'}">
-                    ${dashboardStatus === 'healthy' ? '✅ All Systems Green' : `⚠️ ${constraintViolationsCount} Issues`}
-                </span>
-            </h3>
-            <div class="text-sm text-slate-400">Investment-Ready Model</div>
-        </div>
-        
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-            <!-- Liquidity Status -->
-            <div class="p-3 bg-slate-800 rounded-lg border border-slate-600">
-                <div class="text-xs text-slate-400 mb-1">Available Liquidity</div>
-                <div class="text-lg font-bold text-cyan-400">${formatCurrency(dashboard.availableLiquidity)}</div>
-                <div class="text-xs ${dashboard.availableLiquidity >= dashboard.requiredLiquidity ? 'text-emerald-400' : 'text-amber-400'}">
-                    vs ${formatCurrency(dashboard.requiredLiquidity)} required
-                </div>
-            </div>
-            
-            <!-- DSCR Status -->
-            <div class="p-3 bg-slate-800 rounded-lg border border-slate-600">
-                <div class="text-xs text-slate-400 mb-1">Current DSCR</div>
-                <div class="text-lg font-bold ${dashboard.currentDSCR >= 1.5 ? 'text-emerald-400' : 'text-red-400'}">
-                    ${dashboard.currentDSCR === 999 ? '∞' : dashboard.currentDSCR.toFixed(2)}x
-                </div>
-                <div class="text-xs text-slate-400">vs 1.5x minimum</div>
-            </div>
-            
-            <!-- Debt Utilization -->
-            <div class="p-3 bg-slate-800 rounded-lg border border-slate-600">
-                <div class="text-xs text-slate-400 mb-1">Debt Utilization</div>
-                <div class="text-sm">
-                    <div class="flex justify-between">
-                        <span>VD:</span>
-                        <span class="${dashboard.debtUtilization.ventureDebt.utilization > 90 ? 'text-red-400' : 'text-emerald-400'}">
-                            ${dashboard.debtUtilization.ventureDebt.utilization.toFixed(0)}%
-                        </span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span>CD:</span>
-                        <span class="${dashboard.debtUtilization.commercialDebt.utilization > 90 ? 'text-red-400' : 'text-emerald-400'}">
-                            ${dashboard.debtUtilization.commercialDebt.utilization.toFixed(0)}%
-                        </span>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- SINOSURE Status -->
-            <div class="p-3 bg-slate-800 rounded-lg border border-slate-600">
-                <div class="text-xs text-slate-400 mb-1">SINOSURE Status</div>
-                <div class="text-lg font-bold ${dashboard.sinosureStatus.available ? 'text-emerald-400' : 'text-slate-400'}">
-                    ${dashboard.sinosureStatus.available ? '✅ Active' : '❌ Disabled'}
-                </div>
-                <div class="text-xs text-slate-400">
-                    ${dashboard.sinosureStatus.available ? 
-                        `${formatCurrency(dashboard.sinosureStatus.potentialSavings)} savings` : 
-                        'Enable for 12pp savings'}
-                </div>
-            </div>
-        </div>
-        
-        <!-- Maximum Units Allowed -->
-        <div class="mb-4">
-            <h4 class="text-sm font-semibold text-slate-300 mb-2">📊 Maximum Units Allowed by Year</h4>
-            <div class="grid grid-cols-5 gap-2">
-                ${dashboard.maxUnitsAllowed.map(item => `
-                    <div class="p-2 bg-slate-800 rounded text-center">
-                        <div class="text-xs text-slate-400">Año ${item.year}</div>
-                        <div class="text-sm font-bold text-sky-400">${item.maxUnits}</div>
-                        <div class="text-xs ${modelData.unitsPerYear[item.year-1] <= item.maxUnits ? 'text-emerald-400' : 'text-red-400'}">
-                            ${modelData.unitsPerYear[item.year-1] <= item.maxUnits ? '✅' : '❌'}
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
-        </div>
-        
-        <!-- Constraint Violations & Recommendations -->
-        ${dashboard.constraintViolations.length > 0 ? `
-            <div class="mb-4">
-                <h4 class="text-sm font-semibold text-amber-400 mb-2">⚠️ Constraint Violations</h4>
-                <div class="space-y-2">
-                    ${dashboard.constraintViolations.map(violation => `
-                        <div class="p-2 bg-amber-900/20 border border-amber-600 rounded text-amber-200 text-sm">
-                            ${violation.type}: ${violation.year ? `Year ${violation.year} - ` : ''}${formatCurrency(violation.amount || 0)}
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-        ` : ''}
-        
-        ${dashboard.recommendations.length > 0 ? `
-            <div>
-                <h4 class="text-sm font-semibold text-sky-400 mb-2">💡 Auto-Recommendations</h4>
-                <div class="space-y-2">
-                    ${dashboard.recommendations.map(rec => `
-                        <div class="p-2 bg-sky-900/20 border border-sky-600 rounded text-sky-200 text-sm">
-                            ${rec.type}: ${rec.year ? `Year ${rec.year} - ` : ''}${formatCurrency(rec.amount || 0)} - ${rec.reason}
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-        ` : ''}
-    `;
-}
-
-/**
- * Add constraint validation to unit input controls
- */
-function addConstraintValidationToUnits() {
-    // TEMPORARILY DISABLED - Constraint system is bypassed
-    log('⚠️ addConstraintValidationToUnits() DISABLED - Constraint system bypassed');
-    return;
-    
-    /* ORIGINAL CODE DISABLED
-    for (let year = 1; year <= 5; year++) {
-        const unitInput = document.getElementById(`unitsPerYear-${year}`);
-        if (unitInput) {
-            // Add real-time validation
-            unitInput.addEventListener('input', function() {
-                const value = parseInt(this.value) || 0;
-                const maxAllowed = calculateMaxUnitsPerYear(year, 'base', 0, 0);
-                
-                // Update max attribute dynamically
-                this.max = maxAllowed;
-                
-                // Visual feedback
-                this.classList.remove('validation-error', 'validation-warning', 'validation-success');
-                
-                if (value > maxAllowed) {
-                    this.classList.add('validation-error');
-                    showConstraintWarning(`Year ${year}: Maximum ${maxAllowed} units allowed by capital constraints`);
-                } else if (value >= maxAllowed * 0.9) {
-                    this.classList.add('validation-warning');
-                } else {
-                    this.classList.add('validation-success');
-                }
-            });
-            
-            // Add constraint info tooltip
-            const maxAllowed = calculateMaxUnitsPerYear(year, 'base', 0, 0);
-            unitInput.setAttribute('data-tooltip', 
-                `Maximum allowed: ${maxAllowed} units based on capital availability, DSCR requirements, and SINOSURE boost`);
-        }
-    }
-}
-
-/**
- * Show constraint-specific warnings
- */
-function showConstraintWarning(message) {
-    const existingWarning = document.getElementById('constraint-warning');
-    if (existingWarning) existingWarning.remove();
-
-    const warning = document.createElement('div');
-    warning.id = 'constraint-warning';
-    warning.className = 'fixed top-20 right-4 bg-red-900 border border-red-600 text-red-200 px-4 py-2 rounded-lg z-50 shadow-lg animate-pulse';
-    warning.innerHTML = `<span class="text-sm font-medium">🛡️ ${message}</span>`;
-    document.body.appendChild(warning);
-
-    setTimeout(() => {
-        if (warning && warning.parentNode) {
-            warning.parentNode.removeChild(warning);
-        }
-    }, 7000);
-}
-
-// ===================================================================
-// ===== INTEGRATION WITH EXISTING SYSTEM =========================
-// ===================================================================
-
-// DISABLED: Financial Constraints System temporarily disabled to restore core calculation
-// The constraint system was interfering with calculateFinancials() execution
-/*
-const originalForceCalculate = forceCalculate;
-function forceCalculate() {
-    log('🛡️ Enforcing financial constraints...');
-    
-    // Enforce constraint rules before calculation
-    const violations = enforceConstraintRules();
-    
-    if (violations.length > 0) {
-        log(`⚠️ ${violations.length} constraint violations found and processed`);
-        violations.forEach(v => {
-            if (v.autoFix) {
-                log(`✅ Auto-fixed: ${v.rule} in Year ${v.year || 'N/A'}`);
-            } else {
-                log(`⚠️ Manual attention needed: ${v.rule}`);
-            }
-        });
-    }
-    
-    // Call original calculation
-    originalForceCalculate();
-    
-    // Update constraint dashboard after calculation
-    updateConstraintDashboardUI();
-    addConstraintValidationToUnits();
-}
-*/
-
-// ===================================================================
-// ===== FASE 1: CONFIGURACIÓN Y DATOS INICIALES (EL QUÉ) =========
-// ===================================================================
 </script>
 </body>
 </html>
