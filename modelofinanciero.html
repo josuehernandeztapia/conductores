@@ -399,9 +399,6 @@ min-height: 280px;
 <button onclick="toggleDebug()" class="mt-4 bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 rounded-lg font-medium transition duration-300 inline-flex items-center gap-2">
 <i data-lucide="bug" class="w-5 h-5"></i> Debug
 </button>
-<button onclick="testSinosureImpact()" class="mt-4 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg font-medium transition duration-300 inline-flex items-center gap-2">
-<i data-lucide="test-tube" class="w-5 h-5"></i> Test SINOSURE TIR
-</button>
 <div class="mt-4 flex justify-center gap-2">
 <button class="px-3 py-1 bg-slate-800 text-white rounded border border-slate-600 text-sm">Base Case</button>
 <button class="px-3 py-1 bg-slate-700 text-slate-300 rounded border border-slate-600 text-sm">Conservative</button>
@@ -767,8 +764,7 @@ gmvPromedioMensualPorUnidad: 9000,
 takeRateMarketplace: 3.0,
 avgRemainingTermCartera: 2.5,
 // SINOSURE Configuration
-sinosureAvailable: false,
-sinosureForcedSuccess: false, // For testing scenarios
+sinosureAvailable: false
 };
 
 // UI controls configuration by section
@@ -828,11 +824,10 @@ riesgoYSalida: [
 const sinosureConfig = {
     rate: 6.0,
     maxDuration: 12,
-    productionCostPercentage: 100, // CRITICAL: 100% not 6%
+    productionCostPercentage: 100,
     productionCostUSD: 18250,
     exchangeRate: 20,
-    availabilityMonth: 13,
-    probability: 70
+    availabilityMonth: 13
 };
 
 // Object to store calculated financial results
@@ -1855,58 +1850,53 @@ const operatingCash = netIncome + annualDepreciation + impairment + deltaProvisi
         let finalNewCommercialDebt = sourcingPlan.newCommercialDebt;
         
         if (modelData.sinosureAvailable && currentYear >= 2 && addedUnits > 0) {
-            const sinosureSuccess = modelData.sinosureForcedSuccess || 
-                                   (Math.random() < (sinosureConfig.probability / 100));
+            // SINOSURE is deterministic - when enabled, always works
+            const productionCostPerUnit = sinosureConfig.productionCostUSD * sinosureConfig.exchangeRate;
+            const maxSinosureThisYear = addedUnits * productionCostPerUnit;
             
-            if (sinosureSuccess) {
-                const productionCostPerUnit = sinosureConfig.productionCostUSD * sinosureConfig.exchangeRate;
-                const maxSinosureThisYear = addedUnits * productionCostPerUnit;
+            // SMART SUBSTITUTION: Replace most expensive debt first
+            let remainingSinosure = maxSinosureThisYear;
+            let ventureDebtReplaced = 0;
+            let commercialDebtReplaced = 0;
+            
+            // Replace Venture Debt (18%) first - highest savings
+            if (remainingSinosure > 0 && sourcingPlan.newVentureDebt > 0) {
+                ventureDebtReplaced = Math.min(remainingSinosure, sourcingPlan.newVentureDebt);
+                finalNewVentureDebt -= ventureDebtReplaced;
+                remainingSinosure -= ventureDebtReplaced;
+            }
+            
+            // Replace Commercial Debt (14%) second
+            if (remainingSinosure > 0 && sourcingPlan.newCommercialDebt > 0) {
+                commercialDebtReplaced = Math.min(remainingSinosure, sourcingPlan.newCommercialDebt);
+                finalNewCommercialDebt -= commercialDebtReplaced;
+                remainingSinosure -= commercialDebtReplaced;
+            }
+            
+            const totalSinosureAmount = ventureDebtReplaced + commercialDebtReplaced;
+            
+            if (totalSinosureAmount > 0) {
+                // Create SINOSURE cohort at 6% rate
+                sinosureCohorts.push({
+                    yearOriginated: currentYear,
+                    originalAmount: totalSinosureAmount,
+                    rate: sinosureConfig.rate, // 6.0%
+                    ventureDebtReplaced: ventureDebtReplaced,
+                    commercialDebtReplaced: commercialDebtReplaced
+                });
                 
-                // SMART SUBSTITUTION: Replace most expensive debt first
-                let remainingSinosure = maxSinosureThisYear;
-                let ventureDebtReplaced = 0;
-                let commercialDebtReplaced = 0;
+                // Track for financing cash flow (will be included in sinosureDrawdowns calculation)
                 
-                // Replace Venture Debt (18%) first - highest savings
-                if (remainingSinosure > 0 && sourcingPlan.newVentureDebt > 0) {
-                    ventureDebtReplaced = Math.min(remainingSinosure, sourcingPlan.newVentureDebt);
-                    finalNewVentureDebt -= ventureDebtReplaced;
-                    remainingSinosure -= ventureDebtReplaced;
-                }
+                // Calculate annual interest savings
+                const ventureDebtSavings = ventureDebtReplaced * (modelData.ventureDebtRate - sinosureConfig.rate) / 100;
+                const commercialDebtSavings = commercialDebtReplaced * (modelData.commercialDebtRate - sinosureConfig.rate) / 100;
+                const totalAnnualSavings = ventureDebtSavings + commercialDebtSavings;
                 
-                // Replace Commercial Debt (14%) second
-                if (remainingSinosure > 0 && sourcingPlan.newCommercialDebt > 0) {
-                    commercialDebtReplaced = Math.min(remainingSinosure, sourcingPlan.newCommercialDebt);
-                    finalNewCommercialDebt -= commercialDebtReplaced;
-                    remainingSinosure -= commercialDebtReplaced;
-                }
-                
-                const totalSinosureAmount = ventureDebtReplaced + commercialDebtReplaced;
-                
-                if (totalSinosureAmount > 0) {
-                    // Create SINOSURE cohort at 6% rate
-                    sinosureCohorts.push({
-                        yearOriginated: currentYear,
-                        originalAmount: totalSinosureAmount,
-                        rate: sinosureConfig.rate, // 6.0%
-                        ventureDebtReplaced: ventureDebtReplaced,
-                        commercialDebtReplaced: commercialDebtReplaced
-                    });
-                    
-                    // Calculate annual interest savings
-                    const ventureDebtSavings = ventureDebtReplaced * (modelData.ventureDebtRate - sinosureConfig.rate) / 100;
-                    const commercialDebtSavings = commercialDebtReplaced * (modelData.commercialDebtRate - sinosureConfig.rate) / 100;
-                    const totalAnnualSavings = ventureDebtSavings + commercialDebtSavings;
-                    
-                    log(`🇨🇳 SINOSURE SUCCESS Year ${currentYear}:`);
-                    log(`  • Amount: ${formatCurrency(totalSinosureAmount)} at 6.0%`);
-                    log(`  • Replaced VD: ${formatCurrency(ventureDebtReplaced)} (18% → 6% = ${(modelData.ventureDebtRate - sinosureConfig.rate).toFixed(1)}pp savings)`);
-                    log(`  • Replaced CD: ${formatCurrency(commercialDebtReplaced)} (14% → 6% = ${(modelData.commercialDebtRate - sinosureConfig.rate).toFixed(1)}pp savings)`);
-                    log(`  • Annual interest savings: ${formatCurrency(totalAnnualSavings)}`);
-                    log(`  • TIR Impact: Lower interest expense should INCREASE TIR`);
-                }
-            } else {
-                log(`🇨🇳 SINOSURE FAILED for Year ${currentYear} (${100-sinosureConfig.probability}% probability)`);
+                log(`🇨🇳 SINOSURE ENABLED Year ${currentYear}:`);
+                log(`  • Amount: ${formatCurrency(totalSinosureAmount)} at 6.0%`);
+                log(`  • Replaced VD: ${formatCurrency(ventureDebtReplaced)} (18% → 6% = ${(modelData.ventureDebtRate - sinosureConfig.rate).toFixed(1)}pp savings)`);
+                log(`  • Replaced CD: ${formatCurrency(commercialDebtReplaced)} (14% → 6% = ${(modelData.commercialDebtRate - sinosureConfig.rate).toFixed(1)}pp savings)`);
+                log(`  • Annual interest savings: ${formatCurrency(totalAnnualSavings)}`);
             }
         }
 
@@ -1959,7 +1949,7 @@ totalLiabilitiesEquity = totalLiabilities + endOfYearEquity;
 }
 
 financialResults.pl.push({ ...niif15Results, interestRevenue: annualInterestReceived, totalRevenue, ebitda, ebit, netIncome, interestExpense, depreciation: annualDepreciation, provisions, impairment, totalCOGS: sparePartsCOGS, grossProfit: totalRevenue - sparePartsCOGS, opex, earningsBeforeTax, incomeTaxExpense, addedUnits });
-financialResults.cf.push({ operatingCash, investingCash, financingCash, netCash, deltaProvisions, deltaContractLiabilities, incomeTaxPaid: incomeTaxExpense, clientPrincipalPaymentsReceived: annualPrincipalReceived, clientInterestPaymentsReceived: annualInterestReceived, currentYearVentureDebtDraw: finalNewVentureDebt, additionalFundingRaised: finalNewCommercialDebt, debtPrincipalRepayment: totalDebtPrincipalRepayment, techInvestmentThisYear });
+financialResults.cf.push({ operatingCash, investingCash, financingCash, netCash, deltaProvisions, deltaContractLiabilities, incomeTaxPaid: incomeTaxExpense, clientPrincipalPaymentsReceived: annualPrincipalReceived, clientInterestPaymentsReceived: annualInterestReceived, currentYearVentureDebtDraw: finalNewVentureDebt, additionalFundingRaised: finalNewCommercialDebt, sinosureDrawn: sinosureDrawdowns, debtPrincipalRepayment: totalDebtPrincipalRepayment, techInvestmentThisYear });
 financialResults.bs.push({ cash, receivables: currentYearEndReceivables, receivablesNet: currentYearEndReceivables - currentProvisionsBalance, fixedAssets: fixedAssetsNet, assetsHeldForSale: assetsHeldForSaleNet, totalAssets: totalAssets, debt: totalDebt, equity: endOfYearEquity, totalLiabilitiesEquity: totalLiabilitiesEquity, provisions: currentProvisionsBalance, contractLiabilities: niif15Results.contractLiabilitiesBalance });
 financialResults.niifDetails.push({ niif15: niif15Results, niif5: niif5Results.niif5Details, niif9: {...niif9Results, pdStage1: modelData.pdStage1, pdStage2: modelData.pdStage2, pdStage3: modelData.pdStage3, lgd: modelData.lgd, economicAdjustmentFactor: modelData.economicAdjustmentFactor, proteccionRodandoActiva: modelData.proteccionRodando, provisionesConProteccion: provisions, reduccionPorProteccion: niif9Results.totalECLBeforeAdjustment - provisions, saldoProvisionesAcumulado: currentProvisionsBalance } });
 
@@ -2646,6 +2636,7 @@ const rows = [
 { label: '  Capital Recibido', fromModelData: true, yearSpecific: true, key: 'partnerCapitalization' },
 { label: '  Venture Debt Recibido', key: 'currentYearVentureDebtDraw', fromCF: true, positive: true },
 { label: '  Deuda Comercial Recibida', key: 'additionalFundingRaised', fromCF: true, positive: true },
+{ label: '  SINOSURE Recibido', key: 'sinosureDrawn', fromCF: true, positive: true },
 { label: '  - Amortización Deuda', key: 'debtPrincipalRepayment', fromCF: true, negative: true },
 { label: 'TOTAL FLUJO DE EFECTIVO DE FINANCIACIÓN', key: 'financingCash', total: true, emphasize: true, duplicate: true },
 
@@ -3344,19 +3335,7 @@ function capturePlannedFinancing() {
 }
 
 
-/**
-* Testing functions for SINOSURE scenarios.
-*/
-window.testSinosureScenario = function(forceResult) {
-    if (forceResult === null) {
-        modelData.sinosureForcedSuccess = false;
-        log('🎲 SINOSURE set to random (70% probability)');
-    } else {
-        modelData.sinosureForcedSuccess = forceResult;
-        log(`🎯 SINOSURE forced to ${forceResult ? 'SUCCESS' : 'FAILURE'} for testing`);
-    }
-    forceCalculate();
-};
+
 
 /**
 * Forces a manual recalculation of the model.
@@ -3376,40 +3355,7 @@ function forceCalculate() {
     }
 }
 
-// TEST FUNCTION: Enable SINOSURE and force success for testing
-function testSinosureImpact() {
-    log('🧪 TESTING SINOSURE IMPACT ON TIR...');
-    console.log('🧪 TESTING SINOSURE IMPACT ON TIR...');
-    
-    log('📋 Step 1: Calculating baseline (without SINOSURE)');
-    modelData.sinosureAvailable = false;
-    calculateFinancials();
-    const baselineTIR = financialResults.tirEquity;
-    log(`📊 Baseline TIR Equity: ${baselineTIR.toFixed(1)}%`);
-    console.log(`📊 Baseline TIR Equity: ${baselineTIR.toFixed(1)}%`);
 
-    log('📋 Step 2: Enabling SINOSURE with forced success');
-    modelData.sinosureAvailable = true;
-    modelData.sinosureForcedSuccess = true;
-    calculateFinancials();
-    const sinosureTIR = financialResults.tirEquity;
-    log(`📊 SINOSURE TIR Equity: ${sinosureTIR.toFixed(1)}%`);
-    console.log(`📊 SINOSURE TIR Equity: ${sinosureTIR.toFixed(1)}%`);
-
-    const tirDifference = sinosureTIR - baselineTIR;
-    log(`📊 TIR DIFFERENCE: ${tirDifference.toFixed(1)}pp`);
-    console.log(`📊 TIR DIFFERENCE: ${tirDifference.toFixed(1)}pp`);
-    
-    if (tirDifference > 0) {
-        log(`✅ SUCCESS: SINOSURE INCREASED TIR by ${tirDifference.toFixed(1)}pp`);
-        console.log(`✅ SUCCESS: SINOSURE INCREASED TIR by ${tirDifference.toFixed(1)}pp`);
-    } else {
-        log(`❌ ISSUE: SINOSURE DECREASED TIR by ${Math.abs(tirDifference).toFixed(1)}pp`);
-        console.log(`❌ ISSUE: SINOSURE DECREASED TIR by ${Math.abs(tirDifference).toFixed(1)}pp`);
-    }
-
-    updateUI();
-}
 
 // ===== USER CONTROL CONFIGURATION =====
 
@@ -3674,24 +3620,14 @@ if (groupKey === 'riesgoYSalida') {
         <div class="space-y-3">
             <label class="flex items-center cursor-pointer">
                 <input type="checkbox" id="sinosure-available" class="mr-3 h-4 w-4" ${modelData.sinosureAvailable ? 'checked' : ''}>
-                <span class="text-sm font-medium">Enable SINOSURE (70% success probability)</span>
+                <span class="text-sm font-medium">Enable SINOSURE Funding (Deterministic)</span>
             </label>
             <div class="text-xs text-yellow-200 bg-yellow-900/20 p-2 rounded space-y-1">
                 <div><strong>Coverage:</strong> 100% of production costs (${formatCurrency(sinosureConfig.productionCostUSD * sinosureConfig.exchangeRate)} per unit)</div>
                 <div><strong>Rate:</strong> 6.0% vs 18.0% Venture Debt (12pp savings)</div>
                 <div><strong>Availability:</strong> Year 2+ only</div>
-                <div><strong>Max Impact:</strong> ~$80M funding for 220 units scenario</div>
-            </div>
-            <div class="flex gap-2">
-                <button onclick="testSinosureScenario(true)" class="text-xs bg-green-600 hover:bg-green-500 px-3 py-1 rounded transition">
-                    ✅ Force Success
-                </button>
-                <button onclick="testSinosureScenario(false)" class="text-xs bg-red-600 hover:bg-red-500 px-3 py-1 rounded transition">
-                    ❌ Force Failure
-                </button>
-                <button onclick="testSinosureScenario(null)" class="text-xs bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded transition">
-                    🎲 Random (70%)
-                </button>
+                <div><strong>Impact:</strong> Consistent funding advantage when enabled</div>
+                <div><strong>Deterministic:</strong> When enabled, always available (no randomness)</div>
             </div>
         </div>
     `;
@@ -3701,7 +3637,7 @@ if (groupKey === 'riesgoYSalida') {
     // Event listeners
     document.getElementById('sinosure-available').addEventListener('change', (e) => {
         modelData.sinosureAvailable = e.target.checked;
-        log(`SINOSURE ${e.target.checked ? 'ENABLED' : 'DISABLED'}`);
+        log(`SINOSURE ${e.target.checked ? 'ENABLED' : 'DISABLED'} - Deterministic mode`);
         forceCalculate();
     });
 }
