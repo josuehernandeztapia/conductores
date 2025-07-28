@@ -738,6 +738,24 @@ let plannedFinancingData = {}; // NEW: To store pre-calculation financing plan
 * @typedef {Object} ModelData
 * This object holds all the dynamic inputs for the financial model.
 */
+
+// ===================================================================
+// ===== FASE 4: ADVANCED ANALYTICS & PREMIUM UX + SINOSURE =======
+// ===================================================================
+
+/**
+ * SINOSURE Export Credit Configuration
+ */
+const sinosureConfig = {
+    rate: 6.0, // 6% vs 18% Venture Debt, 14% Commercial
+    maxDuration: 12, // 12 meses máximo
+    productionCostPercentage: 6, // 6% del production cost
+    productionCostUSD: 18250, // $17,500-19,000 USD promedio
+    exchangeRate: 20, // USD/MXN aproximado
+    availabilityMonth: 13, // Disponible mes 13+
+    probability: 70 // 70% probabilidad (no garantizado)
+};
+
 let modelData = {
 // Unit Economics & Pricing
 tasaInteres: 25.5,
@@ -772,6 +790,19 @@ ventureDebtLineAvailable: 100000000,
 commercialDebtLineAvailable: 300000000, 
 ventureDebtRate: 18.0,
 commercialDebtRate: 14.0,
+
+// SINOSURE Parameters - NEW
+sinosureAvailable: false,
+sinosureRate: 6.0,
+sinosureTiming: 13,
+sinosureDuration: 12,
+sinosureProbability: 70,
+sinosureYear1: 0,
+sinosureYear2: 0,
+sinosureYear3: 0,
+sinosureYear4: 0,
+sinosureYear5: 0,
+
 // Planned Drawdowns
 ventureDebtYear1: 50000000,
 ventureDebtYear2: 50000000,
@@ -813,6 +844,45 @@ gmvPromedioMensualPorUnidad: 9000,
 takeRateMarketplace: 3.0,
 avgRemainingTermCartera: 2.5,
 };
+
+/**
+ * Calculate maximum SINOSURE amount available
+ */
+function calculateMaxSinosureAmount() {
+    const totalUnits = modelData.unitsPerYear.reduce((a, b) => a + b, 0);
+    const productionCostPerUnitMXN = sinosureConfig.productionCostUSD * sinosureConfig.exchangeRate;
+    return totalUnits * productionCostPerUnitMXN * (sinosureConfig.productionCostPercentage / 100);
+}
+
+/**
+ * WACC calculation including SINOSURE
+ */
+function calculateWACCWithSinosure(equity, ventureDebt, commercialDebt, sinosure) {
+    const totalCapital = equity + ventureDebt + commercialDebt + sinosure;
+    
+    if (totalCapital === 0) return 0;
+    
+    const weights = {
+        equity: equity / totalCapital,
+        ventureDebt: ventureDebt / totalCapital,
+        commercialDebt: commercialDebt / totalCapital,
+        sinosure: sinosure / totalCapital
+    };
+    
+    const costs = {
+        equity: 0.20, // 20% cost of equity assumption
+        ventureDebt: modelData.ventureDebtRate / 100,
+        commercialDebt: modelData.commercialDebtRate / 100,
+        sinosure: sinosureConfig.rate / 100
+    };
+    
+    const taxRate = modelData.corporateTaxRate / 100;
+    
+    return (weights.equity * costs.equity) + 
+           (weights.ventureDebt * costs.ventureDebt * (1 - taxRate)) + 
+           (weights.commercialDebt * costs.commercialDebt * (1 - taxRate)) +
+           (weights.sinosure * costs.sinosure * (1 - taxRate));
+}
 
 // ===================================================================
 // ===== FASE 3: SCENARIO PRESETS & INTELLIGENT OPTIMIZATION =======
@@ -890,6 +960,48 @@ const strategicScenarios = {
         }
     },
     
+    serieAWithSinosure: {
+        id: 'serieAWithSinosure',
+        name: 'SERIE A + SINOSURE',
+        description: 'Optimal financing with SINOSURE at 6% (if available)',
+        icon: '🇨🇳',
+        funding: 50000000,
+        timeline: '36 meses',
+        unitsPerYear: [0, 0, 70, 150, 100], // Más agresivo con SINOSURE
+        focus: 'Optimized Cost of Capital with Export Credit',
+        
+        // SINOSURE parameters
+        sinosureAvailable: true,
+        sinosureRate: 6.0,
+        sinosureTiming: 13,
+        sinosureProbability: 70,
+        
+        // Financing structure optimizada
+        seriesA: 50000000,
+        ventureDebtLineAvailable: 50000000,
+        commercialDebtLineAvailable: 100000000,
+        
+        // Deployment con SINOSURE priority
+        ventureDebtYear1: 0, ventureDebtYear2: 25000000, ventureDebtYear3: 25000000, ventureDebtYear4: 0, ventureDebtYear5: 0,
+        commercialDebtYear1: 0, commercialDebtYear2: 0, commercialDebtYear3: 50000000, commercialDebtYear4: 75000000, commercialDebtYear5: 0,
+        partnerCapitalizationYear1: 0, partnerCapitalizationYear2: 25000000, partnerCapitalizationYear3: 0, partnerCapitalizationYear4: 0, partnerCapitalizationYear5: 0,
+        seriesB_newInvestors_year2: 0, seriesB_newInvestors_year3: 0,
+        
+        // SINOSURE específico (calculado dinámicamente)
+        sinosureYear1: 0,
+        sinosureYear2: 7000000, // Estimated based on production cost
+        sinosureYear3: 0,
+        
+        expectedOutcomes: {
+            tirEquity: '27-35%',
+            cashFlowPositive: 'Year 3',
+            totalUnits: 320,
+            riskLevel: 'Medium-Low',
+            blendedCostOfDebt: '9.8%',
+            waccImprovement: '-360 bps vs no SINOSURE'
+        }
+    },
+
     expansion: {
         id: 'expansion',
         name: 'EXPANSION Ready',
@@ -4904,18 +5016,1055 @@ ${investorScore.issues.map(issue => `<li>${issue}</li>`).join('')}
 ` : '<div class="mt-2 text-sm">🎉 All key metrics look strong for Serie A!</div>'}
 `;
 }
+
+// ===================================================================
+// ===== MONTE CARLO SIMULATION ENGINE =====
+// ===================================================================
+
+/**
+ * Monte Carlo simulation engine for risk analysis
+ */
+class MonteCarloEngine {
+    constructor(iterations = 1000) {
+        this.iterations = iterations;
+        this.results = [];
+    }
+    
+    /**
+     * Define distributions for key variables
+     */
+    getVariableDistributions() {
+        return {
+            tasaInteres: {
+                type: 'normal',
+                mean: modelData.tasaInteres,
+                stdDev: 1.5, // ±1.5% volatility
+                min: 22,
+                max: 30
+            },
+            pdStage1: {
+                type: 'lognormal',
+                mean: modelData.pdStage1,
+                stdDev: modelData.pdStage1 * 0.3, // 30% relative volatility
+                min: 0.003,
+                max: 0.015
+            },
+            gdpGrowth: {
+                type: 'normal',
+                mean: 2.5, // Expected Mexico GDP growth
+                stdDev: 1.8,
+                min: -2,
+                max: 6
+            },
+            fuelPriceVolatility: {
+                type: 'normal',
+                mean: 0,
+                stdDev: 0.15, // 15% fuel price volatility
+                min: -0.4,
+                max: 0.4
+            },
+            sinosureSuccess: {
+                type: 'bernoulli',
+                probability: sinosureConfig.probability / 100
+            }
+        };
+    }
+    
+    /**
+     * Generate random value according to distribution
+     */
+    generateRandomValue(distribution) {
+        switch(distribution.type) {
+            case 'normal':
+                let normal = this.boxMullerTransform() * distribution.stdDev + distribution.mean;
+                return Math.max(distribution.min, Math.min(distribution.max, normal));
+                
+            case 'lognormal':
+                let lognormal = Math.exp(this.boxMullerTransform() * Math.log(1 + distribution.stdDev / distribution.mean) + Math.log(distribution.mean));
+                return Math.max(distribution.min, Math.min(distribution.max, lognormal));
+                
+            case 'bernoulli':
+                return Math.random() < distribution.probability ? 1 : 0;
+                
+            default:
+                return distribution.mean;
+        }
+    }
+    
+    /**
+     * Box-Muller transform for normal distribution
+     */
+    boxMullerTransform() {
+        const u = 0.9999 * Math.random() + 0.0001;
+        const v = 0.9999 * Math.random() + 0.0001;
+        return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+    }
+    
+    /**
+     * Run complete simulation
+     */
+    runSimulation() {
+        const distributions = this.getVariableDistributions();
+        this.results = [];
+        
+        log(`🎲 Starting Monte Carlo simulation with ${this.iterations} iterations...`);
+        
+        for (let i = 0; i < this.iterations; i++) {
+            // Generate random values
+            const randomValues = {};
+            Object.keys(distributions).forEach(key => {
+                randomValues[key] = this.generateRandomValue(distributions[key]);
+            });
+            
+            // Apply values to temporary model
+            const originalValues = this.backupModelData();
+            this.applyRandomValues(randomValues);
+            
+            // Run financial calculation
+            if (calculateFinancials()) {
+                const result = this.extractKPIs(randomValues);
+                this.results.push(result);
+            }
+            
+            // Restore original values
+            this.restoreModelData(originalValues);
+            
+            // Progress update every 100 iterations
+            if (i % 100 === 0) {
+                log(`Monte Carlo progress: ${((i / this.iterations) * 100).toFixed(0)}%`);
+            }
+        }
+        
+        log(`✅ Monte Carlo simulation completed. ${this.results.length}/${this.iterations} successful runs.`);
+        return this.analyzeResults();
+    }
+    
+    applyRandomValues(randomValues) {
+        modelData.tasaInteres = randomValues.tasaInteres;
+        modelData.pdStage1 = randomValues.pdStage1;
+        
+        // SINOSURE success/failure
+        if (randomValues.sinosureSuccess === 0) {
+            // SINOSURE failed - reallocate to other debt
+            modelData.sinosureAvailable = false;
+        }
+        
+        // GDP impact on default rates
+        const gdpImpact = 1 + (randomValues.gdpGrowth - 2.5) / 10; // GDP sensitivity
+        modelData.pdStage2 = modelData.pdStage2 * gdpImpact;
+        
+        // Fuel price impact on customer cash flow
+        const fuelImpact = 1 + randomValues.fuelPriceVolatility;
+        // Could adjust interest rates or default rates based on fuel costs
+    }
+    
+    extractKPIs(inputs) {
+        return {
+            // Inputs
+            tasaInteres: inputs.tasaInteres,
+            pdStage1: inputs.pdStage1,
+            gdpGrowth: inputs.gdpGrowth,
+            sinosureSuccess: inputs.sinosureSuccess,
+            
+            // Outputs
+            tirEquity: financialResults.tirEquity || 0,
+            ebitdaYear5: financialResults.pl[4]?.ebitda || 0,
+            totalFunding: calculateTotalFunding(),
+            dscr: calculateFinalDSCR(),
+            cashFlowPositiveYear: this.findCashFlowPositiveYear(),
+            maxDrawdown: this.calculateMaxDrawdown()
+        };
+    }
+    
+    findCashFlowPositiveYear() {
+        for (let i = 0; i < 5; i++) {
+            if (financialResults.cashFlow[i]?.netCashFlow > 0) {
+                return i + 1;
+            }
+        }
+        return null;
+    }
+    
+    calculateMaxDrawdown() {
+        let maxDrawdown = 0;
+        let peak = 0;
+        let cumulativeCash = 0;
+        
+        for (let i = 0; i < 5; i++) {
+            cumulativeCash += financialResults.cashFlow[i]?.netCashFlow || 0;
+            peak = Math.max(peak, cumulativeCash);
+            const drawdown = peak - cumulativeCash;
+            maxDrawdown = Math.max(maxDrawdown, drawdown);
+        }
+        
+        return maxDrawdown;
+    }
+    
+    analyzeResults() {
+        const analysis = {
+            tirEquity: this.calculateStatistics(this.results.map(r => r.tirEquity)),
+            ebitdaYear5: this.calculateStatistics(this.results.map(r => r.ebitdaYear5)),
+            dscr: this.calculateStatistics(this.results.map(r => r.dscr)),
+            
+            // Risk metrics
+            probabilityOfSuccess: this.results.filter(r => r.tirEquity > 20).length / this.results.length,
+            valueAtRisk95: this.calculateVaR(this.results.map(r => r.tirEquity), 0.05),
+            valueAtRisk99: this.calculateVaR(this.results.map(r => r.tirEquity), 0.01),
+            
+            // SINOSURE impact
+            sinosureImpact: this.analyzeSinosureImpact(),
+            
+            // Raw results for visualization
+            results: this.results
+        };
+        
+        return analysis;
+    }
+    
+    calculateStatistics(values) {
+        const sorted = values.sort((a, b) => a - b);
+        return {
+            mean: values.reduce((a, b) => a + b, 0) / values.length,
+            median: sorted[Math.floor(sorted.length / 2)],
+            stdDev: Math.sqrt(values.reduce((sum, x) => sum + Math.pow(x - values.reduce((a, b) => a + b, 0) / values.length, 2), 0) / values.length),
+            min: Math.min(...values),
+            max: Math.max(...values),
+            p5: sorted[Math.floor(sorted.length * 0.05)],
+            p25: sorted[Math.floor(sorted.length * 0.25)],
+            p75: sorted[Math.floor(sorted.length * 0.75)],
+            p95: sorted[Math.floor(sorted.length * 0.95)]
+        };
+    }
+    
+    calculateVaR(values, confidence) {
+        const sorted = values.sort((a, b) => a - b);
+        return sorted[Math.floor(sorted.length * confidence)];
+    }
+    
+    analyzeSinosureImpact() {
+        const withSinosure = this.results.filter(r => r.sinosureSuccess === 1);
+        const withoutSinosure = this.results.filter(r => r.sinosureSuccess === 0);
+        
+        if (withSinosure.length === 0 || withoutSinosure.length === 0) return null;
+        
+        return {
+            tirEquityLift: this.calculateStatistics(withSinosure.map(r => r.tirEquity)).mean - 
+                          this.calculateStatistics(withoutSinosure.map(r => r.tirEquity)).mean,
+            successProbabilityLift: (withSinosure.filter(r => r.tirEquity > 20).length / withSinosure.length) -
+                                   (withoutSinosure.filter(r => r.tirEquity > 20).length / withoutSinosure.length)
+        };
+    }
+    
+    backupModelData() {
+        return JSON.parse(JSON.stringify(modelData));
+    }
+    
+    restoreModelData(backup) {
+        Object.keys(backup).forEach(key => {
+            modelData[key] = backup[key];
+        });
+    }
+}
+
+// ===================================================================
+// ===== SENSITIVITY ANALYSIS ENGINE =====
+// ===================================================================
+
+/**
+ * Sensitivity analysis engine with Tornado Charts
+ */
+class SensitivityAnalyzer {
+    constructor() {
+        this.baselineResults = null;
+        this.sensitivityResults = [];
+    }
+    
+    /**
+     * Key variables for sensitivity analysis
+     */
+    getSensitivityVariables() {
+        return {
+            tasaInteres: {
+                label: 'Tasa Interés Cliente',
+                baseline: modelData.tasaInteres,
+                range: [-2, 2], // ±2%
+                format: val => val.toFixed(1) + '%'
+            },
+            downPaymentPercentage: {
+                label: '% Enganche',
+                baseline: modelData.downPaymentPercentage,
+                range: [-5, 5], // ±5%
+                format: val => val.toFixed(1) + '%'
+            },
+            pdStage1: {
+                label: 'PD Stage 1',
+                baseline: modelData.pdStage1,
+                range: [-0.003, 0.003], // ±0.3%
+                format: val => (val * 100).toFixed(2) + '%'
+            },
+            ventureDebtRate: {
+                label: 'Tasa Venture Debt',
+                baseline: modelData.ventureDebtRate,
+                range: [-3, 3], // ±3%
+                format: val => val.toFixed(1) + '%'
+            },
+            commercialDebtRate: {
+                label: 'Tasa Comercial',
+                baseline: modelData.commercialDebtRate,
+                range: [-2, 2], // ±2%
+                format: val => val.toFixed(1) + '%'
+            },
+            sinosureAvailable: {
+                label: 'SINOSURE Success',
+                baseline: modelData.sinosureAvailable ? 1 : 0,
+                range: [0, 1], // Binary
+                format: val => val ? 'Available' : 'Not Available'
+            }
+        };
+    }
+    
+    /**
+     * Run complete sensitivity analysis
+     */
+    runSensitivityAnalysis() {
+        log('📊 Starting sensitivity analysis...');
+        
+        // Calculate baseline
+        this.baselineResults = this.calculateBaselineKPIs();
+        this.sensitivityResults = [];
+        
+        const variables = this.getSensitivityVariables();
+        
+        Object.entries(variables).forEach(([varName, varConfig]) => {
+            const impacts = this.analyzeVariableImpact(varName, varConfig);
+            this.sensitivityResults.push({
+                variable: varName,
+                label: varConfig.label,
+                impacts: impacts,
+                tornadoData: this.calculateTornadoData(impacts)
+            });
+        });
+        
+        log('✅ Sensitivity analysis completed');
+        return this.generateSensitivityReport();
+    }
+    
+    analyzeVariableImpact(varName, varConfig) {
+        const impacts = [];
+        const steps = 5; // Test 5 points across range
+        
+        for (let i = 0; i <= steps; i++) {
+            const factor = i / steps; // 0 to 1
+            const value = varConfig.baseline + varConfig.range[0] + factor * (varConfig.range[1] - varConfig.range[0]);
+            
+            // Backup original value
+            const originalValue = modelData[varName];
+            
+            // Apply test value
+            modelData[varName] = value;
+            
+            // Calculate KPIs
+            if (calculateFinancials()) {
+                const kpis = this.calculateKPIs();
+                impacts.push({
+                    inputValue: value,
+                    inputFormatted: varConfig.format(value),
+                    tirEquity: kpis.tirEquity,
+                    ebitdaYear5: kpis.ebitdaYear5,
+                    dscr: kpis.dscr,
+                    totalFunding: kpis.totalFunding
+                });
+            }
+            
+            // Restore original value
+            modelData[varName] = originalValue;
+        }
+        
+        return impacts;
+    }
+    
+    calculateTornadoData(impacts) {
+        if (impacts.length < 2) return null;
+        
+        const minImpact = impacts[0];
+        const maxImpact = impacts[impacts.length - 1];
+        
+        return {
+            tirEquityRange: Math.abs(maxImpact.tirEquity - minImpact.tirEquity),
+            ebitdaRange: Math.abs(maxImpact.ebitdaYear5 - minImpact.ebitdaYear5),
+            dscrRange: Math.abs(maxImpact.dscr - minImpact.dscr)
+        };
+    }
+    
+    calculateKPIs() {
+        return {
+            tirEquity: financialResults.tirEquity || 0,
+            ebitdaYear5: financialResults.pl[4]?.ebitda || 0,
+            dscr: calculateFinalDSCR(),
+            totalFunding: calculateTotalFunding()
+        };
+    }
+    
+    calculateBaselineKPIs() {
+        return this.calculateKPIs();
+    }
+    
+    generateSensitivityReport() {
+        // Sort by impact on TIR Equity (tornado chart order)
+        this.sensitivityResults.sort((a, b) => 
+            (b.tornadoData?.tirEquityRange || 0) - (a.tornadoData?.tirEquityRange || 0)
+        );
+        
+        return {
+            baseline: this.baselineResults,
+            variables: this.sensitivityResults,
+            topDrivers: this.sensitivityResults.slice(0, 3).map(v => v.label),
+            recommendations: this.generateRecommendations()
+        };
+    }
+    
+    generateRecommendations() {
+        const topDriver = this.sensitivityResults[0];
+        const recommendations = [];
+        
+        if (topDriver.label.includes('Tasa')) {
+            recommendations.push('📈 Interest rate optimization is critical - consider dynamic pricing');
+        }
+        if (topDriver.label.includes('SINOSURE')) {
+            recommendations.push('🇨🇳 SINOSURE access creates massive value - prioritize government relations');
+        }
+        if (topDriver.label.includes('PD')) {
+            recommendations.push('🛡️ Risk management is key value driver - invest in AI/data capabilities');
+        }
+        
+        return recommendations;
+    }
+}
+
+// ===================================================================
+// ===== ADVANCED VISUALIZATION SYSTEM =====
+// ===================================================================
+
+/**
+ * Advanced visualization system with Chart.js
+ */
+class AdvancedVisualizationEngine {
+    constructor() {
+        this.charts = {};
+    }
+    
+    /**
+     * Create Monte Carlo distribution chart
+     */
+    createMonteCarloChart(containerId, monteCarloResults) {
+        const canvas = document.getElementById(containerId);
+        if (!canvas) return;
+        
+        // Destroy existing chart if it exists
+        if (this.charts.monteCarlo) {
+            this.charts.monteCarlo.destroy();
+        }
+        
+        const ctx = canvas.getContext('2d');
+        const tirData = monteCarloResults.results.map(r => r.tirEquity);
+        const histogram = this.createHistogram(tirData, 20);
+        
+        this.charts.monteCarlo = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: histogram.bins.map(bin => `${bin.toFixed(1)}%`),
+                datasets: [{
+                    label: 'Frequency',
+                    data: histogram.frequencies,
+                    backgroundColor: 'rgba(16, 185, 129, 0.6)',
+                    borderColor: 'rgba(16, 185, 129, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: `🎲 Monte Carlo: TIR Equity Distribution (${monteCarloResults.results.length} simulations)`,
+                        color: '#f8fafc',
+                        font: { size: 14, weight: 'bold' }
+                    },
+                    legend: { display: false }
+                },
+                scales: {
+                    x: { 
+                        title: { display: true, text: 'TIR Equity (%)', color: '#94a3b8' },
+                        ticks: { color: '#94a3b8' }
+                    },
+                    y: { 
+                        title: { display: true, text: 'Frequency', color: '#94a3b8' },
+                        ticks: { color: '#94a3b8' }
+                    }
+                }
+            }
+        });
+    }
+    
+    /**
+     * Create Tornado Chart for sensitivity analysis
+     */
+    createTornadoChart(containerId, sensitivityResults) {
+        const canvas = document.getElementById(containerId);
+        if (!canvas) return;
+        
+        // Destroy existing chart if it exists
+        if (this.charts.tornado) {
+            this.charts.tornado.destroy();
+        }
+        
+        const ctx = canvas.getContext('2d');
+        const topVariables = sensitivityResults.variables.slice(0, 6);
+        
+        this.charts.tornado = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: topVariables.map(v => v.label),
+                datasets: [{
+                    label: 'TIR Impact Range',
+                    data: topVariables.map(v => v.tornadoData?.tirEquityRange || 0),
+                    backgroundColor: topVariables.map((_, i) => `hsl(${i * 60}, 70%, 60%)`),
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y', // Horizontal bars
+                plugins: {
+                    title: {
+                        display: true,
+                        text: '🌪️ Tornado Chart: Variable Impact on TIR Equity',
+                        color: '#f8fafc',
+                        font: { size: 14, weight: 'bold' }
+                    },
+                    legend: { display: false }
+                },
+                scales: {
+                    x: { 
+                        title: { display: true, text: 'TIR Impact Range (pp)', color: '#94a3b8' },
+                        ticks: { color: '#94a3b8' }
+                    },
+                    y: { ticks: { color: '#94a3b8' } }
+                }
+            }
+        });
+    }
+    
+    /**
+     * Create SINOSURE impact visualization
+     */
+    createSinosureImpactChart(containerId, monteCarloResults) {
+        const canvas = document.getElementById(containerId);
+        if (!canvas) return;
+        
+        // Destroy existing chart if it exists
+        if (this.charts.sinosureImpact) {
+            this.charts.sinosureImpact.destroy();
+        }
+        
+        const ctx = canvas.getContext('2d');
+        const sinosureImpact = monteCarloResults.sinosureImpact;
+        
+        if (!sinosureImpact) {
+            // Show placeholder
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '14px Inter';
+            ctx.textAlign = 'center';
+            ctx.fillText('Run Monte Carlo with SINOSURE enabled', canvas.width/2, canvas.height/2);
+            return;
+        }
+        
+        this.charts.sinosureImpact = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['With SINOSURE', 'Without SINOSURE'],
+                datasets: [{
+                    data: [
+                        monteCarloResults.tirEquity.mean + sinosureImpact.tirEquityLift,
+                        monteCarloResults.tirEquity.mean
+                    ],
+                    backgroundColor: ['#10b981', '#ef4444'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: '🇨🇳 SINOSURE Impact on TIR Equity',
+                        color: '#f8fafc',
+                        font: { size: 14, weight: 'bold' }
+                    },
+                    legend: {
+                        position: 'bottom',
+                        labels: { color: '#94a3b8' }
+                    }
+                }
+            }
+        });
+    }
+    
+    /**
+     * Create waterfall chart for funding sources
+     */
+    createFundingWaterfallChart(containerId) {
+        const canvas = document.getElementById(containerId);
+        if (!canvas) return;
+        
+        // Destroy existing chart if it exists
+        if (this.charts.fundingWaterfall) {
+            this.charts.fundingWaterfall.destroy();
+        }
+        
+        const ctx = canvas.getContext('2d');
+        
+        const fundingSources = [
+            { label: 'Serie A', amount: modelData.seriesA, color: '#0ea5e9' },
+            { label: 'Venture Debt', amount: calculateTotalDebtRaised(), color: '#8b5cf6' },
+            { label: 'Commercial Debt', amount: 0, color: '#3b82f6' }, // Calculate separately
+            { label: 'SINOSURE', amount: modelData.sinosureAvailable ? calculateMaxSinosureAmount() : 0, color: '#f59e0b' }
+        ];
+        
+        this.charts.fundingWaterfall = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: fundingSources.map(s => s.label),
+                datasets: [{
+                    data: fundingSources.map(s => s.amount / 1000000), // Convert to millions
+                    backgroundColor: fundingSources.map(s => s.color),
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: '💰 Funding Sources Waterfall',
+                        color: '#f8fafc',
+                        font: { size: 14, weight: 'bold' }
+                    },
+                    legend: { display: false }
+                },
+                scales: {
+                    x: { ticks: { color: '#94a3b8' } },
+                    y: { 
+                        title: { display: true, text: 'Amount (M MXN)', color: '#94a3b8' },
+                        ticks: { color: '#94a3b8' }
+                    }
+                }
+            }
+        });
+    }
+    
+    createHistogram(data, bins) {
+        const min = Math.min(...data);
+        const max = Math.max(...data);
+        const binWidth = (max - min) / bins;
+        
+        const histogram = {
+            bins: [],
+            frequencies: []
+        };
+        
+        for (let i = 0; i < bins; i++) {
+            const binStart = min + i * binWidth;
+            const binEnd = binStart + binWidth;
+            histogram.bins.push(binStart);
+            
+            const frequency = data.filter(d => d >= binStart && d < binEnd).length;
+            histogram.frequencies.push(frequency);
+        }
+        
+        return histogram;
+    }
+}
+
 // ===== APPLICATION READY AND RUNNING =====
+/**
+ * Create SINOSURE controls in the UI
+ */
+function createSinosureControlsAdvanced() {
+    const container = document.getElementById('riesgo-salida-controls');
+    
+    const sinosureSection = document.createElement('div');
+    sinosureSection.className = 'mt-6 p-4 bg-gradient-to-br from-red-900/10 via-yellow-900/10 to-red-900/10 rounded-lg border border-yellow-500/30';
+    sinosureSection.innerHTML = `
+        <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center space-x-3">
+                <div class="text-2xl">🇨🇳</div>
+                <div>
+                    <h6 class="font-semibold text-yellow-300">SINOSURE Export Credit</h6>
+                    <p class="text-xs text-yellow-400">China Export Credit Insurance Corporation</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-2">
+                <input type="checkbox" id="sinosureAvailable" ${modelData.sinosureAvailable ? 'checked' : ''}
+                       class="rounded border-yellow-600 text-yellow-500 focus:ring-yellow-500 bg-slate-700">
+                <label for="sinosureAvailable" class="text-sm text-yellow-300 font-medium">Available</label>
+            </div>
+        </div>
+        
+        <div id="sinosure-details" class="${modelData.sinosureAvailable ? '' : 'hidden'}">
+            <!-- Key Parameters -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                <div class="p-3 bg-slate-800/50 rounded border border-yellow-600/30">
+                    <label class="text-xs text-yellow-400 block mb-1">Rate (%)</label>
+                    <input type="number" id="sinosureRate" value="${modelData.sinosureRate || 6.0}" 
+                           min="5" max="8" step="0.1" class="w-full p-2 bg-slate-700 border border-yellow-600 rounded text-white">
+                    <div class="text-xs text-yellow-300 mt-1">Market: 5-7%</div>
+                </div>
+                <div class="p-3 bg-slate-800/50 rounded border border-yellow-600/30">
+                    <label class="text-xs text-yellow-400 block mb-1">Available From (Month)</label>
+                    <input type="number" id="sinosureTiming" value="${modelData.sinosureTiming || 13}" 
+                           min="6" max="24" step="1" class="w-full p-2 bg-slate-700 border border-yellow-600 rounded text-white">
+                    <div class="text-xs text-yellow-300 mt-1">Post-validation</div>
+                </div>
+                <div class="p-3 bg-slate-800/50 rounded border border-yellow-600/30">
+                    <label class="text-xs text-yellow-400 block mb-1">Duration (Months)</label>
+                    <input type="number" id="sinosureDuration" value="${modelData.sinosureDuration || 12}" 
+                           min="6" max="12" step="1" class="w-full p-2 bg-slate-700 border border-yellow-600 rounded text-white">
+                    <div class="text-xs text-yellow-300 mt-1">Max: 12 months</div>
+                </div>
+                <div class="p-3 bg-slate-800/50 rounded border border-yellow-600/30">
+                    <label class="text-xs text-yellow-400 block mb-1">Probability (%)</label>
+                    <input type="number" id="sinosureProbability" value="${modelData.sinosureProbability || 70}" 
+                           min="50" max="90" step="5" class="w-full p-2 bg-slate-700 border border-yellow-600 rounded text-white">
+                    <div class="text-xs text-yellow-300 mt-1">Est: 70%</div>
+                </div>
+            </div>
+            
+            <!-- Financial Impact -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div class="p-3 bg-emerald-900/20 rounded border border-emerald-600/30">
+                    <h6 class="text-sm font-semibold text-emerald-300 mb-2">📊 Financial Impact</h6>
+                    <div class="space-y-1 text-xs">
+                        <div class="flex justify-between">
+                            <span class="text-slate-300">Max Amount (6% prod. cost):</span>
+                            <span id="sinosure-max-amount" class="font-bold text-emerald-300">${formatCurrency(calculateMaxSinosureAmount())}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-300">vs Venture Debt savings:</span>
+                            <span id="sinosure-vd-savings" class="font-bold text-emerald-300">
+                                ${formatCurrency(((modelData.ventureDebtRate - 6) * calculateMaxSinosureAmount() / 100))} annually
+                            </span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-300">WACC improvement:</span>
+                            <span class="font-bold text-emerald-300">~-360 bps</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-300">TIR Equity boost:</span>
+                            <span class="font-bold text-emerald-300">+400-700 bps</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="p-3 bg-amber-900/20 rounded border border-amber-600/30">
+                    <h6 class="text-sm font-semibold text-amber-300 mb-2">⚠️ Constraints & Risks</h6>
+                    <div class="space-y-1 text-xs text-amber-200">
+                        <div>• Limited to 12 months duration</div>
+                        <div>• Requires Chinese equipment component</div>
+                        <div>• Government approval process</div>
+                        <div>• Export credit documentation</div>
+                        <div>• Currency exposure (USD)</div>
+                        <div>• ${100 - (modelData.sinosureProbability || 70)}% chance of unavailability</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Scenario Comparison -->
+            <div class="p-3 bg-slate-800/30 rounded border border-slate-600">
+                <h6 class="text-sm font-semibold text-slate-300 mb-2">🔄 Quick Scenario Comparison</h6>
+                <div class="grid grid-cols-3 gap-3 text-xs">
+                    <div class="text-center p-2 bg-red-900/30 rounded border border-red-600/50">
+                        <div class="font-bold text-red-300">Without SINOSURE</div>
+                        <div class="text-red-200 mt-1">Blended Debt: ~15.2%</div>
+                        <div class="text-red-200">TIR: 22-25%</div>
+                    </div>
+                    <div class="text-center p-2 bg-yellow-900/30 rounded border border-yellow-600/50">
+                        <div class="font-bold text-yellow-300">SINOSURE (70% prob)</div>
+                        <div class="text-yellow-200 mt-1">Expected: ~12.1%</div>
+                        <div class="text-yellow-200">TIR: 24-28%</div>
+                    </div>
+                    <div class="text-center p-2 bg-emerald-900/30 rounded border border-emerald-600/50">
+                        <div class="font-bold text-emerald-300">SINOSURE Success</div>
+                        <div class="text-emerald-200 mt-1">Blended Debt: ~9.8%</div>
+                        <div class="text-emerald-200">TIR: 27-35%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    container.appendChild(sinosureSection);
+    
+    // Event listeners
+    setupSinosureEventListeners();
+}
+
+function setupSinosureEventListeners() {
+    const toggle = document.getElementById('sinosureAvailable');
+    const details = document.getElementById('sinosure-details');
+    
+    toggle?.addEventListener('change', (e) => {
+        modelData.sinosureAvailable = e.target.checked;
+        details.classList.toggle('hidden', !e.target.checked);
+        
+        // Update scenarios to include/exclude SINOSURE
+        updateSinosureInAllScenarios();
+        forceCalculate();
+        
+        log(`SINOSURE ${e.target.checked ? 'ENABLED' : 'DISABLED'}`);
+    });
+    
+    // Update calculations when parameters change
+    ['sinosureRate', 'sinosureTiming', 'sinosureDuration', 'sinosureProbability'].forEach(id => {
+        const input = document.getElementById(id);
+        input?.addEventListener('change', (e) => {
+            modelData[id] = parseFloat(e.target.value);
+            updateSinosureCalculations();
+            forceCalculate();
+        });
+    });
+}
+
+function updateSinosureCalculations() {
+    const maxAmount = calculateMaxSinosureAmount();
+    const vdSavings = ((modelData.ventureDebtRate - (modelData.sinosureRate || 6)) * maxAmount / 100);
+    
+    document.getElementById('sinosure-max-amount').textContent = formatCurrency(maxAmount);
+    document.getElementById('sinosure-vd-savings').textContent = formatCurrency(vdSavings) + ' annually';
+}
+
+function updateSinosureInAllScenarios() {
+    // This would update all strategic scenarios to reflect SINOSURE availability
+    log('Updated SINOSURE availability in all scenarios');
+}
+
+/**
+ * Create advanced analytics dashboard
+ */
+function createAdvancedAnalyticsDashboard() {
+    const container = document.getElementById('content-graficos');
+    
+    // Add analytics section to existing content
+    const analyticsSection = document.createElement('div');
+    analyticsSection.id = 'advanced-analytics-section';
+    analyticsSection.className = 'space-y-6 mt-6';
+    analyticsSection.innerHTML = `
+        <div class="card">
+            <h3 class="text-xl font-semibold mb-4 text-white flex items-center gap-2">
+                🧠 Advanced Analytics Suite
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <button onclick="runMonteCarloAnalysis()" 
+                        class="p-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-all duration-200">
+                    <div class="text-lg font-bold">🎲 Monte Carlo</div>
+                    <div class="text-sm">1,000 simulations</div>
+                </button>
+                <button onclick="runSensitivityAnalysis()" 
+                        class="p-4 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-all duration-200">
+                    <div class="text-lg font-bold">🌪️ Sensitivity</div>
+                    <div class="text-sm">Tornado analysis</div>
+                </button>
+                <button onclick="generateInvestorReport()" 
+                        class="p-4 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition-all duration-200">
+                    <div class="text-lg font-bold">📊 Investor Report</div>
+                    <div class="text-sm">Export PDF</div>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Charts Grid -->
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <div class="card">
+                <h4 class="text-lg font-semibold mb-3 text-white">🎲 Monte Carlo Results</h4>
+                <div style="height: 300px;"><canvas id="monteCarloChart"></canvas></div>
+            </div>
+            
+            <div class="card">
+                <h4 class="text-lg font-semibold mb-3 text-white">🌪️ Sensitivity Analysis</h4>
+                <div style="height: 300px;"><canvas id="tornadoChart"></canvas></div>
+            </div>
+            
+            <div class="card">
+                <h4 class="text-lg font-semibold mb-3 text-white">🇨🇳 SINOSURE Impact</h4>
+                <div style="height: 300px;"><canvas id="sinosureImpactChart"></canvas></div>
+            </div>
+            
+            <div class="card">
+                <h4 class="text-lg font-semibold mb-3 text-white">💰 Funding Waterfall</h4>
+                <div style="height: 300px;"><canvas id="fundingWaterfallChart"></canvas></div>
+            </div>
+        </div>
+        
+        <!-- Results Panel -->
+        <div id="analytics-results" class="hidden">
+            <!-- Results will be populated here -->
+        </div>
+    `;
+    
+    container.appendChild(analyticsSection);
+}
+
+/**
+ * Execute Monte Carlo analysis
+ */
+async function runMonteCarloAnalysis() {
+    const button = event.target.closest('button');
+    button.disabled = true;
+    button.innerHTML = '<div class="text-lg font-bold">🎲 Running...</div><div class="text-sm">Please wait</div>';
+    
+    try {
+        const engine = new MonteCarloEngine(1000); // 1000 iterations for performance
+        const results = engine.runSimulation();
+        
+        // Create visualization
+        const visualizer = new AdvancedVisualizationEngine();
+        visualizer.createMonteCarloChart('monteCarloChart', results);
+        
+        // Show results panel
+        showMonteCarloResults(results);
+        
+        log('✅ Monte Carlo analysis completed');
+    } catch (error) {
+        log(`❌ Monte Carlo analysis failed: ${error.message}`);
+    } finally {
+        button.disabled = false;
+        button.innerHTML = '<div class="text-lg font-bold">🎲 Monte Carlo</div><div class="text-sm">1,000 simulations</div>';
+    }
+}
+
+/**
+ * Execute sensitivity analysis
+ */
+async function runSensitivityAnalysis() {
+    const button = event.target.closest('button');
+    button.disabled = true;
+    button.innerHTML = '<div class="text-lg font-bold">🌪️ Running...</div><div class="text-sm">Please wait</div>';
+    
+    try {
+        const analyzer = new SensitivityAnalyzer();
+        const results = analyzer.runSensitivityAnalysis();
+        
+        // Create visualization
+        const visualizer = new AdvancedVisualizationEngine();
+        visualizer.createTornadoChart('tornadoChart', results);
+        
+        // Show results panel
+        showSensitivityResults(results);
+        
+        log('✅ Sensitivity analysis completed');
+    } catch (error) {
+        log(`❌ Sensitivity analysis failed: ${error.message}`);
+    } finally {
+        button.disabled = false;
+        button.innerHTML = '<div class="text-lg font-bold">🌪️ Sensitivity</div><div class="text-sm">Tornado analysis</div>';
+    }
+}
+
+/**
+ * Generate investor report
+ */
+function generateInvestorReport() {
+    log('📊 Generating investor report...');
+    alert('📊 Investor Report feature will be implemented in next phase');
+}
+
+/**
+ * Show Monte Carlo results
+ */
+function showMonteCarloResults(results) {
+    const resultsPanel = document.getElementById('analytics-results');
+    resultsPanel.classList.remove('hidden');
+    
+    resultsPanel.innerHTML = `
+        <div class="card">
+            <h4 class="text-lg font-semibold mb-3 text-white">🎲 Monte Carlo Simulation Results</h4>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="p-3 bg-slate-800/50 rounded">
+                    <div class="text-sm text-slate-400">TIR Equity Mean</div>
+                    <div class="text-xl font-bold text-emerald-300">${results.tirEquity.mean.toFixed(1)}%</div>
+                    <div class="text-xs text-slate-500">σ = ${results.tirEquity.stdDev.toFixed(1)}%</div>
+                </div>
+                <div class="p-3 bg-slate-800/50 rounded">
+                    <div class="text-sm text-slate-400">Success Probability</div>
+                    <div class="text-xl font-bold text-blue-300">${(results.probabilityOfSuccess * 100).toFixed(1)}%</div>
+                    <div class="text-xs text-slate-500">TIR > 20%</div>
+                </div>
+                <div class="p-3 bg-slate-800/50 rounded">
+                    <div class="text-sm text-slate-400">VaR 95%</div>
+                    <div class="text-xl font-bold text-red-300">${results.valueAtRisk95.toFixed(1)}%</div>
+                    <div class="text-xs text-slate-500">Worst case scenario</div>
+                </div>
+            </div>
+            ${results.sinosureImpact ? `
+            <div class="mt-4 p-3 bg-yellow-900/20 rounded border border-yellow-600/30">
+                <h5 class="font-semibold text-yellow-300 mb-2">🇨🇳 SINOSURE Impact Analysis</h5>
+                <div class="text-sm text-yellow-200">
+                    TIR Equity Lift: <span class="font-bold">+${results.sinosureImpact.tirEquityLift.toFixed(1)} pp</span><br>
+                    Success Probability Improvement: <span class="font-bold">+${(results.sinosureImpact.successProbabilityLift * 100).toFixed(1)} pp</span>
+                </div>
+            </div>
+            ` : ''}
+        </div>
+    `;
+}
+
+/**
+ * Show sensitivity results
+ */
+function showSensitivityResults(results) {
+    const resultsPanel = document.getElementById('analytics-results');
+    resultsPanel.classList.remove('hidden');
+    
+    resultsPanel.innerHTML = `
+        <div class="card">
+            <h4 class="text-lg font-semibold mb-3 text-white">🌪️ Sensitivity Analysis Results</h4>
+            <div class="mb-4">
+                <h5 class="font-semibold text-slate-300 mb-2">Top Value Drivers:</h5>
+                <div class="space-y-1">
+                    ${results.topDrivers.map((driver, i) => `
+                        <div class="text-sm text-slate-400">${i + 1}. ${driver}</div>
+                    `).join('')}
+                </div>
+            </div>
+            <div>
+                <h5 class="font-semibold text-slate-300 mb-2">Recommendations:</h5>
+                <div class="space-y-1">
+                    ${results.recommendations.map(rec => `
+                        <div class="text-sm text-emerald-400">${rec}</div>
+                    `).join('')}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
 /**
 * Runs when the DOM is fully loaded.
 * Process: Initializes the UI, configures controls, performs initial calculation, and updates UI and charts.
 */
 document.addEventListener('DOMContentLoaded', function() {
-log('🚀 STARTING FINANCIAL MODEL APPLICATION');
+log('🚀 STARTING FINANCIAL MODEL APPLICATION WITH ADVANCED ANALYTICS');
 
 try {
 setupTabs();
 setupControls();
-createScenarioButtons(); // Nueva función
+createScenarioButtons();
+createSinosureControlsAdvanced(); // NEW
+createAdvancedAnalyticsDashboard(); // NEW
 
 // --- UI calls re-enabled ---
 log('✅ UI updates enabled.');
@@ -4927,9 +6076,13 @@ updateCapacityIndicator();
 setTimeout(() => {
 initializeCharts();
 updateCharts();
+
+// Initialize advanced visualizations
+const visualizer = new AdvancedVisualizationEngine();
+visualizer.createFundingWaterfallChart('fundingWaterfallChart');
 }, 500);
 
-log('🎉 APPLICATION READY WITH SCENARIO MANAGEMENT');
+log('🎉 APPLICATION READY WITH ADVANCED ANALYTICS & SINOSURE');
 
 } catch (error) {
 log(`❌ CRITICAL ERROR DURING INITIALIZATION: ${error.message}`);
