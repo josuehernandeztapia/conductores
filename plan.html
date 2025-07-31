@@ -683,51 +683,6 @@
         </div>
     </div>
 
-    <!-- Glossary Modal -->
-    <div id="glossary-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
-        <div class="flex items-center justify-center min-h-screen p-4">
-            <div class="bg-white rounded-lg max-w-2xl w-full">
-                <div class="p-6 border-b flex justify-between items-center">
-                    <h2 class="text-xl font-bold text-slate-800">Glosario de Términos</h2>
-                    <button id="close-glossary-modal" class="text-slate-500 hover:text-slate-700 text-2xl">&times;</button>
-                </div>
-                <div class="p-6">
-                    <div class="space-y-4">
-                        <div class="bg-slate-50 p-4 rounded-lg">
-                            <h3 class="font-semibold text-slate-800 mb-2">GTM (Go-To-Market)</h3>
-                            <p class="text-sm text-slate-600">Estrategia de lanzamiento y adquisición de clientes. Define cómo llevaremos el producto al mercado y capturaremos la demanda.</p>
-                        </div>
-                        
-                        <div class="bg-slate-50 p-4 rounded-lg">
-                            <h3 class="font-semibold text-slate-800 mb-2">REPUVE</h3>
-                            <p class="text-sm text-slate-600">Registro Público Vehicular. Trámite obligatorio para vehículos que operan con Gas Natural Vehicular (GNV) en México.</p>
-                        </div>
-                        
-                        <div class="bg-slate-50 p-4 rounded-lg">
-                            <h3 class="font-semibold text-slate-800 mb-2">SEMARNAT</h3>
-                            <p class="text-sm text-slate-600">Secretaría de Medio Ambiente y Recursos Naturales. Otorga permisos obligatorios para conversión de vehículos a GNV.</p>
-                        </div>
-                        
-                        <div class="bg-slate-50 p-4 rounded-lg">
-                            <h3 class="font-semibold text-slate-800 mb-2">PLD</h3>
-                            <p class="text-sm text-slate-600">Prevención de Lavado de Dinero. Marco de compliance financiero obligatorio para operaciones de financiamiento.</p>
-                        </div>
-                        
-                        <div class="bg-slate-50 p-4 rounded-lg">
-                            <h3 class="font-semibold text-slate-800 mb-2">ESOP</h3>
-                            <p class="text-sm text-slate-600">Employee Stock Ownership Plan. Plan de participación accionaria que alinea incentivos del equipo técnico clave con el crecimiento empresarial.</p>
-                        </div>
-                        
-                        <div class="bg-slate-50 p-4 rounded-lg">
-                            <h3 class="font-semibold text-slate-800 mb-2">SaaS Backbone</h3>
-                            <p class="text-sm text-slate-600">Infraestructura de Software como Servicio empresarial. Incluye ERP (Odoo), sistemas de pago (Stripe), contabilidad (Xero) y seguridad (Auth0).</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <footer class="bg-slate-800 text-white mt-16">
         <div class="container mx-auto py-4 px-4 sm:px-6 lg:px-8 text-center text-sm">
             <p>&copy; 2025 Rodando a Gas. Plan Maestro Interactivo.</p>
@@ -1120,8 +1075,19 @@
             // --- CHARTS ---
 
             // Investment Donut Chart
-            const donutCtx = document.getElementById('investmentDonutChart').getContext('2d');
-            new Chart(donutCtx, {
+            const donutCanvas = document.getElementById('investmentDonutChart');
+            if (!donutCanvas) {
+                console.error('Investment donut chart canvas not found');
+                return;
+            }
+            const donutCtx = donutCanvas.getContext('2d');
+            if (!donutCtx) {
+                console.error('Cannot get 2D context for investment donut chart');
+                return;
+            }
+            
+            try {
+                new Chart(donutCtx, {
                 type: 'doughnut',
                 data: investmentData,
                 options: {
@@ -1155,10 +1121,25 @@
                     }
                 }
             });
+            } catch (error) {
+                console.error('Error creating investment donut chart:', error);
+            }
 
             // ROI Comparison Chart
-            const roiCtx = document.getElementById('roiComparisonChart').getContext('2d');
-            const roiChart = new Chart(roiCtx, {
+            const roiCanvas = document.getElementById('roiComparisonChart');
+            if (!roiCanvas) {
+                console.error('ROI comparison chart canvas not found');
+                return;
+            }
+            const roiCtx = roiCanvas.getContext('2d');
+            if (!roiCtx) {
+                console.error('Cannot get 2D context for ROI comparison chart');
+                return;
+            }
+            
+            let roiChart;
+            try {
+                roiChart = new Chart(roiCtx, {
                 type: 'line',
                 data: {
                     labels: ['Año 1', 'Año 2', 'Año 3', 'Año 4', 'Año 5', 'Año 6', 'Año 7', 'Año 8', 'Año 9', 'Año 10'],
@@ -1211,10 +1192,25 @@
                     }
                 }
             });
+            } catch (error) {
+                console.error('Error creating ROI comparison chart:', error);
+            }
 
             // Financial Plan Chart
-            const financialCtx = document.getElementById('financialPlanChart').getContext('2d');
-            const financialChart = new Chart(financialCtx, {
+            const financialCanvas = document.getElementById('financialPlanChart');
+            if (!financialCanvas) {
+                console.error('Financial plan chart canvas not found');
+                return;
+            }
+            const financialCtx = financialCanvas.getContext('2d');
+            if (!financialCtx) {
+                console.error('Cannot get 2D context for financial plan chart');
+                return;
+            }
+            
+            let financialChart;
+            try {
+                financialChart = new Chart(financialCtx, {
                 type: 'bar',
                 data: {
                     labels: financialData.labels,
@@ -1474,26 +1470,15 @@
             const glossaryModal = document.getElementById('glossary-modal');
             const closeGlossaryModal = document.getElementById('close-glossary-modal');
 
-            showGlossaryBtn.addEventListener('click', () => {
-                glossaryModal.classList.remove('hidden');
-            });
+            if (showGlossaryBtn && glossaryModal && closeGlossaryModal) {
+                showGlossaryBtn.addEventListener('click', () => {
+                    glossaryModal.classList.remove('hidden');
+                });
 
-            closeGlossaryModal.addEventListener('click', () => {
-                glossaryModal.classList.add('hidden');
-            });
-
-            // Glossary Modal
-            const showGlossaryBtn = document.getElementById('show-glossary');
-            const glossaryModal = document.getElementById('glossary-modal');
-            const closeGlossaryModal = document.getElementById('close-glossary-modal');
-
-            showGlossaryBtn.addEventListener('click', () => {
-                glossaryModal.classList.remove('hidden');
-            });
-
-            closeGlossaryModal.addEventListener('click', () => {
-                glossaryModal.classList.add('hidden');
-            });
+                closeGlossaryModal.addEventListener('click', () => {
+                    glossaryModal.classList.add('hidden');
+                });
+            }
 
             // Close modals on outside click
             [agentModal, legalModal, glossaryModal].forEach(modal => {
