@@ -3,93 +3,464 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Plan Maestro Interactivo: Rodando a Gas</title>
+    <title>RAG Investment Dashboard V3.0 - Series A Presentation</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="https://unpkg.com/d3@7"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Chosen Palette: Warm Neutral Harmony -->
-    <!-- Application Structure Plan: The SPA is designed as an interactive dashboard with five main sections accessible via a sticky top navigation. This structure was chosen over a linear document format to allow non-linear exploration, catering to how different stakeholders (CFO, CTO, CEO) might want to consume the information. The flow is: 1) Investment Thesis (the "Why") with high-level KPIs and an investment breakdown chart. 2) Financial Plan (the "How Much") with an interactive chart showing cash flow and monthly expenses, making the burn rate tangible. 3) Tech Roadmap (the "What") using a visual Gantt-style timeline for intuitive understanding of the development sequence. 4) Operations Plan (the "How") also uses a visual timeline to show GTM and legal alignment. 5) Team Plan (the "Who") highlights the core ESOP advantage and provides a detailed role allocation table. This dashboard approach transforms static tables into explorable data, enhancing comprehension and engagement. -->
-    <!-- Visualization & Content Choices: 
-        - Report Info: Investment Thesis KPIs -> Goal: Inform/Impress -> Viz: Large number cards & Donut Chart -> Interaction: Hover for details -> Justification: More impactful than a list, quickly shows investment allocation -> Library: HTML/CSS, Chart.js.
-        - Report Info: Financial Table -> Goal: Show Change/Compare -> Viz: Line/Stacked Bar Combo Chart -> Interaction: Month slider updates chart and KPI cards -> Justification: Visualizes cash runway and expense breakdown dynamically, making complex data digestible -> Library: Chart.js.
-        - Report Info: Tech/Ops Roadmaps -> Goal: Organize/Show Change -> Viz: HTML/CSS Gantt-style timeline -> Interaction: Click on tasks to see details -> Justification: More intuitive for understanding project flow and dependencies than a table -> Library: HTML/CSS/JS.
-        - Report Info: HR Allocation Table -> Goal: Organize/Inform -> Viz: Styled HTML Table -> Interaction: Dropdown filter to highlight a specific role's journey -> Justification: Improves readability of a dense data table -> Library: HTML/JS.
-    -->
-    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- Professional Design System -->
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f8f7f4; /* Warm neutral background */
-            color: #1f2937; /* Dark gray text */
+        :root {
+            /* Primary - Deep Professional Blue */
+            --primary-50: #eff6ff;
+            --primary-100: #dbeafe;
+            --primary-200: #bfdbfe;
+            --primary-300: #93c5fd;
+            --primary-400: #60a5fa;
+            --primary-500: #3b82f6;
+            --primary-600: #2563eb;
+            --primary-700: #1d4ed8;
+            --primary-800: #1e40af;
+            --primary-900: #1e3a8a;
+            
+            /* Accent - Success Green */
+            --accent-50: #ecfdf5;
+            --accent-100: #d1fae5;
+            --accent-200: #a7f3d0;
+            --accent-300: #6ee7b7;
+            --accent-400: #34d399;
+            --accent-500: #10b981;
+            --accent-600: #059669;
+            --accent-700: #047857;
+            --accent-800: #065f46;
+            --accent-900: #064e3b;
+            
+            /* Neutral - Sophisticated Grays */
+            --neutral-50: #f8fafc;
+            --neutral-100: #f1f5f9;
+            --neutral-200: #e2e8f0;
+            --neutral-300: #cbd5e1;
+            --neutral-400: #94a3b8;
+            --neutral-500: #64748b;
+            --neutral-600: #475569;
+            --neutral-700: #334155;
+            --neutral-800: #1e293b;
+            --neutral-900: #0f172a;
+            
+            /* Warning/Alert */
+            --warning-500: #f59e0b;
+            --danger-500: #ef4444;
         }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--neutral-50);
+            color: var(--neutral-900);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* Professional Typography Scale */
+        .text-display { font-size: 3.75rem; line-height: 1; font-weight: 900; letter-spacing: -0.025em; }
+        .text-h1 { font-size: 2.25rem; line-height: 2.5rem; font-weight: 800; letter-spacing: -0.025em; }
+        .text-h2 { font-size: 1.875rem; line-height: 2.25rem; font-weight: 700; letter-spacing: -0.025em; }
+        .text-h3 { font-size: 1.5rem; line-height: 2rem; font-weight: 600; }
+        .text-body { font-size: 1rem; line-height: 1.5rem; font-weight: 400; }
+        .text-caption { font-size: 0.875rem; line-height: 1.25rem; font-weight: 500; }
+
+        /* Premium Card Design */
+        .professional-card {
+            background: white;
+            border: 1px solid var(--neutral-200);
+            border-radius: 12px;
+            box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .professional-card:hover {
+            border-color: var(--neutral-300);
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transform: translateY(-1px);
+        }
+
+        .professional-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--primary-500), var(--accent-500));
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .professional-card:hover::before {
+            opacity: 1;
+        }
+
+        /* Enhanced Navigation */
+        .nav-progress {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 0%;
+            height: 2px;
+            background: linear-gradient(90deg, var(--primary-500), var(--accent-500));
+            z-index: 100;
+            transition: width 0.3s ease;
+        }
+
+        .nav-link {
+            position: relative;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+        }
+
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            width: 0;
+            height: 2px;
+            background: var(--primary-500);
+            transition: all 0.3s ease;
+            transform: translateX(-50%);
+        }
+
+        .nav-link:hover::after,
+        .nav-link.active::after {
+            width: 80%;
+        }
+
+        .nav-link:hover,
+        .nav-link.active {
+            color: var(--primary-600);
+            background-color: var(--primary-50);
+        }
+
+        /* KPI Cards with Enhanced Styling */
+        .kpi-card {
+            background: white;
+            border: 1px solid var(--neutral-200);
+            border-radius: 12px;
+            padding: 1.5rem;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: var(--accent-500);
+            transition: width 0.3s ease;
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px -8px rgb(0 0 0 / 0.15);
+            border-color: var(--neutral-300);
+        }
+
+        .kpi-card:hover::before {
+            width: 6px;
+        }
+
+        .kpi-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            line-height: 1;
+            background: linear-gradient(135deg, var(--primary-600), var(--accent-600));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* Chart Containers */
         .chart-container {
             position: relative;
             width: 100%;
-            max-width: 800px;
-            margin-left: auto;
-            margin-right: auto;
-            height: 350px;
-            max-height: 400px;
+            margin: 0 auto;
+            border-radius: 12px;
+            overflow: hidden;
+            background: white;
+            padding: 1rem;
         }
-        @media (min-width: 768px) {
-            .chart-container {
-                height: 400px;
-            }
+
+        /* Timeline Enhancements */
+        .timeline-item {
+            position: relative;
+            padding: 1rem;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: 1px solid var(--neutral-200);
+            background: white;
         }
-        .nav-link {
-            transition: color 0.3s, border-color 0.3s;
+
+        .timeline-item:hover {
+            background: var(--neutral-50);
+            border-color: var(--primary-300);
+            transform: translateX(4px);
         }
-        .nav-link:hover, .nav-link.active {
-            color: #c2410c; /* Accent color */
-            border-bottom-color: #c2410c;
-        }
-        .kpi-card {
-            background-color: #ffffff;
-            border-left: 5px solid #0d9488; /* Muted teal accent */
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .kpi-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-        }
+
         .timeline-bar {
             position: relative;
+            height: 8px;
+            background: var(--neutral-200);
+            border-radius: 4px;
             overflow: hidden;
-            border-radius: 0.5rem;
-            background-color: #e2e8f0;
         }
+
         .timeline-progress {
             position: absolute;
             height: 100%;
-            border-radius: 0.5rem;
-            opacity: 0.8;
-            transition: background-color 0.3s;
+            border-radius: 4px;
+            background: linear-gradient(90deg, var(--primary-500), var(--accent-500));
+            transition: all 0.3s ease;
         }
-        .timeline-item:hover .timeline-progress {
+
+        /* Floating Action Button */
+        .fab {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, var(--primary-500), var(--accent-500));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.25rem;
+            cursor: pointer;
+            box-shadow: 0 8px 25px -8px rgb(0 0 0 / 0.3);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 50;
+        }
+
+        .fab:hover {
+            transform: scale(1.1);
+            box-shadow: 0 12px 35px -8px rgb(0 0 0 / 0.4);
+        }
+
+        /* Breadcrumb Navigation */
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 1rem 0;
+            font-size: 0.875rem;
+            color: var(--neutral-500);
+        }
+
+        .breadcrumb-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .breadcrumb-item:not(:last-child)::after {
+            content: '/';
+            color: var(--neutral-400);
+        }
+
+        .breadcrumb-item.active {
+            color: var(--primary-600);
+            font-weight: 500;
+        }
+
+        /* Loading States */
+        .loading-skeleton {
+            background: linear-gradient(90deg, var(--neutral-200) 25%, var(--neutral-100) 50%, var(--neutral-200) 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+        }
+
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* Tooltip System */
+        .tooltip {
+            position: absolute;
+            background: var(--neutral-900);
+            color: white;
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            pointer-events: none;
+            z-index: 1000;
+            opacity: 0;
+            transform: translateY(4px);
+            transition: all 0.2s ease;
+        }
+
+        .tooltip.show {
             opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .text-display { font-size: 2.5rem; }
+            .text-h1 { font-size: 1.875rem; line-height: 2.25rem; }
+            .text-h2 { font-size: 1.5rem; line-height: 2rem; }
+            
+            .kpi-card {
+                padding: 1rem;
+            }
+            
+            .kpi-value {
+                font-size: 2rem;
+            }
+            
+            .fab {
+                bottom: 1rem;
+                right: 1rem;
+                width: 50px;
+                height: 50px;
+                font-size: 1rem;
+            }
+        }
+
+        /* Enhanced Slider Styling */
+        .slider {
+            -webkit-appearance: none;
+            appearance: none;
+            background: var(--neutral-200);
+            border-radius: 6px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary-500), var(--accent-500));
+            cursor: pointer;
+            border: 2px solid white;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary-500), var(--accent-500));
+            cursor: pointer;
+            border: 2px solid white;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Print Styles */
+        @media print {
+            .nav-progress,
+            .fab,
+            header {
+                display: none !important;
+            }
+            
+            .professional-card {
+                break-inside: avoid;
+                box-shadow: none;
+                border: 1px solid var(--neutral-300);
+            }
+            
+            body {
+                background: white;
+            }
         }
     </style>
 </head>
 <body class="antialiased">
 
-    <!-- Header & Navigation -->
-    <header class="bg-white/80 backdrop-blur-lg sticky top-0 z-50 shadow-sm">
+    <!-- Progress Bar -->
+    <div class="nav-progress" id="nav-progress"></div>
+
+    <!-- Enhanced Header & Navigation -->
+    <header class="bg-white/95 backdrop-blur-lg sticky top-0 z-50 border-b border-neutral-200">
         <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-16">
-                <div class="flex items-center">
-                    <span class="font-bold text-xl text-slate-800">Rodando a Gas</span>
-                    <span class="ml-2 text-sm font-medium text-slate-500">Plan Maestro Interactivo</span>
-                </div>
-                <div class="hidden md:block">
-                    <div class="ml-10 flex items-baseline space-x-4">
-                        <a href="#tesis" class="nav-link text-gray-700 hover:text-orange-700 px-3 py-2 rounded-md text-sm font-medium border-b-2 border-transparent">Tesis</a>
-                        <a href="#financiero" class="nav-link text-gray-700 hover:text-orange-700 px-3 py-2 rounded-md text-sm font-medium border-b-2 border-transparent">Financiero</a>
-                        <a href="#tecnologia" class="nav-link text-gray-700 hover:text-orange-700 px-3 py-2 rounded-md text-sm font-medium border-b-2 border-transparent">Tecnología</a>
-                        <a href="#operaciones" class="nav-link text-gray-700 hover:text-orange-700 px-3 py-2 rounded-md text-sm font-medium border-b-2 border-transparent">Operaciones</a>
-                        <a href="#equipo" class="nav-link text-gray-700 hover:text-orange-700 px-3 py-2 rounded-md text-sm font-medium border-b-2 border-transparent">Equipo</a>
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center">
+                        <div class="w-8 h-8 bg-gradient-to-br from-primary-500 to-accent-500 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-chart-line text-white text-sm"></i>
+                        </div>
+                        <span class="ml-3 font-bold text-xl text-neutral-800">RAG Investment</span>
                     </div>
+                    <span class="hidden md:block text-sm font-medium text-neutral-500 px-3 py-1 bg-neutral-100 rounded-full">V3.0 Series A</span>
+                </div>
+                
+                <div class="hidden lg:block">
+                    <div class="flex items-center space-x-1">
+                        <a href="#executive-summary" class="nav-link text-neutral-700 text-sm font-medium">
+                            <i class="fas fa-star mr-2"></i>Executive Summary
+                        </a>
+                        <a href="#investment-thesis" class="nav-link text-neutral-700 text-sm font-medium">
+                            <i class="fas fa-lightbulb mr-2"></i>Investment Thesis
+                        </a>
+                        <a href="#financial-plan" class="nav-link text-neutral-700 text-sm font-medium">
+                            <i class="fas fa-chart-bar mr-2"></i>Financial Plan
+                        </a>
+                        <a href="#tech-roadmap" class="nav-link text-neutral-700 text-sm font-medium">
+                            <i class="fas fa-code-branch mr-2"></i>Technology
+                        </a>
+                        <a href="#operations-plan" class="nav-link text-neutral-700 text-sm font-medium">
+                            <i class="fas fa-cogs mr-2"></i>Operations
+                        </a>
+                        <a href="#team-execution" class="nav-link text-neutral-700 text-sm font-medium">
+                            <i class="fas fa-users mr-2"></i>Team
+                        </a>
+                    </div>
+                </div>
+
+                <div class="flex items-center space-x-3">
+                    <button id="theme-toggle" class="p-2 rounded-lg hover:bg-neutral-100 transition-colors">
+                        <i class="fas fa-moon text-neutral-600"></i>
+                    </button>
+                    <button class="hidden md:flex items-center space-x-2 bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium">
+                        <i class="fas fa-download"></i>
+                        <span>Export PDF</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Mobile Navigation -->
+            <div class="lg:hidden pb-3">
+                <div class="flex space-x-1 overflow-x-auto">
+                    <a href="#executive-summary" class="nav-link text-neutral-700 text-xs font-medium whitespace-nowrap">Executive</a>
+                    <a href="#investment-thesis" class="nav-link text-neutral-700 text-xs font-medium whitespace-nowrap">Thesis</a>
+                    <a href="#financial-plan" class="nav-link text-neutral-700 text-xs font-medium whitespace-nowrap">Financial</a>
+                    <a href="#tech-roadmap" class="nav-link text-neutral-700 text-xs font-medium whitespace-nowrap">Tech</a>
+                    <a href="#operations-plan" class="nav-link text-neutral-700 text-xs font-medium whitespace-nowrap">Operations</a>
+                    <a href="#team-execution" class="nav-link text-neutral-700 text-xs font-medium whitespace-nowrap">Team</a>
                 </div>
             </div>
         </nav>
@@ -97,91 +468,594 @@
 
     <main class="container mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
 
-        <!-- 0. Tesis de Inversión -->
-        <section id="tesis" class="mb-16 scroll-mt-16">
-            <h1 class="text-3xl md:text-4xl font-bold text-slate-900 mb-2">Tesis de Inversión</h1>
-            <p class="text-lg text-slate-600 mb-8">La ventaja financiera fundamental del modelo IA-Nativo de Rodando a Gas.</p>
-            
-            <div class="bg-white p-6 rounded-lg shadow-md mb-12">
-                <h3 class="font-bold text-xl mb-4 text-teal-800">Resumen Estratégico</h3>
-                <p class="text-slate-700 leading-relaxed">
-                    La inversión solicitada no financia un gasto operativo, sino la adquisición de un activo productivo: un ecosistema de cuatro agentes de IA sinérgicos. Este modelo transforma los costos variables de una financiera tradicional en una inversión de capital fija, generando eficiencia exponencial, un foso competitivo y una escalabilidad de alto margen, similar a un modelo SaaS. Se está financiando una "fuerza laboral de IA" propietaria que garantiza un modelo de negocio de alto margen y sienta las bases para el dominio del mercado.
+        <!-- Breadcrumb Navigation -->
+        <nav class="breadcrumb">
+            <div class="breadcrumb-item">
+                <i class="fas fa-home"></i>
+                <span>Dashboard</span>
+            </div>
+            <div class="breadcrumb-item active">
+                <span id="current-section">Executive Summary</span>
+            </div>
+        </nav>
+
+        <!-- Executive Summary Section -->
+        <section id="executive-summary" class="mb-20 scroll-mt-16">
+            <div class="text-center mb-12">
+                <h1 class="text-display text-neutral-900 mb-4">RAG Investment Dashboard</h1>
+                <p class="text-xl text-neutral-600 max-w-3xl mx-auto mb-8">
+                    Transforming Mexico's transportation financing through AI-Native technology. 
+                    A de-risked proposition with institutional-grade execution certainty.
                 </p>
+                <div class="flex items-center justify-center space-x-6">
+                    <div class="flex items-center space-x-2 text-neutral-500">
+                        <i class="fas fa-calendar-alt"></i>
+                        <span class="text-sm">Series A Target: Q2 2025</span>
+                    </div>
+                    <div class="flex items-center space-x-2 text-neutral-500">
+                        <i class="fas fa-chart-line"></i>
+                        <span class="text-sm">12-Month Roadmap</span>
+                    </div>
+                    <div class="flex items-center space-x-2 text-neutral-500">
+                        <i class="fas fa-shield-alt"></i>
+                        <span class="text-sm">De-risked Execution</span>
+                    </div>
+                </div>
             </div>
 
+            <!-- Hero Metrics Dashboard -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-                <div class="kpi-card p-5 rounded-lg shadow-sm">
-                    <p class="text-sm font-medium text-slate-500">Inversión Tecnológica Inicial</p>
-                    <p class="text-3xl font-bold text-slate-800">$2.33M</p>
-                    <p class="text-xs text-slate-400">MXN en Core IA + SaaS</p>
+                <div class="professional-card p-6 text-center">
+                    <div class="w-12 h-12 bg-gradient-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-dollar-sign text-white text-xl"></i>
+                    </div>
+                    <div class="kpi-value">$7.26M</div>
+                    <p class="text-sm font-medium text-neutral-600 mt-2">Investment Required</p>
+                    <p class="text-xs text-neutral-500">MXN Seed Capital</p>
                 </div>
-                <div class="kpi-card p-5 rounded-lg shadow-sm">
-                    <p class="text-sm font-medium text-slate-500">Ahorros Anuales vs. Tradicional</p>
-                    <p class="text-3xl font-bold text-slate-800">$6.3M</p>
-                    <p class="text-xs text-slate-400">MXN al reemplazar equipo de +20</p>
+
+                <div class="professional-card p-6 text-center">
+                    <div class="w-12 h-12 bg-gradient-to-br from-accent-500 to-accent-600 rounded-lg flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-chart-line text-white text-xl"></i>
+                    </div>
+                    <div class="kpi-value">457%</div>
+                    <p class="text-sm font-medium text-neutral-600 mt-2">5-Year ROI</p>
+                    <p class="text-xs text-neutral-500">Projected Return</p>
                 </div>
-                <div class="kpi-card p-5 rounded-lg shadow-sm" style="border-color: #f59e0b;">
-                    <p class="text-sm font-medium text-slate-500">ROI a 5 Años (Proyectado)</p>
-                    <p class="text-3xl font-bold text-slate-800">457%</p>
-                    <p class="text-xs text-slate-400">Sobre la inversión tecnológica</p>
+
+                <div class="professional-card p-6 text-center">
+                    <div class="w-12 h-12 bg-gradient-to-br from-warning-500 to-yellow-600 rounded-lg flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-clock text-white text-xl"></i>
+                    </div>
+                    <div class="kpi-value">20</div>
+                    <p class="text-sm font-medium text-neutral-600 mt-2">Payback Period</p>
+                    <p class="text-xs text-neutral-500">Months to Break-Even</p>
                 </div>
-                <div class="kpi-card p-5 rounded-lg shadow-sm" style="border-color: #f59e0b;">
-                    <p class="text-sm font-medium text-slate-500">Período de Recuperación</p>
-                    <p class="text-3xl font-bold text-slate-800">~20</p>
-                    <p class="text-xs text-slate-400">Meses para recuperar inversión tech</p>
+
+                <div class="professional-card p-6 text-center">
+                    <div class="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-rocket text-white text-xl"></i>
+                    </div>
+                    <div class="kpi-value">$45M</div>
+                    <p class="text-sm font-medium text-neutral-600 mt-2">Series A Target</p>
+                    <p class="text-xs text-neutral-500">MXN Valuation Goal</p>
                 </div>
             </div>
 
-            <div class="bg-white p-6 rounded-lg shadow-md">
-                <h3 class="font-bold text-xl mb-4 text-teal-800">Inversión Semilla Solicitada: $7,260,000 MXN</h3>
-                <p class="text-slate-600 mb-6">El capital se asignará estratégicamente para maximizar la validación del modelo de negocio y el desarrollo del activo tecnológico clave. A continuación se muestra el desglose de la inversión.</p>
-                <div class="chart-container h-64 md:h-80 max-h-80">
-                    <canvas id="investmentDonutChart"></canvas>
+            <!-- Investment Thesis Highlights -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+                <div class="professional-card p-8">
+                    <div class="flex items-center mb-6">
+                        <div class="w-10 h-10 bg-gradient-to-br from-primary-500 to-accent-500 rounded-lg flex items-center justify-center mr-4">
+                            <i class="fas fa-brain text-white"></i>
+                        </div>
+                        <h3 class="text-h3 text-neutral-900">AI-Native Advantage</h3>
+                    </div>
+                    <p class="text-neutral-700 mb-4">
+                        We're not digitizing traditional financing—we're building a proprietary AI workforce that transforms 
+                        variable operational costs into fixed capital investment, creating exponential efficiency gains.
+                    </p>
+                    <div class="space-y-3">
+                        <div class="flex items-center space-x-3">
+                            <i class="fas fa-check-circle text-accent-500"></i>
+                            <span class="text-sm text-neutral-600">4 Synergistic AI Agents</span>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <i class="fas fa-check-circle text-accent-500"></i>
+                            <span class="text-sm text-neutral-600">$6.3M Annual Savings vs Traditional</span>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <i class="fas fa-check-circle text-accent-500"></i>
+                            <span class="text-sm text-neutral-600">SaaS-like Scalability & Margins</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="professional-card p-8">
+                    <div class="flex items-center mb-6">
+                        <div class="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center mr-4">
+                            <i class="fas fa-shield-alt text-white"></i>
+                        </div>
+                        <h3 class="text-h3 text-neutral-900">De-risked Execution</h3>
+                    </div>
+                    <p class="text-neutral-700 mb-4">
+                        Golden handcuffs equity structure ensures core technical team retention. 
+                        Proven team chemistry and sequential validation approach minimize execution risk.
+                    </p>
+                    <div class="space-y-3">
+                        <div class="flex items-center space-x-3">
+                            <i class="fas fa-check-circle text-accent-500"></i>
+                            <span class="text-sm text-neutral-600">Pre-assembled Senior Technical Team</span>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <i class="fas fa-check-circle text-accent-500"></i>
+                            <span class="text-sm text-neutral-600">~7% Collective Equity Alignment</span>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <i class="fas fa-check-circle text-accent-500"></i>
+                            <span class="text-sm text-neutral-600">Sequential Risk Validation</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Capital Allocation Sankey Preview -->
+            <div class="professional-card p-8">
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-h3 text-neutral-900">Capital Allocation Overview</h3>
+                    <button class="text-primary-600 hover:text-primary-700 text-sm font-medium flex items-center space-x-2">
+                        <span>View Details</span>
+                        <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="text-center">
+                        <div class="w-16 h-16 bg-gradient-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center mx-auto mb-3">
+                            <i class="fas fa-code text-white text-xl"></i>
+                        </div>
+                        <div class="text-lg font-bold text-neutral-900">32%</div>
+                        <p class="text-xs text-neutral-600">Core AI Development</p>
+                        <p class="text-xs font-medium text-primary-600">$2.33M</p>
+                    </div>
+                    <div class="text-center">
+                        <div class="w-16 h-16 bg-gradient-to-br from-accent-500 to-accent-600 rounded-lg flex items-center justify-center mx-auto mb-3">
+                            <i class="fas fa-truck text-white text-xl"></i>
+                        </div>
+                        <div class="text-lg font-bold text-neutral-900">36%</div>
+                        <p class="text-xs text-neutral-600">Pilot Investment</p>
+                        <p class="text-xs font-medium text-accent-600">$2.63M</p>
+                    </div>
+                    <div class="text-center">
+                        <div class="w-16 h-16 bg-gradient-to-br from-warning-500 to-yellow-600 rounded-lg flex items-center justify-center mx-auto mb-3">
+                            <i class="fas fa-users text-white text-xl"></i>
+                        </div>
+                        <div class="text-lg font-bold text-neutral-900">25%</div>
+                        <p class="text-xs text-neutral-600">Team & Operations</p>
+                        <p class="text-xs font-medium text-warning-600">$1.83M</p>
+                    </div>
+                    <div class="text-center">
+                        <div class="w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center mx-auto mb-3">
+                            <i class="fas fa-umbrella text-white text-xl"></i>
+                        </div>
+                        <div class="text-lg font-bold text-neutral-900">7%</div>
+                        <p class="text-xs text-neutral-600">Emergency Reserve</p>
+                        <p class="text-xs font-medium text-purple-600">$476K</p>
+                    </div>
                 </div>
             </div>
         </section>
 
-        <!-- 1. Plan Financiero -->
-        <section id="financiero" class="mb-16 scroll-mt-16">
-            <h2 class="text-3xl md:text-4xl font-bold text-slate-900 mb-2">Plan Financiero (CFO View)</h2>
-            <p class="text-lg text-slate-600 mb-8">Un despliegue de capital no lineal para maximizar la eficiencia y mitigar riesgos.</p>
+        <!-- Investment Thesis Section -->
+        <section id="investment-thesis" class="mb-20 scroll-mt-16">
+            <div class="text-center mb-12">
+                <h2 class="text-h1 text-neutral-900 mb-4">Investment Thesis</h2>
+                <p class="text-xl text-neutral-600 max-w-4xl mx-auto">
+                    The fundamental financial advantage of RAG's AI-Native model: 
+                    transforming variable operational costs into fixed capital investment for exponential scalability.
+                </p>
+            </div>
             
-            <div class="bg-white p-6 rounded-lg shadow-md">
-                 <h3 class="font-bold text-xl mb-2 text-teal-800">Flujo de Caja y Gasto Mensual</h3>
-                 <p class="text-slate-600 mb-4">Interactúe con el deslizador para explorar el plan financiero mes a mes. El gráfico visualiza el gasto por categoría y el efectivo restante, demostrando un control de capital prudente que prioriza la validación tecnológica antes del gasto en CAPEX.</p>
+            <!-- Strategic Overview -->
+            <div class="professional-card p-8 mb-12">
+                <div class="flex items-start space-x-6">
+                    <div class="w-16 h-16 bg-gradient-to-br from-primary-500 to-accent-500 rounded-xl flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-lightbulb text-white text-2xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-h2 text-neutral-900 mb-4">Strategic Investment Overview</h3>
+                        <p class="text-neutral-700 text-lg leading-relaxed mb-6">
+                            This investment doesn't fund operational expenses—it acquires a productive asset: 
+                            an ecosystem of four synergistic AI agents. This model transforms the variable costs 
+                            of traditional financing into fixed capital investment, generating exponential efficiency, 
+                            competitive moats, and high-margin scalability similar to a SaaS model.
+                        </p>
+                        <div class="bg-gradient-to-r from-primary-50 to-accent-50 p-6 rounded-lg border border-primary-200">
+                            <p class="text-primary-800 font-medium">
+                                <i class="fas fa-quote-left text-primary-500 mr-2"></i>
+                                We're financing a proprietary "AI workforce" that guarantees a high-margin business model 
+                                and establishes the foundation for market dominance.
+                                <i class="fas fa-quote-right text-primary-500 ml-2"></i>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-                <div class="mb-8">
-                    <label for="month-slider" class="block text-sm font-medium text-slate-700 mb-2">Mes: <span id="month-label" class="font-bold text-orange-600">1</span></label>
-                    <input id="month-slider" type="range" min="1" max="12" value="1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+            <!-- Enhanced KPI Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+                <div class="kpi-card">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-microchip text-white"></i>
+                        </div>
+                        <span class="text-xs font-medium text-neutral-500 bg-neutral-100 px-2 py-1 rounded-full">TECH INVESTMENT</span>
+                    </div>
+                    <div class="kpi-value">$2.33M</div>
+                    <p class="text-sm font-medium text-neutral-600 mt-2">Core AI Development</p>
+                    <p class="text-xs text-neutral-500">MXN in proprietary AI agents + SaaS platform</p>
+                    <div class="mt-3 flex items-center space-x-2">
+                        <div class="flex-1 bg-neutral-200 rounded-full h-2">
+                            <div class="bg-gradient-to-r from-primary-500 to-primary-600 h-2 rounded-full" style="width: 32%"></div>
+                        </div>
+                        <span class="text-xs font-medium text-neutral-600">32%</span>
+                    </div>
+                </div>
+
+                <div class="kpi-card">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="w-10 h-10 bg-gradient-to-br from-accent-500 to-accent-600 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-piggy-bank text-white"></i>
+                        </div>
+                        <span class="text-xs font-medium text-neutral-500 bg-neutral-100 px-2 py-1 rounded-full">ANNUAL SAVINGS</span>
+                    </div>
+                    <div class="kpi-value">$6.3M</div>
+                    <p class="text-sm font-medium text-neutral-600 mt-2">vs Traditional Model</p>
+                    <p class="text-xs text-neutral-500">MXN by replacing 20+ traditional roles</p>
+                    <div class="mt-3 flex items-center space-x-2 text-accent-600">
+                        <i class="fas fa-arrow-up text-xs"></i>
+                        <span class="text-xs font-medium">270% efficiency gain</span>
+                    </div>
+                </div>
+
+                <div class="kpi-card">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="w-10 h-10 bg-gradient-to-br from-warning-500 to-yellow-600 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-chart-line text-white"></i>
+                        </div>
+                        <span class="text-xs font-medium text-neutral-500 bg-neutral-100 px-2 py-1 rounded-full">PROJECTED ROI</span>
+                    </div>
+                    <div class="kpi-value">457%</div>
+                    <p class="text-sm font-medium text-neutral-600 mt-2">5-Year Return</p>
+                    <p class="text-xs text-neutral-500">On technology investment component</p>
+                    <div class="mt-3 flex items-center space-x-2 text-warning-600">
+                        <i class="fas fa-trophy text-xs"></i>
+                        <span class="text-xs font-medium">Best-in-class returns</span>
+                    </div>
+                </div>
+
+                <div class="kpi-card">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-clock text-white"></i>
+                        </div>
+                        <span class="text-xs font-medium text-neutral-500 bg-neutral-100 px-2 py-1 rounded-full">PAYBACK</span>
+                    </div>
+                    <div class="kpi-value">20</div>
+                    <p class="text-sm font-medium text-neutral-600 mt-2">Months to Break-Even</p>
+                    <p class="text-xs text-neutral-500">Conservative estimate for tech recovery</p>
+                    <div class="mt-3 flex items-center space-x-2 text-purple-600">
+                        <i class="fas fa-rocket text-xs"></i>
+                        <span class="text-xs font-medium">Rapid value creation</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Interactive ROI Calculator Preview -->
+            <div class="professional-card p-8">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h3 class="text-h2 text-neutral-900 mb-2">Investment Breakdown: $7,260,000 MXN</h3>
+                        <p class="text-neutral-600">Strategic capital allocation designed to maximize business model validation and core technology asset development.</p>
+                    </div>
+                    <button id="roi-calculator-btn" class="bg-gradient-to-r from-primary-500 to-accent-500 hover:from-primary-600 hover:to-accent-600 text-white px-6 py-3 rounded-lg font-medium transition-all duration-200 flex items-center space-x-2">
+                        <i class="fas fa-calculator"></i>
+                        <span>Interactive ROI Calculator</span>
+                    </button>
                 </div>
                 
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 text-center">
-                    <div class="bg-slate-50 p-3 rounded-lg">
-                        <p class="text-sm text-slate-500">Gasto del Mes</p>
-                        <p id="kpi-gasto-mes" class="text-2xl font-bold"></p>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div class="chart-container h-80">
+                        <canvas id="investmentSankeyChart"></canvas>
                     </div>
-                    <div class="bg-slate-50 p-3 rounded-lg">
-                        <p class="text-sm text-slate-500">Gasto Acumulado</p>
-                        <p id="kpi-gasto-acumulado" class="text-2xl font-bold"></p>
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between p-4 bg-gradient-to-r from-primary-50 to-primary-100 rounded-lg border border-primary-200">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-4 h-4 bg-primary-500 rounded"></div>
+                                <span class="font-medium text-primary-900">Core AI + SaaS Development</span>
+                            </div>
+                            <div class="text-right">
+                                <div class="font-bold text-primary-900">$2,326,000</div>
+                                <div class="text-sm text-primary-700">32.0%</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between p-4 bg-gradient-to-r from-accent-50 to-accent-100 rounded-lg border border-accent-200">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-4 h-4 bg-accent-500 rounded"></div>
+                                <span class="font-medium text-accent-900">Pilot Investment (CAPEX)</span>
+                            </div>
+                            <div class="text-right">
+                                <div class="font-bold text-accent-900">$2,630,000</div>
+                                <div class="text-sm text-accent-700">36.2%</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between p-4 bg-gradient-to-r from-warning-50 to-yellow-100 rounded-lg border border-warning-200">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-4 h-4 bg-warning-500 rounded"></div>
+                                <span class="font-medium text-warning-900">Team & Operations</span>
+                            </div>
+                            <div class="text-right">
+                                <div class="font-bold text-warning-900">$1,828,000</div>
+                                <div class="text-sm text-warning-700">25.2%</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between p-4 bg-gradient-to-r from-purple-50 to-purple-100 rounded-lg border border-purple-200">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-4 h-4 bg-purple-500 rounded"></div>
+                                <span class="font-medium text-purple-900">Emergency Reserve</span>
+                            </div>
+                            <div class="text-right">
+                                <div class="font-bold text-purple-900">$476,000</div>
+                                <div class="text-sm text-purple-700">6.6%</div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="bg-slate-50 p-3 rounded-lg">
-                        <p class="text-sm text-slate-500">Efectivo Restante</p>
-                        <p id="kpi-efectivo" class="text-2xl font-bold"></p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Enhanced Financial Plan Section -->
+        <section id="financial-plan" class="mb-20 scroll-mt-16">
+            <div class="text-center mb-12">
+                <h2 class="text-h1 text-neutral-900 mb-4">Financial Plan</h2>
+                <p class="text-xl text-neutral-600 max-w-4xl mx-auto">
+                    Non-linear capital deployment designed to maximize efficiency and mitigate risks through sequential validation.
+                </p>
+            </div>
+            
+            <!-- Financial Overview Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+                <div class="professional-card p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="w-12 h-12 bg-gradient-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-chart-area text-white text-xl"></i>
+                        </div>
+                        <span class="text-xs font-medium text-neutral-500 bg-neutral-100 px-2 py-1 rounded-full">RUNWAY</span>
                     </div>
-                    <div class="bg-slate-50 p-3 rounded-lg">
-                        <p class="text-sm text-slate-500">Reserva Emergencia</p>
-                        <p class="text-2xl font-bold text-teal-600">$476k</p>
+                    <div class="kpi-value text-primary-600">12-13</div>
+                    <p class="text-sm font-medium text-neutral-600 mt-2">Months Runway</p>
+                    <p class="text-xs text-neutral-500">Conservative burn rate calculation</p>
+                    <div class="mt-4 flex items-center space-x-2">
+                        <div class="flex-1 bg-neutral-200 rounded-full h-2">
+                            <div class="bg-gradient-to-r from-primary-500 to-accent-500 h-2 rounded-full" style="width: 75%"></div>
+                        </div>
+                        <span class="text-xs font-medium text-neutral-600">75% to Series A</span>
                     </div>
                 </div>
 
-                <div class="chart-container">
+                <div class="professional-card p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="w-12 h-12 bg-gradient-to-br from-accent-500 to-accent-600 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-piggy-bank text-white text-xl"></i>
+                        </div>
+                        <span class="text-xs font-medium text-neutral-500 bg-neutral-100 px-2 py-1 rounded-full">MONTHLY BURN</span>
+                    </div>
+                    <div class="kpi-value text-accent-600">$580K</div>
+                    <p class="text-sm font-medium text-neutral-600 mt-2">Average Monthly</p>
+                    <p class="text-xs text-neutral-500">Including CAPEX deployment</p>
+                    <div class="mt-4 flex items-center space-x-2 text-accent-600">
+                        <i class="fas fa-trending-down text-xs"></i>
+                        <span class="text-xs font-medium">Decreasing post-CAPEX</span>
+                    </div>
+                </div>
+
+                <div class="professional-card p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-shield-alt text-white text-xl"></i>
+                        </div>
+                        <span class="text-xs font-medium text-neutral-500 bg-neutral-100 px-2 py-1 rounded-full">SAFETY BUFFER</span>
+                    </div>
+                    <div class="kpi-value text-purple-600">$476K</div>
+                    <p class="text-sm font-medium text-neutral-600 mt-2">Emergency Reserve</p>
+                    <p class="text-xs text-neutral-500">6.6% of total investment</p>
+                    <div class="mt-4 flex items-center space-x-2 text-purple-600">
+                        <i class="fas fa-lock text-xs"></i>
+                        <span class="text-xs font-medium">Risk mitigation fund</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Interactive Financial Explorer -->
+            <div class="professional-card p-8 mb-8">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h3 class="text-h2 text-neutral-900 mb-2">Cash Flow & Monthly Expenditure</h3>
+                        <p class="text-neutral-600">Interactive month-by-month financial exploration. Visualizes spending by category and remaining cash, demonstrating prudent capital control.</p>
+                    </div>
+                    <div class="flex space-x-3">
+                        <button id="waterfall-view" class="bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                            <i class="fas fa-chart-waterfall mr-2"></i>Waterfall View
+                        </button>
+                        <button id="scenario-analysis" class="bg-accent-500 hover:bg-accent-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                            <i class="fas fa-calculator mr-2"></i>Scenarios
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Enhanced Month Slider -->
+                <div class="mb-8">
+                    <div class="flex items-center justify-between mb-3">
+                        <label for="month-slider" class="text-sm font-medium text-neutral-700">
+                            Month: <span id="month-label" class="font-bold text-primary-600 text-lg">1</span>
+                        </label>
+                        <div class="flex items-center space-x-4 text-sm text-neutral-600">
+                            <div class="flex items-center space-x-2">
+                                <div class="w-3 h-3 bg-primary-500 rounded"></div>
+                                <span>Team</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <div class="w-3 h-3 bg-accent-500 rounded"></div>
+                                <span>Development</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <div class="w-3 h-3 bg-warning-500 rounded"></div>
+                                <span>CAPEX</span>
+                            </div>
+                        </div>
+                    </div>
+                    <input id="month-slider" type="range" min="1" max="12" value="1" 
+                           class="w-full h-3 bg-neutral-200 rounded-lg appearance-none cursor-pointer slider">
+                    <div class="flex justify-between text-xs text-neutral-500 mt-2">
+                        <span>Jan 2025</span>
+                        <span>Mar 2025</span>
+                        <span>Jun 2025</span>
+                        <span>Sep 2025</span>
+                        <span>Dec 2025</span>
+                    </div>
+                </div>
+                
+                <!-- Enhanced KPI Cards -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                    <div class="kpi-card bg-gradient-to-br from-primary-50 to-primary-100 border-primary-200">
+                        <div class="flex items-center justify-between mb-2">
+                            <i class="fas fa-calendar-day text-primary-600"></i>
+                            <span class="text-xs font-medium text-primary-700 bg-primary-200 px-2 py-1 rounded-full">MONTHLY</span>
+                        </div>
+                        <p class="text-sm text-primary-700 font-medium">Monthly Spend</p>
+                        <p id="kpi-gasto-mes" class="text-2xl font-bold text-primary-900"></p>
+                    </div>
+                    <div class="kpi-card bg-gradient-to-br from-accent-50 to-accent-100 border-accent-200">
+                        <div class="flex items-center justify-between mb-2">
+                            <i class="fas fa-chart-line text-accent-600"></i>
+                            <span class="text-xs font-medium text-accent-700 bg-accent-200 px-2 py-1 rounded-full">CUMULATIVE</span>
+                        </div>
+                        <p class="text-sm text-accent-700 font-medium">Total Spent</p>
+                        <p id="kpi-gasto-acumulado" class="text-2xl font-bold text-accent-900"></p>
+                    </div>
+                    <div class="kpi-card bg-gradient-to-br from-warning-50 to-yellow-100 border-warning-200">
+                        <div class="flex items-center justify-between mb-2">
+                            <i class="fas fa-wallet text-warning-600"></i>
+                            <span class="text-xs font-medium text-warning-700 bg-warning-200 px-2 py-1 rounded-full">REMAINING</span>
+                        </div>
+                        <p class="text-sm text-warning-700 font-medium">Cash Available</p>
+                        <p id="kpi-efectivo" class="text-2xl font-bold text-warning-900"></p>
+                    </div>
+                    <div class="kpi-card bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+                        <div class="flex items-center justify-between mb-2">
+                            <i class="fas fa-shield-alt text-purple-600"></i>
+                            <span class="text-xs font-medium text-purple-700 bg-purple-200 px-2 py-1 rounded-full">BUFFER</span>
+                        </div>
+                        <p class="text-sm text-purple-700 font-medium">Emergency Fund</p>
+                        <p class="text-2xl font-bold text-purple-900">$476K</p>
+                    </div>
+                </div>
+
+                <!-- Enhanced Chart Container -->
+                <div class="chart-container h-96">
                     <canvas id="financialPlanChart"></canvas>
+                </div>
+
+                <!-- Drill-down Details Panel -->
+                <div id="financial-details" class="mt-6 p-6 bg-gradient-to-r from-neutral-50 to-neutral-100 rounded-lg border border-neutral-200 hidden">
+                    <h4 class="font-bold text-lg mb-4 text-neutral-900">Month <span id="detail-month"></span> Breakdown</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div id="team-breakdown" class="space-y-2">
+                            <h5 class="font-semibold text-primary-800 flex items-center">
+                                <i class="fas fa-users mr-2"></i>Team Expenses
+                            </h5>
+                            <div class="text-sm text-neutral-700 space-y-1">
+                                <div class="flex justify-between"><span>Core Team (3):</span><span id="core-team-cost"></span></div>
+                                <div class="flex justify-between"><span>Additional Hires:</span><span id="additional-hires-cost"></span></div>
+                                <div class="flex justify-between"><span>Benefits & Equity:</span><span id="benefits-cost"></span></div>
+                            </div>
+                        </div>
+                        <div id="development-breakdown" class="space-y-2">
+                            <h5 class="font-semibold text-accent-800 flex items-center">
+                                <i class="fas fa-code mr-2"></i>Development
+                            </h5>
+                            <div class="text-sm text-neutral-700 space-y-1">
+                                <div class="flex justify-between"><span>AI/ML Infrastructure:</span><span id="ai-infra-cost"></span></div>
+                                <div class="flex justify-between"><span>SaaS Platform:</span><span id="saas-cost"></span></div>
+                                <div class="flex justify-between"><span>Tools & Licenses:</span><span id="tools-cost"></span></div>
+                            </div>
+                        </div>
+                        <div id="capex-breakdown" class="space-y-2">
+                            <h5 class="font-semibold text-warning-800 flex items-center">
+                                <i class="fas fa-truck mr-2"></i>CAPEX Investment
+                            </h5>
+                            <div class="text-sm text-neutral-700 space-y-1">
+                                <div class="flex justify-between"><span>Vehicle Units:</span><span id="vehicle-cost"></span></div>
+                                <div class="flex justify-between"><span>IoT Hardware:</span><span id="iot-cost"></span></div>
+                                <div class="flex justify-between"><span>Installation:</span><span id="installation-cost"></span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ROI Scenario Analysis -->
+            <div class="professional-card p-8">
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-h2 text-neutral-900">ROI Scenario Analysis</h3>
+                    <div class="flex space-x-2">
+                        <button class="scenario-btn active bg-accent-500 text-white px-4 py-2 rounded-lg text-sm font-medium" data-scenario="conservative">
+                            Conservative
+                        </button>
+                        <button class="scenario-btn bg-neutral-200 text-neutral-700 hover:bg-neutral-300 px-4 py-2 rounded-lg text-sm font-medium" data-scenario="base">
+                            Base Case
+                        </button>
+                        <button class="scenario-btn bg-neutral-200 text-neutral-700 hover:bg-neutral-300 px-4 py-2 rounded-lg text-sm font-medium" data-scenario="optimistic">
+                            Optimistic
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div class="chart-container h-64">
+                        <canvas id="roiScenarioChart"></canvas>
+                    </div>
+                    <div class="space-y-4">
+                        <div id="scenario-metrics" class="grid grid-cols-2 gap-4">
+                            <div class="text-center p-4 bg-gradient-to-br from-accent-50 to-accent-100 rounded-lg border border-accent-200">
+                                <div class="text-2xl font-bold text-accent-900" id="scenario-roi">457%</div>
+                                <div class="text-sm text-accent-700">5-Year ROI</div>
+                            </div>
+                            <div class="text-center p-4 bg-gradient-to-br from-primary-50 to-primary-100 rounded-lg border border-primary-200">
+                                <div class="text-2xl font-bold text-primary-900" id="scenario-payback">20</div>
+                                <div class="text-sm text-primary-700">Months Payback</div>
+                            </div>
+                        </div>
+                        <div class="space-y-3 text-sm">
+                            <div class="flex items-center justify-between p-3 bg-neutral-50 rounded-lg">
+                                <span class="font-medium">Annual Savings:</span>
+                                <span id="scenario-savings" class="font-bold text-accent-600">$6.3M MXN</span>
+                            </div>
+                            <div class="flex items-center justify-between p-3 bg-neutral-50 rounded-lg">
+                                <span class="font-medium">Series A Valuation:</span>
+                                <span id="scenario-valuation" class="font-bold text-primary-600">$45M MXN</span>
+                            </div>
+                            <div class="flex items-center justify-between p-3 bg-neutral-50 rounded-lg">
+                                <span class="font-medium">Market Penetration:</span>
+                                <span id="scenario-penetration" class="font-bold text-warning-600">0.8%</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>
 
         <!-- 2. Plan de Desarrollo Tecnológico -->
-        <section id="tecnologia" class="mb-16 scroll-mt-16">
+        <section id="tech-roadmap" class="mb-16 scroll-mt-16">
             <h2 class="text-3xl md:text-4xl font-bold text-slate-900 mb-2">Plan de Desarrollo (CTO View)</h2>
             <p class="text-lg text-slate-600 mb-8">Un roadmap secuencial para mitigar riesgos, validando las hipótesis más críticas primero.</p>
             
@@ -198,7 +1072,7 @@
         </section>
 
         <!-- 3. Plan Operativo y de Negocio -->
-        <section id="operaciones" class="mb-16 scroll-mt-16">
+        <section id="operations-plan" class="mb-16 scroll-mt-16">
             <h2 class="text-3xl md:text-4xl font-bold text-slate-900 mb-2">Plan Operativo (COO/CEO View)</h2>
             <p class="text-lg text-slate-600 mb-8">Sincronizando GTM, legal y el piloto con los hitos tecnológicos para construir un negocio viable.</p>
             
@@ -215,7 +1089,7 @@
         </section>
 
         <!-- 4. Plan de Asignación de Recursos Humanos -->
-        <section id="equipo" class="scroll-mt-16">
+        <section id="team-execution" class="scroll-mt-16">
             <h2 class="text-3xl md:text-4xl font-bold text-slate-900 mb-2">Plan de Equipo (HR View)</h2>
             <p class="text-lg text-slate-600 mb-8">La ventaja competitiva más defendible y el principal mitigador del riesgo de ejecución.</p>
             
@@ -260,7 +1134,12 @@
 
     </main>
 
-    <footer class="bg-slate-800 text-white mt-16">
+    <!-- Floating Action Button -->
+    <div class="fab" id="fab" title="Executive Summary">
+        <i class="fas fa-star"></i>
+    </div>
+
+    <footer class="bg-neutral-800 text-white mt-20">
         <div class="container mx-auto py-4 px-4 sm:px-6 lg:px-8 text-center text-sm">
             <p>&copy; 2025 Rodando a Gas. Plan Maestro Interactivo.</p>
         </div>
@@ -268,9 +1147,9 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // --- DATA ---
+            // --- ENHANCED DATA STRUCTURES ---
             const financialData = {
-                labels: Array.from({ length: 12 }, (_, i) => `Mes ${i + 1}`),
+                labels: Array.from({ length: 12 }, (_, i) => `Month ${i + 1}`),
                 gastoEquipo: [110000, 125000, 125000, 125000, 125000, 125000, 125000, 125000, 125000, 125000, 125000, 115000],
                 gastoDesarrollo: [190000, 210000, 255000, 245000, 245000, 245000, 225000, 225000, 225000, 190000, 190000, 206000],
                 gastoCapex: [0, 0, 0, 0, 0, 876667, 876667, 876666, 0, 0, 0, 0],
@@ -278,8 +1157,52 @@
                 gastoAcumulado: [],
                 efectivoRestante: [],
                 inversionInicial: 7260000,
+                // Detailed breakdowns for drill-down
+                teamBreakdown: [
+                    {coreTeam: 85000, additionalHires: 15000, benefits: 10000},
+                    {coreTeam: 95000, additionalHires: 20000, benefits: 10000},
+                    {coreTeam: 95000, additionalHires: 20000, benefits: 10000},
+                    {coreTeam: 95000, additionalHires: 20000, benefits: 10000},
+                    {coreTeam: 95000, additionalHires: 20000, benefits: 10000},
+                    {coreTeam: 95000, additionalHires: 20000, benefits: 10000},
+                    {coreTeam: 95000, additionalHires: 20000, benefits: 10000},
+                    {coreTeam: 95000, additionalHires: 20000, benefits: 10000},
+                    {coreTeam: 95000, additionalHires: 20000, benefits: 10000},
+                    {coreTeam: 95000, additionalHires: 20000, benefits: 10000},
+                    {coreTeam: 95000, additionalHires: 20000, benefits: 10000},
+                    {coreTeam: 85000, additionalHires: 20000, benefits: 10000}
+                ],
+                developmentBreakdown: [
+                    {aiInfra: 120000, saas: 50000, tools: 20000},
+                    {aiInfra: 130000, saas: 60000, tools: 20000},
+                    {aiInfra: 150000, saas: 80000, tools: 25000},
+                    {aiInfra: 140000, saas: 80000, tools: 25000},
+                    {aiInfra: 140000, saas: 80000, tools: 25000},
+                    {aiInfra: 140000, saas: 80000, tools: 25000},
+                    {aiInfra: 120000, saas: 80000, tools: 25000},
+                    {aiInfra: 120000, saas: 80000, tools: 25000},
+                    {aiInfra: 120000, saas: 80000, tools: 25000},
+                    {aiInfra: 100000, saas: 70000, tools: 20000},
+                    {aiInfra: 100000, saas: 70000, tools: 20000},
+                    {aiInfra: 110000, saas: 76000, tools: 20000}
+                ],
+                capexBreakdown: [
+                    {vehicles: 0, iot: 0, installation: 0},
+                    {vehicles: 0, iot: 0, installation: 0},
+                    {vehicles: 0, iot: 0, installation: 0},
+                    {vehicles: 0, iot: 0, installation: 0},
+                    {vehicles: 0, iot: 0, installation: 0},
+                    {vehicles: 750000, iot: 100000, installation: 26667},
+                    {vehicles: 750000, iot: 100000, installation: 26667},
+                    {vehicles: 750000, iot: 100000, installation: 26666},
+                    {vehicles: 0, iot: 0, installation: 0},
+                    {vehicles: 0, iot: 0, installation: 0},
+                    {vehicles: 0, iot: 0, installation: 0},
+                    {vehicles: 0, iot: 0, installation: 0}
+                ]
             };
 
+            // Calculate totals
             let acumulado = 0;
             for (let i = 0; i < 12; i++) {
                 const totalMes = financialData.gastoEquipo[i] + financialData.gastoDesarrollo[i] + financialData.gastoCapex[i];
@@ -290,13 +1213,48 @@
             }
 
             const investmentData = {
-                labels: ['Desarrollo Core IA + SaaS', 'Inversión Piloto (CAPEX)', 'Equipo y Operaciones', 'Reserva de Emergencia'],
+                labels: ['Core AI + SaaS Development', 'Pilot Investment (CAPEX)', 'Team & Operations', 'Emergency Reserve'],
                 datasets: [{
                     data: [2326000, 2630000, 1828000, 476000],
-                    backgroundColor: ['#0d9488', '#0f766e', '#115e59', '#f59e0b'],
-                    borderColor: '#f8f7f4',
-                    borderWidth: 4
+                    backgroundColor: [
+                        'rgba(59, 130, 246, 0.8)',  // Primary
+                        'rgba(16, 185, 129, 0.8)',  // Accent
+                        'rgba(245, 158, 11, 0.8)',  // Warning
+                        'rgba(139, 92, 246, 0.8)'   // Purple
+                    ],
+                    borderColor: [
+                        'rgb(59, 130, 246)',
+                        'rgb(16, 185, 129)',
+                        'rgb(245, 158, 11)',
+                        'rgb(139, 92, 246)'
+                    ],
+                    borderWidth: 2
                 }]
+            };
+
+            // ROI Scenarios Data
+            const roiScenarios = {
+                conservative: {
+                    roi: '320%',
+                    payback: 24,
+                    savings: '$4.8M MXN',
+                    valuation: '$35M MXN',
+                    penetration: '0.5%'
+                },
+                base: {
+                    roi: '457%',
+                    payback: 20,
+                    savings: '$6.3M MXN',
+                    valuation: '$45M MXN',
+                    penetration: '0.8%'
+                },
+                optimistic: {
+                    roi: '680%',
+                    payback: 16,
+                    savings: '$8.2M MXN',
+                    valuation: '$65M MXN',
+                    penetration: '1.2%'
+                }
             };
             
             const techTimelineData = [
@@ -328,46 +1286,50 @@
                 ]
             };
 
-            // --- CHARTS ---
+            // --- ENHANCED CHARTS ---
 
-            // Investment Donut Chart
-            const donutCtx = document.getElementById('investmentDonutChart').getContext('2d');
-            new Chart(donutCtx, {
+            // Investment Sankey Chart (using Chart.js doughnut as approximation)
+            const sankeyCtx = document.getElementById('investmentSankeyChart').getContext('2d');
+            new Chart(sankeyCtx, {
                 type: 'doughnut',
                 data: investmentData,
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    cutout: '60%',
+                    cutout: '65%',
                     plugins: {
                         legend: {
-                            position: 'bottom',
-                            labels: {
-                                padding: 20,
-                                font: {
-                                    size: 12
-                                }
-                            }
+                            display: false
                         },
                         tooltip: {
+                            backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                            titleColor: '#f1f5f9',
+                            bodyColor: '#f1f5f9',
+                            borderColor: 'rgba(59, 130, 246, 0.5)',
+                            borderWidth: 1,
+                            cornerRadius: 8,
                             callbacks: {
                                 label: function(context) {
-                                    let label = context.label || '';
-                                    if (label) {
-                                        label += ': ';
-                                    }
-                                    if (context.parsed !== null) {
-                                        label += new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(context.parsed);
-                                    }
-                                    return label;
+                                    const percentage = ((context.parsed / 7260000) * 100).toFixed(1);
+                                    return `${context.label}: ${new Intl.NumberFormat('en-US', { 
+                                        style: 'currency', 
+                                        currency: 'USD',
+                                        minimumFractionDigits: 0,
+                                        maximumFractionDigits: 0
+                                    }).format(context.parsed)} (${percentage}%)`;
                                 }
                             }
                         }
+                    },
+                    animation: {
+                        animateRotate: true,
+                        duration: 1500,
+                        easing: 'easeOutQuart'
                     }
                 }
             });
 
-            // Financial Plan Chart
+            // Enhanced Financial Plan Chart
             const financialCtx = document.getElementById('financialPlanChart').getContext('2d');
             const financialChart = new Chart(financialCtx, {
                 type: 'bar',
@@ -375,40 +1337,62 @@
                     labels: financialData.labels,
                     datasets: [
                         {
-                            label: 'Gasto en Equipo',
+                            label: 'Team Expenses',
                             data: financialData.gastoEquipo,
-                            backgroundColor: '#14b8a6', // Teal
+                            backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                            borderColor: 'rgb(59, 130, 246)',
+                            borderWidth: 1,
                             stack: 'Stack 0',
                         },
                         {
-                            label: 'Gasto en Desarrollo',
+                            label: 'Development Costs',
                             data: financialData.gastoDesarrollo,
-                            backgroundColor: '#0d9488', // Darker Teal
+                            backgroundColor: 'rgba(16, 185, 129, 0.8)',
+                            borderColor: 'rgb(16, 185, 129)',
+                            borderWidth: 1,
                             stack: 'Stack 0',
                         },
                         {
-                            label: 'Gasto CAPEX',
+                            label: 'CAPEX Investment',
                             data: financialData.gastoCapex,
-                            backgroundColor: '#0f766e', // Even Darker Teal
+                            backgroundColor: 'rgba(245, 158, 11, 0.8)',
+                            borderColor: 'rgb(245, 158, 11)',
+                            borderWidth: 1,
                             stack: 'Stack 0',
                         },
                         {
-                            label: 'Efectivo Restante',
+                            label: 'Cash Remaining',
                             data: financialData.efectivoRestante,
                             type: 'line',
-                            borderColor: '#f97316', // Orange
-                            backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                            borderColor: 'rgb(139, 92, 246)',
+                            backgroundColor: 'rgba(139, 92, 246, 0.1)',
                             fill: true,
                             yAxisID: 'y1',
-                            tension: 0.3
+                            tension: 0.4,
+                            borderWidth: 3,
+                            pointBackgroundColor: 'rgb(139, 92, 246)',
+                            pointBorderColor: 'white',
+                            pointBorderWidth: 2,
+                            pointRadius: 6,
+                            pointHoverRadius: 8
                         }
                     ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
                     plugins: {
                         tooltip: {
+                            backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                            titleColor: '#f1f5f9',
+                            bodyColor: '#f1f5f9',
+                            borderColor: 'rgba(59, 130, 246, 0.5)',
+                            borderWidth: 1,
+                            cornerRadius: 8,
                             callbacks: {
                                 label: function(context) {
                                     let label = context.dataset.label || '';
@@ -416,30 +1400,71 @@
                                         label += ': ';
                                     }
                                     if (context.parsed.y !== null) {
-                                        label += new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 0 }).format(context.parsed.y);
+                                        label += new Intl.NumberFormat('en-US', { 
+                                            style: 'currency', 
+                                            currency: 'USD', 
+                                            minimumFractionDigits: 0,
+                                            maximumFractionDigits: 0
+                                        }).format(context.parsed.y);
                                     }
                                     return label;
+                                },
+                                afterBody: function(context) {
+                                    const monthIndex = context[0].dataIndex;
+                                    const month = monthIndex + 1;
+                                    return [`Click to view Month ${month} breakdown`];
                                 }
                             }
                         },
                         legend: {
-                            position: 'bottom'
+                            position: 'top',
+                            align: 'end',
+                            labels: {
+                                usePointStyle: true,
+                                pointStyle: 'circle',
+                                padding: 20,
+                                font: {
+                                    size: 12,
+                                    weight: '500'
+                                }
+                            }
                         }
                     },
                     scales: {
                         x: {
                             stacked: true,
-                            grid: { display: false }
+                            grid: { 
+                                display: false 
+                            },
+                            ticks: {
+                                font: {
+                                    size: 11,
+                                    weight: '500'
+                                },
+                                color: '#64748b'
+                            }
                         },
                         y: {
                             stacked: true,
                             beginAtZero: true,
                             title: {
                                 display: true,
-                                text: 'Gasto Mensual (MXN)'
+                                text: 'Monthly Expenditure (USD)',
+                                font: {
+                                    size: 12,
+                                    weight: '600'
+                                },
+                                color: '#334155'
                             },
                             ticks: {
-                                callback: value => `${value / 1000}k`
+                                callback: value => `$${(value / 1000).toFixed(0)}K`,
+                                font: {
+                                    size: 11
+                                },
+                                color: '#64748b'
+                            },
+                            grid: {
+                                color: 'rgba(148, 163, 184, 0.2)'
                             }
                         },
                         y1: {
@@ -447,22 +1472,106 @@
                             beginAtZero: true,
                             title: {
                                 display: true,
-                                text: 'Efectivo Restante (MXN)'
+                                text: 'Cash Remaining (USD)',
+                                font: {
+                                    size: 12,
+                                    weight: '600'
+                                },
+                                color: '#334155'
                             },
                             grid: {
-                                drawOnChartArea: false, 
+                                drawOnChartArea: false,
                             },
                             ticks: {
-                                callback: value => `${value / 1000000}M`
+                                callback: value => `$${(value / 1000000).toFixed(1)}M`,
+                                font: {
+                                    size: 11
+                                },
+                                color: '#64748b'
                             }
+                        }
+                    },
+                    animation: {
+                        duration: 1500,
+                        easing: 'easeOutQuart'
+                    },
+                    onClick: (event, elements) => {
+                        if (elements.length > 0) {
+                            const monthIndex = elements[0].index;
+                            showFinancialDetails(monthIndex + 1);
                         }
                     }
                 }
             });
 
-            // --- INTERACTIONS ---
+            // ROI Scenario Chart
+            const roiCtx = document.getElementById('roiScenarioChart').getContext('2d');
+            let roiChart = new Chart(roiCtx, {
+                type: 'line',
+                data: {
+                    labels: ['Year 1', 'Year 2', 'Year 3', 'Year 4', 'Year 5'],
+                    datasets: [{
+                        label: 'Conservative',
+                        data: [0, 50, 120, 200, 320],
+                        borderColor: 'rgb(245, 158, 11)',
+                        backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                        borderWidth: 3,
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                            titleColor: '#f1f5f9',
+                            bodyColor: '#f1f5f9',
+                            borderColor: 'rgba(59, 130, 246, 0.5)',
+                            borderWidth: 1,
+                            cornerRadius: 8
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 11, weight: '500' },
+                                color: '#64748b'
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'ROI (%)',
+                                font: { size: 12, weight: '600' },
+                                color: '#334155'
+                            },
+                            ticks: {
+                                callback: value => `${value}%`,
+                                font: { size: 11 },
+                                color: '#64748b'
+                            },
+                            grid: {
+                                color: 'rgba(148, 163, 184, 0.2)'
+                            }
+                        }
+                    },
+                    animation: {
+                        duration: 1500,
+                        easing: 'easeOutQuart'
+                    }
+                }
+            });
 
-            // Financial Slider
+            // --- ENHANCED INTERACTIONS ---
+
+            // Financial Slider with Enhanced Features
             const slider = document.getElementById('month-slider');
             const monthLabel = document.getElementById('month-label');
             const kpiGastoMes = document.getElementById('kpi-gasto-mes');
@@ -471,8 +1580,8 @@
 
             function formatCurrency(value) {
                 if (value >= 1000000) return `$${(value / 1000000).toFixed(2)}M`;
-                if (value >= 1000) return `$${(value / 1000).toFixed(0)}k`;
-                return `$${value}`;
+                if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`;
+                return `$${Math.round(value).toLocaleString()}`;
             }
 
             function updateFinancials(month) {
@@ -482,19 +1591,125 @@
                 kpiGastoAcumulado.textContent = formatCurrency(financialData.gastoAcumulado[index]);
                 kpiEfectivo.textContent = formatCurrency(financialData.efectivoRestante[index]);
                 
-                financialChart.data.datasets.forEach(dataset => {
-                    dataset.borderWidth = Array(12).fill(1);
-                });
-                financialChart.data.datasets.forEach(dataset => {
-                    if(dataset.type !== 'line') {
+                // Highlight current month in chart
+                financialChart.data.datasets.forEach((dataset, datasetIndex) => {
+                    if (dataset.type !== 'line') {
+                        dataset.borderWidth = Array(12).fill(1);
                         dataset.borderWidth[index] = 3;
-                        dataset.borderColor = '#1f2937';
+                        dataset.borderColor = Array(12).fill(dataset.borderColor);
+                        dataset.borderColor[index] = '#1e293b';
                     }
                 });
-                financialChart.update();
+                financialChart.update('none');
             }
 
-            slider.addEventListener('input', (e) => updateFinancials(parseInt(e.target.value)));
+            // Show detailed financial breakdown
+            function showFinancialDetails(month) {
+                const index = month - 1;
+                const detailsPanel = document.getElementById('financial-details');
+                const detailMonth = document.getElementById('detail-month');
+                
+                // Update month
+                detailMonth.textContent = month;
+                
+                // Update team breakdown
+                const teamData = financialData.teamBreakdown[index];
+                document.getElementById('core-team-cost').textContent = formatCurrency(teamData.coreTeam);
+                document.getElementById('additional-hires-cost').textContent = formatCurrency(teamData.additionalHires);
+                document.getElementById('benefits-cost').textContent = formatCurrency(teamData.benefits);
+                
+                // Update development breakdown
+                const devData = financialData.developmentBreakdown[index];
+                document.getElementById('ai-infra-cost').textContent = formatCurrency(devData.aiInfra);
+                document.getElementById('saas-cost').textContent = formatCurrency(devData.saas);
+                document.getElementById('tools-cost').textContent = formatCurrency(devData.tools);
+                
+                // Update CAPEX breakdown
+                const capexData = financialData.capexBreakdown[index];
+                document.getElementById('vehicle-cost').textContent = formatCurrency(capexData.vehicles);
+                document.getElementById('iot-cost').textContent = formatCurrency(capexData.iot);
+                document.getElementById('installation-cost').textContent = formatCurrency(capexData.installation);
+                
+                // Show the panel with animation
+                detailsPanel.classList.remove('hidden');
+                detailsPanel.style.opacity = '0';
+                detailsPanel.style.transform = 'translateY(10px)';
+                
+                setTimeout(() => {
+                    detailsPanel.style.transition = 'all 0.3s ease';
+                    detailsPanel.style.opacity = '1';
+                    detailsPanel.style.transform = 'translateY(0)';
+                }, 10);
+            }
+
+            // ROI Scenario switching
+            function updateROIScenario(scenario) {
+                const scenarioData = roiScenarios[scenario];
+                
+                // Update metrics
+                document.getElementById('scenario-roi').textContent = scenarioData.roi;
+                document.getElementById('scenario-payback').textContent = scenarioData.payback;
+                document.getElementById('scenario-savings').textContent = scenarioData.savings;
+                document.getElementById('scenario-valuation').textContent = scenarioData.valuation;
+                document.getElementById('scenario-penetration').textContent = scenarioData.penetration;
+                
+                // Update chart data based on scenario
+                let chartData;
+                switch(scenario) {
+                    case 'conservative':
+                        chartData = [0, 50, 120, 200, 320];
+                        roiChart.data.datasets[0].borderColor = 'rgb(245, 158, 11)';
+                        roiChart.data.datasets[0].backgroundColor = 'rgba(245, 158, 11, 0.1)';
+                        break;
+                    case 'base':
+                        chartData = [0, 80, 180, 300, 457];
+                        roiChart.data.datasets[0].borderColor = 'rgb(16, 185, 129)';
+                        roiChart.data.datasets[0].backgroundColor = 'rgba(16, 185, 129, 0.1)';
+                        break;
+                    case 'optimistic':
+                        chartData = [0, 120, 250, 450, 680];
+                        roiChart.data.datasets[0].borderColor = 'rgb(59, 130, 246)';
+                        roiChart.data.datasets[0].backgroundColor = 'rgba(59, 130, 246, 0.1)';
+                        break;
+                }
+                
+                roiChart.data.datasets[0].data = chartData;
+                roiChart.data.datasets[0].label = scenario.charAt(0).toUpperCase() + scenario.slice(1);
+                roiChart.update();
+            }
+
+            // Event Listeners
+            slider.addEventListener('input', (e) => {
+                updateFinancials(parseInt(e.target.value));
+            });
+
+            // Scenario buttons
+            document.querySelectorAll('.scenario-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    // Update button states
+                    document.querySelectorAll('.scenario-btn').forEach(b => {
+                        b.classList.remove('active', 'bg-accent-500', 'text-white');
+                        b.classList.add('bg-neutral-200', 'text-neutral-700', 'hover:bg-neutral-300');
+                    });
+                    
+                    e.target.classList.remove('bg-neutral-200', 'text-neutral-700', 'hover:bg-neutral-300');
+                    e.target.classList.add('active', 'bg-accent-500', 'text-white');
+                    
+                    // Update scenario
+                    updateROIScenario(e.target.dataset.scenario);
+                });
+            });
+
+            // ROI Calculator Button
+            document.getElementById('roi-calculator-btn').addEventListener('click', () => {
+                // Scroll to ROI section
+                document.querySelector('#financial-plan .professional-card:last-child').scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center'
+                });
+            });
+
+            // Initialize
             updateFinancials(1);
 
             // Tech Timeline
@@ -599,25 +1814,140 @@
                 }
             });
 
-            // Active Nav Link on Scroll
+            // Enhanced Navigation System
             const sections = document.querySelectorAll('section');
             const navLinks = document.querySelectorAll('.nav-link');
+            const progressBar = document.getElementById('nav-progress');
+            const currentSectionSpan = document.getElementById('current-section');
+            const fab = document.getElementById('fab');
+
+            // Progress tracking and navigation
             window.addEventListener('scroll', () => {
+                const scrollTop = window.pageYOffset;
+                const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+                const scrollPercent = (scrollTop / docHeight) * 100;
+                
+                // Update progress bar
+                progressBar.style.width = scrollPercent + '%';
+                
+                // Update active section
                 let current = '';
+                let currentSectionName = '';
+                
                 sections.forEach(section => {
-                    const sectionTop = section.offsetTop;
-                    if (pageYOffset >= sectionTop - 80) {
-                        current = section.getAttribute('id');
+                    const sectionTop = section.offsetTop - 100;
+                    const sectionId = section.getAttribute('id');
+                    
+                    if (scrollTop >= sectionTop) {
+                        current = sectionId;
+                        // Get section name from navigation
+                        const navLink = document.querySelector(`[href="#${sectionId}"]`);
+                        if (navLink) {
+                            currentSectionName = navLink.textContent.trim().replace(/.*\s/, '');
+                        }
                     }
                 });
 
+                // Update navigation
                 navLinks.forEach(link => {
-                    link.classList.remove('active', 'text-orange-700');
+                    link.classList.remove('active');
                     if (link.getAttribute('href').includes(current)) {
-                        link.classList.add('active', 'text-orange-700');
+                        link.classList.add('active');
+                    }
+                });
+
+                // Update breadcrumb
+                if (currentSectionName) {
+                    currentSectionSpan.textContent = currentSectionName;
+                }
+
+                // Show/hide FAB based on scroll position
+                if (scrollTop > 300) {
+                    fab.style.transform = 'scale(1)';
+                    fab.style.opacity = '1';
+                } else {
+                    fab.style.transform = 'scale(0.8)';
+                    fab.style.opacity = '0.7';
+                }
+            });
+
+            // FAB click handler
+            fab.addEventListener('click', () => {
+                document.getElementById('executive-summary').scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+            });
+
+            // Keyboard navigation
+            document.addEventListener('keydown', (e) => {
+                const currentSection = document.querySelector('section.active') || sections[0];
+                const currentIndex = Array.from(sections).indexOf(currentSection);
+                
+                if (e.key === 'j' || e.key === 'J') {
+                    // Next section
+                    e.preventDefault();
+                    const nextIndex = Math.min(currentIndex + 1, sections.length - 1);
+                    sections[nextIndex].scrollIntoView({ behavior: 'smooth', block: 'start' });
+                } else if (e.key === 'k' || e.key === 'K') {
+                    // Previous section
+                    e.preventDefault();
+                    const prevIndex = Math.max(currentIndex - 1, 0);
+                    sections[prevIndex].scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+
+            // Theme toggle (placeholder for future implementation)
+            document.getElementById('theme-toggle').addEventListener('click', () => {
+                // Future: implement dark/light mode toggle
+                console.log('Theme toggle clicked - feature coming soon');
+            });
+
+            // Smooth scrolling for all navigation links
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                anchor.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    const target = document.querySelector(this.getAttribute('href'));
+                    if (target) {
+                        target.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'start'
+                        });
                     }
                 });
             });
+
+            // Enhanced tooltips
+            function createTooltip(element, text) {
+                const tooltip = document.createElement('div');
+                tooltip.className = 'tooltip';
+                tooltip.textContent = text;
+                document.body.appendChild(tooltip);
+
+                element.addEventListener('mouseenter', (e) => {
+                    const rect = element.getBoundingClientRect();
+                    tooltip.style.left = rect.left + (rect.width / 2) + 'px';
+                    tooltip.style.top = rect.top - 40 + 'px';
+                    tooltip.classList.add('show');
+                });
+
+                element.addEventListener('mouseleave', () => {
+                    tooltip.classList.remove('show');
+                });
+            }
+
+            // Add tooltips to key elements
+            document.querySelectorAll('[title]').forEach(el => {
+                const title = el.getAttribute('title');
+                el.removeAttribute('title');
+                createTooltip(el, title);
+            });
+
+            // Initialize page
+            setTimeout(() => {
+                // Trigger initial scroll event to set up navigation
+                window.dispatchEvent(new Event('scroll'));
+            }, 100);
 
         });
     </script>
