@@ -749,6 +749,29 @@
             font-weight: 900 !important;
             display: inline-block !important;
         }
+
+        /* FORCE CONTENT VISIBILITY - EMERGENCY OVERRIDE */
+        main {
+            display: block !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+        }
+
+        section {
+            opacity: 1 !important;
+            transform: translateY(0) !important;
+            visibility: visible !important;
+        }
+
+        .fade-in-up, .scroll-animate {
+            opacity: 1 !important;
+            transform: translateY(0) !important;
+        }
+
+        .glass-card-advanced, .kpi-card-dark, .agent-card-dark {
+            opacity: 1 !important;
+            visibility: visible !important;
+        }
     </style>
 </head>
 <body class="antialiased">
@@ -928,7 +951,7 @@
                     </div>
                     <div class="glass-card-advanced p-4 rounded-lg">
                         <p class="text-sm text-slate-400 mb-2">Reserva Emergencia</p>
-                        <p class="text-2xl font-bold text-cyan-400">$476k</p>
+                        <p class="text-2xl font-bold text-cyan-400">$454k</p>
                     </div>
                 </div>
 
@@ -1882,8 +1905,10 @@
             console.log('Chart.version:', Chart?.version);
             console.log('Chart.Chart:', typeof Chart?.Chart);
             
+            // Verificar Chart.js disponible con retry
             if (typeof Chart === 'undefined') {
-                console.error('Chart.js TODAVÍA no está disponible en initCharts');
+                console.error('Chart.js no disponible, reintentando...');
+                setTimeout(initCharts, 500);
                 return;
             }
 
@@ -1948,9 +1973,9 @@
                 gastoCapex: [0, 0, 0, 0, 0, 876667, 876667, 876666, 0, 0, 0, 0],
                 gastoTotal: [300000, 335000, 382143, 375143, 375143, 1251810, 1231810, 1231809, 355143, 318333, 318333, 324333],
                 gastoAcumulado: [300000, 635000, 1017143, 1392286, 1767429, 3019239, 4251049, 5482858, 5837001, 6155334, 6473667, 6798000],
-                efectivoRestante: [6960000, 6625000, 6242857, 5867714, 5492571, 4240761, 3008951, 1777142, 1422001, 1103668, 785335, 476002],
+                efectivoRestante: [6960000, 6625000, 6242857, 5867714, 5492571, 4240761, 3008951, 1777142, 1422001, 1103668, 763333, 454000],
                 inversionInicial: 7260000,
-                reservaEmergencia: 476000
+                reservaEmergencia: 454000
             };
 
             // ROI Comparison Data - Complete 5-year analysis
@@ -2481,7 +2506,7 @@
             const investmentDataEpic = {
                 labels: ['Desarrollo Core IA + SaaS', 'Inversión Piloto (CAPEX)', 'Equipo y Operaciones', 'Reserva de Emergencia'],
                 datasets: [{
-                    data: [2326000, 2630000, 1828000, 476000],
+                    data: [2326000, 2630000, 1850000, 454000],
                     backgroundColor: [
                         'rgba(16, 185, 129, 0.8)',  // Teal con transparencia
                         'rgba(59, 130, 246, 0.8)',  // Blue con transparencia  
@@ -3426,7 +3451,7 @@
             console.log('Window fully loaded');
             console.log('Chart en window load:', typeof Chart);
             
-            // Esperar 100ms más para asegurar que Chart.js esté listo
+            // Aumentar delay para mejor carga
             setTimeout(function() {
                 console.log('=== TIMEOUT DESPUÉS DE WINDOW LOAD ===');
                 console.log('Chart después de timeout:', typeof Chart);
@@ -3455,13 +3480,24 @@
                 console.log('Chart.js disponible, iniciando charts...');
                 window.chartsInitialized = true;
                 initCharts();
-            }, 100);
+            }, 1000);  // Aumentar delay de 100ms a 1000ms
         });
 
         // FALLBACK - SI WINDOW LOAD NO FUNCIONA, USAR DOMCONTENTLOADED
         document.addEventListener('DOMContentLoaded', function() {
             console.log('=== DOMCONTENTLOADED FALLBACK ===');
             console.log('DOM loaded, Chart disponible:', typeof Chart);
+            
+            // Forzar visibilidad de counters inmediatamente
+            setTimeout(() => {
+                document.querySelectorAll('.counter-number').forEach(el => {
+                    el.style.opacity = '1';
+                    el.style.visibility = 'visible';
+                });
+                
+                // Inicializar animaciones
+                new EpicCounterAnimator();
+            }, 2000);
             
             // Solo ejecutar si window.load no se ejecutó en 2 segundos
             setTimeout(function() {
