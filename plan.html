@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Plan Maestro Interactivo: Rodando a Gas</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -25,16 +25,28 @@
             color: #1f2937; /* Dark gray text */
         }
         .chart-container {
-            position: relative;
-            width: 100%;
-            max-width: 800px;
+            position: relative !important;
+            width: 100% !important;
+            height: 400px !important;
             margin-left: auto;
             margin-right: auto;
-            height: 400px;
         }
+        
+        /* DEBUGGING CSS FOR CHART CONTAINERS */
+        canvas {
+            display: block !important;
+            width: 100% !important;
+            height: 100% !important;
+            position: relative !important;
+        }
+
+        .chart-container canvas {
+            position: relative !important;
+        }
+        
         @media (min-width: 768px) {
             .chart-container {
-                height: 400px;
+                height: 400px !important;
             }
         }
         .nav-link {
@@ -157,7 +169,7 @@
             <div class="bg-white p-6 rounded-lg shadow-md">
                 <h3 class="font-bold text-xl mb-4 text-teal-800">Inversión Semilla Solicitada: $7,260,000 MXN</h3>
                 <p class="text-slate-600 mb-6">El capital se asignará estratégicamente para maximizar la validación del modelo de negocio y el desarrollo del activo tecnológico clave. A continuación se muestra el desglose de la inversión.</p>
-                <div class="chart-container h-64 md:h-80 max-h-80">
+                <div class="chart-container" style="height: 400px; width: 100%;">
                     <canvas id="investmentDonutChart"></canvas>
                 </div>
                 
@@ -693,13 +705,17 @@
     </footer>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // AGREGAR VALIDACIÓN CHART.JS AL INICIO:
+        // DEBUGGING SISTEMÁTICO - FUNCIÓN PARA INICIALIZAR CHARTS
+        function initCharts() {
+            console.log('=== DEBUGGING CHART.JS ===');
+            console.log('Chart disponible:', typeof Chart);
+            console.log('Chart.version:', Chart?.version);
+            console.log('Chart.Chart:', typeof Chart?.Chart);
+            
             if (typeof Chart === 'undefined') {
-                console.error('Chart.js no está cargado!');
+                console.error('Chart.js TODAVÍA no está disponible en initCharts');
                 return;
             }
-            console.log('Chart.js versión:', Chart.version);
             
             // --- DATA ---
             const financialData = {
@@ -1080,12 +1096,22 @@
 
             // --- CHARTS ---
 
-            // Investment Donut Chart
+            // Investment Donut Chart - DEBUGGING ELEMENTOS DOM
             console.log('Creando Investment Chart...');
             const donutCanvas = document.getElementById('investmentDonutChart');
-            console.log('Canvas element:', donutCanvas);
+            console.log('Canvas:', donutCanvas);
+            console.log('Canvas parent:', donutCanvas?.parentElement);
+            console.log('Canvas computed style:', donutCanvas ? window.getComputedStyle(donutCanvas) : 'null');
+            console.log('Canvas dimensions:', donutCanvas ? `${donutCanvas.offsetWidth}x${donutCanvas.offsetHeight}` : 'null');
+            
             if (!donutCanvas) {
                 console.error('Investment donut chart canvas not found');
+                
+                // FALLBACK VISUAL PARA DEBUGGING
+                const fallbackDiv = document.createElement('div');
+                fallbackDiv.innerHTML = 'INVESTMENT CHART FAILED TO LOAD';
+                fallbackDiv.style.cssText = 'background: red; color: white; padding: 20px; text-align: center;';
+                document.querySelector('.chart-container').appendChild(fallbackDiv);
                 return;
             }
             const donutCtx = donutCanvas.getContext('2d');
@@ -1129,14 +1155,33 @@
                     }
                 }
             });
+            console.log('✅ Investment donut chart created successfully');
             } catch (error) {
-                console.error('Error creating investment donut chart:', error);
+                console.error('❌ Chart error:', error);
+                
+                // FALLBACK VISUAL PARA DEBUGGING
+                const fallbackDiv = document.createElement('div');
+                fallbackDiv.innerHTML = 'INVESTMENT CHART FAILED TO LOAD - ERROR: ' + error.message;
+                fallbackDiv.style.cssText = 'background: red; color: white; padding: 20px; text-align: center;';
+                donutCanvas.parentElement.appendChild(fallbackDiv);
             }
 
-            // ROI Comparison Chart
+            // ROI Comparison Chart - DEBUGGING ELEMENTOS DOM
+            console.log('Creando ROI Chart...');
             const roiCanvas = document.getElementById('roiComparisonChart');
+            console.log('ROI Canvas:', roiCanvas);
+            console.log('ROI Canvas parent:', roiCanvas?.parentElement);
+            console.log('ROI Canvas computed style:', roiCanvas ? window.getComputedStyle(roiCanvas) : 'null');
+            console.log('ROI Canvas dimensions:', roiCanvas ? `${roiCanvas.offsetWidth}x${roiCanvas.offsetHeight}` : 'null');
+            
             if (!roiCanvas) {
                 console.error('ROI comparison chart canvas not found');
+                
+                // FALLBACK VISUAL PARA DEBUGGING
+                const fallbackDiv = document.createElement('div');
+                fallbackDiv.innerHTML = 'ROI CHART FAILED TO LOAD';
+                fallbackDiv.style.cssText = 'background: red; color: white; padding: 20px; text-align: center;';
+                document.querySelector('#roiComparisonChart').parentElement.appendChild(fallbackDiv);
                 return;
             }
             const roiCtx = roiCanvas.getContext('2d');
@@ -1200,16 +1245,33 @@
                     }
                 }
             });
+            console.log('✅ ROI comparison chart created successfully');
             } catch (error) {
-                console.error('Error creating ROI comparison chart:', error);
+                console.error('❌ ROI Chart error:', error);
+                
+                // FALLBACK VISUAL PARA DEBUGGING
+                const fallbackDiv = document.createElement('div');
+                fallbackDiv.innerHTML = 'ROI CHART FAILED TO LOAD - ERROR: ' + error.message;
+                fallbackDiv.style.cssText = 'background: red; color: white; padding: 20px; text-align: center;';
+                roiCanvas.parentElement.appendChild(fallbackDiv);
             }
 
-            // Financial Plan Chart
+            // Financial Plan Chart - DEBUGGING ELEMENTOS DOM
             console.log('Creando Financial Chart...');
             const financialCanvas = document.getElementById('financialPlanChart');
-            console.log('Canvas element:', financialCanvas);
+            console.log('Financial Canvas:', financialCanvas);
+            console.log('Financial Canvas parent:', financialCanvas?.parentElement);
+            console.log('Financial Canvas computed style:', financialCanvas ? window.getComputedStyle(financialCanvas) : 'null');
+            console.log('Financial Canvas dimensions:', financialCanvas ? `${financialCanvas.offsetWidth}x${financialCanvas.offsetHeight}` : 'null');
+            
             if (!financialCanvas) {
                 console.error('Financial plan chart canvas not found');
+                
+                // FALLBACK VISUAL PARA DEBUGGING
+                const fallbackDiv = document.createElement('div');
+                fallbackDiv.innerHTML = 'FINANCIAL CHART FAILED TO LOAD';
+                fallbackDiv.style.cssText = 'background: red; color: white; padding: 20px; text-align: center;';
+                document.querySelector('#financialPlanChart').parentElement.appendChild(fallbackDiv);
                 return;
             }
             const financialCtx = financialCanvas.getContext('2d');
@@ -1310,8 +1372,15 @@
                     }
                 }
             });
+            console.log('✅ Financial chart created successfully');
             } catch (error) {
-                console.error('Error creating financial chart:', error);
+                console.error('❌ Financial Chart error:', error);
+                
+                // FALLBACK VISUAL PARA DEBUGGING
+                const fallbackDiv = document.createElement('div');
+                fallbackDiv.innerHTML = 'FINANCIAL CHART FAILED TO LOAD - ERROR: ' + error.message;
+                fallbackDiv.style.cssText = 'background: red; color: white; padding: 20px; text-align: center;';
+                financialCanvas.parentElement.appendChild(fallbackDiv);
             }
 
             // --- INTERACTIONS ---
@@ -1721,6 +1790,59 @@
                 });
             });
 
+        } // END OF initCharts FUNCTION
+
+        // DEBUGGING SISTEMÁTICO - WINDOW LOAD + TIMEOUT APPROACH
+        window.addEventListener('load', function() {
+            console.log('=== WINDOW LOAD EVENT ===');
+            console.log('Window fully loaded');
+            console.log('Chart en window load:', typeof Chart);
+            
+            // Esperar 100ms más para asegurar que Chart.js esté listo
+            setTimeout(function() {
+                console.log('=== TIMEOUT DESPUÉS DE WINDOW LOAD ===');
+                console.log('Chart después de timeout:', typeof Chart);
+                
+                if (typeof Chart === 'undefined') {
+                    console.error('Chart.js TODAVÍA no está disponible después de window.load');
+                    
+                    // Intentar cargar manualmente
+                    console.log('Intentando cargar Chart.js manualmente...');
+                    const script = document.createElement('script');
+                    script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js';
+                    script.onload = function() {
+                        console.log('Chart.js cargado manualmente');
+                        setTimeout(() => {
+                            console.log('Chart después de carga manual:', typeof Chart);
+                            initCharts();
+                        }, 100);
+                    };
+                    script.onerror = function() {
+                        console.error('Error cargando Chart.js manualmente');
+                    };
+                    document.head.appendChild(script);
+                    return;
+                }
+                
+                console.log('Chart.js disponible, iniciando charts...');
+                window.chartsInitialized = true;
+                initCharts();
+            }, 100);
+        });
+
+        // FALLBACK - SI WINDOW LOAD NO FUNCIONA, USAR DOMCONTENTLOADED
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('=== DOMCONTENTLOADED FALLBACK ===');
+            console.log('DOM loaded, Chart disponible:', typeof Chart);
+            
+            // Solo ejecutar si window.load no se ejecutó en 2 segundos
+            setTimeout(function() {
+                if (typeof Chart !== 'undefined' && !window.chartsInitialized) {
+                    console.log('Ejecutando fallback DOMContentLoaded...');
+                    window.chartsInitialized = true;
+                    initCharts();
+                }
+            }, 2000);
         });
     </script>
 </body>
