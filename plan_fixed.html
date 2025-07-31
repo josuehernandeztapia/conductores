@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plan Maestro Interactivo: Rodando a Gas - FIXED</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FIXED: Updated Chart.js CDN to more reliable version -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chart.js/3.9.1/chart.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8f7f4;
+            color: #1f2937;
+        }
+        /* FIXED: Simplified chart container CSS */
+        .chart-container {
+            position: relative;
+            width: 100%;
+            height: 350px;
+            margin: 0 auto;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 400px;
+            }
+        }
+        .nav-link {
+            transition: color 0.3s, border-color 0.3s;
+        }
+        .nav-link:hover, .nav-link.active {
+            color: #c2410c;
+            border-bottom-color: #c2410c;
+        }
+        .kpi-card {
+            background-color: #ffffff;
+            border-left: 5px solid #0d9488;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .kpi-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        .timeline-bar {
+            position: relative;
+            overflow: hidden;
+            border-radius: 0.5rem;
+            background-color: #e2e8f0;
+        }
+        .timeline-progress {
+            position: absolute;
+            height: 100%;
+            border-radius: 0.5rem;
+            opacity: 0.8;
+            transition: background-color 0.3s;
+        }
+        .timeline-item:hover .timeline-progress {
+            opacity: 1;
+        }
+        .agent-card {
+            transition: all 0.3s ease;
+        }
+        .agent-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 10px 10px -5px rgb(0 0 0 / 0.04);
+        }
+        .phase-card {
+            transition: all 0.3s ease;
+        }
+        .phase-card:hover {
+            transform: translateY(-2px);
+        }
+        .team-member {
+            transition: all 0.3s ease;
+        }
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 5px rgba(245, 158, 11, 0.5); }
+            50% { box-shadow: 0 0 20px rgba(245, 158, 11, 0.8); }
+        }
+        .esop-highlight {
+            animation: pulse-glow 2s infinite;
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <!-- Header & Navigation -->
+    <header class="bg-white/80 backdrop-blur-lg sticky top-0 z-50 shadow-sm">
+        <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center">
+                    <span class="font-bold text-xl text-slate-800">Rodando a Gas</span>
+                    <span class="ml-2 text-sm font-medium text-slate-500">Plan Maestro Interactivo - FIXED</span>
+                </div>
+                <div class="hidden md:block">
+                    <div class="ml-10 flex items-baseline space-x-4">
+                        <a href="#tesis" class="nav-link text-gray-700 hover:text-orange-700 px-3 py-2 rounded-md text-sm font-medium border-b-2 border-transparent">Tesis</a>
+                        <a href="#financiero" class="nav-link text-gray-700 hover:text-orange-700 px-3 py-2 rounded-md text-sm font-medium border-b-2 border-transparent">Financiero</a>
+                        <a href="#tecnologia" class="nav-link text-gray-700 hover:text-orange-700 px-3 py-2 rounded-md text-sm font-medium border-b-2 border-transparent">Tecnología</a>
+                        <a href="#operaciones" class="nav-link text-gray-700 hover:text-orange-700 px-3 py-2 rounded-md text-sm font-medium border-b-2 border-transparent">Operaciones</a>
+                        <a href="#equipo" class="nav-link text-gray-700 hover:text-orange-700 px-3 py-2 rounded-md text-sm font-medium border-b-2 border-transparent">Equipo</a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+
+        <!-- 0. Tesis de Inversión -->
+        <section id="tesis" class="mb-16 scroll-mt-16">
+            <h1 class="text-3xl md:text-4xl font-bold text-slate-900 mb-2">Tesis de Inversión</h1>
+            <p class="text-lg text-slate-600 mb-8">La ventaja financiera fundamental del modelo IA-Nativo de Rodando a Gas.</p>
+            
+            <div class="bg-white p-6 rounded-lg shadow-md mb-12">
+                <h3 class="font-bold text-xl mb-4 text-teal-800">Resumen Estratégico</h3>
+                <p class="text-slate-700 leading-relaxed">
+                    La inversión solicitada no financia un gasto operativo, sino la adquisición de un activo productivo: un ecosistema de cuatro agentes de IA sinérgicos. Este modelo transforma los costos variables de una financiera tradicional en una inversión de capital fija, generando eficiencia exponencial, un foso competitivo y una escalabilidad de alto margen, similar a un modelo SaaS. Se está financiando una "fuerza laboral de IA" propietaria que garantiza un modelo de negocio de alto margen y sienta las bases para el dominio del mercado.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+                <div class="kpi-card p-5 rounded-lg shadow-sm">
+                    <p class="text-sm font-medium text-slate-500">Inversión Tecnológica Inicial</p>
+                    <p class="text-3xl font-bold text-slate-800">$2.33M</p>
+                    <p class="text-xs text-slate-400">MXN en Core IA + SaaS Crítico (32.0%)</p>
+                </div>
+                <div class="kpi-card p-5 rounded-lg shadow-sm">
+                    <p class="text-sm font-medium text-slate-500">Ahorros Anuales vs. Tradicional</p>
+                    <p class="text-3xl font-bold text-slate-800">$6.3M</p>
+                    <p class="text-xs text-slate-400">MXN vs tradicional (reemplaza +20 personas)</p>
+                </div>
+                <div class="kpi-card p-5 rounded-lg shadow-sm" style="border-color: #f59e0b;">
+                    <p class="text-sm font-medium text-slate-500">ROI a 5 Años (Proyectado)</p>
+                    <p class="text-3xl font-bold text-slate-800">457%</p>
+                    <p class="text-xs text-slate-400">Sobre inversión tecnológica inicial</p>
+                </div>
+                <div class="kpi-card p-5 rounded-lg shadow-sm" style="border-color: #f59e0b;">
+                    <p class="text-sm font-medium text-slate-500">Período de Recuperación</p>
+                    <p class="text-3xl font-bold text-slate-800">~20</p>
+                    <p class="text-xs text-slate-400">Meses para recuperar inversión tech</p>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h3 class="font-bold text-xl mb-4 text-teal-800">Inversión Semilla Solicitada: $7,260,000 MXN</h3>
+                <p class="text-slate-600 mb-6">El capital se asignará estratégicamente para maximizar la validación del modelo de negocio y el desarrollo del activo tecnológico clave. A continuación se muestra el desglose de la inversión.</p>
+                <div class="chart-container">
+                    <canvas id="investmentDonutChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- 1. Plan Financiero -->
+        <section id="financiero" class="mb-16 scroll-mt-16">
+            <h2 class="text-3xl md:text-4xl font-bold text-slate-900 mb-2">Plan Financiero (CFO View)</h2>
+            <p class="text-lg text-slate-600 mb-8">Un despliegue de capital no lineal para maximizar la eficiencia y mitigar riesgos.</p>
+            
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                 <h3 class="font-bold text-xl mb-2 text-teal-800">Flujo de Caja y Gasto Mensual</h3>
+                 <p class="text-slate-600 mb-4">Interactúe con el deslizador para explorar el plan financiero mes a mes. El gráfico visualiza el gasto por categoría y el efectivo restante, demostrando un control de capital prudente que prioriza la validación tecnológica antes del gasto en CAPEX.</p>
+
+                <div class="mb-8">
+                    <label for="month-slider" class="block text-sm font-medium text-slate-700 mb-2">Mes: <span id="month-label" class="font-bold text-orange-600">1</span></label>
+                    <input id="month-slider" type="range" min="1" max="12" value="1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                </div>
+                
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 text-center">
+                    <div class="bg-slate-50 p-3 rounded-lg">
+                        <p class="text-sm text-slate-500">Gasto del Mes</p>
+                        <p id="kpi-gasto-mes" class="text-2xl font-bold">$300k</p>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-lg">
+                        <p class="text-sm text-slate-500">Gasto Acumulado</p>
+                        <p id="kpi-gasto-acumulado" class="text-2xl font-bold">$300k</p>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-lg">
+                        <p class="text-sm text-slate-500">Efectivo Restante</p>
+                        <p id="kpi-efectivo" class="text-2xl font-bold">$6.96M</p>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-lg">
+                        <p class="text-sm text-slate-500">Reserva Emergencia</p>
+                        <p class="text-2xl font-bold text-teal-600">$476k</p>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <canvas id="financialPlanChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. Plan de Desarrollo Tecnológico -->
+        <section id="tecnologia" class="mb-16 scroll-mt-16">
+            <h2 class="text-3xl md:text-4xl font-bold text-slate-900 mb-2">Plan de Desarrollo (CTO View)</h2>
+            <p class="text-lg text-slate-600 mb-8">Un roadmap secuencial para mitigar riesgos, validando las hipótesis más críticas primero.</p>
+            
+            <!-- ROI Comparison Interactive Section -->
+            <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+                <h3 class="font-bold text-xl mb-4 text-teal-800">Análisis ROI: IA-Nativo vs Tradicional</h3>
+                <div class="mb-6">
+                    <label for="roi-years" class="block text-sm font-medium text-slate-700 mb-2">Proyección a: <span id="years-label" class="font-bold text-orange-600">5</span> años</label>
+                    <input id="roi-years" type="range" min="1" max="10" value="5" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                    <div class="bg-slate-50 p-4 rounded-lg text-center">
+                        <p class="text-sm text-slate-500">Costo Acumulado Tradicional</p>
+                        <p id="roi-tradicional" class="text-2xl font-bold text-red-600">$19.78M</p>
+                    </div>
+                    <div class="bg-slate-50 p-4 rounded-lg text-center">
+                        <p class="text-sm text-slate-500">Costo Acumulado IA-Nativo</p>
+                        <p id="roi-ia-nativo" class="text-2xl font-bold text-green-600">$6.82M</p>
+                    </div>
+                    <div class="bg-slate-50 p-4 rounded-lg text-center">
+                        <p class="text-sm text-slate-500">Ahorro Total</p>
+                        <p id="roi-ahorro" class="text-2xl font-bold text-teal-600">$12.96M</p>
+                    </div>
+                </div>
+                
+                <div class="chart-container">
+                    <canvas id="roiComparisonChart"></canvas>
+                </div>
+                
+                <div class="mt-4 p-4 bg-amber-50 rounded-lg border border-amber-200">
+                    <p class="text-sm font-semibold text-amber-800">📊 Punto de Equilibrio: <span id="payback-period">20 meses</span></p>
+                    <p class="text-sm text-amber-700 mt-1">ROI Final: <span id="final-roi" class="font-bold">457%</span> sobre inversión tecnológica</p>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- FIXED: Consolidated and simplified script section -->
+    <script>
+        // FIXED: Added Chart.js validation before DOM ready
+        console.log('🔍 Chart.js availability check:', typeof Chart !== 'undefined');
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('📊 Starting chart initialization...');
+            
+            // FIXED: Consolidated all data definitions in one place
+            const consolidatedData = {
+                // Financial data for monthly chart
+                financial: {
+                    labels: Array.from({ length: 12 }, (_, i) => `Mes ${i + 1}`),
+                    gastoEquipo: [110000, 125000, 125000, 125000, 125000, 125000, 125000, 125000, 125000, 125000, 125000, 115000],
+                    gastoDesarrollo: [190000, 210000, 257143, 250143, 250143, 250143, 230143, 230143, 230143, 193333, 193333, 199333],
+                    gastoCapex: [0, 0, 0, 0, 0, 876667, 876667, 876666, 0, 0, 0, 0],
+                    gastoTotal: [300000, 335000, 382143, 375143, 375143, 1251810, 1231810, 1231809, 355143, 318333, 318333, 324333],
+                    gastoAcumulado: [300000, 635000, 1017143, 1392286, 1767429, 3019239, 4251049, 5482858, 5837001, 6155334, 6473667, 6798000],
+                    efectivoRestante: [6960000, 6625000, 6242857, 5867714, 5492571, 4240761, 3008951, 1777142, 1422001, 1103668, 785335, 476002]
+                },
+                
+                // Investment breakdown data
+                investment: {
+                    labels: ['Desarrollo Core IA + SaaS', 'Inversión Piloto (CAPEX)', 'Equipo y Operaciones', 'Reserva de Emergencia'],
+                    datasets: [{
+                        data: [2326000, 2630000, 1828000, 476000],
+                        backgroundColor: ['#0d9488', '#0f766e', '#115e59', '#f59e0b'],
+                        borderColor: '#f8f7f4',
+                        borderWidth: 4
+                    }]
+                },
+                
+                // ROI comparison data
+                roi: {
+                    tradicional: [3580000, 7339000, 11285950, 15430248, 19781760, 24349688, 29142857, 34170262, 39441270, 44965522, 50753042, 56814250],
+                    iaNativo: [3140000, 3994700, 4892135, 5834442, 6823864, 7862002, 8951634, 10095711, 11297366, 12560008, 13886339, 15279356],
+                    ahorros: []
+                }
+            };
+            
+            // Calculate ROI savings
+            for(let i = 0; i < consolidatedData.roi.tradicional.length; i++) {
+                consolidatedData.roi.ahorros.push(consolidatedData.roi.tradicional[i] - consolidatedData.roi.iaNativo[i]);
+            }
+            
+            console.log('✅ Data consolidated successfully');
+
+            // FIXED: Chart 1 - Investment Donut Chart
+            function createInvestmentChart() {
+                console.log('📊 Creating investment donut chart...');
+                const canvas = document.getElementById('investmentDonutChart');
+                if (!canvas) {
+                    console.error('❌ Investment chart canvas not found');
+                    return null;
+                }
+                
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    console.error('❌ Cannot get 2D context for investment chart');
+                    return null;
+                }
+                
+                try {
+                    const chart = new Chart(ctx, {
+                        type: 'doughnut',
+                        data: consolidatedData.investment,
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            cutout: '60%',
+                            plugins: {
+                                legend: {
+                                    position: 'bottom',
+                                    labels: {
+                                        padding: 20,
+                                        font: { size: 12 }
+                                    }
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            let label = context.label || '';
+                                            if (label) label += ': ';
+                                            if (context.parsed !== null) {
+                                                label += new Intl.NumberFormat('es-MX', { 
+                                                    style: 'currency', 
+                                                    currency: 'MXN' 
+                                                }).format(context.parsed);
+                                            }
+                                            return label;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                    console.log('✅ Investment donut chart created successfully');
+                    return chart;
+                } catch (error) {
+                    console.error('❌ Error creating investment chart:', error);
+                    return null;
+                }
+            }
+
+            // FIXED: Chart 2 - ROI Comparison Chart
+            function createROIChart() {
+                console.log('📊 Creating ROI comparison chart...');
+                const canvas = document.getElementById('roiComparisonChart');
+                if (!canvas) {
+                    console.error('❌ ROI chart canvas not found');
+                    return null;
+                }
+                
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    console.error('❌ Cannot get 2D context for ROI chart');
+                    return null;
+                }
+                
+                try {
+                    const chart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: Array.from({length: 10}, (_, i) => `Año ${i + 1}`),
+                            datasets: [
+                                {
+                                    label: 'Modelo Tradicional',
+                                    data: consolidatedData.roi.tradicional.slice(0, 10),
+                                    borderColor: '#ef4444',
+                                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                    fill: false,
+                                    tension: 0.3
+                                },
+                                {
+                                    label: 'Modelo IA-Nativo',
+                                    data: consolidatedData.roi.iaNativo.slice(0, 10),
+                                    borderColor: '#10b981',
+                                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                    fill: false,
+                                    tension: 0.3
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            return context.dataset.label + ': ' + 
+                                                   new Intl.NumberFormat('es-MX', { 
+                                                       style: 'currency', 
+                                                       currency: 'MXN', 
+                                                       minimumFractionDigits: 0 
+                                                   }).format(context.parsed.y);
+                                        }
+                                    }
+                                },
+                                legend: { position: 'bottom' }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    title: {
+                                        display: true,
+                                        text: 'Costo Acumulado (MXN)'
+                                    },
+                                    ticks: {
+                                        callback: value => `$${(value / 1000000).toFixed(1)}M`
+                                    }
+                                }
+                            }
+                        }
+                    });
+                    console.log('✅ ROI comparison chart created successfully');
+                    return chart;
+                } catch (error) {
+                    console.error('❌ Error creating ROI chart:', error);
+                    return null;
+                }
+            }
+
+            // FIXED: Chart 3 - Financial Plan Chart
+            function createFinancialChart() {
+                console.log('📊 Creating financial plan chart...');
+                const canvas = document.getElementById('financialPlanChart');
+                if (!canvas) {
+                    console.error('❌ Financial chart canvas not found');
+                    return null;
+                }
+                
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    console.error('❌ Cannot get 2D context for financial chart');
+                    return null;
+                }
+                
+                try {
+                    const chart = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: consolidatedData.financial.labels,
+                            datasets: [
+                                {
+                                    label: 'Gasto en Equipo',
+                                    data: consolidatedData.financial.gastoEquipo,
+                                    backgroundColor: '#14b8a6',
+                                    stack: 'Stack 0'
+                                },
+                                {
+                                    label: 'Gasto en Desarrollo',
+                                    data: consolidatedData.financial.gastoDesarrollo,
+                                    backgroundColor: '#0d9488',
+                                    stack: 'Stack 0'
+                                },
+                                {
+                                    label: 'Gasto CAPEX',
+                                    data: consolidatedData.financial.gastoCapex,
+                                    backgroundColor: '#0f766e',
+                                    stack: 'Stack 0'
+                                },
+                                {
+                                    label: 'Efectivo Restante',
+                                    data: consolidatedData.financial.efectivoRestante,
+                                    type: 'line',
+                                    borderColor: '#f97316',
+                                    backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                                    fill: true,
+                                    yAxisID: 'y1',
+                                    tension: 0.3
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            let label = context.dataset.label || '';
+                                            if (label) label += ': ';
+                                            if (context.parsed.y !== null) {
+                                                label += new Intl.NumberFormat('es-MX', { 
+                                                    style: 'currency', 
+                                                    currency: 'MXN', 
+                                                    minimumFractionDigits: 0 
+                                                }).format(context.parsed.y);
+                                            }
+                                            return label;
+                                        }
+                                    }
+                                },
+                                legend: { position: 'bottom' }
+                            },
+                            scales: {
+                                x: {
+                                    stacked: true,
+                                    grid: { display: false }
+                                },
+                                y: {
+                                    stacked: true,
+                                    beginAtZero: true,
+                                    title: {
+                                        display: true,
+                                        text: 'Gasto Mensual (MXN)'
+                                    },
+                                    ticks: {
+                                        callback: value => `${value / 1000}k`
+                                    }
+                                },
+                                y1: {
+                                    position: 'right',
+                                    beginAtZero: true,
+                                    title: {
+                                        display: true,
+                                        text: 'Efectivo Restante (MXN)'
+                                    },
+                                    grid: { drawOnChartArea: false },
+                                    ticks: {
+                                        callback: value => `${value / 1000000}M`
+                                    }
+                                }
+                            }
+                        }
+                    });
+                    console.log('✅ Financial plan chart created successfully');
+                    return chart;
+                } catch (error) {
+                    console.error('❌ Error creating financial chart:', error);
+                    return null;
+                }
+            }
+
+            // FIXED: Initialize all charts with proper error handling
+            const charts = {};
+            
+            // Validate Chart.js is loaded
+            if (typeof Chart === 'undefined') {
+                console.error('❌ Chart.js library not loaded!');
+                return;
+            }
+            console.log('✅ Chart.js library loaded successfully');
+
+            // Create all charts
+            charts.investment = createInvestmentChart();
+            charts.roi = createROIChart();
+            charts.financial = createFinancialChart();
+
+            // PRESERVED: All interactive functionality
+            
+            // ROI Calculator Functionality
+            const roiSlider = document.getElementById('roi-years');
+            const yearsLabel = document.getElementById('years-label');
+            const roiTradicional = document.getElementById('roi-tradicional');
+            const roiIaNativo = document.getElementById('roi-ia-nativo');
+            const roiAhorro = document.getElementById('roi-ahorro');
+            const paybackPeriod = document.getElementById('payback-period');
+            const finalRoi = document.getElementById('final-roi');
+
+            function updateROI(years) {
+                const yearIndex = years - 1;
+                yearsLabel.textContent = years;
+                roiTradicional.textContent = `$${(consolidatedData.roi.tradicional[yearIndex] / 1000000).toFixed(2)}M`;
+                roiIaNativo.textContent = `$${(consolidatedData.roi.iaNativo[yearIndex] / 1000000).toFixed(2)}M`;
+                roiAhorro.textContent = `$${(consolidatedData.roi.ahorros[yearIndex] / 1000000).toFixed(2)}M`;
+                
+                // Update chart data
+                if (charts.roi) {
+                    charts.roi.data.datasets[0].data = consolidatedData.roi.tradicional.slice(0, years);
+                    charts.roi.data.datasets[1].data = consolidatedData.roi.iaNativo.slice(0, years);
+                    charts.roi.data.labels = Array.from({length: years}, (_, i) => `Año ${i + 1}`);
+                    charts.roi.update();
+                }
+                
+                // Calculate ROI percentage
+                const investmentTech = 2326000;
+                const savings = consolidatedData.roi.ahorros[yearIndex];
+                const roi = ((savings / investmentTech) * 100).toFixed(0);
+                finalRoi.textContent = `${roi}%`;
+            }
+
+            if (roiSlider) {
+                roiSlider.addEventListener('input', (e) => updateROI(parseInt(e.target.value)));
+                updateROI(5);
+            }
+
+            // Financial Slider Functionality
+            const slider = document.getElementById('month-slider');
+            const monthLabel = document.getElementById('month-label');
+            const kpiGastoMes = document.getElementById('kpi-gasto-mes');
+            const kpiGastoAcumulado = document.getElementById('kpi-gasto-acumulado');
+            const kpiEfectivo = document.getElementById('kpi-efectivo');
+
+            function formatCurrency(value) {
+                if (value >= 1000000) return `$${(value / 1000000).toFixed(2)}M`;
+                if (value >= 1000) return `$${(value / 1000).toFixed(0)}k`;
+                return `$${value}`;
+            }
+
+            function updateFinancials(month) {
+                const index = month - 1;
+                monthLabel.textContent = month;
+                kpiGastoMes.textContent = formatCurrency(consolidatedData.financial.gastoTotal[index]);
+                kpiGastoAcumulado.textContent = formatCurrency(consolidatedData.financial.gastoAcumulado[index]);
+                kpiEfectivo.textContent = formatCurrency(consolidatedData.financial.efectivoRestante[index]);
+                
+                // Highlight current month in chart
+                if (charts.financial) {
+                    charts.financial.data.datasets.forEach(dataset => {
+                        dataset.borderWidth = Array(12).fill(1);
+                    });
+                    charts.financial.data.datasets.forEach(dataset => {
+                        if(dataset.type !== 'line') {
+                            dataset.borderWidth[index] = 3;
+                            dataset.borderColor = '#1f2937';
+                        }
+                    });
+                    charts.financial.update();
+                }
+            }
+
+            if (slider) {
+                slider.addEventListener('input', (e) => updateFinancials(parseInt(e.target.value)));
+                updateFinancials(1);
+            }
+
+            // Active Nav Link on Scroll
+            const sections = document.querySelectorAll('section');
+            const navLinks = document.querySelectorAll('.nav-link');
+            window.addEventListener('scroll', () => {
+                let current = '';
+                sections.forEach(section => {
+                    const sectionTop = section.offsetTop;
+                    if (pageYOffset >= sectionTop - 80) {
+                        current = section.getAttribute('id');
+                    }
+                });
+
+                navLinks.forEach(link => {
+                    link.classList.remove('active', 'text-orange-700');
+                    if (link.getAttribute('href').includes(current)) {
+                        link.classList.add('active', 'text-orange-700');
+                    }
+                });
+            });
+
+            console.log('🎉 All charts and interactions initialized successfully!');
+        });
+    </script>
+</body>
+</html>
