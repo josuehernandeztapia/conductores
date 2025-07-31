@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plan Maestro Interactivo: Rodando a Gas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Neutral Harmony -->
+    <!-- Application Structure Plan: The SPA is designed as an interactive dashboard with five main sections accessible via a sticky top navigation. This structure was chosen over a linear document format to allow non-linear exploration, catering to how different stakeholders (CFO, CTO, CEO) might want to consume the information. The flow is: 1) Investment Thesis (the "Why") with high-level KPIs and an investment breakdown chart. 2) Financial Plan (the "How Much") with an interactive chart showing cash flow and monthly expenses, making the burn rate tangible. 3) Tech Roadmap (the "What") using a visual Gantt-style timeline for intuitive understanding of the development sequence. 4) Operations Plan (the "How") also uses a visual timeline to show GTM and legal alignment. 5) Team Plan (the "Who") highlights the core ESOP advantage and provides a detailed role allocation table. This dashboard approach transforms static tables into explorable data, enhancing comprehension and engagement. -->
+    <!-- Visualization & Content Choices: 
+        - Report Info: Investment Thesis KPIs -> Goal: Inform/Impress -> Viz: Large number cards & Donut Chart -> Interaction: Hover for details -> Justification: More impactful than a list, quickly shows investment allocation -> Library: HTML/CSS, Chart.js.
+        - Report Info: Financial Table -> Goal: Show Change/Compare -> Viz: Line/Stacked Bar Combo Chart -> Interaction: Month slider updates chart and KPI cards -> Justification: Visualizes cash runway and expense breakdown dynamically, making complex data digestible -> Library: Chart.js.
+        - Report Info: Tech/Ops Roadmaps -> Goal: Organize/Show Change -> Viz: HTML/CSS Gantt-style timeline -> Interaction: Click on tasks to see details -> Justification: More intuitive for understanding project flow and dependencies than a table -> Library: HTML/CSS/JS.
+        - Report Info: HR Allocation Table -> Goal: Organize/Inform -> Viz: Styled HTML Table -> Interaction: Dropdown filter to highlight a specific role's journey -> Justification: Improves readability of a dense data table -> Library: HTML/JS.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8f7f4; /* Warm neutral background */
+            color: #1f2937; /* Dark gray text */
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 400px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 400px;
+            }
+        }
+        .nav-link {
+            transition: color 0.3s, border-color 0.3s;
+        }
+        .nav-link:hover, .nav-link.active {
+            color: #c2410c; /* Accent color */
+            border-bottom-color: #c2410c;
+        }
+        .kpi-card {
+            background-color: #ffffff;
+            border-left: 5px solid #0d9488; /* Muted teal accent */
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .kpi-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        .timeline-bar {
+            position: relative;
+            overflow: hidden;
+            border-radius: 0.5rem;
+            background-color: #e2e8f0;
+        }
+        .timeline-progress {
+            position: absolute;
+            height: 100%;
+            border-radius: 0.5rem;
+            opacity: 0.8;
+            transition: background-color 0.3s;
+        }
+        .timeline-item:hover .timeline-progress {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <!-- Header & Navigation -->
+    <header class="bg-white/80 backdrop-blur-lg sticky top-0 z-50 shadow-sm">
+        <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center">
+                    <span class="font-bold text-xl text-slate-800">Rodando a Gas</span>
+                    <span class="ml-2 text-sm font-medium text-slate-500">Plan Maestro Interactivo</span>
+                </div>
+                <div class="hidden md:block">
+                    <div class="ml-10 flex items-baseline space-x-4">
+                        <a href="#tesis" class="nav-link text-gray-700 hover:text-orange-700 px-3 py-2 rounded-md text-sm font-medium border-b-2 border-transparent">Tesis</a>
+                        <a href="#financiero" class="nav-link text-gray-700 hover:text-orange-700 px-3 py-2 rounded-md text-sm font-medium border-b-2 border-transparent">Financiero</a>
+                        <a href="#tecnologia" class="nav-link text-gray-700 hover:text-orange-700 px-3 py-2 rounded-md text-sm font-medium border-b-2 border-transparent">Tecnología</a>
+                        <a href="#operaciones" class="nav-link text-gray-700 hover:text-orange-700 px-3 py-2 rounded-md text-sm font-medium border-b-2 border-transparent">Operaciones</a>
+                        <a href="#equipo" class="nav-link text-gray-700 hover:text-orange-700 px-3 py-2 rounded-md text-sm font-medium border-b-2 border-transparent">Equipo</a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+
+        <!-- 0. Tesis de Inversión -->
+        <section id="tesis" class="mb-16 scroll-mt-16">
+            <h1 class="text-3xl md:text-4xl font-bold text-slate-900 mb-2">Tesis de Inversión</h1>
+            <p class="text-lg text-slate-600 mb-8">La ventaja financiera fundamental del modelo IA-Nativo de Rodando a Gas.</p>
+            
+            <div class="bg-white p-6 rounded-lg shadow-md mb-12">
+                <h3 class="font-bold text-xl mb-4 text-teal-800">Resumen Estratégico</h3>
+                <p class="text-slate-700 leading-relaxed">
+                    La inversión solicitada no financia un gasto operativo, sino la adquisición de un activo productivo: un ecosistema de cuatro agentes de IA sinérgicos. Este modelo transforma los costos variables de una financiera tradicional en una inversión de capital fija, generando eficiencia exponencial, un foso competitivo y una escalabilidad de alto margen, similar a un modelo SaaS. Se está financiando una "fuerza laboral de IA" propietaria que garantiza un modelo de negocio de alto margen y sienta las bases para el dominio del mercado.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+                <div class="kpi-card p-5 rounded-lg shadow-sm">
+                    <p class="text-sm font-medium text-slate-500">Inversión Tecnológica Inicial</p>
+                    <p class="text-3xl font-bold text-slate-800">$2.33M</p>
+                    <p class="text-xs text-slate-400">MXN en Core IA + SaaS</p>
+                </div>
+                <div class="kpi-card p-5 rounded-lg shadow-sm">
+                    <p class="text-sm font-medium text-slate-500">Ahorros Anuales vs. Tradicional</p>
+                    <p class="text-3xl font-bold text-slate-800">$6.3M</p>
+                    <p class="text-xs text-slate-400">MXN al reemplazar equipo de +20</p>
+                </div>
+                <div class="kpi-card p-5 rounded-lg shadow-sm" style="border-color: #f59e0b;">
+                    <p class="text-sm font-medium text-slate-500">ROI a 5 Años (Proyectado)</p>
+                    <p class="text-3xl font-bold text-slate-800">457%</p>
+                    <p class="text-xs text-slate-400">Sobre la inversión tecnológica</p>
+                </div>
+                <div class="kpi-card p-5 rounded-lg shadow-sm" style="border-color: #f59e0b;">
+                    <p class="text-sm font-medium text-slate-500">Período de Recuperación</p>
+                    <p class="text-3xl font-bold text-slate-800">~20</p>
+                    <p class="text-xs text-slate-400">Meses para recuperar inversión tech</p>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h3 class="font-bold text-xl mb-4 text-teal-800">Inversión Semilla Solicitada: $7,260,000 MXN</h3>
+                <p class="text-slate-600 mb-6">El capital se asignará estratégicamente para maximizar la validación del modelo de negocio y el desarrollo del activo tecnológico clave. A continuación se muestra el desglose de la inversión.</p>
+                <div class="chart-container h-64 md:h-80 max-h-80">
+                    <canvas id="investmentDonutChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- 1. Plan Financiero -->
+        <section id="financiero" class="mb-16 scroll-mt-16">
+            <h2 class="text-3xl md:text-4xl font-bold text-slate-900 mb-2">Plan Financiero (CFO View)</h2>
+            <p class="text-lg text-slate-600 mb-8">Un despliegue de capital no lineal para maximizar la eficiencia y mitigar riesgos.</p>
+            
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                 <h3 class="font-bold text-xl mb-2 text-teal-800">Flujo de Caja y Gasto Mensual</h3>
+                 <p class="text-slate-600 mb-4">Interactúe con el deslizador para explorar el plan financiero mes a mes. El gráfico visualiza el gasto por categoría y el efectivo restante, demostrando un control de capital prudente que prioriza la validación tecnológica antes del gasto en CAPEX.</p>
+
+                <div class="mb-8">
+                    <label for="month-slider" class="block text-sm font-medium text-slate-700 mb-2">Mes: <span id="month-label" class="font-bold text-orange-600">1</span></label>
+                    <input id="month-slider" type="range" min="1" max="12" value="1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                </div>
+                
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 text-center">
+                    <div class="bg-slate-50 p-3 rounded-lg">
+                        <p class="text-sm text-slate-500">Gasto del Mes</p>
+                        <p id="kpi-gasto-mes" class="text-2xl font-bold"></p>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-lg">
+                        <p class="text-sm text-slate-500">Gasto Acumulado</p>
+                        <p id="kpi-gasto-acumulado" class="text-2xl font-bold"></p>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-lg">
+                        <p class="text-sm text-slate-500">Efectivo Restante</p>
+                        <p id="kpi-efectivo" class="text-2xl font-bold"></p>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-lg">
+                        <p class="text-sm text-slate-500">Reserva Emergencia</p>
+                        <p class="text-2xl font-bold text-teal-600">$476k</p>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <canvas id="financialPlanChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. Plan de Desarrollo Tecnológico -->
+        <section id="tecnologia" class="mb-16 scroll-mt-16">
+            <h2 class="text-3xl md:text-4xl font-bold text-slate-900 mb-2">Plan de Desarrollo (CTO View)</h2>
+            <p class="text-lg text-slate-600 mb-8">Un roadmap secuencial para mitigar riesgos, validando las hipótesis más críticas primero.</p>
+            
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h3 class="font-bold text-xl mb-2 text-teal-800">Roadmap de Desarrollo a 12 Meses</h3>
+                <p class="text-slate-600 mb-6">El plan prioriza el motor de scoring (HASE) para validar la predicción de riesgo antes de construir los agentes de intervención (PIA) y monetización (Super-PMA). Haga clic en una barra para ver los detalles de esa fase.</p>
+                <div id="tech-timeline-container" class="space-y-6"></div>
+                <div id="tech-details-pane" class="mt-6 p-4 bg-slate-50 rounded-lg border border-slate-200 hidden">
+                    <h4 id="tech-details-title" class="font-bold text-lg mb-2"></h4>
+                    <p id="tech-details-tasks" class="text-sm text-slate-700"></p>
+                    <p id="tech-details-milestone" class="text-sm font-semibold text-orange-600 mt-2"></p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. Plan Operativo y de Negocio -->
+        <section id="operaciones" class="mb-16 scroll-mt-16">
+            <h2 class="text-3xl md:text-4xl font-bold text-slate-900 mb-2">Plan Operativo (COO/CEO View)</h2>
+            <p class="text-lg text-slate-600 mb-8">Sincronizando GTM, legal y el piloto con los hitos tecnológicos para construir un negocio viable.</p>
+            
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h3 class="font-bold text-xl mb-2 text-teal-800">Hitos Operativos y de Negocio</h3>
+                <p class="text-slate-600 mb-6">Las actividades operativas están programadas para capitalizar los avances tecnológicos, asegurando la construcción de un negocio sólido y legalmente compatible. El enfoque legal ágil evita la carga regulatoria prematura de una SOFOM.</p>
+                <div id="ops-timeline-container" class="space-y-4"></div>
+                <div id="ops-details-pane" class="mt-6 p-4 bg-slate-50 rounded-lg border border-slate-200 hidden">
+                    <h4 id="ops-details-title" class="font-bold text-lg mb-2"></h4>
+                    <p id="ops-details-tasks" class="text-sm text-slate-700 whitespace-pre-line"></p>
+                    <p id="ops-details-kpi" class="text-sm font-semibold text-orange-600 mt-2"></p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. Plan de Asignación de Recursos Humanos -->
+        <section id="equipo" class="scroll-mt-16">
+            <h2 class="text-3xl md:text-4xl font-bold text-slate-900 mb-2">Plan de Equipo (HR View)</h2>
+            <p class="text-lg text-slate-600 mb-8">La ventaja competitiva más defendible y el principal mitigador del riesgo de ejecución.</p>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <h3 class="font-bold text-xl mb-4 text-teal-800">La Piedra Angular: El Núcleo ESOP</h3>
+                    <div class="space-y-4 text-slate-700">
+                        <p>La certeza de ejecución recae sobre un equipo pre-ensamblado de 3 miembros técnicos senior con química y velocidad probadas.</p>
+                        <blockquote class="border-l-4 border-orange-500 pl-4 italic">
+                            Su compensación es estratégica: salarios bajos más un <strong>~7% de equity</strong> colectivo, creando <strong>"golden handcuffs"</strong> que eliminan el riesgo de fuga de talento.
+                        </blockquote>
+                        <p>Para los inversionistas, esto no es un plan de RRHH, es la garantía de que el equipo que construye el valor permanecerá para entregarlo. Es una asignación de capital sofisticada que dirige el equity a los creadores de IP a largo plazo.</p>
+                    </div>
+                </div>
+                 <div class="bg-white p-6 rounded-lg shadow-md">
+                    <h3 class="font-bold text-xl mb-4 text-teal-800">Asignación de Recursos Mensual</h3>
+                    <p class="text-slate-600 mb-4">La tabla muestra cómo cada hora de trabajo del equipo técnico está directamente vinculada a un hito del plan maestro. Use el filtro para seguir la trayectoria de un rol específico.</p>
+                    
+                    <div class="mb-4">
+                        <label for="role-filter" class="block text-sm font-medium text-gray-700">Filtrar por Rol:</label>
+                        <select id="role-filter" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-orange-500 focus:border-orange-500 sm:text-sm rounded-md">
+                            <option value="all">Todos los Roles</option>
+                        </select>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table id="hr-table" class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rol</th>
+                                    <!-- Months will be generated by JS -->
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                <!-- Rows will be generated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="bg-slate-800 text-white mt-16">
+        <div class="container mx-auto py-4 px-4 sm:px-6 lg:px-8 text-center text-sm">
+            <p>&copy; 2025 Rodando a Gas. Plan Maestro Interactivo.</p>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // --- DATA ---
+            const financialData = {
+                labels: Array.from({ length: 12 }, (_, i) => `Mes ${i + 1}`),
+                gastoEquipo: [110000, 125000, 125000, 125000, 125000, 125000, 125000, 125000, 125000, 125000, 125000, 115000],
+                gastoDesarrollo: [190000, 210000, 255000, 245000, 245000, 245000, 225000, 225000, 225000, 190000, 190000, 206000],
+                gastoCapex: [0, 0, 0, 0, 0, 876667, 876667, 876666, 0, 0, 0, 0],
+                gastoTotal: [],
+                gastoAcumulado: [],
+                efectivoRestante: [],
+                inversionInicial: 7260000,
+            };
+
+            let acumulado = 0;
+            for (let i = 0; i < 12; i++) {
+                const totalMes = financialData.gastoEquipo[i] + financialData.gastoDesarrollo[i] + financialData.gastoCapex[i];
+                financialData.gastoTotal.push(totalMes);
+                acumulado += totalMes;
+                financialData.gastoAcumulado.push(acumulado);
+                financialData.efectivoRestante.push(financialData.inversionInicial - acumulado);
+            }
+
+            const investmentData = {
+                labels: ['Desarrollo Core IA + SaaS', 'Inversión Piloto (CAPEX)', 'Equipo y Operaciones', 'Reserva de Emergencia'],
+                datasets: [{
+                    data: [2326000, 2630000, 1828000, 476000],
+                    backgroundColor: ['#0d9488', '#0f766e', '#115e59', '#f59e0b'],
+                    borderColor: '#f8f7f4',
+                    borderWidth: 4
+                }]
+            };
+            
+            const techTimelineData = [
+                { category: 'HASE', start: 1, end: 3, color: '#0d9488', tasks: 'Ingesta de datos, definición de features, entrenamiento de modelos v0.5 a v0.8.', milestone: 'Hito: HASE v0.8 entrenado con >80% de precisión (AUC).' },
+                { category: 'PIA', start: 1, end: 5, color: '#0f766e', tasks: 'Diseño de arquitectura, motor de alertas, integración WhatsApp Business API, pruebas MVP.', milestone: 'Hito: MVP de PIA funcional.' },
+                { category: 'Super-PMA', start: 3, end: 8, color: '#115e59', tasks: 'Diseño de integración IoT, desarrollo motor predictivo, marketplace básico, optimización con datos del piloto.', milestone: 'Hito: MVP del marketplace funcional.' },
+                { category: 'Asistente Digital', start: 4, end: 8, color: '#134e4a', tasks: 'Núcleo del chatbot, base de conocimiento, diagnóstico por texto, análisis de imagen básico.', milestone: 'Hito: MVP multimodal del Asistente funcional.' },
+                { category: 'Optimización y Serie A', start: 9, end: 12, color: '#f59e0b', tasks: 'Refinamiento de los 4 agentes, análisis de datos, preparación de data room técnico y roadmap para Serie A.', milestone: 'Hito: Term sheet de Serie A en negociación.' }
+            ];
+
+            const opsTimelineData = [
+                { phase: 'Meses 1-3: Fundación y Preparación', color: '#0d9488', tasks: 'GTM: Identificación y pre-calificación de operadores para el piloto.\nLegales: Desarrollo y registro de contratos de adhesión ante PROFECO.\nPiloto: Negociación y compra de las 3 unidades Higer H6C.\nProducto: Definición de métricas de éxito del piloto.', kpi: 'KPI: 100% de operadores del piloto pre-seleccionados. Contratos registrados.' },
+                { phase: 'Meses 4-6: Lanzamiento y Despliegue', color: '#0f766e', tasks: 'GTM: Firma de contratos con operadores del piloto.\nLegales: Validación de cumplimiento para PLD.\nPiloto: Instalación de hardware IoT. Despliegue de la primera unidad.\nProducto: Lanzamiento de la App Android MVP.', kpi: 'KPI: 3 contratos de piloto firmados. 1ra unidad operando.' },
+                { phase: 'Meses 7-9: Validación y Recolección de Datos', color: '#115e59', tasks: 'GTM: Onboarding y soporte continuo a los operadores.\nLegales: Auditoría de cumplimiento y preparación de políticas.\nPiloto: Despliegue de unidades 2 y 3. Monitoreo 24/7.\nProducto: Recolección de feedback y datos de rendimiento.', kpi: 'KPI: 3 unidades operando >95% del tiempo. NPS > 50.' },
+                { phase: 'Meses 10-12: Tracción y Preparación Serie A', color: '#f59e0b', tasks: 'GTM: Documentación de testimoniales y casos de éxito.\nLegales: Preparación del data room legal para la S.A.P.I.\nPiloto: Análisis final de datos y reportes de economía unitaria.\nProducto: Consolidación del roadmap de producto para la Serie A.', kpi: 'KPI: Morosidad del piloto en 0%. NPS > 70. Data room completo.' }
+            ];
+
+            const hrData = {
+                roles: ['Científico de Datos', 'Ingeniero de ML', 'Desarrollador Full-Stack', 'Desarrollador Backend', 'Desarrollador IoT', 'Desarrollador Frontend', 'Ingeniero DevOps', 'Ingeniero QA'],
+                allocations: [
+                    ['HASE (100%)', 'HASE (100%)', 'HASE (80%) Super-PMA (20%)', 'Super-PMA (80%) HASE (20%)', 'Super-PMA (100%)', 'Super-PMA (100%)', 'Análisis Piloto (HASE, PMA)', 'Análisis Piloto (HASE, PMA)', 'Optimización Modelos', 'Documentación (Modelos)', 'Soporte (Serie A)', 'Soporte (Serie A)'],
+                    ['HASE (100%)', 'PIA (50%) HASE (50%)', 'PIA (80%) Asistente (20%)', 'PIA (70%) Asistente (30%)', 'PIA (100%)', 'Asistente (70%) PIA (30%)', 'Asistente (100%)', 'Análisis Piloto (PIA, Asistente)', 'Optimización Modelos', 'Documentación (IA)', 'Soporte (Serie A)', 'Soporte (Serie A)'],
+                    ['SaaS (100%)', 'SaaS (80%) PIA (20%)', 'SaaS (50%) PIA (50%)', 'Asistente (50%) PMA (50%)', 'Asistente (50%) PMA (50%)', 'Integración Piloto', 'Soporte Piloto', 'Optimización General', 'Soporte GTM', 'Soporte (Serie A)', 'Soporte (Serie A)', 'Soporte (Serie A)'],
+                    ['-', 'HASE (API)', 'HASE (API)', 'PIA (API)', 'PIA (API)', 'Integración General', 'Soporte Piloto', 'Soporte Piloto', 'Optimización Backend', 'Documentación API', 'Mantenimiento', 'Mantenimiento'],
+                    ['-', 'Super-PMA (HW)', 'Super-PMA (HW)', 'Super-PMA (Streaming)', 'Super-PMA (Streaming)', 'Despliegue Piloto', 'Monitoreo Piloto', 'Monitoreo Piloto', 'Optimización Datos', 'Documentación HW', 'Mantenimiento', 'Mantenimiento'],
+                    ['-', '-', 'App (UI/UX)', 'App (Dashboard)', 'App (Backend Connect)', 'App (QA)', 'App (Feedback)', 'App (Feedback)', 'App (Ajustes)', 'Finalización App', '-', 'Soporte (Serie A)'],
+                    ['Infra (Cloud, CI/CD)', 'Infra (DBs)', 'Infra (Seguridad)', 'Monitoreo', 'Monitoreo', 'Soporte Piloto', 'Soporte Piloto', 'Optimización Infra', '-', '-', '-', '-'],
+                    ['-', '-', '-', '-', '-', 'Pruebas (Carga)', 'Pruebas (Piloto)', 'Pruebas (Piloto)', 'Pruebas (Regresión)', 'Documentación QA', '-', '-']
+                ]
+            };
+
+            // --- CHARTS ---
+
+            // Investment Donut Chart
+            const donutCtx = document.getElementById('investmentDonutChart').getContext('2d');
+            new Chart(donutCtx, {
+                type: 'doughnut',
+                data: investmentData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '60%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 20,
+                                font: {
+                                    size: 12
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed !== null) {
+                                        label += new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(context.parsed);
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Financial Plan Chart
+            const financialCtx = document.getElementById('financialPlanChart').getContext('2d');
+            const financialChart = new Chart(financialCtx, {
+                type: 'bar',
+                data: {
+                    labels: financialData.labels,
+                    datasets: [
+                        {
+                            label: 'Gasto en Equipo',
+                            data: financialData.gastoEquipo,
+                            backgroundColor: '#14b8a6', // Teal
+                            stack: 'Stack 0',
+                        },
+                        {
+                            label: 'Gasto en Desarrollo',
+                            data: financialData.gastoDesarrollo,
+                            backgroundColor: '#0d9488', // Darker Teal
+                            stack: 'Stack 0',
+                        },
+                        {
+                            label: 'Gasto CAPEX',
+                            data: financialData.gastoCapex,
+                            backgroundColor: '#0f766e', // Even Darker Teal
+                            stack: 'Stack 0',
+                        },
+                        {
+                            label: 'Efectivo Restante',
+                            data: financialData.efectivoRestante,
+                            type: 'line',
+                            borderColor: '#f97316', // Orange
+                            backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                            fill: true,
+                            yAxisID: 'y1',
+                            tension: 0.3
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        label += new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 0 }).format(context.parsed.y);
+                                    }
+                                    return label;
+                                }
+                            }
+                        },
+                        legend: {
+                            position: 'bottom'
+                        }
+                    },
+                    scales: {
+                        x: {
+                            stacked: true,
+                            grid: { display: false }
+                        },
+                        y: {
+                            stacked: true,
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Gasto Mensual (MXN)'
+                            },
+                            ticks: {
+                                callback: value => `${value / 1000}k`
+                            }
+                        },
+                        y1: {
+                            position: 'right',
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Efectivo Restante (MXN)'
+                            },
+                            grid: {
+                                drawOnChartArea: false, 
+                            },
+                            ticks: {
+                                callback: value => `${value / 1000000}M`
+                            }
+                        }
+                    }
+                }
+            });
+
+            // --- INTERACTIONS ---
+
+            // Financial Slider
+            const slider = document.getElementById('month-slider');
+            const monthLabel = document.getElementById('month-label');
+            const kpiGastoMes = document.getElementById('kpi-gasto-mes');
+            const kpiGastoAcumulado = document.getElementById('kpi-gasto-acumulado');
+            const kpiEfectivo = document.getElementById('kpi-efectivo');
+
+            function formatCurrency(value) {
+                if (value >= 1000000) return `$${(value / 1000000).toFixed(2)}M`;
+                if (value >= 1000) return `$${(value / 1000).toFixed(0)}k`;
+                return `$${value}`;
+            }
+
+            function updateFinancials(month) {
+                const index = month - 1;
+                monthLabel.textContent = month;
+                kpiGastoMes.textContent = formatCurrency(financialData.gastoTotal[index]);
+                kpiGastoAcumulado.textContent = formatCurrency(financialData.gastoAcumulado[index]);
+                kpiEfectivo.textContent = formatCurrency(financialData.efectivoRestante[index]);
+                
+                financialChart.data.datasets.forEach(dataset => {
+                    dataset.borderWidth = Array(12).fill(1);
+                });
+                financialChart.data.datasets.forEach(dataset => {
+                    if(dataset.type !== 'line') {
+                        dataset.borderWidth[index] = 3;
+                        dataset.borderColor = '#1f2937';
+                    }
+                });
+                financialChart.update();
+            }
+
+            slider.addEventListener('input', (e) => updateFinancials(parseInt(e.target.value)));
+            updateFinancials(1);
+
+            // Tech Timeline
+            const techContainer = document.getElementById('tech-timeline-container');
+            const techDetailsPane = document.getElementById('tech-details-pane');
+            const techDetailsTitle = document.getElementById('tech-details-title');
+            const techDetailsTasks = document.getElementById('tech-details-tasks');
+            const techDetailsMilestone = document.getElementById('tech-details-milestone');
+            
+            techTimelineData.forEach(item => {
+                const itemEl = document.createElement('div');
+                itemEl.className = 'timeline-item cursor-pointer p-3 rounded-lg hover:bg-slate-50';
+                const width = ((item.end - item.start + 1) / 12) * 100;
+                const left = ((item.start - 1) / 12) * 100;
+
+                itemEl.innerHTML = `
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="font-semibold text-sm">${item.category}</span>
+                        <span class="text-xs text-slate-500">Mes ${item.start} - ${item.end}</span>
+                    </div>
+                    <div class="timeline-bar h-4 w-full bg-slate-200">
+                        <div class="timeline-progress" style="width: ${width}%; left: ${left}%; background-color: ${item.color};"></div>
+                    </div>
+                `;
+                itemEl.addEventListener('click', () => {
+                    techDetailsTitle.textContent = item.category;
+                    techDetailsTasks.textContent = item.tasks;
+                    techDetailsMilestone.textContent = item.milestone;
+                    techDetailsPane.classList.remove('hidden');
+                });
+                techContainer.appendChild(itemEl);
+            });
+
+            // Ops Timeline
+            const opsContainer = document.getElementById('ops-timeline-container');
+            const opsDetailsPane = document.getElementById('ops-details-pane');
+            const opsDetailsTitle = document.getElementById('ops-details-title');
+            const opsDetailsTasks = document.getElementById('ops-details-tasks');
+            const opsDetailsKpi = document.getElementById('ops-details-kpi');
+
+            opsTimelineData.forEach(item => {
+                const itemEl = document.createElement('div');
+                itemEl.className = 'ops-item cursor-pointer p-4 rounded-lg border border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-colors';
+                itemEl.style.borderLeft = `5px solid ${item.color}`;
+                itemEl.innerHTML = `<h4 class="font-semibold">${item.phase}</h4>`;
+                
+                itemEl.addEventListener('click', () => {
+                    opsDetailsTitle.textContent = item.phase;
+                    opsDetailsTasks.textContent = item.tasks;
+                    opsDetailsKpi.textContent = item.kpi;
+                    opsDetailsPane.classList.remove('hidden');
+                });
+                opsContainer.appendChild(itemEl);
+            });
+
+            // HR Table
+            const hrTable = document.getElementById('hr-table');
+            const roleFilter = document.getElementById('role-filter');
+            const theadRow = hrTable.querySelector('thead tr');
+            const tbody = hrTable.querySelector('tbody');
+
+            // Populate filter and table header
+            hrData.roles.forEach(role => {
+                const option = document.createElement('option');
+                option.value = role;
+                option.textContent = role;
+                roleFilter.appendChild(option);
+            });
+            for(let i = 1; i <= 12; i++) {
+                const th = document.createElement('th');
+                th.className = 'px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider';
+                th.textContent = `M${i}`;
+                theadRow.appendChild(th);
+            }
+
+            // Populate table body
+            hrData.allocations.forEach((alloc, i) => {
+                const tr = document.createElement('tr');
+                tr.dataset.role = hrData.roles[i];
+                tr.innerHTML = `<td class="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">${hrData.roles[i]}</td>`;
+                alloc.forEach(task => {
+                    const td = document.createElement('td');
+                    td.className = 'px-3 py-2 whitespace-nowrap text-xs text-center text-gray-500';
+                    td.textContent = task;
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+            });
+
+            roleFilter.addEventListener('change', (e) => {
+                const selectedRole = e.target.value;
+                tbody.querySelectorAll('tr').forEach(tr => {
+                    if (selectedRole === 'all' || tr.dataset.role === selectedRole) {
+                        tr.style.display = '';
+                        tr.style.backgroundColor = selectedRole === 'all' ? '' : '#fffbeb';
+                    } else {
+                        tr.style.display = 'none';
+                    }
+                });
+                if(selectedRole === 'all') {
+                     tbody.querySelectorAll('tr').forEach(tr => tr.style.backgroundColor = '');
+                }
+            });
+
+            // Active Nav Link on Scroll
+            const sections = document.querySelectorAll('section');
+            const navLinks = document.querySelectorAll('.nav-link');
+            window.addEventListener('scroll', () => {
+                let current = '';
+                sections.forEach(section => {
+                    const sectionTop = section.offsetTop;
+                    if (pageYOffset >= sectionTop - 80) {
+                        current = section.getAttribute('id');
+                    }
+                });
+
+                navLinks.forEach(link => {
+                    link.classList.remove('active', 'text-orange-700');
+                    if (link.getAttribute('href').includes(current)) {
+                        link.classList.add('active', 'text-orange-700');
+                    }
+                });
+            });
+
+        });
+    </script>
+</body>
+</html>
