@@ -716,9 +716,67 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        /* EMERGENCY VISIBILITY FIXES */
+        main {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            position: relative !important;
+            z-index: 10 !important;
+        }
+
+        section {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+
+        .glass-card-advanced {
+            display: block !important;
+            visibility: visible !important;
+        }
+
+        /* DEBUG BORDERS TEMPORALES */
+        .debug-mode {
+            border: 2px solid red !important;
+        }
+
+        /* FORZAR COUNTERS VISIBLES */
+        .counter-number {
+            color: #3b82f6 !important;
+            font-size: 2.5rem !important;
+            font-weight: 900 !important;
+            display: inline-block !important;
+        }
     </style>
 </head>
 <body class="antialiased">
+    <script>
+    // DEBUGGING INMEDIATO
+    console.log('=== PAGE LOADING DEBUG ===');
+    console.log('Document ready state:', document.readyState);
+
+    // VERIFICAR ELEMENTOS CRÍTICOS
+    window.addEventListener('load', () => {
+        console.log('=== WINDOW LOADED ===');
+        const main = document.querySelector('main');
+        const sections = document.querySelectorAll('section');
+        const charts = document.querySelectorAll('canvas');
+        
+        console.log('Main element:', main);
+        console.log('Sections:', sections.length);
+        console.log('Charts:', charts.length);
+        console.log('Chart.js loaded:', typeof Chart !== 'undefined');
+        
+        // FORZAR VISIBILIDAD
+        if (main) {
+            main.classList.add('debug-mode');
+            console.log('Main visible:', main.offsetHeight > 0);
+        }
+    });
+    </script>
+    
     <!-- Particle Background -->
     <div class="particle-container" id="particleContainer"></div>
     
@@ -939,19 +997,19 @@
                 <h3 class="font-bold text-2xl mb-6 gradient-text">Resumen de Desarrollo Total</h3>
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
                     <div class="text-center">
-                        <div class="counter-number text-4xl mb-2" data-target="6688" data-suffix="h">0h</div>
+                        <div class="text-4xl font-bold gradient-text mb-2">6,688h</div>
                         <div class="text-slate-400">Horas Totales</div>
                     </div>
                     <div class="text-center">
-                        <div class="counter-number text-4xl mb-2" data-target="1700000" data-prefix="$">$0</div>
+                        <div class="text-4xl font-bold gradient-text mb-2">$1.70M</div>
                         <div class="text-slate-400">Inversión IA Core</div>
                     </div>
                     <div class="text-center">
-                        <div class="counter-number text-4xl mb-2" data-target="12960000" data-prefix="$" data-suffix="M">$0M</div>
+                        <div class="text-4xl font-bold gradient-text mb-2">$12.96M</div>
                         <div class="text-slate-400">Ahorro Acumulado</div>
                     </div>
                     <div class="text-center">
-                        <div class="counter-number text-4xl mb-2" data-target="20">0</div>
+                        <div class="text-4xl font-bold gradient-text mb-2">~20</div>
                         <div class="text-slate-400">Meses Payback</div>
                     </div>
                 </div>
@@ -1501,1919 +1559,206 @@
     </footer>
 
     <script>
-        // ===== EPIC COUNTER ANIMATIONS CON INTERSECTION OBSERVER =====
-        class EpicCounterAnimator {
-            constructor() {
-                this.counterTargets = new Map([
-                    ['7260000', { format: '$7.26M MXN', duration: 3000, delay: 0 }],
-                    ['457', { format: '457%', duration: 2500, delay: 300 }],
-                    ['6300000', { format: '$6.3M MXN', duration: 2800, delay: 600 }],
-                    ['20', { format: '~20 meses', duration: 2000, delay: 900 }],
-                    ['6688', { format: '6,688h', duration: 2200, delay: 1200 }],
-                    ['10', { format: '10%', duration: 1800, delay: 1500 }],
-                    ['2330000', { format: '$2.33M MXN', duration: 2600, delay: 200 }],
-                    ['1700000', { format: '$1.7M', duration: 2400, delay: 400 }],
-                    ['12960000', { format: '$12.96M', duration: 3200, delay: 800 }],
-                    ['600000', { format: '$600k', duration: 2000, delay: 100 }],
-                    ['400000', { format: '$400k', duration: 2000, delay: 200 }],
-                    ['450000', { format: '$450k', duration: 2000, delay: 300 }],
-                    ['250000', { format: '$250k', duration: 2000, delay: 400 }],
-                    ['1440', { format: '1,440', duration: 1800, delay: 100 }],
-                    ['976', { format: '976', duration: 1600, delay: 200 }],
-                    ['1024', { format: '1,024', duration: 1800, delay: 300 }}
-                ]);
-                this.initObserver();
-            }
-            
-            initObserver() {
-                const observer = new IntersectionObserver((entries) => {
-                    entries.forEach((entry) => {
-                        if (entry.isIntersecting && !entry.target.dataset.animated) {
-                            entry.target.dataset.animated = 'true';
-                            this.animateCounter(entry.target);
-                        }
-                    });
-                }, { threshold: 0.3, rootMargin: '-50px' });
-                
-                document.querySelectorAll('.counter-number').forEach(el => {
-                    observer.observe(el);
-                });
-            }
-            
-            animateCounter(element) {
-                const target = parseInt(element.dataset.target);
-                const config = this.counterTargets.get(target.toString()) || { format: target.toString(), duration: 2000, delay: 0 };
-                
-                setTimeout(() => {
-                    this.runAnimation(element, target, config.duration, config.format);
-                }, config.delay);
-            }
-            
-            runAnimation(element, target, duration, format) {
-                let start = 0;
-                const increment = target / (duration / 16);
-                
-                const animate = () => {
-                    start += increment;
-                    if (start >= target) {
-                        element.textContent = format;
-                        element.style.transform = 'scale(1.1)';
-                        setTimeout(() => {
-                            element.style.transform = 'scale(1)';
-                        }, 200);
-                        return;
-                    }
-                    
-                    if (format.includes('$') && format.includes('M')) {
-                        element.textContent = '$' + (start / 1000000).toFixed(2) + 'M MXN';
-                    } else if (format.includes('$') && format.includes('k')) {
-                        element.textContent = '$' + (start / 1000).toFixed(0) + 'k';
-                    } else if (format.includes('%')) {
-                        element.textContent = Math.round(start) + '%';
-                    } else if (format.includes('~')) {
-                        element.textContent = '~' + Math.round(start) + ' meses';
-                    } else if (format.includes(',')) {
-                        element.textContent = Math.round(start).toLocaleString() + format.slice(-1);
-                    } else {
-                        element.textContent = Math.round(start) + format.slice(-1);
-                    }
-                    
-                    requestAnimationFrame(animate);
-                };
-                animate();
-            }
-        }
-
-        function formatNumber(value, format) {
-            if (format.includes('$') && format.includes('M')) {
-                return '$' + (value / 1000000).toFixed(2) + 'M MXN';
-            } else if (format.includes('%')) {
-                return Math.round(value) + '%';
-            } else if (format.includes('~') && format.includes('meses')) {
-                return '~' + Math.round(value) + ' meses';
-            } else if (format.includes(',') && format.includes('h')) {
-                return value.toLocaleString() + 'h';
-            }
-            return Math.round(value).toLocaleString();
-        }
-
-        function animateCounter(element, target, duration, format) {
-            let start = 0;
-            const increment = target / (duration / 16);
-            
-            const animate = () => {
-                start += increment;
-                if (start < target) {
-                    element.textContent = formatNumber(start, format);
-                    requestAnimationFrame(animate);
-                } else {
-                    element.textContent = formatNumber(target, format);
-                }
-            };
-            animate();
-        }
-
-        // ===== EPIC PARTICLE SYSTEM MEJORADO =====
-        class EpicParticleSystem {
-            constructor(container) {
-                this.container = container;
-                this.particles = [];
-                this.createParticles(40);  // AUMENTAR de 30 a 40
-                this.animate();
-            }
-            
-            createParticles(count) {
-                for (let i = 0; i < count; i++) {
-                    const particle = document.createElement('div');
-                    particle.className = 'particle';
-                    
-                    const size = Math.random() * 3 + 1;  // 1-4px
-                    const opacity = Math.random() * 0.7 + 0.2;  // 0.2-0.9
-                    const duration = Math.random() * 25 + 15;  // 15-40s
-                    const delay = Math.random() * 5;  // 0-5s delay
-                    
-                    particle.style.cssText = `
-                        position: absolute;
-                        width: ${size}px;
-                        height: ${size}px;
-                        background: linear-gradient(45deg, #3b82f6, #22d3ee, #10b981);
-                        border-radius: 50%;
-                        pointer-events: none;
-                        opacity: ${opacity};
-                        left: ${Math.random() * 100}%;
-                        top: 100%;
-                        animation: floatUp ${duration}s infinite linear ${delay}s;
-                        box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
-                    `;
-                    
-                    this.container.appendChild(particle);
-                    this.particles.push(particle);
-                }
-            }
-        }
-
-        // ===== EPIC SCROLL ANIMATIONS CON STAGGER EFFECTS =====
-        class EpicScrollAnimations {
-            constructor() {
-                this.initObserver();
-                this.addStaggerDelays();
-            }
-            
-            initObserver() {
-                const observer = new IntersectionObserver((entries) => {
-                    entries.forEach((entry, index) => {
-                        if (entry.isIntersecting && !entry.target.dataset.animated) {
-                            entry.target.dataset.animated = 'true';
-                            
-                            const delay = parseInt(entry.target.dataset.stagger) || 0;
-                            setTimeout(() => {
-                                entry.target.classList.add('animate-in');
-                                
-                                // Efecto cascada para children
-                                const children = entry.target.querySelectorAll('.stagger-child');
-                                children.forEach((child, childIndex) => {
-                                    setTimeout(() => {
-                                        child.classList.add('animate-in');
-                                    }, childIndex * 100);
-                                });
-                            }, delay);
-                        }
-                    });
-                }, { threshold: 0.1, rootMargin: '-30px' });
-                
-                document.querySelectorAll('.scroll-animate, .fade-in-up, .scale-in').forEach(el => {
-                    observer.observe(el);
-                });
-            }
-            
-            addStaggerDelays() {
-                const sections = document.querySelectorAll('section');
-                sections.forEach((section, index) => {
-                    const cards = section.querySelectorAll('.glass-card-advanced, .kpi-card-dark, .agent-card-dark');
-                    cards.forEach((card, cardIndex) => {
-                        card.dataset.stagger = cardIndex * 150;
-                        card.classList.add('scroll-animate');
-                        
-                        // Marcar children para stagger
-                        const children = card.querySelectorAll('p, h3, .counter-number');
-                        children.forEach(child => child.classList.add('stagger-child'));
-                    });
-                });
-            }
-        }
-
-        // ===== COUNTER OBSERVER =====
-        const counterObserver = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting && !entry.target.dataset.animated) {
-                    entry.target.dataset.animated = 'true';
-                    const config = counterTargets[entry.target.dataset.counter];
-                    if (config) {
-                        setTimeout(() => {
-                            animateCounter(entry.target, config.target, config.duration, config.format);
-                        }, parseInt(entry.target.dataset.delay) || 0);
-                    } else {
-                        // Legacy counter animation
-                        const target = parseInt(entry.target.dataset.target);
-                        const prefix = entry.target.dataset.prefix || '';
-                        const suffix = entry.target.dataset.suffix || '';
-                        setTimeout(() => {
-                            animateCounter(entry.target, target, 2000, prefix + 'XXX' + suffix);
-                        }, parseInt(entry.target.dataset.delay) || 0);
-                    }
-                }
-            });
-        }, { threshold: 0.5 });
-
-        // ===== NAVIGATION BEHAVIOR ÉPICO =====
-        class EpicNavigation {
-            constructor() {
-                this.nav = document.querySelector('.nav-dark');
-                this.lastScrollY = 0;
-                this.ticking = false;
-                this.init();
-            }
-            
-            init() {
-                window.addEventListener('scroll', () => {
-                    if (!this.ticking) {
-                        requestAnimationFrame(() => {
-                            this.updateNav();
-                            this.ticking = false;
-                        });
-                        this.ticking = true;
-                    }
-                });
-                
-                // Active section highlighting
-                this.highlightActiveSection();
-            }
-            
-            updateNav() {
-                const currentScrollY = window.scrollY;
-                
-                if (currentScrollY > 100) {
-                    this.nav.style.backgroundColor = 'rgba(15, 23, 42, 0.95)';
-                    this.nav.style.backdropFilter = 'blur(20px)';
-                    this.nav.style.borderBottom = '1px solid rgba(59, 130, 246, 0.3)';
-                    
-                    if (currentScrollY < this.lastScrollY) {
-                        // Scrolling up - show nav
-                        this.nav.style.transform = 'translateY(0)';
-                    } else {
-                        // Scrolling down - hide nav
-                        this.nav.style.transform = 'translateY(-100%)';
-                    }
-                } else {
-                    this.nav.style.backgroundColor = 'rgba(15, 23, 42, 0.8)';
-                    this.nav.style.borderBottom = '1px solid rgba(255, 255, 255, 0.1)';
-                    this.nav.style.transform = 'translateY(0)';
-                }
-                
-                this.lastScrollY = currentScrollY;
-            }
-            
-            highlightActiveSection() {
-                const sections = document.querySelectorAll('section[id]');
-                const navLinks = document.querySelectorAll('.nav-link-dark');
-                
-                const observer = new IntersectionObserver((entries) => {
-                    entries.forEach(entry => {
-                        if (entry.isIntersecting) {
-                            const id = entry.target.id;
-                            navLinks.forEach(link => {
-                                link.classList.remove('active');
-                                if (link.getAttribute('href') === `#${id}`) {
-                                    link.classList.add('active');
-                                }
-                            });
-                        }
-                    });
-                }, { threshold: 0.3 });
-                
-                sections.forEach(section => observer.observe(section));
-            }
-        }
-
-        // ===== INITIALIZE EPIC FEATURES =====
+        // VERSIÓN SIMPLIFICADA PARA DEBUGGING
         document.addEventListener('DOMContentLoaded', function() {
-            // Initialize epic particle system
+            console.log('=== DOM LOADED - DEBUGGING ===');
+            
+            // 1. VERIFICAR QUE ELEMENTOS EXISTEN
+            const main = document.querySelector('main');
+            const sections = document.querySelectorAll('section');
+            console.log('Main element:', main);
+            console.log('Sections found:', sections.length);
+            
+            // 2. FORZAR VISIBILIDAD DEL CONTENIDO
+            if (main) {
+                main.style.display = 'block';
+                main.style.visibility = 'visible';
+                main.style.opacity = '1';
+            }
+            
+            sections.forEach(section => {
+                section.style.display = 'block';
+                section.style.visibility = 'visible';
+                section.style.opacity = '1';
+            });
+            
+            // 3. INICIALIZAR SOLO LO ESENCIAL
+            initEssentialFeatures();
+            
+            // 4. CHARTS DESPUÉS DE 1 SEGUNDO
+            setTimeout(() => {
+                if (typeof Chart !== 'undefined') {
+                    console.log('Chart.js disponible, inicializando...');
+                    initChartsSimple();
+                } else {
+                    console.error('Chart.js NO disponible');
+                }
+            }, 1000);
+        });
+
+        function initEssentialFeatures() {
+            // COUNTER ANIMATIONS SIMPLES
+            const counters = document.querySelectorAll('.counter-number');
+            counters.forEach(counter => {
+                const target = parseInt(counter.dataset.target) || 0;
+                counter.textContent = target.toLocaleString();
+            });
+            
+            // PARTICLE SYSTEM BÁSICO
             const particleContainer = document.getElementById('particleContainer');
             if (particleContainer) {
-                new EpicParticleSystem(particleContainer);
+                for (let i = 0; i < 20; i++) {
+                    const particle = document.createElement('div');
+                    particle.className = 'particle';
+                    particle.style.cssText = `
+                        position: absolute;
+                        width: 2px;
+                        height: 2px;
+                        background: #3b82f6;
+                        border-radius: 50%;
+                        left: ${Math.random() * 100}%;
+                        top: ${Math.random() * 100}%;
+                        animation: float ${Math.random() * 20 + 10}s infinite linear;
+                    `;
+                    particleContainer.appendChild(particle);
+                }
             }
+        }
 
-            // Initialize epic scroll animations
-            new EpicScrollAnimations();
-
-            // Initialize epic counter animations
-            new EpicCounterAnimator();
-
-            // Initialize epic navigation
-            new EpicNavigation();
-
-            // Legacy counter observer for compatibility
-            const counterElements = document.querySelectorAll('.counter-number, [data-target]');
-            counterElements.forEach(el => counterObserver.observe(el));
-        });
-
-        // DEBUGGING SISTEMÁTICO - FUNCIÓN PARA INICIALIZAR CHARTS
-        function initCharts() {
-            console.log('=== DEBUGGING CHART.JS ===');
-            console.log('Chart disponible:', typeof Chart);
-            console.log('Chart.version:', Chart?.version);
-            console.log('Chart.Chart:', typeof Chart?.Chart);
-            
-            if (typeof Chart === 'undefined') {
-                console.error('Chart.js TODAVÍA no está disponible en initCharts');
-                return;
-            }
-
-            // ===== EPIC CHART.JS DARK THEME CONFIGURATION =====
-            const epicDarkChartOptions = {
-                responsive: true,
-                maintainAspectRatio: false,
-                animation: {
-                    duration: 3000,
-                    easing: 'easeOutCubic',
-                    delay: (context) => context.dataIndex * 200
-                },
-                plugins: {
-                    legend: {
-                        labels: {
-                            color: '#f1f5f9',
-                            font: { size: 16, weight: '600' },
-                            padding: 25
-                        }
-                    },
-                    tooltip: {
-                        backgroundColor: 'rgba(15, 23, 42, 0.95)',
-                        titleColor: '#ffffff',
-                        bodyColor: '#f1f5f9',
-                        borderColor: 'rgba(59, 130, 246, 0.5)',
-                        borderWidth: 2,
-                        cornerRadius: 12,
-                        displayColors: true,
-                        titleFont: { size: 16, weight: '700' },
-                        bodyFont: { size: 14, weight: '500' }
-                    }
-                },
-                scales: {
-                    x: {
-                        ticks: { 
-                            color: '#cbd5e1',
-                            font: { size: 14, weight: '500' }
-                        },
-                        grid: { 
-                            color: 'rgba(255, 255, 255, 0.15)',
-                            lineWidth: 1
-                        }
-                    },
-                    y: {
-                        ticks: { 
-                            color: '#cbd5e1',
-                            font: { size: 14, weight: '500' }
-                        },
-                        grid: { 
-                            color: 'rgba(255, 255, 255, 0.15)',
-                            lineWidth: 1
-                        }
-                    }
-                }
-            };
-            
-            // --- DATA ---
-            const financialData = {
-                labels: Array.from({ length: 12 }, (_, i) => `Mes ${i + 1}`),
-                gastoEquipo: [110000, 125000, 125000, 125000, 125000, 125000, 125000, 125000, 125000, 125000, 125000, 115000],
-                gastoDesarrollo: [190000, 210000, 257143, 250143, 250143, 250143, 230143, 230143, 230143, 193333, 193333, 199333],
-                gastoCapex: [0, 0, 0, 0, 0, 876667, 876667, 876666, 0, 0, 0, 0],
-                gastoTotal: [300000, 335000, 382143, 375143, 375143, 1251810, 1231810, 1231809, 355143, 318333, 318333, 324333],
-                gastoAcumulado: [300000, 635000, 1017143, 1392286, 1767429, 3019239, 4251049, 5482858, 5837001, 6155334, 6473667, 6798000],
-                efectivoRestante: [6960000, 6625000, 6242857, 5867714, 5492571, 4240761, 3008951, 1777142, 1422001, 1103668, 785335, 476002],
-                inversionInicial: 7260000,
-                reservaEmergencia: 476000
-            };
-
-            // ROI Comparison Data - Complete 5-year analysis
-            const roiComparisonData = {
-                years: ['Año 1', 'Año 2', 'Año 3', 'Año 4', 'Año 5'],
-                tradicional: [3580000, 7339000, 11285950, 15430248, 19781760],
-                iaNativo: [3140000, 3994700, 4892135, 5834442, 6823864],
-                ahorros: [440000, 3344300, 6393815, 9595806, 12957896],
-                details: {
-                    inversionTecnologica: 2326000,
-                    ahorroAnualRecurrente: 6300000,
-                    roiFinalPorcentaje: 457,
-                    paybackMeses: 20,
-                    costoAnualTradicional: 3580000,
-                    costoAnualIaNativo: 814000,
-                    equipoTradicionalRequerido: "20+ personas",
-                    equipoIaNativo: "4 agentes IA + 8 personas"
-                }
-            };
-            
-            const roiData = {
-                tradicional: [3580000, 7339000, 11285950, 15430248, 19781760, 24349688, 29142857, 34170262, 39441270, 44965522, 50753042, 56814250],
-                iaNativo: [3140000, 3994700, 4892135, 5834442, 6823864, 7862002, 8951634, 10095711, 11297366, 12560008, 13886339, 15279356],
-                ahorros: []
-            };
-            
-            // Calculate savings
-            for(let i = 0; i < roiData.tradicional.length; i++) {
-                roiData.ahorros.push(roiData.tradicional[i] - roiData.iaNativo[i]);
-            }
-
-            // Agent Details Data - Ultra-detailed version with tech stack and KPIs
-            const agentDetails = {
-                hase: {
-                    title: 'HASE - Motor de Scoring Hiper-Adaptativo ($600,000)',
-                    budget: {
-                        softwareDesarrollo: 540000,
-                        infraestructuraCloud: 50000,
-                        licenciasMLOps: 10000
-                    },
-                    techStack: ['Python', 'XGBoost', 'scikit-learn', 'Apache Airflow (ETL)', 'FastAPI (<200ms)', 'SHAP (explicabilidad)', 'PostgreSQL', 'TimescaleDB', 'AWS/GCP GPUs'],
-                    hours: {
-                        total: 1440,
-                        breakdown: [
-                            { role: 'Científico Datos Senior', hours: 864, period: 'meses 1-4', focus: 'Líder desarrollo, ingesta datos, definición features, entrenamiento modelos' },
-                            { role: 'Ingeniero ML', hours: 192, period: 'apoyo meses 2-3', focus: 'Entrenamiento modelos, validación, optimización hiperparámetros' },
-                            { role: 'Backend Developer', hours: 384, period: 'APIs meses 3-4', focus: 'FastAPI deployment, integración microservicios, optimización latencia' }
-                        ]
-                    },
-                    cronograma: [
-                        { mes: 1, tarea: 'Ingesta datos históricos, definición features', hito: 'Pipeline ETL Apache Airflow funcional' },
-                        { mes: 2, tarea: 'Entrenamiento modelos v0.5 con XGBoost', hito: 'Primeros modelos baseline >70% AUC' },
-                        { mes: 3, tarea: 'HASE v0.8 optimizado >80% precisión AUC ✓', hito: 'Motor scoring validado offline con explicabilidad SHAP' },
-                        { mes: 6, tarea: 'Optimización con datos piloto tiempo real', hito: 'Precisión >90% con streaming data PostgreSQL/TimescaleDB' }
-                    ],
-                    kpisTecnicos: [
-                        'Precisión predicción >80% AUC (mes 3 offline)',
-                        'Precisión >90% con datos piloto (mes 6)',
-                        'Latencia API FastAPI <200ms constante',
-                        'Pipeline ETL Apache Airflow 99.5% uptime',
-                        'Explicabilidad SHAP integrada cumplimiento regulatorio',
-                        'Escalabilidad AWS/GCP para 1000+ requests/min'
-                    ]
-                },
-                
-                pia: {
-                    title: 'PIA - Agente Intervención Proactiva ($400,000)',
-                    budget: {
-                        softwareDesarrollo: 310000,
-                        licenciasApis: 75000,
-                        infraestructura: 15000
-                    },
-                    techStack: ['WhatsApp Business API', 'Twilio SMS backup', 'LLMs afinados empáticos', 'Decision Trees escalamiento', 'FastAPI', 'Redis queue', 'Microservicios'],
-                    hours: {
-                        total: 976,
-                        breakdown: [
-                            { role: 'Ingeniero ML', hours: 480, period: 'líder desarrollo', focus: 'Motor alertas, LLM training, lógica escalamiento automático' },
-                            { role: 'Backend Developer', hours: 240, period: 'APIs integración', focus: 'WhatsApp Business API, Twilio integration, Redis queue management' },
-                            { role: 'Full-Stack', hours: 256, period: 'integración frontend', focus: 'Dashboard alertas, UX operadores, monitoring tools' }
-                        ]
-                    },
-                    cronograma: [
-                        { mes: 2, tarea: 'Desarrollo motor alertas + arquitectura microservicios', hito: 'Sistema alertas básico funcional' },
-                        { mes: 4, tarea: 'Integración WhatsApp Business API + LLMs', hito: 'Mensajes automáticos empáticos funcionales' },
-                        { mes: 5, tarea: 'PIA v1.0 con Decision Trees escalamiento', hito: 'Sistema intervención completo + Redis queue optimizada' },
-                        { mes: 6, tarea: 'Validación piloto + optimización respuesta', hito: 'Latencia <2min alertas críticas + Twilio backup activo' }
-                    ],
-                    kpisTecnicos: [
-                        'API WhatsApp Business integrada y certificada',
-                        'Motor alertas tiempo real <2min latencia SLA',
-                        'Cola mensajes Redis optimizada >1000 msg/min',
-                        'Decision Trees escalamiento automático funcional',
-                        'LLMs afinados mensajes empáticos >85% satisfacción',
-                        'Backup Twilio SMS 99.9% reliability',
-                        'Microservicios architecture deployed'
-                    ]
-                },
-
-                superpma: {
-                    title: 'Super-PMA - Mantenimiento Predictivo + Marketplace ($450,000)',
-                    budget: {
-                        softwareDesarrollo: 350000,
-                        infraestructuraStreaming: 60000,
-                        hardwareDesarrollo: 20000,
-                        licenciasIoT: 20000
-                    },
-                    techStack: ['RandomForest', 'XGBoost series temporales', 'Apache Kafka streaming', 'React marketplace', 'OBD-II sensores', 'GPS tracking', 'Acelerómetros', 'Medidores flujo GNV', 'PostgreSQL IoT', 'InfluxDB'],
-                    hours: {
-                        total: 1024,
-                        breakdown: [
-                            { role: 'IoT Engineer', hours: 768, period: 'líder hardware/streaming', focus: 'Sensores installation, Kafka pipeline, streaming optimization, hardware troubleshooting' },
-                            { role: 'Científico Datos', hours: 96, period: 'modelos predictivos', focus: 'Algoritmos predicción fallas, series temporales, anomaly detection' },
-                            { role: 'Full-Stack', hours: 160, period: 'marketplace MVP', focus: 'Plataforma proveedores, sistema comisiones, APIs integración' }
-                        ]
-                    },
-                    cronograma: [
-                        { mes: 3, tarea: 'Diseño integración IoT + setup Apache Kafka', hito: 'Arquitectura streaming datos definida + sensores seleccionados' },
-                        { mes: 6, tarea: 'Instalación hardware primera vagoneta + streaming', hito: 'Datos tiempo real OBD-II/GPS flowing a Kafka + InfluxDB' },
-                        { mes: 7, tarea: 'Modelos predictivos + marketplace básico React', hito: 'RandomForest/XGBoost trained + MVP marketplace funcional' },
-                        { mes: 8, tarea: 'Optimización completa + 3 vagonetas streaming', hito: 'Sistema completo validado + marketplace generando comisiones' }
-                    ],
-                    kpisTecnicos: [
-                        'Apache Kafka streaming >1000 events/sec sin pérdida datos',
-                        'Sensores OBD-II/GPS transmitiendo 99.5% uptime',
-                        'Modelos RandomForest/XGBoost >85% precisión predicción fallas',
-                        'InfluxDB time-series optimizada <100ms query latency',
-                        'Marketplace React APIs <500ms response time',
-                        'Pipeline ML predicción fallas automated retraining',
-                        'IoT devices management platform operational'
-                    ],
-                    monetization: [
-                        'Comisiones marketplace: 15-20% transacciones automatizadas',
-                        'Ingresos objetivo: >$300 MXN/vehículo/mes validado',
-                        'Reducción costos mantenimiento: ~25% medido vs baseline',
-                        'Reducción downtime: 30-50% vs mantenimiento reactivo'
-                    ]
-                },
-
-                asistente: {
-                    title: 'Asistente Digital 24/7 + Diagnósticos Premium ($250,000)',
-                    budget: {
-                        softwareDesarrollo: 180000,
-                        licenciasApis: 55000,
-                        infraestructura: 15000
-                    },
-                    techStack: ['GPT-4 Vision', 'Claude 3 análisis imagen', 'Make/n8n orquestación', 'BERT español NLP', 'WhatsApp chatbot', 'Base conocimiento vectorizada', 'Pinecone/Chroma vector DB'],
-                    hours: {
-                        total: 1024,
-                        breakdown: [
-                            { role: 'Ingeniero ML', hours: 320, period: 'núcleo NLP/CV', focus: 'Chatbot core, GPT-4 Vision integration, BERT fine-tuning español, vector embeddings' },
-                            { role: 'Full-Stack', hours: 224, period: 'integración sistemas', focus: 'APIs integration, base conocimiento, Make/n8n workflows, vector DB setup' },
-                            { role: 'Frontend', hours: 480, period: 'interfaz usuario', focus: 'WhatsApp UX optimization, dashboard diagnósticos, mobile-first design' }
-                        ]
-                    },
-                    cronograma: [
-                        { mes: 4, tarea: 'Desarrollo chatbot core + base conocimiento', hito: 'BERT español fine-tuned + 50+ escenarios vectorizados' },
-                        { mes: 6, tarea: 'GPT-4 Vision + diagnóstico por texto funcional', hito: 'Multimodal analysis operational + Make/n8n workflows active' },
-                        { mes: 7, tarea: 'Análisis imagen avanzado + WhatsApp optimization', hito: 'Computer vision diagnósticos >80% precisión' },
-                        { mes: 8, tarea: 'MVP multimodal completo + servicios premium', hito: 'Sistema 24/7 operacional + monetización premium activa' }
-                    ],
-                    kpisTecnicos: [
-                        'GPT-4 Vision API integrada + <3sec response time',
-                        'Base conocimiento vectorizada 50+ escenarios searchable',
-                        'Chatbot BERT español >90% intent classification accuracy',
-                        'Make/n8n workflows automatizados 99.5% success rate',
-                        'WhatsApp integration 24/7 uptime SLA',
-                        'Vector DB Pinecone/Chroma <200ms similarity search',
-                        'Multimodal analysis pipeline functional'
-                    ],
-                    serviciosPremium: [
-                        'Diagnósticos técnicos premium: $500-$800 MXN/consulta',
-                        'Automatización: ~70% consultas resueltas sin humano',
-                        'Disponibilidad: 24/7 vía WhatsApp con SLA <2min',
-                        'Análisis imágenes: Computer vision para fotos fallas/desgaste'
-                    ]
-                }
-            };
-
-            // Detailed Operational Phase Data - GTM + REPUVE/SEMARNAT corrected
-            const fasesOperativasCorregidas = {
-                1: {
-                    periodo: 'Meses 1-3: Fundación y Preparación',
-                    color: '#10b981',
-                    tareas: {
-                        gtm: 'Go-To-Market: Identificación y pre-calificación operadores piloto (red 24,000+ contactos, criterios riesgo establecidos)',
-                        legal: 'Trámites REPUVE (Registro Público Vehicular) y SEMARNAT (permisos conversión GNV) - críticos para operación legal',
-                        piloto: 'Compra 3 vagonetas para conversión GNV + selección talleres certificados aliados',
-                        tecnico: 'HASE v0.8 entrenado >80% precisión + infraestructura cloud + SaaS backbone desplegado'
-                    },
-                    kpis: [
-                        '100% operadores piloto pre-seleccionados y validados ✓',
-                        'Trámites REPUVE y SEMARNAT iniciados (documentación completa) ✓',
-                        'Equipo técnico 100% operativo + SaaS enterprise-grade funcionando ✓',
-                        'Infraestructura AWS/GCP + security SOC2-ready desplegada ✓'
-                    ]
-                },
-                2: {
-                    periodo: 'Meses 4-6: Desarrollo y Despliegue',
-                    color: '#3b82f6',
-                    tareas: {
-                        gtm: 'Go-To-Market: Firma contratos operadores piloto + onboarding inicial programa',
-                        legal: 'Validación cumplimiento PLD (Prevención Lavado Dinero) + obtención final REPUVE/SEMARNAT',
-                        piloto: 'Instalación hardware IoT completo + despliegue 1ra vagoneta con streaming datos',
-                        tecnico: 'PIA funcional WhatsApp + SaaS completamente integrado + App Android MVP operativa'
-                    },
-                    kpis: [
-                        '3 contratos piloto firmados con operadores validados ✓',
-                        'REPUVE y SEMARNAT obtenidos (vagonetas legalmente operativas) ✓',
-                        '1ra vagoneta transmitiendo datos IoT tiempo real a Kafka ✓',
-                        'MVP tecnológico + SaaS stack desplegado en producción ✓'
-                    ]
-                },
-                3: {
-                    periodo: 'Meses 7-9: Validación y Recolección Datos',
-                    color: '#8b5cf6',
-                    tareas: {
-                        gtm: 'Go-To-Market: Onboarding completo + soporte continuo operadores + feedback loops',
-                        legal: 'Auditoría cumplimiento interno + preparación políticas corporativas + compliance monitoring',
-                        piloto: '3 vagonetas operando completamente + monitoreo 24/7 + optimización performance',
-                        tecnico: 'Ecosistema 4 agentes IA 100% funcional + marketplace generando ingresos + optimización ML models'
-                    },
-                    kpis: [
-                        '3 vagonetas >95% tiempo activo (uptime monitoreado) ✓',
-                        'NPS operadores >50 (satisfacción validada) ✓',
-                        'Primeros ingresos marketplace Super-PMA documentados ✓',
-                        'Morosidad piloto = 0% (objetivo crítico mantenido) ✓'
-                    ]
-                },
-                4: {
-                    periodo: 'Meses 10-12: Tracción y Preparación Serie A',
-                    color: '#f59e0b',
-                    tareas: {
-                        gtm: 'Go-To-Market: Documentación casos éxito + testimoniales + métricas tracción + pipeline comercial',
-                        legal: 'Data room S.A.P.I. 100% completo + documentación corporativa + compliance histórico auditado',
-                        piloto: 'Análisis final economía unitaria + reportes performance + ROI validado con datos reales',
-                        tecnico: 'Documentación técnica completa + arquitectura escalable + roadmap post-Serie A definido'
-                    },
-                    kpis: [
-                        'Morosidad final piloto 0% (track record impecable) ✓',
-                        'NPS operadores >70 (alta satisfacción comprobada) ✓',
-                        'Data room legal y financiero 100% completo para due diligence ✓',
-                        'Term sheet Serie A $45M MXN en negociación avanzada ✓'
-                    ]
-                }
-            };
-
-            // HR Matrix Completa - 8 roles x 12 months with ESOP CORRECTED
-            const hrMatrixCompleta = {
-                roles: [
-                    { name: 'Científico de Datos', type: 'ESOP', foco: 'HASE líder + Super-PMA modelos + optimización ML', totalHours: 1440 },
-                    { name: 'Ingeniero ML', type: 'ESOP', foco: 'PIA líder + Asistente NLP/CV + LLMs fine-tuning', totalHours: 1200 },
-                    { name: 'Full-Stack Developer', type: 'ESOP', foco: 'SaaS arquitecto + integración general + APIs core', totalHours: 1200 },
-                    { name: 'Backend Developer', type: 'Contratista', foco: 'APIs Core IA + SaaS connectors + microservicios', totalHours: 960 },
-                    { name: 'IoT Engineer', type: 'Contratista', foco: 'Sensores + Kafka streaming + hardware troubleshooting', totalHours: 1024 },
-                    { name: 'Frontend Developer', type: 'Contratista', foco: 'App móvil + dashboards + UX optimization', totalHours: 720 },
-                    { name: 'DevOps Engineer', type: 'Contratista', foco: 'Infrastructure + SaaS deployment + CI/CD + security', totalHours: 480 },
-                    { name: 'QA Engineer', type: 'Contratista', foco: 'Testing Core IA + SaaS integration + automation', totalHours: 384 }
-                ],
-                allocations: [
-                    // Científico de Datos (ESOP) - 12 meses
-                    ['HASE (70%) SaaS-Setup (30%)', 'HASE (60%) SaaS-Integration (40%)', 'HASE (80%) Super-PMA (20%)', 'Super-PMA (80%) HASE (20%)', 'Super-PMA (100%)', 'Super-PMA (100%)', 'Análisis Piloto (HASE, PMA)', 'Análisis Piloto (HASE, PMA)', 'Optimización Modelos ML', 'Documentación (Modelos)', 'Soporte (Serie A)', 'Soporte (Serie A)'],
-                    
-                    // Ingeniero ML (ESOP) - 12 meses  
-                    ['HASE (100%)', 'PIA (50%) HASE (50%)', 'PIA (80%) Asistente (20%)', 'PIA (70%) Asistente (30%)', 'PIA (100%)', 'Asistente (70%) PIA (30%)', 'Asistente (100%)', 'Análisis Piloto (PIA, Asistente)', 'Optimización Modelos IA', 'Documentación (IA)', 'Soporte (Serie A)', 'Soporte (Serie A)'],
-                    
-                    // Full-Stack Developer (ESOP) - 12 meses
-                    ['SaaS (100%)', 'SaaS (80%) PIA (20%)', 'SaaS (50%) PIA (50%)', 'Asistente (50%) PMA (50%)', 'Asistente (50%) PMA (50%)', 'Integración Piloto', 'Soporte Piloto', 'Optimización General', 'Soporte GTM', 'Soporte (Serie A)', 'Soporte (Serie A)', 'Soporte (Serie A)'],
-                    
-                    // Backend Developer (Contratista) - 12 meses
-                    ['-', 'HASE (API) SaaS-Integration', 'HASE (API) SaaS-Optimization', 'PIA (API)', 'PIA (API)', 'Integración General SaaS', 'Soporte Piloto', 'Soporte Piloto', 'Optimización Backend', 'Documentación API', 'Mantenimiento', 'Mantenimiento'],
-                    
-                    // IoT Engineer (Contratista) - 12 meses
-                    ['-', 'Super-PMA (HW)', 'Super-PMA (HW)', 'Super-PMA (Streaming)', 'Super-PMA (Streaming)', 'Despliegue Piloto', 'Monitoreo Piloto', 'Monitoreo Piloto', 'Optimización Datos', 'Documentación HW', 'Mantenimiento', 'Mantenimiento'],
-                    
-                    // Frontend Developer (Contratista) - 10 meses activo
-                    ['-', '-', 'App (UI/UX)', 'App (Dashboard)', 'App (Backend Connect)', 'App (QA)', 'App (Feedback)', 'App (Feedback)', 'App (Ajustes)', 'Finalización App', '-', 'Soporte (Serie A)'],
-                    
-                    // DevOps Engineer (Contratista) - 8 meses activo
-                    ['Infra (Cloud, CI/CD) SaaS-Setup', 'Infra (DBs) SaaS-Config', 'Infra (Seguridad) SOC2', 'Monitoreo SaaS', 'Monitoreo SaaS', 'Soporte Piloto', 'Soporte Piloto', 'Optimización Infra', '-', '-', '-', '-'],
-                    
-                    // QA Engineer (Contratista) - 7 meses activo
-                    ['-', '-', '-', '-', '-', 'Pruebas (Carga) SaaS-IA', 'Pruebas (Piloto)', 'Pruebas (Piloto)', 'Pruebas (Regresión)', 'Documentación QA', '-', '-']
-                ]
-            };
-
-            // Presupuesto por Capas Ultra-Detallado
-            const presupuestoCapasDetallado = {
-                coreIA: {
-                    total: 1890000,
-                    hase: {
-                        software: 540000, // Científico Datos 864h + ML 192h + Backend 384h
-                        infraestructura: 50000, // AWS/GCP GPUs + PostgreSQL/TimescaleDB
-                        licencias: 10000, // MLflow versionamiento modelos
-                        total: 600000
-                    },
-                    pia: {
-                        software: 310000, // ML 480h + Backend 240h + Full-Stack 256h  
-                        licenciasApis: 75000, // WhatsApp Business + Twilio + LLMs
-                        infraestructura: 15000, // hosting servicios intervención
-                        total: 400000
-                    },
-                    superpma: {
-                        software: 350000, // IoT 768h + Científico Datos 96h + Full-Stack 160h
-                        infraestructuraStreaming: 60000, // Apache Kafka tempo real
-                        hardwareDesarrollo: 20000, // sensores OBD-II, GPS, acelerómetros
-                        licenciasIoT: 20000, // gestión dispositivos
-                        total: 450000
-                    },
-                    asistente: {
-                        software: 180000, // ML 320h + Full-Stack 224h + Frontend 480h
-                        licenciasApis: 55000, // GPT-4 Vision, Claude 3, Make/n8n
-                        infraestructura: 15000, // hosting chatbot
-                        total: 250000
-                    },
-                    integracionSaaS: {
-                        software: 190000, // Backend + Full-Stack conectores APIs
-                        total: 190000
-                    }
-                },
-                saasOperativo: {
-                    total: 436000,
-                    odooEnterprise: {
-                        costo: 216000,
-                        descripcion: 'ERP completo: Contabilidad, Finanzas, Inventario, Proyectos, RRHH',
-                        implementacion: 'Meses 1-3: Setup + configuración. Meses 4-12: Operación completa'
-                    },
-                    financialAI: {
-                        costo: 120000,
-                        descripcion: 'Stripe (pagos), Xero (contabilidad NIIF), DocuSign (contratos)',
-                        implementacion: 'Mes 2: Integración APIs. Mes 4+: Procesamiento transacciones piloto'
-                    },
-                    seguridadEmpresarial: {
-                        costo: 60000,
-                        descripcion: 'Auth0 (identidad), SOC2-ready security stack, monitoring',
-                        implementacion: 'Mes 1: Deployment. Mes 3: Hardening. Ongoing: Compliance'
-                    },
-                    comunicacionBasica: {
-                        costo: 40000,
-                        descripcion: 'Slack, Google Workspace, herramientas colaboración',
-                        implementacion: 'Mes 1: Setup. Mes 2+: Productividad equipo'
-                    }
-                }
-            };
-
-            // CAPEX Vagonetas Detallado (sin marca específica)
-            const capexVagonetasDetallado = {
-                costoUnidad: 876667,
-                desglose: {
-                    vagoneta: 730000, // Vagoneta para conversión GNV (sin especificar marca)
-                    hardwareIoT: 100000, // Sensores telemáticos, GPS, OBD-II, medidores flujo GNV, acelerómetros
-                    seguroLegal: 46667 // Seguro cobertura amplia, registro REPUVE, formalización contrato
-                },
-                cronograma: [
-                    { 
-                        mes: 6, 
-                        unidad: 1, 
-                        monto: 876667,
-                        descripcion: 'Primera vagoneta + kit IoT completo + instalación sensores + seguros',
-                        hito: 'Streaming datos tiempo real iniciado'
-                    },
-                    { 
-                        mes: 7, 
-                        unidad: 2, 
-                        monto: 876667,
-                        descripcion: 'Segunda vagoneta + instalación sensores + validación sistema',
-                        hito: 'Piloto expandido 2 unidades operativas'
-                    },
-                    { 
-                        mes: 8, 
-                        unidad: 3, 
-                        monto: 876666,
-                        descripcion: 'Tercera vagoneta + validación completa ecosistema',
-                        hito: 'Piloto completo 3 unidades + economía unitaria validada'
-                    }
-                ],
-                especificacionesHardware: {
-                    sensoresTelemáticos: 'OBD-II para diagnósticos motor + transmisión',
-                    gps: 'Tracking tiempo real + geofencing + optimización rutas',
-                    medidoresGNV: 'Flujo combustible + eficiencia + alertas nivel',
-                    acelerómetros: 'Comportamiento conductor + mantenimiento predictivo',
-                    conectividad: 'LTE/4G + backup 3G + WiFi hotspot opcional'
-                }
-            };
-
-            // Estructura Legal Completa
-            const estructuraLegalCompleta = {
-                entidadLegal: {
-                    razonSocial: 'CONDUCTORES DEL MUNDO S.A.P.I. de C.V.',
-                    rfc: 'CMU201119DD6',
-                    fechaConstitucion: '19 noviembre 2020',
-                    modificacionObjeto: '24 julio 2025 (ampliación actividades IA/ML)'
-                },
-                objetoSocialDetallado: [
-                    'Operaciones financiamiento activos y servicios (leasing vagonetas)',
-                    'Servicios movilidad y transporte como servicio (MaaS)',
-                    'Desarrollo y comercialización soluciones IA/ML propietarias',
-                    'Sistemas computacionales y tecnológicos especializados',
-                    'Recopilación, procesamiento y administración datos telemáticos',
-                    'Marketplace digital servicios mantenimiento y refacciones',
-                    'Consultoría tecnológica sector transporte y movilidad'
-                ],
-                cumplimientoRegulatorio: [
-                    'Políticas PLD (Prevención Lavado Dinero) implementadas y auditadas ✓',
-                    'Normativas Ley Fintech aplicables (no requiere autorización CNBV para modelo actual) ✓',
-                    'REPUVE (Registro Público Vehicular) obligatorio para vagonetas GNV en proceso ✓',
-                    'SEMARNAT permisos conversión GNV y emisiones en trámite ✓',
-                    'Preparación SOC2-ready desde día 1 (security compliance) ✓',
-                    'Contratos operadores B2B (NO requieren registro PROFECO) ✓'
-                ],
-                estructuraCorporativa: {
-                    tipoSociedad: 'S.A.P.I. de C.V. (Sociedad Anónima Promotora de Inversión)',
-                    ventajas: [
-                        'Flexibilidad para inversionistas institucionales',
-                        'Estructura equity/debt óptima para venture capital',
-                        'Gobierno corporativo escalable para Serie A',
-                        'Régimen fiscal favorable para reinversión utilidades'
-                    ],
-                    preparacionSerieA: [
-                        'Data room legal 100% completo mes 11',
-                        'Auditorías financieras trimestrales implementadas',
-                        'Board structure preparada para independientes',
-                        'Compliance histórico documentado para due diligence'
-                    ]
-                }
-            };
-
-            // Glosario para Tooltips
-            const glosarioTerminos = {
-                'GTM': 'Go-To-Market: Estrategia de lanzamiento al mercado y adquisición de clientes objetivo',
-                'REPUVE': 'Registro Público Vehicular: Trámite obligatorio SEMARNAT para vehículos conversión GNV',
-                'SEMARNAT': 'Secretaría Medio Ambiente: Permisos oficiales conversión GNV y verificación emisiones',
-                'PLD': 'Prevención Lavado Dinero: Políticas compliance para operaciones financieras',
-                'ESOP': 'Employee Stock Ownership Plan: Programa participación accionaria empleados clave',
-                'AUC': 'Area Under Curve: Métrica precisión modelos machine learning (0-1, >0.8 excelente)',
-                'SLA': 'Service Level Agreement: Compromisos tiempo respuesta y disponibilidad sistema',
-                'SOC2': 'System Organization Controls 2: Estándar auditoría seguridad datos enterprise',
-                'API': 'Application Programming Interface: Interfaz comunicación entre sistemas software',
-                'IoT': 'Internet of Things: Red dispositivos conectados transmitiendo datos tiempo real',
-                'MLOps': 'Machine Learning Operations: Prácticas despliegue y mantenimiento modelos IA',
-                'NLP': 'Natural Language Processing: Procesamiento lenguaje natural para chatbots',
-                'Computer Vision': 'Visión computacional: IA para análisis automático imágenes/video'
-            };
-
-            // Detailed Phase Data (for backwards compatibility)
-            const phaseDetails = {
-                1: {
-                    title: 'Meses 1-3: Fundación y Preparación',
-                    tasks: [
-                        'Go-To-Market: Identificación y pre-calificación operadores piloto (red 24,000+ contactos, criterios riesgo establecidos)',
-                        'Legal: Trámites REPUVE (Registro Público Vehicular) y SEMARNAT (permisos conversión GNV) - críticos para operación legal',
-                        'Piloto: Compra 3 vagonetas para conversión GNV + selección talleres certificados aliados',
-                        'Técnico: HASE v0.8 entrenado >80% precisión + infraestructura cloud + SaaS backbone desplegado'
-                    ],
-                    kpis: [
-                        '100% operadores piloto pre-seleccionados y validados ✓',
-                        'Trámites REPUVE y SEMARNAT iniciados (documentación completa) ✓',
-                        'Equipo técnico 100% operativo + SaaS enterprise-grade funcionando ✓',
-                        'Infraestructura AWS/GCP + security SOC2-ready desplegada ✓'
-                    ]
-                },
-                2: {
-                    title: 'Meses 4-6: Desarrollo y Despliegue',
-                    tasks: [
-                        'Go-To-Market: Firma contratos operadores piloto + onboarding inicial programa',
-                        'Legal: Validación cumplimiento PLD (Prevención Lavado Dinero) + obtención final REPUVE/SEMARNAT',
-                        'Piloto: Instalación hardware IoT completo + despliegue 1ra vagoneta con streaming datos',
-                        'Técnico: PIA funcional WhatsApp + SaaS completamente integrado + App Android MVP operativa'
-                    ],
-                    kpis: [
-                        '3 contratos piloto firmados con operadores validados ✓',
-                        'REPUVE y SEMARNAT obtenidos (vagonetas legalmente operativas) ✓',
-                        '1ra vagoneta transmitiendo datos IoT tiempo real a Kafka ✓',
-                        'MVP tecnológico + SaaS stack desplegado en producción ✓'
-                    ]
-                },
-                3: {
-                    title: 'Meses 7-9: Validación y Recolección de Datos',
-                    tasks: [
-                        'Go-To-Market: Onboarding completo + soporte continuo operadores + feedback loops',
-                        'Legal: Auditoría cumplimiento interno + preparación políticas corporativas + compliance monitoring',
-                        'Piloto: 3 vagonetas operando completamente + monitoreo 24/7 + optimización performance',
-                        'Técnico: Ecosistema 4 agentes IA 100% funcional + marketplace generando ingresos + optimización ML models'
-                    ],
-                    kpis: [
-                        '3 vagonetas >95% tiempo activo (uptime monitoreado) ✓',
-                        'NPS operadores >50 (satisfacción validada) ✓',
-                        'Primeros ingresos marketplace Super-PMA documentados ✓',
-                        'Morosidad piloto = 0% (objetivo crítico mantenido) ✓'
-                    ]
-                },
-                4: {
-                    title: 'Meses 10-12: Tracción y Preparación Serie A',
-                    tasks: [
-                        'Go-To-Market: Documentación casos éxito + testimoniales + métricas tracción + pipeline comercial',
-                        'Legal: Data room S.A.P.I. 100% completo + documentación corporativa + compliance histórico auditado',
-                        'Piloto: Análisis final economía unitaria + reportes performance + ROI validado con datos reales',
-                        'Técnico: Documentación técnica completa + arquitectura escalable + roadmap post-Serie A definido'
-                    ],
-                    kpis: [
-                        'Morosidad final piloto 0% (track record impecable) ✓',
-                        'NPS operadores >70 (alta satisfacción comprobada) ✓',
-                        'Data room legal y financiero 100% completo para due diligence ✓',
-                        'Term sheet Serie A $45M MXN en negociación avanzada ✓'
-                    ]
-                }
-            };
-
-            // Enhanced HR Data with detailed monthly assignments (for backwards compatibility)
-            const enhancedHrData = {
-                roles: ['Científico de Datos', 'Ingeniero de ML', 'Desarrollador Full-Stack', 'Desarrollador Backend', 'Desarrollador IoT', 'Desarrollador Frontend', 'Ingeniero DevOps', 'Ingeniero QA'],
-                allocations: [
-                    ['HASE (70%) SaaS-Setup (30%)', 'HASE (60%) SaaS-Integration (40%)', 'HASE (80%) Super-PMA (20%)', 'Super-PMA (80%) HASE (20%)', 'Super-PMA (100%)', 'Super-PMA (100%)', 'Análisis Piloto (HASE, PMA)', 'Análisis Piloto (HASE, PMA)', 'Optimización Modelos ML', 'Documentación (Modelos)', 'Soporte (Serie A)', 'Soporte (Serie A)'],
-                    ['HASE (100%)', 'PIA (50%) HASE (50%)', 'PIA (80%) Asistente (20%)', 'PIA (70%) Asistente (30%)', 'PIA (100%)', 'Asistente (70%) PIA (30%)', 'Asistente (100%)', 'Análisis Piloto (PIA, Asistente)', 'Optimización Modelos IA', 'Documentación (IA)', 'Soporte (Serie A)', 'Soporte (Serie A)'],
-                    ['SaaS (100%)', 'SaaS (80%) PIA (20%)', 'SaaS (50%) PIA (50%)', 'Asistente (50%) PMA (50%)', 'Asistente (50%) PMA (50%)', 'Integración Piloto', 'Soporte Piloto', 'Optimización General', 'Soporte GTM', 'Soporte (Serie A)', 'Soporte (Serie A)', 'Soporte (Serie A)'],
-                    ['-', 'HASE (API) SaaS-Integration', 'HASE (API) SaaS-Optimization', 'PIA (API)', 'PIA (API)', 'Integración General SaaS', 'Soporte Piloto', 'Soporte Piloto', 'Optimización Backend', 'Documentación API', 'Mantenimiento', 'Mantenimiento'],
-                    ['-', 'Super-PMA (HW)', 'Super-PMA (HW)', 'Super-PMA (Streaming)', 'Super-PMA (Streaming)', 'Despliegue Piloto', 'Monitoreo Piloto', 'Monitoreo Piloto', 'Optimización Datos', 'Documentación HW', 'Mantenimiento', 'Mantenimiento'],
-                    ['-', '-', 'App (UI/UX)', 'App (Dashboard)', 'App (Backend Connect)', 'App (QA)', 'App (Feedback)', 'App (Feedback)', 'App (Ajustes)', 'Finalización App', '-', 'Soporte (Serie A)'],
-                    ['Infra (Cloud, CI/CD) SaaS-Setup', 'Infra (DBs) SaaS-Config', 'Infra (Seguridad) SOC2', 'Monitoreo SaaS', 'Monitoreo SaaS', 'Soporte Piloto', 'Soporte Piloto', 'Optimización Infra', '-', '-', '-', '-'],
-                    ['-', '-', '-', '-', '-', 'Pruebas (Carga) SaaS-IA', 'Pruebas (Piloto)', 'Pruebas (Piloto)', 'Pruebas (Regresión)', 'Documentación QA', '-', '-']
-                ],
-                esopRoles: ['Científico de Datos', 'Ingeniero de ML', 'Desarrollador Full-Stack'],
-                totalHours: [1440, 1200, 1200, 960, 1024, 720, 480, 384]
-            };
-
-            // Financial data is now pre-calculated with exact values
-
-            // INVESTMENT DONUT CHART - COLORES ÉPICOS CON GLOW
-            const investmentDataEpic = {
-                labels: ['Desarrollo Core IA + SaaS', 'Inversión Piloto (CAPEX)', 'Equipo y Operaciones', 'Reserva de Emergencia'],
-                datasets: [{
-                    data: [2326000, 2630000, 1828000, 476000],
-                    backgroundColor: [
-                        'rgba(16, 185, 129, 0.8)',  // Teal con transparencia
-                        'rgba(59, 130, 246, 0.8)',  // Blue con transparencia  
-                        'rgba(139, 92, 246, 0.8)',  // Purple con transparencia
-                        'rgba(245, 158, 11, 0.8)'   // Orange con transparencia
-                    ],
-                    borderColor: [
-                        'rgba(16, 185, 129, 1)',
-                        'rgba(59, 130, 246, 1)', 
-                        'rgba(139, 92, 246, 1)',
-                        'rgba(245, 158, 11, 1)'
-                    ],
-                    borderWidth: 3,
-                    hoverBorderWidth: 5,
-                    hoverBorderColor: '#ffffff'
-                }]
-            };
-            
-            const techTimelineData = [
-                { category: 'HASE (Motor Scoring)', start: 1, end: 3, color: '#10b981', tasks: 'Mes 1: Ingesta datos + Apache Airflow. Mes 2: XGBoost training v0.5. Mes 3: HASE v0.8 >80% AUC + SHAP explicabilidad.', milestone: 'Hito: Motor scoring validado offline con FastAPI <200ms.' },
-                { category: 'SaaS Backbone Empresarial', start: 1, end: 6, color: '#0d9488', tasks: 'Mes 1-2: Odoo ERP + Auth0 security. Mes 3-4: Stripe/Xero + CI/CD. Mes 5-6: Integración completa + SOC2-ready.', milestone: 'Hito: Stack empresarial operativo + seguridad institucional.' },
-                { category: 'PIA (Intervención Proactiva)', start: 2, end: 5, color: '#0f766e', tasks: 'Mes 2: Motor alertas + arquitectura. Mes 4: WhatsApp API + LLMs. Mes 5: Decision Trees + Redis queue optimizada.', milestone: 'Hito: Sistema intervención <2min latencia + backup Twilio.' },
-                { category: 'Super-PMA (Predictivo + Marketplace)', start: 3, end: 8, color: '#115e59', tasks: 'Mes 3: Kafka + IoT design. Mes 6: Sensores streaming. Mes 7: RandomForest + React marketplace. Mes 8: 3 vagonetas validadas.', milestone: 'Hito: Marketplace funcional + modelos predictivos >85% precisión.' },
-                { category: 'Asistente Digital 24/7', start: 4, end: 8, color: '#134e4a', tasks: 'Mes 4: BERT español + base conocimiento. Mes 6: GPT-4 Vision. Mes 7: Computer vision. Mes 8: Servicios premium.', milestone: 'Hito: Sistema multimodal 24/7 + monetización premium activa.' },
-                { category: 'Optimización & Preparación Serie A', start: 9, end: 12, color: '#f59e0b', tasks: 'Mes 9-10: Refinamiento 4 agentes + análisis datos piloto. Mes 11-12: Documentación técnica + roadmap Serie A.', milestone: 'Hito: Platform stable + term sheet $45M en negociación.' }
-            ];
-
-            const opsTimelineData = [
-                { phase: 'Meses 1-3: Fundación y Preparación', color: '#0d9488', tasks: 'Go-To-Market: Identificación y pre-calificación operadores piloto (red 24,000+ contactos, criterios riesgo establecidos).\nLegales: Trámites REPUVE (Registro Público Vehicular) y SEMARNAT (permisos conversión GNV) - críticos para operación legal.\nPiloto: Compra 3 vagonetas para conversión GNV + selección talleres certificados aliados.\nProducto: HASE v0.8 entrenado >80% precisión + infraestructura cloud + SaaS backbone desplegado.', kpi: 'KPI: 100% operadores piloto pre-seleccionados y validados. Trámites REPUVE/SEMARNAT iniciados (documentación completa). Equipo técnico 100% operativo + SaaS enterprise-grade funcionando.' },
-                { phase: 'Meses 4-6: Desarrollo y Despliegue', color: '#0f766e', tasks: 'Go-To-Market: Firma contratos operadores piloto + onboarding inicial programa.\nLegales: Validación cumplimiento PLD (Prevención Lavado Dinero) + obtención final REPUVE/SEMARNAT.\nPiloto: Instalación hardware IoT completo + despliegue 1ra vagoneta con streaming datos.\nProducto: PIA funcional WhatsApp + SaaS completamente integrado + App Android MVP operativa.', kpi: 'KPI: 3 contratos piloto firmados con operadores validados. REPUVE y SEMARNAT obtenidos (vagonetas legalmente operativas). 1ra vagoneta transmitiendo datos IoT tiempo real a Kafka.' },
-                { phase: 'Meses 7-9: Validación y Recolección de Datos', color: '#115e59', tasks: 'Go-To-Market: Onboarding completo + soporte continuo operadores + feedback loops.\nLegales: Auditoría cumplimiento interno + preparación políticas corporativas + compliance monitoring.\nPiloto: 3 vagonetas operando completamente + monitoreo 24/7 + optimización performance.\nProducto: Ecosistema 4 agentes IA 100% funcional + marketplace generando ingresos + optimización ML models.', kpi: 'KPI: 3 vagonetas >95% tiempo activo (uptime monitoreado). NPS operadores >50 (satisfacción validada). Primeros ingresos marketplace Super-PMA documentados. Morosidad piloto = 0% (objetivo crítico mantenido).' },
-                { phase: 'Meses 10-12: Tracción y Preparación Serie A', color: '#f59e0b', tasks: 'Go-To-Market: Documentación casos éxito + testimoniales + métricas tracción + pipeline comercial.\nLegales: Data room S.A.P.I. 100% completo + documentación corporativa + compliance histórico auditado.\nPiloto: Análisis final economía unitaria + reportes performance + ROI validado con datos reales.\nProducto: Documentación técnica completa + arquitectura escalable + roadmap post-Serie A definido.', kpi: 'KPI: Morosidad final piloto 0% (track record impecable). NPS operadores >70 (alta satisfacción comprobada). Data room legal y financiero 100% completo para due diligence. Term sheet Serie A $45M MXN en negociación avanzada.' }
-            ];
-
-            const hrData = {
-                roles: ['Científico de Datos', 'Ingeniero de ML', 'Desarrollador Full-Stack', 'Desarrollador Backend', 'Desarrollador IoT', 'Desarrollador Frontend', 'Ingeniero DevOps', 'Ingeniero QA'],
-                allocations: [
-                    ['HASE (70%) SaaS-Setup (30%)', 'HASE (60%) SaaS-Integration (40%)', 'HASE (80%) Super-PMA (20%)', 'Super-PMA (80%) HASE (20%)', 'Super-PMA (100%)', 'Super-PMA (100%)', 'Análisis Piloto (HASE, PMA)', 'Análisis Piloto (HASE, PMA)', 'Optimización Modelos ML', 'Documentación (Modelos)', 'Soporte (Serie A)', 'Soporte (Serie A)'],
-                    ['HASE (100%)', 'PIA (50%) HASE (50%)', 'PIA (80%) Asistente (20%)', 'PIA (70%) Asistente (30%)', 'PIA (100%)', 'Asistente (70%) PIA (30%)', 'Asistente (100%)', 'Análisis Piloto (PIA, Asistente)', 'Optimización Modelos IA', 'Documentación (IA)', 'Soporte (Serie A)', 'Soporte (Serie A)'],
-                    ['SaaS (100%)', 'SaaS (80%) PIA (20%)', 'SaaS (50%) PIA (50%)', 'Asistente (50%) PMA (50%)', 'Asistente (50%) PMA (50%)', 'Integración Piloto', 'Soporte Piloto', 'Optimización General', 'Soporte GTM', 'Soporte (Serie A)', 'Soporte (Serie A)', 'Soporte (Serie A)'],
-                    ['-', 'HASE (API) SaaS-Integration', 'HASE (API) SaaS-Optimization', 'PIA (API)', 'PIA (API)', 'Integración General SaaS', 'Soporte Piloto', 'Soporte Piloto', 'Optimización Backend', 'Documentación API', 'Mantenimiento', 'Mantenimiento'],
-                    ['-', 'Super-PMA (HW)', 'Super-PMA (HW)', 'Super-PMA (Streaming)', 'Super-PMA (Streaming)', 'Despliegue Piloto', 'Monitoreo Piloto', 'Monitoreo Piloto', 'Optimización Datos', 'Documentación HW', 'Mantenimiento', 'Mantenimiento'],
-                    ['-', '-', 'App (UI/UX)', 'App (Dashboard)', 'App (Backend Connect)', 'App (QA)', 'App (Feedback)', 'App (Feedback)', 'App (Ajustes)', 'Finalización App', '-', 'Soporte (Serie A)'],
-                    ['Infra (Cloud, CI/CD) SaaS-Setup', 'Infra (DBs) SaaS-Config', 'Infra (Seguridad) SOC2', 'Monitoreo SaaS', 'Monitoreo SaaS', 'Soporte Piloto', 'Soporte Piloto', 'Optimización Infra', '-', '-', '-', '-'],
-                    ['-', '-', '-', '-', '-', 'Pruebas (Carga) SaaS-IA', 'Pruebas (Piloto)', 'Pruebas (Piloto)', 'Pruebas (Regresión)', 'Documentación QA', '-', '-']
-                ]
-            };
-
-            // Update the hrMatrixDetallada to use the corrected data structure
-            const hrMatrixDetallada = hrMatrixCompleta;
-
-            // --- CHARTS ---
-
-            // Investment Donut Chart - DEBUGGING ELEMENTOS DOM
-            console.log('Creando Investment Chart...');
+        function initChartsSimple() {
+            // INVESTMENT CHART
             const donutCanvas = document.getElementById('investmentDonutChart');
-            console.log('Canvas:', donutCanvas);
-            console.log('Canvas parent:', donutCanvas?.parentElement);
-            console.log('Canvas computed style:', donutCanvas ? window.getComputedStyle(donutCanvas) : 'null');
-            console.log('Canvas dimensions:', donutCanvas ? `${donutCanvas.offsetWidth}x${donutCanvas.offsetHeight}` : 'null');
-            
-            if (!donutCanvas) {
-                console.error('Investment donut chart canvas not found');
-                
-                // FALLBACK VISUAL PARA DEBUGGING
-                const fallbackDiv = document.createElement('div');
-                fallbackDiv.innerHTML = 'INVESTMENT CHART FAILED TO LOAD';
-                fallbackDiv.style.cssText = 'background: red; color: white; padding: 20px; text-align: center;';
-                document.querySelector('.chart-container').appendChild(fallbackDiv);
-                return;
-            }
-            const donutCtx = donutCanvas.getContext('2d');
-            if (!donutCtx) {
-                console.error('Cannot get 2D context for investment donut chart');
-                return;
-            }
-            
-            try {
-                new Chart(donutCtx, {
-                type: 'doughnut',
-                data: investmentDataEpic,
-                options: {
-                    ...epicDarkChartOptions,
-                    cutout: '60%',
-                    plugins: {
-                        ...epicDarkChartOptions.plugins,
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                padding: 25,
-                                color: '#f1f5f9',
-                                font: { size: 16, weight: '600' }
-                            }
+            if (donutCanvas) {
+                try {
+                    new Chart(donutCanvas, {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['Core IA + SaaS', 'CAPEX Piloto', 'Equipo', 'Reserva'],
+                            datasets: [{
+                                data: [2326000, 2630000, 1828000, 476000],
+                                backgroundColor: ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b']
+                            }]
                         },
-                        tooltip: {
-                            ...epicDarkChartOptions.plugins.tooltip,
-                            callbacks: {
-                                label: function(context) {
-                                    let label = context.label || '';
-                                    if (label) {
-                                        label += ': ';
-                                    }
-                                    if (context.parsed !== null) {
-                                        label += new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(context.parsed);
-                                    }
-                                    return label;
-                                }
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { position: 'bottom' }
                             }
                         }
-                    }
+                    });
+                } catch (error) {
+                    console.error('Error investment chart:', error);
                 }
-            });
-            console.log('✅ Investment donut chart created successfully');
-            } catch (error) {
-                console.error('❌ Chart error:', error);
-                
-                // FALLBACK VISUAL PARA DEBUGGING
-                const fallbackDiv = document.createElement('div');
-                fallbackDiv.innerHTML = 'INVESTMENT CHART FAILED TO LOAD - ERROR: ' + error.message;
-                fallbackDiv.style.cssText = 'background: red; color: white; padding: 20px; text-align: center;';
-                donutCanvas.parentElement.appendChild(fallbackDiv);
             }
-
-            // ROI Comparison Chart - DEBUGGING ELEMENTOS DOM
-            console.log('Creando ROI Chart...');
+            
+            // ROI CHART
             const roiCanvas = document.getElementById('roiComparisonChart');
-            console.log('ROI Canvas:', roiCanvas);
-            console.log('ROI Canvas parent:', roiCanvas?.parentElement);
-            console.log('ROI Canvas computed style:', roiCanvas ? window.getComputedStyle(roiCanvas) : 'null');
-            console.log('ROI Canvas dimensions:', roiCanvas ? `${roiCanvas.offsetWidth}x${roiCanvas.offsetHeight}` : 'null');
-            
-            if (!roiCanvas) {
-                console.error('ROI comparison chart canvas not found');
-                
-                // FALLBACK VISUAL PARA DEBUGGING
-                const fallbackDiv = document.createElement('div');
-                fallbackDiv.innerHTML = 'ROI CHART FAILED TO LOAD';
-                fallbackDiv.style.cssText = 'background: red; color: white; padding: 20px; text-align: center;';
-                document.querySelector('#roiComparisonChart').parentElement.appendChild(fallbackDiv);
-                return;
-            }
-            const roiCtx = roiCanvas.getContext('2d');
-            if (!roiCtx) {
-                console.error('Cannot get 2D context for ROI comparison chart');
-                return;
-            }
-            
-            let roiChart;
-            // ROI CHART - GRADIENTES Y GLOW EFFECTS
-            const roiDatasetEpic = [
-                {
-                    label: 'Modelo Tradicional',
-                    data: roiData.tradicional.slice(0, 10),
-                    borderColor: '#ef4444',
-                    backgroundColor: 'rgba(239, 68, 68, 0.2)',
-                    borderWidth: 4,
-                    pointBackgroundColor: '#ef4444',
-                    pointBorderColor: '#ffffff',
-                    pointBorderWidth: 3,
-                    pointRadius: 6,
-                    pointHoverRadius: 8,
-                    tension: 0.4,
-                    fill: true,
-                    shadowColor: 'rgba(239, 68, 68, 0.5)',
-                    shadowBlur: 10
-                },
-                {
-                    label: 'Modelo IA-Nativo',
-                    data: roiData.iaNativo.slice(0, 10),
-                    borderColor: '#10b981', 
-                    backgroundColor: 'rgba(16, 185, 129, 0.2)',
-                    borderWidth: 4,
-                    pointBackgroundColor: '#10b981',
-                    pointBorderColor: '#ffffff',
-                    pointBorderWidth: 3,
-                    pointRadius: 6,
-                    pointHoverRadius: 8,
-                    tension: 0.4,
-                    fill: true,
-                    shadowColor: 'rgba(16, 185, 129, 0.5)',
-                    shadowBlur: 10
-                }
-            ];
-
-            try {
-                roiChart = new Chart(roiCtx, {
-                type: 'line',
-                data: {
-                    labels: ['Año 1', 'Año 2', 'Año 3', 'Año 4', 'Año 5', 'Año 6', 'Año 7', 'Año 8', 'Año 9', 'Año 10'],
-                    datasets: roiDatasetEpic
-                },
-                options: {
-                    ...epicDarkChartOptions,
-                    plugins: {
-                        ...epicDarkChartOptions.plugins,
-                        tooltip: {
-                            ...epicDarkChartOptions.plugins.tooltip,
-                            callbacks: {
-                                label: function(context) {
-                                    return context.dataset.label + ': ' + 
-                                           new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 0 }).format(context.parsed.y);
+            if (roiCanvas) {
+                try {
+                    new Chart(roiCanvas, {
+                        type: 'line',
+                        data: {
+                            labels: ['Año 1', 'Año 2', 'Año 3', 'Año 4', 'Año 5'],
+                            datasets: [
+                                {
+                                    label: 'Tradicional',
+                                    data: [3580000, 7339000, 11285950, 15430248, 19781760],
+                                    borderColor: '#ef4444',
+                                    backgroundColor: 'rgba(239, 68, 68, 0.1)'
+                                },
+                                {
+                                    label: 'IA-Nativo',
+                                    data: [3140000, 3994700, 4892135, 5834442, 6823864],
+                                    borderColor: '#10b981',
+                                    backgroundColor: 'rgba(16, 185, 129, 0.1)'
                                 }
-                            }
+                            ]
                         },
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                color: '#f1f5f9',
-                                font: { size: 16, weight: '600' },
-                                padding: 25
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { position: 'bottom' }
                             }
                         }
-                    },
-                    scales: {
-                        ...epicDarkChartOptions.scales,
-                        y: {
-                            ...epicDarkChartOptions.scales.y,
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: 'Costo Acumulado (MXN)',
-                                color: '#cbd5e1',
-                                font: { size: 14, weight: '500' }
-                            },
-                            ticks: {
-                                ...epicDarkChartOptions.scales.y.ticks,
-                                callback: value => `$${(value / 1000000).toFixed(1)}M`
-                            }
-                        }
-                    }
+                    });
+                } catch (error) {
+                    console.error('Error ROI chart:', error);
                 }
-            });
-            console.log('✅ ROI comparison chart created successfully');
-            } catch (error) {
-                console.error('❌ ROI Chart error:', error);
-                
-                // FALLBACK VISUAL PARA DEBUGGING
-                const fallbackDiv = document.createElement('div');
-                fallbackDiv.innerHTML = 'ROI CHART FAILED TO LOAD - ERROR: ' + error.message;
-                fallbackDiv.style.cssText = 'background: red; color: white; padding: 20px; text-align: center;';
-                roiCanvas.parentElement.appendChild(fallbackDiv);
             }
-
-            // Financial Plan Chart - DEBUGGING ELEMENTOS DOM
-            console.log('Creando Financial Chart...');
+            
+            // FINANCIAL CHART
             const financialCanvas = document.getElementById('financialPlanChart');
-            console.log('Financial Canvas:', financialCanvas);
-            console.log('Financial Canvas parent:', financialCanvas?.parentElement);
-            console.log('Financial Canvas computed style:', financialCanvas ? window.getComputedStyle(financialCanvas) : 'null');
-            console.log('Financial Canvas dimensions:', financialCanvas ? `${financialCanvas.offsetWidth}x${financialCanvas.offsetHeight}` : 'null');
-            
-            if (!financialCanvas) {
-                console.error('Financial plan chart canvas not found');
-                
-                // FALLBACK VISUAL PARA DEBUGGING
-                const fallbackDiv = document.createElement('div');
-                fallbackDiv.innerHTML = 'FINANCIAL CHART FAILED TO LOAD';
-                fallbackDiv.style.cssText = 'background: red; color: white; padding: 20px; text-align: center;';
-                document.querySelector('#financialPlanChart').parentElement.appendChild(fallbackDiv);
-                return;
-            }
-            const financialCtx = financialCanvas.getContext('2d');
-            if (!financialCtx) {
-                console.error('Cannot get 2D context for financial plan chart');
-                return;
-            }
-            
-            // FINANCIAL CHART - GRADIENTES EN BARRAS
-            const financialDatasetsEpic = [
-                {
-                    label: 'Gasto en Equipo',
-                    data: financialData.gastoEquipo,
-                    backgroundColor: 'rgba(20, 184, 166, 0.8)',
-                    borderColor: 'rgba(20, 184, 166, 1)',
-                    borderWidth: 2,
-                    stack: 'Stack 0'
-                },
-                {
-                    label: 'Gasto en Desarrollo', 
-                    data: financialData.gastoDesarrollo,
-                    backgroundColor: 'rgba(13, 148, 136, 0.8)',
-                    borderColor: 'rgba(13, 148, 136, 1)',
-                    borderWidth: 2,
-                    stack: 'Stack 0'
-                },
-                {
-                    label: 'Gasto CAPEX',
-                    data: financialData.gastoCapex,
-                    backgroundColor: 'rgba(15, 118, 110, 0.8)',
-                    borderColor: 'rgba(15, 118, 110, 1)',
-                    borderWidth: 2,
-                    stack: 'Stack 0'
-                },
-                {
-                    label: 'Efectivo Restante',
-                    data: financialData.efectivoRestante,
-                    type: 'line',
-                    borderColor: '#f97316',
-                    backgroundColor: 'rgba(249, 115, 22, 0.3)',
-                    borderWidth: 4,
-                    pointBackgroundColor: '#f97316',
-                    pointBorderColor: '#ffffff',
-                    pointBorderWidth: 3,
-                    pointRadius: 6,
-                    fill: true,
-                    yAxisID: 'y1',
-                    tension: 0.4
-                }
-            ];
-
-            let financialChart;
-            try {
-                financialChart = new Chart(financialCtx, {
-                type: 'bar',
-                data: {
-                    labels: financialData.labels,
-                    datasets: financialDatasetsEpic
-                },
-                options: {
-                    ...epicDarkChartOptions,
-                    plugins: {
-                        ...epicDarkChartOptions.plugins,
-                        tooltip: {
-                            ...epicDarkChartOptions.plugins.tooltip,
-                            callbacks: {
-                                label: function(context) {
-                                    let label = context.dataset.label || '';
-                                    if (label) {
-                                        label += ': ';
-                                    }
-                                    if (context.parsed.y !== null) {
-                                        label += new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 0 }).format(context.parsed.y);
-                                    }
-                                    return label;
+            if (financialCanvas) {
+                try {
+                    new Chart(financialCanvas, {
+                        type: 'bar',
+                        data: {
+                            labels: ['M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8', 'M9', 'M10', 'M11', 'M12'],
+                            datasets: [
+                                {
+                                    label: 'Gasto Equipo',
+                                    data: [110000, 125000, 125000, 125000, 125000, 125000, 125000, 125000, 125000, 125000, 125000, 115000],
+                                    backgroundColor: '#14b8a6'
+                                },
+                                {
+                                    label: 'Gasto Desarrollo',
+                                    data: [190000, 210000, 257143, 250143, 250143, 250143, 230143, 230143, 230143, 193333, 193333, 199333],
+                                    backgroundColor: '#0d9488'
                                 }
-                            }
+                            ]
                         },
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                color: '#f1f5f9',
-                                font: { size: 16, weight: '600' },
-                                padding: 25
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { position: 'bottom' }
                             }
                         }
-                    },
-                    scales: {
-                        x: {
-                            ...epicDarkChartOptions.scales.x,
-                            stacked: true,
-                            grid: { display: false }
-                        },
-                        y: {
-                            ...epicDarkChartOptions.scales.y,
-                            stacked: true,
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: 'Gasto Mensual (MXN)',
-                                color: '#cbd5e1',
-                                font: { size: 14, weight: '500' }
-                            },
-                            ticks: {
-                                ...epicDarkChartOptions.scales.y.ticks,
-                                callback: value => `${value / 1000}k`
-                            }
-                        },
-                        y1: {
-                            position: 'right',
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: 'Efectivo Restante (MXN)',
-                                color: '#cbd5e1',
-                                font: { size: 14, weight: '500' }
-                            },
-                            grid: {
-                                drawOnChartArea: false,
-                                color: 'rgba(255, 255, 255, 0.15)'
-                            },
-                            ticks: {
-                                color: '#cbd5e1',
-                                font: { size: 14, weight: '500' },
-                                callback: value => `${value / 1000000}M`
-                            }
-                        }
-                    }
+                    });
+                } catch (error) {
+                    console.error('Error financial chart:', error);
+                }
+            }
+        }
+
+        // LEGACY COMPATIBILITY - MANTENER ESTRUCTURA MÍNIMA
+        class EpicCounterAnimator {
+            constructor() {
+                // Simplificado - no hacer nada complejo
+            }
+        }
+
+        // NAVEGACIÓN SIMPLE
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }
             });
-            console.log('✅ Financial chart created successfully');
-            } catch (error) {
-                console.error('❌ Financial Chart error:', error);
-                
-                // FALLBACK VISUAL PARA DEBUGGING
-                const fallbackDiv = document.createElement('div');
-                fallbackDiv.innerHTML = 'FINANCIAL CHART FAILED TO LOAD - ERROR: ' + error.message;
-                fallbackDiv.style.cssText = 'background: red; color: white; padding: 20px; text-align: center;';
-                financialCanvas.parentElement.appendChild(fallbackDiv);
-            }
-
-            // --- INTERACTIONS ---
-
-            // Agent Modal Functionality
-            const agentCards = document.querySelectorAll('.agent-card');
-            const agentModal = document.getElementById('agent-modal');
-            const modalTitle = document.getElementById('modal-title');
-            const modalContent = document.getElementById('modal-content');
-            const closeModal = document.getElementById('close-modal');
-
-            function createAgentModalContent(agent) {
-                const data = agentDetails[agent];
-                const budgetTotal = Object.values(data.budget).reduce((a, b) => a + b, 0);
-                const hoursTotal = data.hours.total || data.hours;
-                const hoursBreakdown = data.hours.breakdown || [];
-                
-                return `
-                    <div class="space-y-6">
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div class="bg-slate-50 p-4 rounded-lg">
-                                <h3 class="font-semibold text-slate-800 mb-3">Presupuesto Detallado</h3>
-                                ${Object.entries(data.budget).map(([key, value]) => `
-                                    <div class="flex justify-between text-sm mb-2">
-                                        <span class="capitalize">${key.replace(/([A-Z])/g, ' $1').toLowerCase()}:</span>
-                                        <span class="font-semibold">$${value.toLocaleString()}</span>
-                                    </div>
-                                `).join('')}
-                                <div class="border-t pt-2 mt-2">
-                                    <div class="flex justify-between font-bold">
-                                        <span>Total:</span>
-                                        <span>$${budgetTotal.toLocaleString()}</span>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="bg-slate-50 p-4 rounded-lg">
-                                <h3 class="font-semibold text-slate-800 mb-3">Tech Stack</h3>
-                                <div class="flex flex-wrap gap-2">
-                                    ${data.techStack.map(tech => `
-                                        <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">${tech}</span>
-                                    `).join('')}
-                                </div>
-                            </div>
-                            
-                            <div class="bg-slate-50 p-4 rounded-lg">
-                                <h3 class="font-semibold text-slate-800 mb-3">Horas Desarrollo</h3>
-                                <div class="text-center">
-                                    <div class="text-3xl font-bold text-teal-600">${hoursTotal}h</div>
-                                    <div class="text-sm text-slate-600">Total estimadas</div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div class="bg-slate-50 p-4 rounded-lg">
-                                <h3 class="font-semibold text-slate-800 mb-3">Asignación por Rol</h3>
-                                ${hoursBreakdown.length > 0 ? hoursBreakdown.map(member => `
-                                    <div class="mb-3 p-3 bg-white rounded border">
-                                        <div class="font-semibold text-sm">${member.role}</div>
-                                        <div class="text-xs text-slate-600">${member.hours}h • ${member.period}</div>
-                                        <div class="text-xs text-slate-500 mt-1">${member.focus}</div>
-                                    </div>
-                                `).join('') : (data.team || []).map(member => `
-                                    <div class="mb-3 p-3 bg-white rounded border">
-                                        <div class="font-semibold text-sm">${member.role}</div>
-                                        <div class="text-xs text-slate-600">${member.hours}h • ${member.months}</div>
-                                    </div>
-                                `).join('')}
-                            </div>
-                            
-                            <div class="bg-slate-50 p-4 rounded-lg">
-                                <h3 class="font-semibold text-slate-800 mb-3">
-                                    ${data.cronograma ? 'Cronograma Detallado' : data.kpisTecnicos ? 'KPIs Técnicos' : data.kpis ? 'KPIs Específicos' : data.monetization ? 'Monetización' : data.serviciosPremium ? 'Servicios Premium' : 'Detalles'}
-                                </h3>
-                                ${data.cronograma ? data.cronograma.map(item => `
-                                    <div class="mb-3 p-2 bg-white rounded border-l-4 border-teal-500">
-                                        <div class="font-semibold text-sm">Mes ${item.mes}: ${item.tarea}</div>
-                                        <div class="text-xs text-slate-600 mt-1">🎯 ${item.hito}</div>
-                                    </div>
-                                `).join('') : (data.kpisTecnicos || data.kpis || data.monetization || data.serviciosPremium || data.services || []).map(item => `
-                                    <div class="mb-2 text-sm text-slate-700">• ${item}</div>
-                                `).join('')}
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }
-
-            agentCards.forEach(card => {
-                card.addEventListener('click', () => {
-                    const agent = card.dataset.agent;
-                    modalTitle.textContent = agentDetails[agent].title;
-                    modalContent.innerHTML = createAgentModalContent(agent);
-                    agentModal.classList.remove('hidden');
-                });
-            });
-
-            closeModal.addEventListener('click', () => {
-                agentModal.classList.add('hidden');
-            });
-
-            // ROI Calculator Functionality
-            const roiSlider = document.getElementById('roi-years');
-            const yearsLabel = document.getElementById('years-label');
-            const roiTradicional = document.getElementById('roi-tradicional');
-            const roiIaNativo = document.getElementById('roi-ia-nativo');
-            const roiAhorro = document.getElementById('roi-ahorro');
-            const paybackPeriod = document.getElementById('payback-period');
-            const finalRoi = document.getElementById('final-roi');
-
-            function updateROI(years) {
-                const yearIndex = years - 1;
-                yearsLabel.textContent = years;
-                roiTradicional.textContent = `$${(roiData.tradicional[yearIndex] / 1000000).toFixed(2)}M`;
-                roiIaNativo.textContent = `$${(roiData.iaNativo[yearIndex] / 1000000).toFixed(2)}M`;
-                roiAhorro.textContent = `$${(roiData.ahorros[yearIndex] / 1000000).toFixed(2)}M`;
-                
-                // Update chart data
-                roiChart.data.datasets[0].data = roiData.tradicional.slice(0, years);
-                roiChart.data.datasets[1].data = roiData.iaNativo.slice(0, years);
-                roiChart.data.labels = Array.from({length: years}, (_, i) => `Año ${i + 1}`);
-                roiChart.update();
-                
-                // Calculate ROI percentage
-                const investmentTech = 2326000;
-                const savings = roiData.ahorros[yearIndex];
-                const roi = ((savings / investmentTech) * 100).toFixed(0);
-                finalRoi.textContent = `${roi}%`;
-            }
-
-            roiSlider.addEventListener('input', (e) => updateROI(parseInt(e.target.value)));
-            updateROI(5);
-
-            // Phase Details Functionality
-            const phaseCards = document.querySelectorAll('.phase-card');
-            const phaseDetailsDiv = document.getElementById('phase-details');
-            const phaseTitle = document.getElementById('phase-title');
-            const phaseTasks = document.getElementById('phase-tasks');
-            const phaseKpis = document.getElementById('phase-kpis');
-
-            phaseCards.forEach(card => {
-                card.addEventListener('click', () => {
-                    const phase = parseInt(card.dataset.phase);
-                    const details = phaseDetails[phase];
-                    
-                    phaseTitle.textContent = details.title;
-                    phaseTasks.innerHTML = details.tasks.map(task => `<div class="flex items-start"><span class="text-teal-600 mr-2">•</span>${task}</div>`).join('');
-                    phaseKpis.innerHTML = details.kpis.map(kpi => `<div class="flex items-center"><span class="text-green-600 mr-2">✓</span>${kpi}</div>`).join('');
-                    phaseDetailsDiv.classList.remove('hidden');
-                });
-            });
-
-            // Legal Modal
-            const showLegalBtn = document.getElementById('show-legal');
-            const legalModal = document.getElementById('legal-modal');
-            const closeLegalModal = document.getElementById('close-legal-modal');
-
-            showLegalBtn.addEventListener('click', () => {
-                legalModal.classList.remove('hidden');
-            });
-
-            closeLegalModal.addEventListener('click', () => {
-                legalModal.classList.add('hidden');
-            });
-
-            // Glossary Modal
-            const showGlossaryBtn = document.getElementById('show-glossary');
-            const glossaryModal = document.getElementById('glossary-modal');
-            const closeGlossaryModal = document.getElementById('close-glossary-modal');
-
-            if (showGlossaryBtn && glossaryModal && closeGlossaryModal) {
-                showGlossaryBtn.addEventListener('click', () => {
-                    glossaryModal.classList.remove('hidden');
-                });
-
-                closeGlossaryModal.addEventListener('click', () => {
-                    glossaryModal.classList.add('hidden');
-                });
-            }
-
-            // Close modals on outside click
-            [agentModal, legalModal, glossaryModal].forEach(modal => {
-                modal.addEventListener('click', (e) => {
-                    if (e.target === modal) {
-                        modal.classList.add('hidden');
-                    }
-                });
-            });
-
-            // Financial Slider
-            const slider = document.getElementById('month-slider');
-            const monthLabel = document.getElementById('month-label');
-            const kpiGastoMes = document.getElementById('kpi-gasto-mes');
-            const kpiGastoAcumulado = document.getElementById('kpi-gasto-acumulado');
-            const kpiEfectivo = document.getElementById('kpi-efectivo');
-
-            function formatCurrency(value) {
-                if (value >= 1000000) return `$${(value / 1000000).toFixed(2)}M`;
-                if (value >= 1000) return `$${(value / 1000).toFixed(0)}k`;
-                return `$${value}`;
-            }
-
-            function updateFinancials(month) {
-                const index = month - 1;
-                monthLabel.textContent = month;
-                kpiGastoMes.textContent = formatCurrency(financialData.gastoTotal[index]);
-                kpiGastoAcumulado.textContent = formatCurrency(financialData.gastoAcumulado[index]);
-                kpiEfectivo.textContent = formatCurrency(financialData.efectivoRestante[index]);
-                
-                financialChart.data.datasets.forEach(dataset => {
-                    dataset.borderWidth = Array(12).fill(1);
-                });
-                financialChart.data.datasets.forEach(dataset => {
-                    if(dataset.type !== 'line') {
-                        dataset.borderWidth[index] = 3;
-                        dataset.borderColor = '#1f2937';
-                    }
-                });
-                financialChart.update();
-            }
-
-            slider.addEventListener('input', (e) => updateFinancials(parseInt(e.target.value)));
-            updateFinancials(1);
-
-            // Tech Timeline
-            const techContainer = document.getElementById('tech-timeline-container');
-            const techDetailsPane = document.getElementById('tech-details-pane');
-            const techDetailsTitle = document.getElementById('tech-details-title');
-            const techDetailsTasks = document.getElementById('tech-details-tasks');
-            const techDetailsMilestone = document.getElementById('tech-details-milestone');
-            
-            techTimelineData.forEach(item => {
-                const itemEl = document.createElement('div');
-                itemEl.className = 'timeline-item cursor-pointer p-3 rounded-lg hover:bg-slate-50';
-                const width = ((item.end - item.start + 1) / 12) * 100;
-                const left = ((item.start - 1) / 12) * 100;
-
-                itemEl.innerHTML = `
-                    <div class="flex justify-between items-center mb-1">
-                        <span class="font-semibold text-sm">${item.category}</span>
-                        <span class="text-xs text-slate-500">Mes ${item.start} - ${item.end}</span>
-                    </div>
-                    <div class="timeline-bar h-4 w-full bg-slate-200">
-                        <div class="timeline-progress" style="width: ${width}%; left: ${left}%; background-color: ${item.color};"></div>
-                    </div>
-                `;
-                itemEl.addEventListener('click', () => {
-                    techDetailsTitle.textContent = item.category;
-                    techDetailsTasks.textContent = item.tasks;
-                    techDetailsMilestone.textContent = item.milestone;
-                    techDetailsPane.classList.remove('hidden');
-                });
-                techContainer.appendChild(itemEl);
-            });
-
-            // Ops Timeline
-            const opsContainer = document.getElementById('ops-timeline-container');
-            const opsDetailsPane = document.getElementById('ops-details-pane');
-            const opsDetailsTitle = document.getElementById('ops-details-title');
-            const opsDetailsTasks = document.getElementById('ops-details-tasks');
-            const opsDetailsKpi = document.getElementById('ops-details-kpi');
-
-            opsTimelineData.forEach(item => {
-                const itemEl = document.createElement('div');
-                itemEl.className = 'ops-item cursor-pointer p-4 rounded-lg border border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-colors';
-                itemEl.style.borderLeft = `5px solid ${item.color}`;
-                itemEl.innerHTML = `<h4 class="font-semibold">${item.phase}</h4>`;
-                
-                itemEl.addEventListener('click', () => {
-                    opsDetailsTitle.textContent = item.phase;
-                    opsDetailsTasks.textContent = item.tasks;
-                    opsDetailsKpi.textContent = item.kpi;
-                    opsDetailsPane.classList.remove('hidden');
-                });
-                opsContainer.appendChild(itemEl);
-            });
-
-            // Enhanced HR Table
-            const hrTable = document.getElementById('hr-table');
-            const roleFilter = document.getElementById('role-filter');
-            const monthFilter = document.getElementById('month-filter');
-            const theadRow = hrTable.querySelector('thead tr');
-            const tbody = hrTable.querySelector('tbody');
-
-            // Populate filters and table header
-            hrMatrixDetallada.roles.forEach(roleData => {
-                const option = document.createElement('option');
-                option.value = roleData.name;
-                option.textContent = roleData.name;
-                roleFilter.appendChild(option);
-            });
-            for(let i = 1; i <= 12; i++) {
-                const th = document.createElement('th');
-                th.className = 'px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider';
-                th.textContent = `M${i}`;
-                theadRow.appendChild(th);
-            }
-
-            // Populate table body with enhanced data using new detailed structure
-            hrMatrixDetallada.allocations.forEach((alloc, i) => {
-                const tr = document.createElement('tr');
-                const roleData = hrMatrixDetallada.roles[i];
-                const roleName = roleData.name;
-                const isEsop = roleData.type === 'ESOP';
-                
-                tr.dataset.role = roleName;
-                tr.className = isEsop ? 'bg-amber-50' : '';
-                
-                const roleCell = document.createElement('td');
-                roleCell.className = 'px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900';
-                roleCell.innerHTML = `
-                    <div class="flex items-center">
-                        ${isEsop ? '<span class="text-amber-500 mr-2">★</span>' : ''}
-                        ${roleName}
-                        <div class="ml-2 text-xs text-slate-600">
-                            ${roleData.totalHours}h
-                            ${isEsop ? '<span class="text-amber-600"> • ESOP</span>' : ''}
-                        </div>
-                    </div>
-                `;
-                tr.appendChild(roleCell);
-                
-                alloc.forEach((task, monthIndex) => {
-                    const td = document.createElement('td');
-                    td.className = 'px-3 py-2 whitespace-nowrap text-xs text-center text-gray-500';
-                    td.textContent = task;
-                    td.dataset.month = monthIndex + 1;
-                    tr.appendChild(td);
-                });
-                tbody.appendChild(tr);
-            });
-
-            // Enhanced filtering functionality
-            function updateTableDisplay() {
-                const selectedRole = roleFilter.value;
-                const selectedMonth = monthFilter.value;
-                
-                tbody.querySelectorAll('tr').forEach(tr => {
-                    const role = tr.dataset.role;
-                    const roleData = hrMatrixDetallada.roles.find(r => r.name === role);
-                    const isEsop = roleData && roleData.type === 'ESOP';
-                    
-                    // Role filtering
-                    const roleMatch = selectedRole === 'all' || role === selectedRole;
-                    tr.style.display = roleMatch ? '' : 'none';
-                    
-                    if (roleMatch) {
-                        // Reset background
-                        tr.className = isEsop ? 'bg-amber-50' : '';
-                        
-                        // Highlight selected role
-                        if (selectedRole !== 'all') {
-                            tr.style.backgroundColor = '#fef3c7';
-                        }
-                        
-                        // Month highlighting
-                        tr.querySelectorAll('td').forEach((td, index) => {
-                            if (index > 0) { // Skip role column
-                                td.style.backgroundColor = '';
-                                td.style.fontWeight = '';
-                                
-                                if (selectedMonth !== 'all' && td.dataset.month === selectedMonth) {
-                                    td.style.backgroundColor = '#dbeafe';
-                                    td.style.fontWeight = 'bold';
-                                }
-                            }
-                        });
-                    }
-                });
-            }
-
-            roleFilter.addEventListener('change', updateTableDisplay);
-            monthFilter.addEventListener('change', updateTableDisplay);
-
-            // Team member hover effects
-            document.querySelectorAll('.team-member').forEach(member => {
-                member.addEventListener('mouseenter', () => {
-                    const equity = member.dataset.equity;
-                    member.style.transform = 'scale(1.02)';
-                    member.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
-                });
-                
-                member.addEventListener('mouseleave', () => {
-                    member.style.transform = 'scale(1)';
-                    member.style.boxShadow = '';
-                });
-            });
-
-            // ===== EPIC COUNTER ANIMATIONS ===== 
-            function animateCounter(element, target, duration = 2500, prefix = '', suffix = '') {
-                const start = 0;
-                const increment = target / (duration / 16); // 60fps
-                let current = start;
-                
-                const timer = setInterval(() => {
-                    current += increment;
-                    if (current >= target) {
-                        current = target;
-                        clearInterval(timer);
-                    }
-                    
-                    // Format numbers with appropriate decimals
-                    let displayValue;
-                    if (target >= 1000000) {
-                        displayValue = (current / 1000000).toFixed(2);
-                    } else if (target >= 1000 && suffix === '%') {
-                        displayValue = Math.round(current);
-                    } else if (target >= 1000) {
-                        displayValue = (current / 1000).toFixed(0) + 'k';
-                        suffix = suffix.replace('M', '');
-                    } else {
-                        displayValue = Math.round(current);
-                    }
-                    
-                    element.textContent = prefix + displayValue + suffix;
-                }, 16);
-            }
-
-            // ===== INTERSECTION OBSERVER FOR SCROLL ANIMATIONS =====
-            const observerOptions = {
-                threshold: 0.2,
-                rootMargin: '0px 0px -50px 0px'
-            };
-
-            const observer = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        entry.target.classList.add('visible');
-                        
-                        // Trigger counter animations when cards become visible
-                        if (entry.target.classList.contains('scale-in')) {
-                            const counterElements = entry.target.querySelectorAll('.counter-number');
-                            counterElements.forEach((el, index) => {
-                                setTimeout(() => {
-                                    const target = parseInt(el.dataset.target);
-                                    const prefix = el.dataset.prefix || '';
-                                    const suffix = el.dataset.suffix || '';
-                                    animateCounter(el, target, 2000 + (index * 200), prefix, suffix);
-                                }, index * 200);
-                            });
-                        }
-                    }
-                });
-            }, observerOptions);
-
-            // Observe all fade-in and scale-in elements
-            document.querySelectorAll('.fade-in-up, .scale-in').forEach(el => {
-                observer.observe(el);
-            });
-
-            // ===== SCROLL PROGRESS BAR =====
-            const scrollProgress = document.querySelector('.scroll-progress');
-            
-            function updateScrollProgress() {
-                const scrollTop = window.pageYOffset;
-                const docHeight = document.documentElement.scrollHeight - window.innerHeight;
-                const scrollPercent = (scrollTop / docHeight) * 100;
-                scrollProgress.style.width = scrollPercent + '%';
-            }
-
-            window.addEventListener('scroll', updateScrollProgress);
-
-            // ===== ENHANCED NAVIGATION WITH DARK THEME =====
-            const sections = document.querySelectorAll('section');
-            const navLinks = document.querySelectorAll('.nav-link-dark');
-            
-            window.addEventListener('scroll', () => {
-                let current = '';
-                sections.forEach(section => {
-                    const sectionTop = section.offsetTop;
-                    if (pageYOffset >= sectionTop - 80) {
-                        current = section.getAttribute('id');
-                    }
-                });
-
-                navLinks.forEach(link => {
-                    link.classList.remove('active');
-                    if (link.getAttribute('href').includes(current)) {
-                        link.classList.add('active');
-                    }
-                });
-                
-                // Update scroll progress
-                updateScrollProgress();
-            });
-
-            // ===== STAGGERED CARD ANIMATIONS =====
-            function staggerCards() {
-                const cards = document.querySelectorAll('.agent-card-dark, .kpi-card-dark');
-                cards.forEach((card, index) => {
-                    setTimeout(() => {
-                        observer.observe(card);
-                    }, index * 100);
-                });
-            }
-
-            // Initialize staggered animations
-            setTimeout(staggerCards, 500);
-
-            // ===== EPIC HOVER SOUND EFFECTS (VISUAL) =====
-            document.querySelectorAll('.agent-card-dark, .kpi-card-dark').forEach(card => {
-                card.addEventListener('mouseenter', () => {
-                    card.style.transform = 'translateY(-12px) scale(1.03) rotateX(5deg)';
-                });
-                
-                card.addEventListener('mouseleave', () => {
-                    card.style.transform = '';
-                });
-            });
-
-            // ===== SMOOTH SCROLL FOR NAVIGATION =====
-            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-                anchor.addEventListener('click', function (e) {
-                    e.preventDefault();
-                    const target = document.querySelector(this.getAttribute('href'));
-                    if (target) {
-                        target.scrollIntoView({
-                            behavior: 'smooth',
-                            block: 'start'
-                        });
-                    }
-                });
-            });
-
-            // ===== INITIALIZE EPIC COUNTERS ON LOAD =====
-            setTimeout(() => {
-                const heroCounters = document.querySelectorAll('#tesis .counter-number');
-                heroCounters.forEach((el, index) => {
-                    setTimeout(() => {
-                        const target = parseInt(el.dataset.target);
-                        const prefix = el.dataset.prefix || '';
-                        const suffix = el.dataset.suffix || '';
-                        animateCounter(el, target, 3000 + (index * 300), prefix, suffix);
-                    }, 1000 + (index * 300));
-                });
-            }, 2000);
-
-        } // END OF initCharts FUNCTION
-
-        // DEBUGGING SISTEMÁTICO - WINDOW LOAD + TIMEOUT APPROACH
-        window.addEventListener('load', function() {
-            console.log('=== WINDOW LOAD EVENT ===');
-            console.log('Window fully loaded');
-            console.log('Chart en window load:', typeof Chart);
-            
-            // Esperar 100ms más para asegurar que Chart.js esté listo
-            setTimeout(function() {
-                console.log('=== TIMEOUT DESPUÉS DE WINDOW LOAD ===');
-                console.log('Chart después de timeout:', typeof Chart);
-                
-                if (typeof Chart === 'undefined') {
-                    console.error('Chart.js TODAVÍA no está disponible después de window.load');
-                    
-                    // Intentar cargar manualmente
-                    console.log('Intentando cargar Chart.js manualmente...');
-                    const script = document.createElement('script');
-                    script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js';
-                    script.onload = function() {
-                        console.log('Chart.js cargado manualmente');
-                        setTimeout(() => {
-                            console.log('Chart después de carga manual:', typeof Chart);
-                            initCharts();
-                        }, 100);
-                    };
-                    script.onerror = function() {
-                        console.error('Error cargando Chart.js manualmente');
-                    };
-                    document.head.appendChild(script);
-                    return;
-                }
-                
-                console.log('Chart.js disponible, iniciando charts...');
-                window.chartsInitialized = true;
-                initCharts();
-            }, 100);
         });
 
-        // FALLBACK - SI WINDOW LOAD NO FUNCIONA, USAR DOMCONTENTLOADED
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('=== DOMCONTENTLOADED FALLBACK ===');
-            console.log('DOM loaded, Chart disponible:', typeof Chart);
-            
-            // Solo ejecutar si window.load no se ejecutó en 2 segundos
-            setTimeout(function() {
-                if (typeof Chart !== 'undefined' && !window.chartsInitialized) {
-                    console.log('Ejecutando fallback DOMContentLoaded...');
-                    window.chartsInitialized = true;
-                    initCharts();
-                }
-            }, 2000);
-        });
+        // MODALES SIMPLES
+        const showLegalBtn = document.getElementById('show-legal');
+        const legalModal = document.getElementById('legal-modal');
+        const closeLegalModal = document.getElementById('close-legal-modal');
+
+        if (showLegalBtn && legalModal && closeLegalModal) {
+            showLegalBtn.addEventListener('click', () => legalModal.classList.remove('hidden'));
+            closeLegalModal.addEventListener('click', () => legalModal.classList.add('hidden'));
+        }
+
+        const showGlossaryBtn = document.getElementById('show-glossary');
+        const glossaryModal = document.getElementById('glossary-modal');
+        const closeGlossaryModal = document.getElementById('close-glossary-modal');
+
+        if (showGlossaryBtn && glossaryModal && closeGlossaryModal) {
+            showGlossaryBtn.addEventListener('click', () => glossaryModal.classList.remove('hidden'));
+            closeGlossaryModal.addEventListener('click', () => glossaryModal.classList.add('hidden'));
+        }
     </script>
 </body>
 </html>
