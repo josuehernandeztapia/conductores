@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chart.js High-DPI Rendering Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            height: 300px;
+            min-height: 250px;
+        }
+        
+        .chart-container canvas {
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: crisp-edges;
+            image-rendering: pixelated;
+        }
+        
+        .device-info {
+            background: #e3f2fd;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Chart.js High-DPI Rendering Test</h1>
+    
+    <div class="device-info">
+        <strong>Device Info:</strong><br>
+        Device Pixel Ratio: <span id="dpr"></span><br>
+        Screen Resolution: <span id="resolution"></span><br>
+        Chart.js Version: <span id="chartjs-version"></span>
+    </div>
+
+    <div class="test-container">
+        <h2>Test 1: Line Chart with High-DPI Setup</h2>
+        <div class="chart-container">
+            <canvas id="line-chart"></canvas>
+        </div>
+    </div>
+
+    <div class="test-container">
+        <h2>Test 2: Doughnut Chart with High-DPI Setup</h2>
+        <div class="chart-container">
+            <canvas id="doughnut-chart"></canvas>
+        </div>
+    </div>
+
+    <div class="test-container">
+        <h2>Test 3: Bar Chart with High-DPI Setup</h2>
+        <div class="chart-container">
+            <canvas id="bar-chart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // High-DPI Canvas Setup Function
+        function setupHighDPICanvas(canvas) {
+            const ctx = canvas.getContext('2d');
+            const rect = canvas.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            
+            // Set actual size in memory (scaled for DPI)
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            
+            // Scale canvas back down using CSS
+            canvas.style.width = rect.width + 'px';
+            canvas.style.height = rect.height + 'px';
+            
+            // Scale the drawing context so everything draws at the correct size
+            ctx.scale(dpr, dpr);
+            
+            return ctx;
+        }
+
+        // Display device info
+        document.getElementById('dpr').textContent = window.devicePixelRatio || 1;
+        document.getElementById('resolution').textContent = `${screen.width}x${screen.height}`;
+        document.getElementById('chartjs-version').textContent = Chart.version || 'Unknown';
+
+        // Global Chart.js defaults for high-DPI rendering
+        if (typeof Chart !== 'undefined') {
+            Chart.defaults.devicePixelRatio = window.devicePixelRatio || 1;
+            Chart.defaults.responsive = true;
+            Chart.defaults.maintainAspectRatio = false;
+            Chart.defaults.plugins.legend.labels.usePointStyle = true;
+            Chart.defaults.elements.point.radius = 6;
+            Chart.defaults.elements.point.hoverRadius = 8;
+            Chart.defaults.elements.line.borderWidth = 3;
+            Chart.defaults.elements.arc.borderWidth = 2;
+        }
+
+        // Test 1: Line Chart
+        const lineCanvas = document.getElementById('line-chart');
+        const lineCtx = setupHighDPICanvas(lineCanvas);
+        new Chart(lineCtx, {
+            type: 'line',
+            data: {
+                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                datasets: [{
+                    label: 'Revenue',
+                    data: [12, 19, 3, 5, 2, 3],
+                    borderColor: '#0d9488',
+                    backgroundColor: 'rgba(13, 148, 136, 0.1)',
+                    pointRadius: 6,
+                    pointHoverRadius: 8,
+                    borderWidth: 3,
+                    tension: 0.3
+                }, {
+                    label: 'Costs',
+                    data: [7, 11, 5, 8, 3, 7],
+                    borderColor: '#ef4444',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    pointRadius: 6,
+                    pointHoverRadius: 8,
+                    borderWidth: 3,
+                    tension: 0.3
+                }]
+            },
+            options: {
+                devicePixelRatio: window.devicePixelRatio || 1,
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: {
+                            usePointStyle: true,
+                            font: { size: 12 }
+                        }
+                    },
+                    tooltip: {
+                        titleFont: { size: 14 },
+                        bodyFont: { size: 13 }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            font: { size: 11 }
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            font: { size: 11 }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Test 2: Doughnut Chart
+        const doughnutCanvas = document.getElementById('doughnut-chart');
+        const doughnutCtx = setupHighDPICanvas(doughnutCanvas);
+        new Chart(doughnutCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Core IA', 'CAPEX', 'Equipo', 'SaaS', 'Reserva'],
+                datasets: [{
+                    data: [2265000, 2630000, 1940000, 631000, 199000],
+                    backgroundColor: ['#0d9488', '#0f766e', '#115e59', '#f59e0b', '#f97316'],
+                    borderColor: '#ffffff',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                devicePixelRatio: window.devicePixelRatio || 1,
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '60%',
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            usePointStyle: true,
+                            padding: 15,
+                            font: { size: 12 }
+                        }
+                    },
+                    tooltip: {
+                        titleFont: { size: 14 },
+                        bodyFont: { size: 13 }
+                    }
+                }
+            }
+        });
+
+        // Test 3: Bar Chart
+        const barCanvas = document.getElementById('bar-chart');
+        const barCtx = setupHighDPICanvas(barCanvas);
+        new Chart(barCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Q1', 'Q2', 'Q3', 'Q4'],
+                datasets: [{
+                    label: 'Sales',
+                    data: [65, 59, 80, 81],
+                    backgroundColor: '#0d9488',
+                    borderColor: '#0f766e',
+                    borderWidth: 1
+                }, {
+                    label: 'Expenses',
+                    data: [28, 48, 40, 19],
+                    backgroundColor: '#ef4444',
+                    borderColor: '#dc2626',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                devicePixelRatio: window.devicePixelRatio || 1,
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: {
+                            usePointStyle: true,
+                            font: { size: 12 }
+                        }
+                    },
+                    tooltip: {
+                        titleFont: { size: 14 },
+                        bodyFont: { size: 13 }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            font: { size: 11 }
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            font: { size: 11 }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Test resize handling
+        window.addEventListener('resize', () => {
+            console.log('Window resized - charts should automatically adjust');
+        });
+
+        // Log success
+        console.log('✅ Chart.js High-DPI rendering test loaded successfully');
+        console.log(`Device Pixel Ratio: ${window.devicePixelRatio || 1}`);
+        console.log('All charts should now render crisp and clear on high-DPI displays');
+    </script>
+</body>
+</html>
