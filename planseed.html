@@ -3192,17 +3192,25 @@
               // VALORACIÓN (múltiplo EBITDA)
               const valuation = ebitda * this.modelData.industryMultiple;
               
-              // TIR EQUITY (simplificada, asumiendo salida en año target)
+              // TIR EQUITY (corregida para todos los años)
               let equityIRR = 0;
-              if (year === this.modelData.timeToExitYears && cumulativeEquityInvested > 0) {
-                const equityValue = valuation * 0.65; // Asumiendo 65% para equity holders post-dilución
-                equityIRR = (Math.pow(equityValue / cumulativeEquityInvested, 1/year) - 1) * 100;
-              } else if (year < this.modelData.timeToExitYears) {
-                // TIR proyectada basada en crecimiento actual
-                const projectedValuation = ebitda * this.modelData.industryMultiple;
-                const projectedEquityValue = projectedValuation * 0.65;
-                equityIRR = cumulativeEquityInvested > 0 ? 
-                  (Math.pow(projectedEquityValue / cumulativeEquityInvested, 1/this.modelData.timeToExitYears) - 1) * 100 : 0;
+              if (cumulativeEquityInvested > 0 && valuation > 0) {
+                const equityValue = valuation * 0.65; // 65% para equity holders post-dilución
+                
+                if (year === this.modelData.timeToExitYears) {
+                  // TIR final en año de salida
+                  equityIRR = (Math.pow(equityValue / cumulativeEquityInvested, 1/year) - 1) * 100;
+                } else {
+                  // TIR proyectada para años intermedios (asumiendo salida en año target)
+                  const projectedIRR = (Math.pow(equityValue / cumulativeEquityInvested, 1/this.modelData.timeToExitYears) - 1) * 100;
+                  
+                  // Ajustar TIR por año actual (interpolación)
+                  const progressFactor = year / this.modelData.timeToExitYears;
+                  equityIRR = projectedIRR * progressFactor;
+                }
+                
+                // Cap TIR entre valores realistas
+                equityIRR = Math.max(0, Math.min(equityIRR, 200));
               }
               
               projectionData.push({
@@ -3218,6 +3226,15 @@
             
             // RESULTADOS FINALES
             const finalYear = projectionData[projectionData.length - 1];
+            
+            // DEBUG: Mostrar cálculos en consola
+            console.log('🔍 DEBUG TIR CALCULATION:');
+            console.log('- Cumulative Equity Invested:', cumulativeEquityInvested);
+            console.log('- Final Valuation:', finalYear.valuation);
+            console.log('- Final Equity Value (65%):', finalYear.valuation * 0.65);
+            console.log('- Final TIR:', finalYear.equityIRR);
+            console.log('- Years:', years);
+            console.log('- Projection Data:', projectionData);
             
             return {
               // Métricas principales
@@ -3288,7 +3305,7 @@
             this.generateChartData(results, scenario, years);
 
             // Update result displays
-            this.updateResultDisplay('scenario-roi-result', `${Math.round(results.finalTIR)}%`);
+            this.updateResultDisplay('scenario-roi-result', `${Math.round(results.finalTIR || 0)}%`);
             this.updateResultDisplay('scenario-payback-result', `Año ${results.cashPositiveYear}`);
             this.updateResultDisplay('scenario-value-result', `$${(results.finalValuation/1000000).toFixed(0)}M`);
             this.updateResultDisplay('scenario-revenue-result', `$${(results.finalRevenue/1000000).toFixed(1)}M`);
