@@ -3173,9 +3173,12 @@
             const seriesANeeded = Math.max(0, totalCapexNeeded - this.modelData.seedCompleted);
             const extensionNeeded = Math.max(0, seriesANeeded - this.modelData.seriesABase);
             
-            // PROYECCIÓN DE CRECIMIENTO POR AÑO
+            // INVERSIÓN TOTAL REAL
+            const totalInvestment = this.modelData.seedCompleted + Math.min(seriesANeeded, this.modelData.seriesABase + this.modelData.seriesAExtension);
+            
+            // PROYECCIÓN DE CRECIMIENTO POR AÑO - FLUJO DE CAJA REAL
             const projectionData = [];
-            let cumulativeEquityInvested = this.modelData.seedCompleted + Math.min(seriesANeeded, this.modelData.seriesABase);
+            const cashFlows = [-totalInvestment]; // Año 0: inversión inicial
             
             for (let year = 1; year <= years; year++) {
               // Unidades operando (deployment gradual)
@@ -3186,32 +3189,22 @@
                 * Math.pow(params.growth, year - 1) 
                 * this.modelData.marketPenetration;
               
-              // EBITDA (aplicando márgen del escenario)
+              // EBITDA (aplicando margen del escenario)
               const ebitda = annualRevenue * params.margin * this.modelData.operationalEfficiency;
               
               // VALORACIÓN (múltiplo EBITDA)
               const valuation = ebitda * this.modelData.industryMultiple;
               
-              // TIR EQUITY (corregida para todos los años)
-              let equityIRR = 0;
-              if (cumulativeEquityInvested > 0 && valuation > 0) {
-                const equityValue = valuation * 0.65; // 65% para equity holders post-dilución
-                
-                if (year === this.modelData.timeToExitYears) {
-                  // TIR final en año de salida
-                  equityIRR = (Math.pow(equityValue / cumulativeEquityInvested, 1/year) - 1) * 100;
-                } else {
-                  // TIR proyectada para años intermedios (asumiendo salida en año target)
-                  const projectedIRR = (Math.pow(equityValue / cumulativeEquityInvested, 1/this.modelData.timeToExitYears) - 1) * 100;
-                  
-                  // Ajustar TIR por año actual (interpolación)
-                  const progressFactor = year / this.modelData.timeToExitYears;
-                  equityIRR = projectedIRR * progressFactor;
-                }
-                
-                // Cap TIR entre valores realistas
-                equityIRR = Math.max(0, Math.min(equityIRR, 200));
+              // FLUJO DE CAJA REAL DEL AÑO
+              let yearCashFlow = ebitda; // EBITDA como proxy del cash flow
+              
+              // Si es el último año, agregar valor de salida
+              if (year === years) {
+                const exitValue = valuation * 0.65; // 65% para equity holders
+                yearCashFlow += exitValue;
               }
+              
+              cashFlows.push(yearCashFlow);
               
               projectionData.push({
                 year,
@@ -3219,26 +3212,34 @@
                 revenue: annualRevenue,
                 ebitda: ebitda,
                 valuation: valuation,
-                equityIRR: Math.min(equityIRR, 150), // Cap at 150% for display
-                fundingNeeded: year === 1 ? seriesANeeded : 0
+                cashFlow: yearCashFlow,
+                equityIRR: 0 // Se calculará después
               });
             }
+            
+            // CALCULAR TIR REAL usando flujos de caja
+            const finalTIR = this.calculateIRR(cashFlows);
+            
+            // Actualizar todos los años con el TIR final
+            projectionData.forEach((data, index) => {
+              // TIR acumulado hasta ese año
+              const partialCashFlows = cashFlows.slice(0, index + 2); // +2 porque incluye año 0
+              if (index === projectionData.length - 1) {
+                data.equityIRR = finalTIR;
+              } else {
+                // TIR parcial (sin valor de salida)
+                const partialFlows = [...partialCashFlows];
+                partialFlows[partialFlows.length - 1] = data.ebitda; // Solo EBITDA, sin exit value
+                data.equityIRR = this.calculateIRR(partialFlows) || 0;
+              }
+            });
             
             // RESULTADOS FINALES
             const finalYear = projectionData[projectionData.length - 1];
             
-            // DEBUG: Mostrar cálculos en consola
-            console.log('🔍 DEBUG TIR CALCULATION:');
-            console.log('- Cumulative Equity Invested:', cumulativeEquityInvested);
-            console.log('- Final Valuation:', finalYear.valuation);
-            console.log('- Final Equity Value (65%):', finalYear.valuation * 0.65);
-            console.log('- Final TIR:', finalYear.equityIRR);
-            console.log('- Years:', years);
-            console.log('- Projection Data:', projectionData);
-            
             return {
               // Métricas principales
-              finalTIR: finalYear.equityIRR,
+              finalTIR: finalTIR,
               finalEBITDA: finalYear.ebitda,
               finalValuation: finalYear.valuation,
               finalRevenue: finalYear.revenue,
@@ -3246,7 +3247,7 @@
               // Financiamiento
               seriesANeeded: seriesANeeded,
               extensionNeeded: extensionNeeded,
-              totalFundingRequired: this.modelData.seedCompleted + seriesANeeded,
+              totalFundingRequired: totalInvestment,
               
               // Para gráficos (usando diferentes puntos de flota)
               chartLabels: [10, 25, 50, 75, 100, 150].filter(u => u <= fleetSize * 1.5),
@@ -3256,15 +3257,71 @@
               
               // Datos detallados
               projectionData: projectionData,
+              cashFlows: cashFlows,
               
               // Viabilidad
-              isViable: finalYear.equityIRR >= 25, // Mínimo 25% TIR para Serie A
+              isViable: finalTIR >= 25,
               fundingGap: Math.max(0, seriesANeeded - this.modelData.seriesABase - this.modelData.seriesAExtension),
               
               // Timing
               cashPositiveYear: this.getCashPositiveYear(projectionData),
               breakEvenUnits: this.getBreakEvenUnits(params)
             };
+          }
+
+          calculateIRR(cashFlows) {
+            // Implementación de Newton-Raphson para calcular TIR
+            if (cashFlows.length < 2) return 0;
+            
+            let rate = 0.1; // Guess inicial 10%
+            const tolerance = 0.0001;
+            const maxIterations = 100;
+            
+            for (let i = 0; i < maxIterations; i++) {
+              let npv = 0;
+              let npvDerivative = 0;
+              
+              // Calcular NPV y su derivada
+              for (let j = 0; j < cashFlows.length; j++) {
+                const cf = cashFlows[j];
+                const period = j;
+                
+                if (period === 0) {
+                  npv += cf;
+                } else {
+                  npv += cf / Math.pow(1 + rate, period);
+                  npvDerivative -= (period * cf) / Math.pow(1 + rate, period + 1);
+                }
+              }
+              
+              // Si NPV es suficientemente pequeño, hemos encontrado la TIR
+              if (Math.abs(npv) < tolerance) {
+                return Math.max(0, Math.min(rate * 100, 200)); // Convertir a % y cap
+              }
+              
+              // Newton-Raphson iteration
+              if (Math.abs(npvDerivative) < tolerance) break;
+              rate = rate - npv / npvDerivative;
+              
+              // Prevenir tasas negativas o demasiado altas
+              rate = Math.max(-0.99, Math.min(rate, 5));
+            }
+            
+            return Math.max(0, Math.min(rate * 100, 200)); // Convertir a % y cap
+          }
+
+          debugTIR(cashFlows, tir) {
+            console.log('🔍 DEBUG TIR DETALLADO:');
+            console.log('Cash Flows:', cashFlows.map(cf => (cf/1000000).toFixed(1) + 'M'));
+            console.log('TIR Calculada:', tir.toFixed(1) + '%');
+            
+            // Verificar NPV con la TIR calculada
+            let npv = 0;
+            const rate = tir / 100;
+            for (let i = 0; i < cashFlows.length; i++) {
+              npv += cashFlows[i] / Math.pow(1 + rate, i);
+            }
+            console.log('NPV con TIR (debe ser ~0):', (npv/1000000).toFixed(2) + 'M');
           }
 
           getOperatingUnits(year, targetUnits) {
@@ -3300,6 +3357,11 @@
             if (yearsDisplay) yearsDisplay.textContent = `${years} años`;
 
             const results = this.calculate(scenario, years, investment, fleetSize);
+            
+            // DEBUG temporal
+            if (results.cashFlows) {
+              this.debugTIR(results.cashFlows, results.finalTIR);
+            }
             
             // Generar datos para gráfico de diferentes escalas
             this.generateChartData(results, scenario, years);
