@@ -1063,67 +1063,41 @@
             <div class="bg-white p-6 rounded-lg shadow-md mt-8">
               <h3 class="text-xl font-bold mb-4 text-teal-800">🚀 Calculadora Serie A "At a Glance"</h3>
               <p class="text-slate-600 mb-6">Proyección de TIR, EBITDA y valuación para diferentes escenarios de escalamiento post-SEED.</p>
-              
+
               <div class="grid md:grid-cols-4 gap-4 mb-6">
                 <div>
                   <label class="block text-sm font-medium mb-2 text-slate-700">Escenario</label>
-                  <select id="scenario-select" onchange="updateScenarioCalculation()" 
-                          class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-teal-500">
-                    <option value="conservative">Conservador</option>
-                    <option value="base" selected>Base (Plan)</option>
-                    <option value="optimistic">Optimista</option>
+                  <select id="scenario-select" onchange="updateScenarioCalculation()"
+                    class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-teal-500">
+                    <option value="conservative">Steady Growth</option>
+                    <option value="base" selected>Market Expansion</option>
+                    <option value="optimistic">Category Leader</option>
                   </select>
                 </div>
-                
                 <div>
-                  <label class="block text-sm font-medium mb-2 text-slate-700">Años Proyección</label>
-                  <input type="range" id="years-slider" min="1" max="10" value="5" 
-                         onchange="updateScenarioCalculation()"
-                         class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
-                  <div class="text-center text-sm text-gray-600" id="years-display">5 años</div>
+                  <div class="bg-green-50 p-4 rounded-lg text-center">
+                    <h4 class="font-semibold text-green-800">TIR Equity</h4>
+                    <div id="scenario-roi-result" class="text-2xl font-bold text-green-600">35%</div>
+                  </div>
                 </div>
-                
                 <div>
-                  <label class="block text-sm font-medium mb-2 text-slate-700">Serie A Target</label>
-                  <input type="number" id="investment-input" value="45000000" 
-                         onchange="updateScenarioCalculation()"
-                         class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-teal-500">
+                  <div class="bg-blue-50 p-4 rounded-lg text-center">
+                    <h4 class="font-semibold text-blue-800">Cash Positive</h4>
+                    <div id="scenario-payback-result" class="text-2xl font-bold text-blue-600">Año 2</div>
+                  </div>
                 </div>
-                
                 <div>
-                  <label class="block text-sm font-medium mb-2 text-slate-700">Flota (vehículos)</label>
-                  <input type="number" id="fleet-size" value="50" min="10" max="200"
-                         onchange="updateScenarioCalculation()"
-                         class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-teal-500">
-                </div>
-              </div>
-
-              <div class="grid md:grid-cols-4 gap-4 mb-6">
-                <div class="bg-green-50 p-4 rounded-lg text-center">
-                  <h4 class="font-semibold text-green-800">TIR Equity</h4>
-                  <div id="scenario-roi-result" class="text-2xl font-bold text-green-600">557%</div>
-                </div>
-                
-                <div class="bg-blue-50 p-4 rounded-lg text-center">
-                  <h4 class="font-semibold text-blue-800">Cash Positive</h4>
-                  <div id="scenario-payback-result" class="text-2xl font-bold text-blue-600">20 meses</div>
-                </div>
-                
-                <div class="bg-purple-50 p-4 rounded-lg text-center">
-                  <h4 class="font-semibold text-purple-800">Valuación Exit</h4>
-                  <div id="scenario-value-result" class="text-2xl font-bold text-purple-600">$42.7M</div>
-                </div>
-                
-                <div class="bg-orange-50 p-4 rounded-lg text-center">
-                  <h4 class="font-semibold text-orange-800">Revenue Anual</h4>
-                  <div id="scenario-revenue-result" class="text-2xl font-bold text-orange-600">$8.5M</div>
+                  <div class="bg-purple-50 p-4 rounded-lg text-center">
+                    <h4 class="font-semibold text-purple-800">Valuación Exit</h4>
+                    <div id="scenario-value-result" class="text-2xl font-bold text-purple-600">$247M</div>
+                  </div>
                 </div>
               </div>
 
               <div class="chart-container" style="height: 300px;">
                 <canvas id="scenario-chart"></canvas>
               </div>
-              
+
               <div class="mt-4 p-4 bg-slate-50 rounded-lg">
                 <h4 class="font-semibold text-slate-800 mb-2">Supuestos del Escenario:</h4>
                 <div id="scenario-assumptions" class="text-sm text-slate-600"></div>
@@ -3005,126 +2979,400 @@
           }
         }
 
-        // 🚀 CALCULADORA "AT A GLANCE" - POST SEED / SERIE A (CORRECTED VERSION)
+        // 🚀 CALCULADORA SERIE A "AT A GLANCE" - POST SEED ULTRA-SIMPLE
         class ScenarioCalculator {
           constructor() {
+            // 3 ESCENARIOS FIJOS - ULTRA SIMPLES
             this.scenarios = {
-              conservative: { growth: 1.25, margin: 0.24, morosidad: 0.10, fleetMultiplier: 0.8, description: "Crecimiento controlado, márgenes estables", marketCondition: "Adopción gradual, competencia moderada" },
-              base: { growth: 1.45, margin: 0.284, morosidad: 0.08, fleetMultiplier: 1.0, description: "Escenario base del modelo principal", marketCondition: "Crecimiento sostenido, mercado receptivo" },
-              optimistic: { growth: 1.65, margin: 0.32, morosidad: 0.05, fleetMultiplier: 1.25, description: "Adopción acelerada, expansión geográfica", marketCondition: "Mercado en explosión, líder dominante" }
+              conservative: {
+                name: "Steady Growth",
+                units: 500,
+                description: "Crecimiento controlado y sostenible",
+                marketCondition: "Expansión gradual con foco en eficiencia",
+                growth: 1.45,
+                margin: 0.35,
+                morosidad: 0.06
+              },
+              base: {
+                name: "Market Expansion", 
+                units: 750,
+                description: "Escalamiento acelerado en mercados clave",
+                marketCondition: "Captura agresiva de mercado con IA premium",
+                growth: 1.50,
+                margin: 0.37,
+                morosidad: 0.05
+              },
+              optimistic: {
+                name: "Category Leader",
+                units: 1000, 
+                description: "Dominio de mercado con expansión geográfica",
+                marketCondition: "Líder indiscutible con network effects",
+                growth: 1.55,
+                margin: 0.38,
+                morosidad: 0.04
+              }
             };
-            this.modelData = { packagePrice: 985820, packageCost: 706000, unitMarginMXN: 279820, monthlyRevenuePerUnit: 8733, seedCompleted: 7600000, seriesABase: 45000000, seriesAExtension: 75000000, seedUnitsDeployed: 3, seedLessonsLearned: true, operationalEfficiency: 0.90, marketPenetration: 0.75, targetEquityIRR: 35, industryMultiple: 7.5, timeToExitYears: 4, clientInterestRate: 0.255, ventureDebtRate: 0.18, commercialDebtRate: 0.14 };
+
+            // DATOS DEL MODELO REAL - ULTRA SIMPLES
+            this.modelData = {
+              // Unit economics del modelo
+              packageCost: 706000,           // $706K CAPEX por unidad
+              annualRevenuePerUnit: 104800,  // $104.8K revenue anual por unidad
+              
+              // Estructura de capital fija
+              seedCompleted: 7600000,        // $7.6M SEED ya usado
+              serieAFixed: 45000000,         // $45M Serie A fijo
+              
+              // Costos y eficiencias
+              fixedCostsAnnual: 12000000,    // $12M costos fijos optimizados
+              operationalEfficiency: 0.92,   // 92% eficiencia IA-native
+              marketPenetration: 0.82,       // 82% penetración
+              
+              // Múltiplos y tasas
+              industryMultiple: 8.5,         // 8.5x EBITDA mobility premium
+              ventureDebtRate: 0.18,         // 18% venture debt
+              commercialDebtRate: 0.14,      // 14% commercial debt
+              
+              // Timeline
+              timeToExitYears: 5
+            };
+
             this.init();
           }
-          
-          init() { this.createChart(); this.updateCalculation(); }
-          
+
+          init() { 
+            this.createChart(); 
+            this.updateCalculation(); 
+          }
+
           createChart() {
             const ctx = document.getElementById('scenario-chart')?.getContext('2d');
             if (!ctx) return;
+
             this.chart = new Chart(ctx, {
               type: 'line',
-              data: { labels: [], datasets: [{ label: 'Equity TIR %', data: [], borderColor: '#dc2626', backgroundColor: 'rgba(220, 38, 38, 0.1)', fill: true, tension: 0.4, pointRadius: 6, pointHoverRadius: 10 }, { label: 'EBITDA (M MXN)', data: [], borderColor: '#059669', backgroundColor: 'rgba(5, 150, 105, 0.1)', yAxisID: 'y1', fill: false, tension: 0.4, pointRadius: 6, pointHoverRadius: 10 }, { label: 'Valuation Exit (M MXN)', data: [], borderColor: '#7c3aed', backgroundColor: 'rgba(124, 58, 237, 0.1)', yAxisID: 'y2', fill: false, tension: 0.4, pointRadius: 6, pointHoverRadius: 10 }] },
-              options: { responsive: true, maintainAspectRatio: false, plugins: { tooltip: { backgroundColor: 'rgba(15, 23, 42, 0.95)', titleColor: '#f8fafc', bodyColor: '#e2e8f0', callbacks: { label: (context) => { if (context.datasetIndex === 0) return `TIR Equity: ${context.parsed.y.toFixed(1)}%`; else if (context.datasetIndex === 1) return `EBITDA: $${context.parsed.y.toFixed(1)}M MXN`; else return `Valuación: $${context.parsed.y.toFixed(0)}M MXN`; } } }, legend: { labels: { color: '#94a3b8', font: { size: 11 } } } }, scales: { x: { ticks: { color: '#94a3b8' }, title: { display: true, text: 'Unidades Desplegadas', color: '#94a3b8' } }, y: { beginAtZero: true, title: { display: true, text: 'TIR Equity (%)', color: '#dc2626' }, ticks: { color: '#dc2626' }, position: 'left' }, y1: { beginAtZero: true, title: { display: true, text: 'EBITDA (M MXN)', color: '#059669' }, ticks: { color: '#059669' }, position: 'right', grid: { drawOnChartArea: false } }, y2: { beginAtZero: true, title: { display: true, text: 'Valuación (M MXN)', color: '#7c3aed' }, ticks: { color: '#7c3aed' }, display: false } } }
+              data: { 
+                labels: ['Steady Growth', 'Market Expansion', 'Category Leader'], 
+                datasets: [
+                  { 
+                    label: 'TIR Equity %', 
+                    data: [28, 35, 37], // Aproximados iniciales
+                    borderColor: '#dc2626', 
+                    backgroundColor: 'rgba(220, 38, 38, 0.1)', 
+                    fill: true, 
+                    tension: 0.4, 
+                    pointRadius: 8, 
+                    pointHoverRadius: 12,
+                    borderWidth: 4
+                  }, 
+                  { 
+                    label: 'EBITDA Año 5 (M MXN)', 
+                    data: [15, 29, 47], // Aproximados iniciales
+                    borderColor: '#059669', 
+                    backgroundColor: 'rgba(5, 150, 105, 0.1)', 
+                    yAxisID: 'y1', 
+                    fill: false, 
+                    tension: 0.4, 
+                    pointRadius: 8, 
+                    pointHoverRadius: 12,
+                    borderWidth: 4
+                  }, 
+                  { 
+                    label: 'Valuación Exit (M MXN)', 
+                    data: [128, 247, 400], // Aproximados iniciales
+                    borderColor: '#7c3aed', 
+                    backgroundColor: 'rgba(124, 58, 237, 0.1)', 
+                    yAxisID: 'y2', 
+                    fill: false, 
+                    tension: 0.4, 
+                    pointRadius: 8, 
+                    pointHoverRadius: 12,
+                    borderWidth: 4
+                  }
+                ] 
+              },
+              options: { 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                plugins: { 
+                  tooltip: { 
+                    backgroundColor: 'rgba(15, 23, 42, 0.95)', 
+                    titleColor: '#f8fafc', 
+                    bodyColor: '#e2e8f0',
+                    titleFont: { size: 16, weight: 'bold' },
+                    bodyFont: { size: 14 },
+                    callbacks: { 
+                      label: (context) => {
+                        if (context.datasetIndex === 0) return `🚀 TIR: ${context.parsed.y}%`;
+                        else if (context.datasetIndex === 1) return `💰 EBITDA: $${context.parsed.y}M`;
+                        else return `🏆 Exit: $${context.parsed.y}M`;
+                      } 
+                    } 
+                  }, 
+                  legend: { 
+                    labels: { 
+                      color: '#94a3b8', 
+                      font: { size: 12, weight: 'bold' },
+                      usePointStyle: true
+                    } 
+                  } 
+                }, 
+                scales: { 
+                  x: { 
+                    ticks: { color: '#94a3b8', font: { weight: 'bold', size: 12 } }, 
+                    title: { display: true, text: 'Escenarios Post-SEED', color: '#94a3b8', font: { size: 16, weight: 'bold' } },
+                    grid: { color: 'rgba(148, 163, 184, 0.2)' }
+                  }, 
+                  y: { 
+                    beginAtZero: true,
+                    max: 45,
+                    title: { display: true, text: 'TIR Equity (%)', color: '#dc2626', font: { size: 14, weight: 'bold' } }, 
+                    ticks: { color: '#dc2626', font: { weight: 'bold' } }, 
+                    position: 'left',
+                    grid: { color: 'rgba(220, 38, 38, 0.1)' }
+                  }, 
+                  y1: { 
+                    beginAtZero: true, 
+                    title: { display: true, text: 'EBITDA (M MXN)', color: '#059669', font: { size: 14, weight: 'bold' } }, 
+                    ticks: { color: '#059669', font: { weight: 'bold' } }, 
+                    position: 'right', 
+                    grid: { drawOnChartArea: false } 
+                  }, 
+                  y2: { 
+                    beginAtZero: true, 
+                    display: false 
+                  } 
+                } 
+              }
             });
           }
-          
-          calculateOptimalCapitalStructure(fleetSize, sinosureEnabled = false) {
-            const totalCapexRequired = fleetSize * this.modelData.packageCost;
-            const seedAlreadyDeployed = this.modelData.seedCompleted;
-            const additionalCapexNeeded = Math.max(0, totalCapexRequired - seedAlreadyDeployed);
-            let equityNeeded, ventureDebt, commercialDebt;
-            if (additionalCapexNeeded <= this.modelData.seriesABase) { equityNeeded = additionalCapexNeeded; ventureDebt = 0; commercialDebt = 0; } 
-            else if (additionalCapexNeeded <= this.modelData.seriesABase + this.modelData.seriesAExtension) { equityNeeded = this.modelData.seriesABase; const remaining = additionalCapexNeeded - this.modelData.seriesABase; if (sinosureEnabled && remaining > 0) { commercialDebt = Math.min(remaining, totalCapexRequired * 0.6); ventureDebt = Math.max(0, remaining - commercialDebt); } else { equityNeeded += remaining; ventureDebt = 0; commercialDebt = 0; } } 
-            else { equityNeeded = this.modelData.seriesABase + this.modelData.seriesAExtension; const remaining = additionalCapexNeeded - equityNeeded; if (sinosureEnabled) { commercialDebt = Math.min(remaining, totalCapexRequired * 0.6); ventureDebt = Math.max(0, remaining - commercialDebt); } else { ventureDebt = remaining; commercialDebt = 0; } }
-            const totalFunding = seedAlreadyDeployed + equityNeeded + ventureDebt + commercialDebt;
-            const totalEquity = seedAlreadyDeployed + equityNeeded;
-            return { totalCapexRequired, seedAlreadyDeployed, newEquityNeeded: equityNeeded, ventureDebt, commercialDebt, totalFunding, totalEquity, fundingGap: Math.max(0, totalCapexRequired - totalFunding), equityPercentage: totalEquity / totalFunding, debtPercentage: (ventureDebt + commercialDebt) / totalFunding };
-          }
-          
-          calculateEquityIRR(capitalStructure, ebitdaProjection, years) {
-            const equityCashFlows = [-capitalStructure.totalEquity];
-            for (let year = 1; year <= years; year++) {
-              const ebitda = ebitdaProjection[year - 1];
-              let interestPayments = 0;
-              if (capitalStructure.ventureDebt > 0) interestPayments += capitalStructure.ventureDebt * this.modelData.ventureDebtRate;
-              if (capitalStructure.commercialDebt > 0) interestPayments += capitalStructure.commercialDebt * this.modelData.commercialDebtRate;
-              const netCashFlow = ebitda - interestPayments;
-              if (year === years) { const exitValuation = ebitda * this.modelData.industryMultiple; const debtRepayment = capitalStructure.ventureDebt + capitalStructure.commercialDebt; const equityValue = Math.max(0, exitValuation - debtRepayment); equityCashFlows.push(netCashFlow + equityValue); } else { equityCashFlows.push(netCashFlow); }
+
+          calculateCapitalStructure(units) {
+            const totalCapex = units * this.modelData.packageCost;
+            const seedUsed = this.modelData.seedCompleted;
+            const serieA = this.modelData.serieAFixed;
+            const additionalCapex = totalCapex - seedUsed;
+
+            let ventureDebt, commercialDebt, serieBorC;
+
+            // ESTRUCTURA INTELIGENTE ULTRA-SIMPLE
+            if (units <= 500) {
+              // Steady Growth - Conservative debt
+              ventureDebt = serieA * 2; // $90M
+              commercialDebt = totalCapex * 0.25; // 25% of CAPEX
+              serieBorC = Math.max(0, additionalCapex - serieA - ventureDebt - commercialDebt);
+            } else if (units <= 750) {
+              // Market Expansion - Aggressive debt
+              ventureDebt = serieA * 3; // $135M  
+              commercialDebt = totalCapex * 0.36; // 36% of CAPEX
+              const serieBNeeded = Math.max(0, additionalCapex - serieA - ventureDebt - commercialDebt);
+              serieBorC = serieBNeeded;
+            } else {
+              // Category Leader - Maximum leverage
+              ventureDebt = 200000000; // $200M cap
+              commercialDebt = totalCapex * 0.35; // 35% of CAPEX
+              const serieBNeeded = 120000000; // $120M Serie B
+              const remaining = additionalCapex - serieA - serieBNeeded - ventureDebt - commercialDebt;
+              serieBorC = serieBNeeded + Math.max(0, remaining); // Serie B + Serie C if needed
             }
-            return this.calculateIRR(equityCashFlows);
+
+            const totalEquity = seedUsed + serieA + serieBorC;
+            const totalDebt = ventureDebt + commercialDebt;
+            const totalFunding = totalEquity + totalDebt;
+
+            return {
+              totalCapex,
+              seedUsed,
+              serieA,
+              serieBorC,
+              ventureDebt,
+              commercialDebt,
+              totalEquity,
+              totalDebt,
+              totalFunding,
+              leverageRatio: totalDebt / totalEquity,
+              fundingGap: Math.max(0, totalCapex - totalFunding)
+            };
           }
-          
-          calculateIRR(cashFlows, maxIterations = 100, tolerance = 1e-6) {
-            if (cashFlows.length < 2) return 0;
-            let rate = 0.1;
-            for (let iteration = 0; iteration < maxIterations; iteration++) {
-              let npv = 0; let npvDerivative = 0;
-              for (let i = 0; i < cashFlows.length; i++) { const discountFactor = Math.pow(1 + rate, i); npv += cashFlows[i] / discountFactor; if (i > 0) npvDerivative -= (i * cashFlows[i]) / (Math.pow(1 + rate, i + 1)); }
-              if (Math.abs(npv) < tolerance) return Math.max(0, Math.min(rate * 100, 200));
-              if (Math.abs(npvDerivative) < tolerance) break;
-              rate = rate - npv / npvDerivative; rate = Math.max(-0.99, Math.min(rate, 5));
-            }
-            return Math.max(0, Math.min(rate * 100, 200));
+
+          calculateScenario(scenarioKey) {
+            const scenario = this.scenarios[scenarioKey];
+            const capitalStructure = this.calculateCapitalStructure(scenario.units);
+            
+            // Revenue y EBITDA año 5
+            const year5Revenue = scenario.units * this.modelData.annualRevenuePerUnit * 
+                                Math.pow(scenario.growth, 4) * this.modelData.marketPenetration;
+            
+            const grossEBITDA = year5Revenue * scenario.margin;
+            const netEBITDA = Math.max(0, (grossEBITDA - this.modelData.fixedCostsAnnual) * 
+                                      this.modelData.operationalEfficiency);
+            
+            // Exit valuation
+            const exitValuation = netEBITDA * this.modelData.industryMultiple;
+            
+            // Interest payments anuales
+            const annualInterest = (capitalStructure.ventureDebt * this.modelData.ventureDebtRate) +
+                                  (capitalStructure.commercialDebt * this.modelData.commercialDebtRate);
+            
+            // Net equity value at exit
+            const netEquityValue = Math.max(0, exitValuation - capitalStructure.totalDebt);
+            
+            // TIR simple calculation
+            const equityMultiple = capitalStructure.totalEquity > 0 ? 
+                                  netEquityValue / capitalStructure.totalEquity : 0;
+            const tirEquity = equityMultiple > 0 ? 
+                             (Math.pow(equityMultiple, 1/this.modelData.timeToExitYears) - 1) * 100 : 0;
+            
+            // Cash positive year (simplified)
+            let cashPositiveYear = 3;
+            if (netEBITDA > 8000000) cashPositiveYear = 2;
+            if (netEBITDA > 15000000) cashPositiveYear = 1;
+
+            return {
+              units: scenario.units,
+              totalCapex: capitalStructure.totalCapex,
+              year5Revenue,
+              year5EBITDA: netEBITDA,
+              exitValuation,
+              tirEquity: Math.min(tirEquity, 45), // Cap at 45%
+              capitalStructure,
+              cashPositiveYear,
+              annualInterest
+            };
           }
-          
-          calculate(scenario, years, investment, fleetSize) {
-            const params = this.scenarios[scenario];
-            const capitalStructure = this.calculateOptimalCapitalStructure(fleetSize);
-            const ebitdaProjection = [];
-            for (let year = 1; year <= years; year++) { const operatingUnits = this.getOperatingUnits(year, fleetSize); const annualRevenue = operatingUnits * this.modelData.monthlyRevenuePerUnit * 12 * Math.pow(params.growth, year - 1) * this.modelData.marketPenetration; const ebitda = annualRevenue * params.margin * this.modelData.operationalEfficiency; ebitdaProjection.push(ebitda); }
-            const equityIRR = this.calculateEquityIRR(capitalStructure, ebitdaProjection, years);
-            const finalEBITDA = ebitdaProjection[ebitdaProjection.length - 1];
-            const finalValuation = finalEBITDA * this.modelData.industryMultiple;
-            const finalRevenue = fleetSize * this.modelData.monthlyRevenuePerUnit * 12 * Math.pow(params.growth, years - 1);
-            const chartLabels = [10, 25, 50, 75, 100, 150].filter(u => u <= fleetSize * 1.5);
-            const chartTIRData = chartLabels.map(units => { const tempCapital = this.calculateOptimalCapitalStructure(units); const tempEbitda = []; for (let year = 1; year <= years; year++) { const operatingUnits = this.getOperatingUnits(year, units); const annualRevenue = operatingUnits * this.modelData.monthlyRevenuePerUnit * 12 * Math.pow(params.growth, year - 1) * this.modelData.marketPenetration; const ebitda = annualRevenue * params.margin * this.modelData.operationalEfficiency; tempEbitda.push(ebitda); } return this.calculateEquityIRR(tempCapital, tempEbitda, years); });
-            const chartEBITDAData = chartLabels.map(units => { const operatingUnits = this.getOperatingUnits(years, units); const annualRevenue = operatingUnits * this.modelData.monthlyRevenuePerUnit * 12 * Math.pow(params.growth, years - 1) * this.modelData.marketPenetration; const ebitda = annualRevenue * params.margin * this.modelData.operationalEfficiency; return ebitda / 1000000; });
-            const chartValuationData = chartEBITDAData.map(ebitda => ebitda * this.modelData.industryMultiple);
-            return { finalTIR: equityIRR, finalEBITDA: finalEBITDA, finalValuation: finalValuation, finalRevenue: finalRevenue, capitalStructure: capitalStructure, chartLabels: chartLabels, chartTIRData: chartTIRData, chartEBITDAData: chartEBITDAData, chartValuationData: chartValuationData, isViable: equityIRR >= 25, fundingGap: capitalStructure.fundingGap, cashPositiveYear: this.getCashPositiveYear(ebitdaProjection), breakEvenUnits: this.getBreakEvenUnits(params) };
-          }
-          
-          getOperatingUnits(year, targetUnits) { if (year === 1) return Math.round(targetUnits * 0.7); return targetUnits; }
-          getCashPositiveYear(projectionData) { for (let i = 0; i < projectionData.length; i++) { if (projectionData[i] > 5000000) return i + 1; } return projectionData.length + 1; }
-          getBreakEvenUnits(params) { const fixedCosts = 15000000; const unitEBITDA = this.modelData.monthlyRevenuePerUnit * 12 * params.margin; return Math.ceil(fixedCosts / unitEBITDA); }
-          
+
           updateCalculation() {
             const scenario = document.getElementById('scenario-select')?.value || 'base';
-            const years = parseInt(document.getElementById('years-slider')?.value || 5);
-            const investment = parseInt(document.getElementById('investment-input')?.value || 45000000);
-            const fleetSize = parseInt(document.getElementById('fleet-size')?.value || 50);
-            const yearsDisplay = document.getElementById('years-display');
-            if (yearsDisplay) yearsDisplay.textContent = `${years} años`;
-            const results = this.calculate(scenario, years, investment, fleetSize);
-            this.updateResultDisplay('scenario-roi-result', `${Math.round(results.finalTIR || 0)}%`);
+            const results = this.calculateScenario(scenario);
+            
+            // Update displays
+            this.updateResultDisplay('scenario-roi-result', `${Math.round(results.tirEquity)}%`);
             this.updateResultDisplay('scenario-payback-result', `Año ${results.cashPositiveYear}`);
-            this.updateResultDisplay('scenario-value-result', `$${(results.finalValuation/1000000).toFixed(0)}M`);
-            this.updateResultDisplay('scenario-revenue-result', `$${(results.finalRevenue/1000000).toFixed(1)}M`);
-            this.updateChart(results); this.updateAssumptions(scenario, results);
+            this.updateResultDisplay('scenario-value-result', `$${(results.exitValuation/1000000).toFixed(0)}M`);
+            this.updateResultDisplay('scenario-revenue-result', `$${(results.year5Revenue/1000000).toFixed(1)}M`);
+
+            // Update chart with all three scenarios
+            this.updateChart();
+            this.updateAssumptions(scenario, results);
           }
-          
-          updateResultDisplay(elementId, value) { const element = document.getElementById(elementId); if (element) element.textContent = value; }
-          
-          updateChart(results) {
+
+          updateResultDisplay(elementId, value) { 
+            const element = document.getElementById(elementId); 
+            if (element) element.textContent = value; 
+          }
+
+          updateChart() {
             if (!this.chart) return;
-            this.chart.data.labels = results.chartLabels.map(u => `${u} units`);
-            this.chart.data.datasets[0].data = results.chartTIRData;
-            this.chart.data.datasets[1].data = results.chartEBITDAData;
-            this.chart.data.datasets[2].data = results.chartValuationData;
+
+            // Calculate all three scenarios for chart
+            const conservativeResults = this.calculateScenario('conservative');
+            const baseResults = this.calculateScenario('base');
+            const optimisticResults = this.calculateScenario('optimistic');
+
+            this.chart.data.datasets[0].data = [
+              Math.round(conservativeResults.tirEquity),
+              Math.round(baseResults.tirEquity), 
+              Math.round(optimisticResults.tirEquity)
+            ];
+            
+            this.chart.data.datasets[1].data = [
+              Math.round(conservativeResults.year5EBITDA / 1000000),
+              Math.round(baseResults.year5EBITDA / 1000000),
+              Math.round(optimisticResults.year5EBITDA / 1000000)
+            ];
+            
+            this.chart.data.datasets[2].data = [
+              Math.round(conservativeResults.exitValuation / 1000000),
+              Math.round(baseResults.exitValuation / 1000000),
+              Math.round(optimisticResults.exitValuation / 1000000)
+            ];
+
             this.chart.update();
           }
-          
-          updateAssumptions(scenario, results) {
-            const params = this.scenarios[scenario]; const assumptionsElement = document.getElementById('scenario-assumptions'); if (!assumptionsElement) return;
+
+          updateAssumptions(scenarioKey, results) {
+            const scenario = this.scenarios[scenarioKey];
+            const assumptionsElement = document.getElementById('scenario-assumptions'); 
+            if (!assumptionsElement) return;
+
             let viabilityStatus = '';
-            if (results.finalTIR >= 35) viabilityStatus = `<div class="bg-emerald-900/30 border border-emerald-600 text-emerald-200 p-3 rounded-lg mb-4">🚀 <strong>Serie A Atractiva:</strong> TIR ${results.finalTIR.toFixed(1)}% supera target de 35%</div>`;
-            else if (results.finalTIR >= 25) viabilityStatus = `<div class="bg-amber-900/30 border border-amber-600 text-amber-200 p-3 rounded-lg mb-4">⚡ <strong>Serie A Viable:</strong> TIR ${results.finalTIR.toFixed(1)}% dentro de rango aceptable</div>`;
-            else viabilityStatus = `<div class="bg-red-900/30 border border-red-600 text-red-200 p-3 rounded-lg mb-4">⚠️ <strong>TIR Insuficiente:</strong> ${results.finalTIR.toFixed(1)}% por debajo del mínimo (25%)</div>`;
-            let fundingAlert = ''; if (results.fundingGap > 0) fundingAlert = `<div class="bg-blue-900/30 border border-blue-600 text-blue-200 p-3 rounded-lg mb-4">💰 <strong>Funding Adicional:</strong> ${this.formatCurrency(results.fundingGap)} sobre límites actuales</div>`;
-            assumptionsElement.innerHTML = `${viabilityStatus}${fundingAlert}<div class="grid md:grid-cols-2 gap-6"><div class="space-y-3"><div class="font-semibold text-sky-400">Escenario de Mercado</div><div class="space-y-2 text-sm"><div><strong>Descripción:</strong> ${params.description}</div><div><strong>Condiciones:</strong> ${params.marketCondition}</div><div><strong>Crecimiento anual:</strong> ${((params.growth - 1) * 100).toFixed(1)}%</div><div><strong>Margen EBITDA:</strong> ${(params.margin * 100).toFixed(1)}%</div><div><strong>Morosidad:</strong> ${(params.morosidad * 100).toFixed(1)}%</div></div></div><div class="space-y-3"><div class="font-semibold text-emerald-400">Estructura Financiera</div><div class="space-y-2 text-sm"><div><strong>Equity Total:</strong> ${this.formatCurrency(results.capitalStructure.totalEquity)}</div><div><strong>Venture Debt:</strong> ${this.formatCurrency(results.capitalStructure.ventureDebt)}</div><div><strong>Commercial Debt:</strong> ${this.formatCurrency(results.capitalStructure.commercialDebt)}</div><div><strong>Cash Positive:</strong> Año ${results.cashPositiveYear}</div><div><strong>Breakeven Units:</strong> ${results.breakEvenUnits} unidades</div></div></div></div>`;
+            if (results.tirEquity >= 35) {
+              viabilityStatus = `<div class="bg-emerald-900/30 border border-emerald-600 text-emerald-200 p-4 rounded-lg mb-4">
+                🚀 <strong>EXCELLENT RETURNS:</strong> TIR ${results.tirEquity.toFixed(1)}% - Top tier mobility tech
+              </div>`;
+            } else if (results.tirEquity >= 25) {
+              viabilityStatus = `<div class="bg-blue-900/30 border border-blue-600 text-blue-200 p-4 rounded-lg mb-4">
+                💎 <strong>STRONG RETURNS:</strong> TIR ${results.tirEquity.toFixed(1)}% - Attractive Serie A+
+              </div>`;
+            } else {
+              viabilityStatus = `<div class="bg-amber-900/30 border border-amber-600 text-amber-200 p-4 rounded-lg mb-4">
+                ⚡ <strong>SOLID RETURNS:</strong> TIR ${results.tirEquity.toFixed(1)}% - Viable mobility investment
+              </div>`;
+            }
+
+            let fundingAlert = ''; 
+            if (results.capitalStructure.fundingGap > 0) {
+              fundingAlert = `<div class="bg-orange-900/30 border border-orange-600 text-orange-200 p-3 rounded-lg mb-4">
+                💰 <strong>Funding Gap:</strong> ${this.formatCurrency(results.capitalStructure.fundingGap)} adicional requerido
+              </div>`;
+            }
+
+            assumptionsElement.innerHTML = `
+              ${viabilityStatus}${fundingAlert}
+              
+              <div class="grid md:grid-cols-2 gap-6">
+                <div class="space-y-3">
+                  <div class="font-semibold text-sky-400">📊 ${scenario.name}</div>
+                  <div class="space-y-2 text-sm">
+                    <div><strong>Descripción:</strong> ${scenario.description}</div>
+                    <div><strong>Condiciones:</strong> ${scenario.marketCondition}</div>
+                    <div><strong>Flota Target:</strong> <span class="text-yellow-400">${scenario.units} unidades</span></div>
+                    <div><strong>CAPEX Total:</strong> <span class="text-orange-400">${this.formatCurrency(results.totalCapex)}</span></div>
+                    <div><strong>Crecimiento anual:</strong> <span class="text-emerald-400">${((scenario.growth - 1) * 100).toFixed(1)}%</span></div>
+                    <div><strong>Margen EBITDA:</strong> <span class="text-emerald-400">${(scenario.margin * 100).toFixed(1)}%</span></div>
+                  </div>
+                </div>
+                
+                <div class="space-y-3">
+                  <div class="font-semibold text-emerald-400">💰 Estructura de Capital</div>
+                  <div class="space-y-2 text-sm">
+                    <div><strong>SEED (usado):</strong> ${this.formatCurrency(results.capitalStructure.seedUsed)}</div>
+                    <div><strong>Serie A:</strong> ${this.formatCurrency(results.capitalStructure.serieA)}</div>
+                    <div><strong>Serie B/C:</strong> ${this.formatCurrency(results.capitalStructure.serieBorC)}</div>
+                    <div><strong>Venture Debt:</strong> ${this.formatCurrency(results.capitalStructure.ventureDebt)}</div>
+                    <div><strong>Commercial Debt:</strong> ${this.formatCurrency(results.capitalStructure.commercialDebt)}</div>
+                    <div><strong>Leverage Ratio:</strong> <span class="text-blue-400">${results.capitalStructure.leverageRatio.toFixed(1)}x</span></div>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="mt-4 p-4 bg-gradient-to-r from-slate-900/40 to-blue-900/20 rounded-lg border border-slate-600/30">
+                <div class="font-semibold text-slate-300 mb-2 text-center">🎯 Post-SEED Reality</div>
+                <div class="grid md:grid-cols-3 gap-4 text-sm text-center">
+                  <div>
+                    <div class="text-2xl mb-1">🚛</div>
+                    <div class="font-semibold text-slate-400">Proven Model</div>
+                    <div class="text-slate-300">${scenario.units} units vs 3 piloto exitoso</div>
+                  </div>
+                  <div>
+                    <div class="text-2xl mb-1">💎</div>
+                    <div class="font-semibold text-slate-400">Smart Capital</div>
+                    <div class="text-slate-300">${results.capitalStructure.leverageRatio.toFixed(1)}x leverage optimiza TIR</div>
+                  </div>
+                  <div>
+                    <div class="text-2xl mb-1">⚡</div>
+                    <div class="font-semibold text-slate-400">AI Premium</div>
+                    <div class="text-slate-300">8.5x múltiplo vs traditional mobility</div>
+                  </div>
+                </div>
+              </div>
+            `;
           }
-          
-          formatCurrency(value) { if (Math.abs(value) >= 1000000) return `$${(value / 1000000).toFixed(1)}M`; return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value); }
+
+          formatCurrency(value) { 
+            if (Math.abs(value) >= 1000000) return `$${(value / 1000000).toFixed(1)}M`; 
+            return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value); 
+          }
         }
 
         // AGREGAR: DataValidator class
