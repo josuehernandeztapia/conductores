@@ -1,0 +1,1225 @@
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plan Maestro Operacional: Rodando a Gas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8f7f4;
+            color: #1f2937;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            height: 400px;
+        }
+        .nav-link {
+            transition: color 0.3s, border-color 0.3s;
+        }
+        .nav-link:hover, .nav-link.active {
+            color: #c2410c;
+            border-bottom-color: #c2410c;
+        }
+        .kpi-card {
+            background-color: #ffffff;
+            border-left: 5px solid #0d9488;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .kpi-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        .agent-card {
+            transition: all 0.3s ease;
+        }
+        .agent-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 10px 10px -5px rgb(0 0 0 / 0.04);
+        }
+        /* Tab styling for weekly timeline */
+        .tab-button {
+            transition: all 0.3s;
+        }
+        .tab-button.active {
+            background-color: #0d9488;
+            color: white;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        /* Tooltip styles */
+        [data-tooltip] {
+            position: relative;
+            cursor: pointer;
+        }
+        [data-tooltip]::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%) translateY(-8px);
+            background-color: #1f2937;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s, visibility 0.2s;
+            z-index: 10;
+        }
+        [data-tooltip]:hover::after {
+            opacity: 1;
+            visibility: visible;
+        }
+        /* Responsive styles */
+        @media (max-width: 768px) {
+            #hr-table { font-size: 0.75rem; }
+            .chart-container { height: 300px; }
+        }
+    </style>
+</head>
+<body class="antialiased">
+    <!-- Header & Navigation -->
+    <header class="bg-white/80 backdrop-blur-lg sticky top-0 z-50 shadow-sm">
+        <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center">
+                    <span class="font-bold text-xl text-slate-800">Rodando a Gas</span>
+                    <span class="ml-2 text-sm font-medium text-slate-500">Blueprint Operacional</span>
+                </div>
+                <div class="hidden md:block">
+                    <div class="ml-10 flex items-baseline space-x-4">
+                        <a href="#tesis" class="nav-link text-gray-700 px-3 py-2 rounded-md text-sm font-medium border-b-2 border-transparent">Tesis</a>
+                        <a href="#financiero" class="nav-link text-gray-700 px-3 py-2 rounded-md text-sm font-medium border-b-2 border-transparent">Financiero</a>
+                        <a href="#tecnologia" class="nav-link text-gray-700 px-3 py-2 rounded-md text-sm font-medium border-b-2 border-transparent">Tecnología</a>
+                        <a href="#ejecucion" class="nav-link text-gray-700 px-3 py-2 rounded-md text-sm font-medium border-b-2 border-transparent">Ejecución</a>
+                        <a href="#equipo" class="nav-link text-gray-700 px-3 py-2 rounded-md text-sm font-medium border-b-2 border-transparent">Equipo</a>
+                        <a href="#progreso" class="nav-link text-gray-700 px-3 py-2 rounded-md text-sm font-medium border-b-2 border-transparent">Progreso</a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+        
+        <!-- 1. Tesis de Inversión y Diferenciadores -->
+        <section id="tesis" class="mb-16 scroll-mt-16">
+            <h1 class="text-3xl md:text-4xl font-bold text-slate-900 mb-2">Tesis de Inversión</h1>
+            <p class="text-lg text-slate-600 mb-8">Un blueprint para construir un foso competitivo inexpugnable en Mobility Tech.</p>
+            
+            <div class="bg-white p-6 rounded-lg shadow-md mb-12">
+                <h3 class="font-bold text-xl mb-4 text-teal-800">Resumen Estratégico</h3>
+                <p class="text-slate-700 leading-relaxed">
+                    La inversión de <strong>$7,665,000 MXN</strong> financia la creación de un ecosistema de agentes de IA y diferenciadores únicos que transforman los costos variables de una financiera tradicional en una inversión de capital fija. El objetivo es construir un activo tecnológico con un payback de 20 meses y un ROI proyectado de 557% a 5 años, basado en la automatización y la creación de un colateral social propietario.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                <div class="kpi-card p-4 rounded-lg shadow-sm" data-tooltip="$2.265M en 5 agentes de IA">
+                    <p class="text-sm font-medium text-slate-500">Core IA Investment</p>
+                    <p class="text-2xl font-bold text-slate-800">$2.27M</p>
+                    <p class="text-xs text-green-600">29.5% del total</p>
+                </div>
+                <div class="kpi-card p-4 rounded-lg shadow-sm" data-tooltip="HASE: 1,584h | PIA: 576h | Super-PMA: 768h | Asistente: 480h | RAG-DNA: 432h">
+                    <p class="text-sm font-medium text-slate-500">Horas Desarrollo</p>
+                    <p class="text-2xl font-bold text-slate-800">7,760h</p>
+                    <p class="text-xs text-amber-600">52.4% ESOP Core</p>
+                </div>
+                <div class="kpi-card p-4 rounded-lg shadow-sm" data-tooltip="STP + Oxxo + PLD: 70% no-bancarizado accesible">
+                    <p class="text-sm font-medium text-slate-500">Stack Pagos Inclusivo</p>
+                    <p class="text-2xl font-bold text-slate-800">$75K</p>
+                    <p class="text-xs text-teal-600">TAM $10.9B vs $3B</p>
+                </div>
+                <div class="kpi-card p-4 rounded-lg shadow-sm" data-tooltip="3 vagonetas × $876,667 cada una">
+                    <p class="text-sm font-medium text-slate-500">CAPEX Piloto</p>
+                    <p class="text-2xl font-bold text-slate-800">$2.63M</p>
+                    <p class="text-xs text-orange-600">3 unidades validación</p>
+                    <button onclick="document.getElementById('capex-modal').style.display='flex'" class="text-xs text-blue-600 underline mt-1">Ver desglose →</button>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-lg shadow-md mb-12">
+                <h3 class="font-bold text-xl mb-4 text-teal-800">Diferenciadores Estratégicos Clave</h3>
+                <div id="diferenciadores-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Los diferenciadores se insertarán aquí por JS -->
+                </div>
+            </div>
+            
+            <div class="bg-gradient-to-r from-orange-50 to-red-50 p-6 rounded-lg border border-orange-200 mt-8">
+                <h4 class="font-bold text-orange-800 mb-3">🎯 Competitive Moat Analysis</h4>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    <div><strong>Carta Aval OCR:</strong> Imposible replicar - 20+ años cultural knowledge</div>
+                    <div><strong>Stack Pagos Inclusivos:</strong> Único acceso 70% población</div>
+                    <div><strong>RAG-DNA:</strong> Experience-to-Algorithm propietario</div>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-lg shadow-md mt-12">
+                <h3 class="font-bold text-xl mb-4 text-teal-800">Análisis ROI: IA-Nativo vs Tradicional</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 text-center">
+                    <div class="bg-slate-50 p-3 rounded-lg"><p class="text-sm text-slate-500">ROI Proyectado (5 años)</p><p id="roi-percentage" class="text-2xl font-bold text-green-600">557%</p></div>
+                    <div class="bg-slate-50 p-3 rounded-lg"><p class="text-sm text-slate-500">Payback Period</p><p id="payback-period" class="text-2xl font-bold text-teal-600">20 meses</p></div>
+                    <div class="bg-slate-50 p-3 rounded-lg"><p class="text-sm text-slate-500">Ahorro Total (5 años)</p><p id="savings-total" class="text-2xl font-bold text-orange-600">$12.96M</p></div>
+                </div>
+                <div class="mb-6">
+                    <label for="roi-years" class="block text-sm font-medium text-slate-700 mb-2">Proyección a: <span id="years-label" class="font-bold text-orange-600">5</span> años</label>
+                    <input id="roi-years" type="range" min="1" max="5" value="5" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                </div>
+                <div class="chart-container" style="height: 300px;">
+                    <canvas id="roiComparisonChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="mt-8 bg-white p-6 rounded-lg shadow-md">
+                <h4 class="font-bold text-xl mb-4 text-teal-800">Breakdown ROI: ¿Dónde Está El Ahorro?</h4>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">Componente</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500">Modelo Tradicional</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500">Modelo IA-Nativo</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500">Ahorro Anual</th>
+                            </tr>
+                        </thead>
+                        <tbody id="roi-breakdown-body" class="divide-y divide-gray-200">
+                            <!-- Generado por JS con datos específicos -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. Plan Financiero -->
+        <section id="financiero" class="mb-16 scroll-mt-16">
+            <h2 class="text-3xl md:text-4xl font-bold text-slate-900 mb-2">Plan Financiero (CFO View)</h2>
+            <p class="text-lg text-slate-600 mb-8">Un despliegue de capital no lineal para maximizar la eficiencia y mitigar riesgos.</p>
+            
+            <div class="bg-white p-6 rounded-lg shadow-md mb-12">
+                <h3 class="font-bold text-xl mb-4 text-teal-800">Inversión Semilla Solicitada: $7,665,000 MXN</h3>
+                <div class="chart-container" style="height: 400px; width: 100%;">
+                    <canvas id="investmentDonutChart"></canvas>
+                </div>
+                <div class="mt-8 bg-gradient-to-r from-teal-50 to-cyan-50 p-6 rounded-lg border border-teal-200">
+                    <h4 class="font-bold text-teal-800 mb-4">💼 Desglose SaaS + Stack Tecnológico ($631,000)</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div>
+                            <h5 class="font-semibold text-slate-800 mb-3">SaaS Backbone ($436k)</h5>
+                            <div class="space-y-2 text-sm">
+                                <div class="flex justify-between p-2 bg-white rounded">
+                                    <span>Odoo Enterprise (ERP completo)</span>
+                                    <span class="font-semibold text-teal-600">$216k</span>
+                                </div>
+                                <div class="flex justify-between p-2 bg-white rounded">
+                                    <span>Financial AI (Xero, DocuSign)</span>
+                                    <span class="font-semibold text-teal-600">$100k</span>
+                                </div>
+                                <div class="flex justify-between p-2 bg-white rounded">
+                                    <span>Seguridad SOC2 (Auth0)</span>
+                                    <span class="font-semibold text-teal-600">$60k</span>
+                                </div>
+                                <div class="flex justify-between p-2 bg-white rounded">
+                                    <span>Comunicación (Slack, Google)</span>
+                                    <span class="font-semibold text-teal-600">$40k</span>
+                                </div>
+                                <div class="flex justify-between p-2 bg-white rounded">
+                                    <span>Apps Móviles (Android)</span>
+                                    <span class="font-semibold text-teal-600">$20k</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <h5 class="font-semibold text-slate-800 mb-3">Stack Pagos Inclusivos ($75k)</h5>
+                            <div class="space-y-2 text-sm">
+                                <div class="flex justify-between p-2 bg-green-50 rounded border border-green-200">
+                                    <span>STP Integration (SPEI directo)</span>
+                                    <span class="font-semibold text-green-600">$35k + $8k/mes</span>
+                                </div>
+                                <div class="flex justify-between p-2 bg-green-50 rounded border border-green-200">
+                                    <span>Oxxo Pay API (20,000+ tiendas)</span>
+                                    <span class="font-semibold text-green-600">$20k + $5k/mes</span>
+                                </div>
+                                <div class="flex justify-between p-2 bg-green-50 rounded border border-green-200">
+                                    <span>PLD Compliance (anti-lavado)</span>
+                                    <span class="font-semibold text-green-600">$12k</span>
+                                </div>
+                                <div class="flex justify-between p-2 bg-green-50 rounded border border-green-200">
+                                    <span>Terminal POS backup</span>
+                                    <span class="font-semibold text-green-600">$8k</span>
+                                </div>
+                            </div>
+                            <div class="mt-3 p-2 bg-green-100 rounded border border-green-300">
+                                <p class="text-xs font-bold text-green-800">🎯 Impacto Crítico</p>
+                                <p class="text-xs text-green-700">70% población no-bancarizada → 100% accesible</p>
+                                <p class="text-xs text-green-700">TAM mantiene $10.9B vs $3B solo tradicional</p>
+                            </div>
+                        </div>
+                        <div>
+                            <h5 class="font-semibold text-slate-800 mb-3">Automation Tools ($120k)</h5>
+                            <div class="space-y-2 text-sm">
+                                <div class="flex justify-between p-2 bg-purple-50 rounded border border-purple-200">
+                                    <span>Make/n8n Enterprise</span>
+                                    <span class="font-semibold text-purple-600">$30k/año</span>
+                                </div>
+                                <div class="flex justify-between p-2 bg-purple-50 rounded border border-purple-200">
+                                    <span>WhatsApp Business API</span>
+                                    <span class="font-semibold text-purple-600">$45k/año</span>
+                                </div>
+                                <div class="flex justify-between p-2 bg-purple-50 rounded border border-purple-200">
+                                    <span>APIs Premium (GPT-4, Claude)</span>
+                                    <span class="font-semibold text-purple-600">$30k/año</span>
+                                </div>
+                                <div class="flex justify-between p-2 bg-purple-50 rounded border border-purple-200">
+                                    <span>Monitoring & DevOps</span>
+                                    <span class="font-semibold text-purple-600">$15k</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-6 border-t pt-4">
+                        <h5 class="font-semibold text-slate-800 mb-3">📅 Cronograma Implementación SaaS</h5>
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
+                            <div class="p-3 bg-white rounded border-l-4 border-teal-500">
+                                <div class="font-semibold text-teal-800">Mes 1-2: Core Setup</div>
+                                <div class="text-slate-600">Odoo Enterprise + Auth0 + AWS base</div>
+                                <div class="text-teal-600 font-medium">Owner: DevOps + Full-Stack</div>
+                            </div>
+                            <div class="p-3 bg-white rounded border-l-4 border-green-500">
+                                <div class="font-semibold text-green-800">Mes 2-3: Pagos Inclusivos</div>
+                                <div class="text-slate-600">STP + Oxxo Pay + PLD compliance</div>
+                                <div class="text-green-600 font-medium">Owner: Backend + Legal</div>
+                            </div>
+                            <div class="p-3 bg-white rounded border-l-4 border-purple-500">
+                                <div class="font-semibold text-purple-800">Mes 3-4: Automation</div>
+                                <div class="text-slate-600">Make/n8n + WhatsApp Business API</div>
+                                <div class="text-purple-600 font-medium">Owner: ML Engineer + Backend</div>
+                            </div>
+                            <div class="p-3 bg-white rounded border-l-4 border-orange-500">
+                                <div class="font-semibold text-orange-800">Mes 4+: Stack Completo</div>
+                                <div class="text-slate-600">100% operativo + SOC2-ready</div>
+                                <div class="text-orange-600 font-medium">Milestone: Stack empresarial operativo</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-lg shadow-md mt-12">
+                 <h3 class="font-bold text-xl mb-2 text-teal-800">Flujo de Caja y Gasto Mensual</h3>
+                 <p class="text-slate-600 mb-4">Interactúe con el deslizador para explorar el plan financiero mes a mes. El gráfico visualiza el gasto por categoría y el efectivo restante.</p>
+                <div class="mb-8">
+                    <label for="month-slider" class="block text-sm font-medium text-slate-700 mb-2">Mes: <span id="month-label" class="font-bold text-orange-600">1</span></label>
+                    <input id="month-slider" type="range" min="1" max="12" value="1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                </div>
+                
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 text-center">
+                    <div class="bg-slate-50 p-3 rounded-lg">
+                        <p class="text-sm text-slate-500">Gasto del Mes</p>
+                        <p id="kpi-gasto-mes" class="text-2xl font-bold"></p>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-lg">
+                        <p class="text-sm text-slate-500">Gasto Acumulado</p>
+                        <p id="kpi-gasto-acumulado" class="text-2xl font-bold"></p>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-lg">
+                        <p class="text-sm text-slate-500">Efectivo Restante</p>
+                        <p id="kpi-efectivo" class="text-2xl font-bold"></p>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-lg">
+                        <p class="text-sm text-slate-500">Reserva Emergencia</p>
+                        <p id="kpi-reserva" class="text-2xl font-bold text-teal-600"></p>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="financialPlanChart"></canvas>
+                </div>
+                <div id="financial-breakdown-container" class="mt-6">
+                    <!-- Breakdown se insertará aquí -->
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. Plan de Desarrollo Tecnológico -->
+        <section id="tecnologia" class="mb-16 scroll-mt-16">
+            <h2 class="text-3xl md:text-4xl font-bold text-slate-900 mb-2">Blueprint Tecnológico (CTO View)</h2>
+            <p class="text-lg text-slate-600 mb-8">Ecosistema de agentes de IA, arquitectura de datos y especificaciones técnicas.</p>
+            
+            <div id="agentes-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+                <!-- Los agentes se insertarán aquí por JS -->
+            </div>
+
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h3 class="font-bold text-xl mb-4 text-teal-800">Arquitectura y Pipeline de Datos</h3>
+                <div id="arquitectura-datos-container">
+                    <!-- La arquitectura de datos se insertará aquí por JS -->
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. Plan de Ejecución y Compliance -->
+        <section id="ejecucion" class="mb-16 scroll-mt-16">
+            <h2 class="text-3xl md:text-4xl font-bold text-slate-900 mb-2">Plan de Ejecución (COO View)</h2>
+            <p class="text-lg text-slate-600 mb-8">Cronograma semanal, hitos de negocio y timeline regulatorio.</p>
+
+            <div class="bg-white p-6 rounded-lg shadow-md mb-12">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="font-bold text-xl text-teal-800">Roadmap de Desarrollo</h3>
+                    <div class="flex bg-gray-100 rounded-lg p-1">
+                        <button id="vista-ejecutiva-btn" class="px-4 py-2 text-sm font-medium rounded-md bg-teal-600 text-white transition-all">
+                            🎯 Vista Ejecutiva
+                        </button>
+                        <button id="vista-operacional-btn" class="px-4 py-2 text-sm font-medium rounded-md text-gray-600 hover:text-gray-900 transition-all">
+                            🔧 Vista Operacional
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- VISTA EJECUTIVA (Nueva) -->
+                <div id="executive-view-content" class="block">
+                    <!-- KPI Cards por Agente -->
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                        <div class="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg border-l-4 border-blue-500">
+                            <div class="flex items-center justify-between mb-2">
+                                <h4 class="font-bold text-blue-800">HASE</h4>
+                                <span class="text-blue-600">🧠</span>
+                            </div>
+                            <p class="text-2xl font-bold text-blue-600">$710K</p>
+                            <p class="text-sm text-blue-700">Mes 1-6 • Target: >90% AUC</p>
+                            <div class="mt-2 text-xs text-blue-600">Social Scoring único</div>
+                        </div>
+                        <div class="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-lg border-l-4 border-green-500">
+                            <div class="flex items-center justify-between mb-2">
+                                <h4 class="font-bold text-green-800">PIA</h4>
+                                <span class="text-green-600">📱</span>
+                            </div>
+                            <p class="text-2xl font-bold text-green-600">$475K</p>
+                            <p class="text-sm text-green-700">Mes 2-5 • Target: <2min SLA</p>
+                            <div class="mt-2 text-xs text-green-600">WhatsApp + LLMs empáticos</div>
+                        </div>
+                        <div class="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-lg border-l-4 border-purple-500">
+                            <div class="flex items-center justify-between mb-2">
+                                <h4 class="font-bold text-purple-800">Super-PMA</h4>
+                                <span class="text-purple-600">🔧</span>
+                            </div>
+                            <p class="text-2xl font-bold text-purple-600">$600K</p>
+                            <p class="text-sm text-purple-700">Mes 3-8 • Target: >85% precisión</p>
+                            <div class="mt-2 text-xs text-purple-600">Marketplace + Kafka streaming</div>
+                        </div>
+                        <div class="bg-gradient-to-br from-orange-50 to-orange-100 p-4 rounded-lg border-l-4 border-orange-500">
+                            <div class="flex items-center justify-between mb-2">
+                                <h4 class="font-bold text-orange-800">Asistente</h4>
+                                <span class="text-orange-600">🤖</span>
+                            </div>
+                            <p class="text-2xl font-bold text-orange-600">$330K</p>
+                            <p class="text-sm text-orange-700">Mes 4-8 • Target: 70% automation</p>
+                            <div class="mt-2 text-xs text-orange-600">GPT-4 Vision + Make/n8n</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Gantt Visual Simple -->
+                    <div class="bg-slate-50 p-6 rounded-lg mb-6">
+                        <h4 class="font-semibold text-slate-800 mb-4">Timeline & Dependencies</h4>
+                        <div class="space-y-3">
+                            <div class="flex items-center">
+                                <div class="w-20 text-xs font-medium text-blue-800">HASE</div>
+                                <div class="flex-1 bg-gray-200 rounded-full h-3 mx-2">
+                                    <div class="bg-blue-500 h-3 rounded-full" style="width: 50%; margin-left: 0%;"></div>
+                                </div>
+                                <div class="text-xs text-slate-600">Mes 1-6</div>
+                            </div>
+                            <div class="flex items-center">
+                                <div class="w-20 text-xs font-medium text-green-800">PIA</div>
+                                <div class="flex-1 bg-gray-200 rounded-full h-3 mx-2">
+                                    <div class="bg-green-500 h-3 rounded-full" style="width: 33%; margin-left: 16.67%;"></div>
+                                </div>
+                                <div class="text-xs text-slate-600">Mes 2-5</div>
+                            </div>
+                            <div class="flex items-center">
+                                <div class="w-20 text-xs font-medium text-purple-800">Super-PMA</div>
+                                <div class="flex-1 bg-gray-200 rounded-full h-3 mx-2">
+                                    <div class="bg-purple-500 h-3 rounded-full" style="width: 50%; margin-left: 25%;"></div>
+                                </div>
+                                <div class="text-xs text-slate-600">Mes 3-8</div>
+                            </div>
+                            <div class="flex items-center">
+                                <div class="w-20 text-xs font-medium text-orange-800">Asistente</div>
+                                <div class="flex-1 bg-gray-200 rounded-full h-3 mx-2">
+                                    <div class="bg-orange-500 h-3 rounded-full" style="width: 41.67%; margin-left: 33.33%;"></div>
+                                </div>
+                                <div class="text-xs text-slate-600">Mes 4-8</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Critical Path -->
+                    <div class="bg-gradient-to-r from-amber-50 to-red-50 p-4 rounded-lg border border-amber-200">
+                        <h4 class="font-bold text-amber-800 mb-2">🚨 Critical Path hacia Serie A</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-3 text-sm">
+                            <div class="text-center">
+                                <div class="font-semibold text-red-700">Mes 4</div>
+                                <div class="text-red-600">REPUVE Legal</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="font-semibold text-orange-700">Mes 6</div>
+                                <div class="text-orange-600">1ra Vagoneta</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="font-semibold text-blue-700">Mes 9</div>
+                                <div class="text-blue-600">Validación Piloto</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="font-semibold text-green-700">Mes 12</div>
+                                <div class="text-green-600">Serie A $45M</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- VISTA OPERACIONAL (Mover cronograma actual aquí) -->
+                <div id="operational-view-content" class="hidden">
+                    <div id="weekly-timeline-container">
+                        <!-- El cronograma semanal actual se renderizará aquí -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-lg shadow-md mb-12">
+                <h3 class="font-bold text-xl mb-4 text-teal-800">Hitos y KPIs Clave (Business-Técnico)</h3>
+                <div id="kpis-correlacionados-container" class="space-y-6">
+                    <!-- Los KPIs se insertarán aquí por JS -->
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h3 class="font-bold text-xl mb-4 text-teal-800">Timeline Regulatorio y de Compliance</h3>
+                <div id="compliance-container" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- El timeline de compliance se insertará aquí por JS -->
+                </div>
+            </div>
+        </section>
+
+        <!-- 5. Plan de Equipo -->
+        <section id="equipo" class="mb-16 scroll-mt-16">
+            <h2 class="text-3xl md:text-4xl font-bold text-slate-900 mb-2">Plan de Equipo (HR View)</h2>
+            <p class="text-lg text-slate-600 mb-8">La ventaja competitiva más defendible y el principal mitigador del riesgo de ejecución.</p>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <h3 class="font-bold text-xl mb-4 text-teal-800">La Piedra Angular: El Núcleo ESOP</h3>
+                    <div class="space-y-4 text-slate-700">
+                        <p>La certeza de ejecución recae sobre un equipo pre-ensamblado de miembros técnicos senior con química y velocidad probadas.</p>
+                        <blockquote class="border-l-4 border-orange-500 pl-4 italic">
+                            Su compensación es un modelo híbrido estratégico: salarios base competitivos más un <strong>10% de equity</strong> colectivo, creando <strong>"golden handcuffs"</strong> que eliminan el riesgo de fuga de talento.
+                        </blockquote>
+                        <p>Para los inversionistas, esto no es un plan de RRHH, es la garantía de que el equipo que construye el valor permanecerá para entregarlo. Es una asignación de capital sofisticada que dirige el equity a los creadores de IP a largo plazo.</p>
+                    </div>
+                </div>
+                 <div class="bg-white p-6 rounded-lg shadow-md">
+                    <h3 class="font-bold text-xl mb-4 text-teal-800">Asignación Detallada por Persona/Mes</h3>
+                    <p class="text-slate-600 mb-4">Matriz completa mostrando la asignación de cada rol a los hitos del plan maestro.</p>
+                    
+                    <div class="mb-4">
+                        <label for="role-filter" class="block text-sm font-medium text-gray-700">Filtrar por Rol:</label>
+                        <select id="role-filter" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-orange-500 focus:border-orange-500 sm:text-sm rounded-md">
+                            <option value="all">Todos los Roles</option>
+                        </select>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table id="hr-table" class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <!-- Cabecera generada por JS -->
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                <!-- Filas generadas por JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 6. Tracker de Progreso -->
+        <section id="progreso" class="mb-16 scroll-mt-16">
+            <h2 class="text-3xl md:text-4xl font-bold text-slate-900 mb-2">Tracker de Progreso (Dashboard View)</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <h3 class="font-bold text-xl mb-4">Desarrollo Técnico</h3>
+                    <div id="tech-progress-bars" class="space-y-4"></div>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <h3 class="font-bold text-xl mb-4">Hitos de Negocio</h3>
+                    <div id="business-progress-bars" class="space-y-4"></div>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <h3 class="font-bold text-xl mb-4">Burn Rate vs Plan</h3>
+                    <div id="burn-rate-chart-container" class="chart-container" style="height: 250px;">
+                        <canvas id="burn-rate-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+    
+    <!-- Modals -->
+    <div id="agent-modal" class="fixed inset-0 bg-black bg-opacity-70 z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto" id="modal-content-wrapper">
+            <div class="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
+                <h2 id="modal-title" class="text-xl font-bold text-slate-800"></h2>
+                <button id="close-modal" class="text-slate-500 hover:text-slate-700 text-2xl">&times;</button>
+            </div>
+            <div id="modal-content" class="p-6">
+                <!-- Contenido del modal inyectado por JS -->
+            </div>
+        </div>
+    </div>
+    
+    <div id="capex-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-lg max-w-3xl w-full">
+            <div class="p-6 border-b flex justify-between items-center">
+                <h3 class="text-xl font-bold text-slate-800">CAPEX Vagonetas - Breakdown Detallado</h3>
+                <button id="close-capex-modal" class="text-slate-500 hover:text-slate-700 text-2xl">&times;</button>
+            </div>
+            <div class="p-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-slate-50 p-4 rounded-lg">
+                        <h4 class="font-semibold text-slate-800 mb-3">Costo por Unidad</h4>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between">
+                                <span>Vagoneta para conversión GNV:</span>
+                                <span class="font-semibold">$730,000</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Hardware IoT completo:</span>
+                                <span class="font-semibold">$100,000</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Seguro + registro REPUVE:</span>
+                                <span class="font-semibold">$46,667</span>
+                            </div>
+                            <div class="border-t pt-2 flex justify-between font-bold">
+                                <span>Total por unidad:</span>
+                                <span>$876,667</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-slate-50 p-4 rounded-lg">
+                        <h4 class="font-semibold text-slate-800 mb-3">Hardware IoT ($100k)</h4>
+                        <div class="text-sm text-slate-600 space-y-1">
+                            <div>• OBD-II diagnósticos avanzados</div>
+                            <div>• GPS tracking + geofencing</div>
+                            <div>• Medidores flujo GNV + alertas</div>
+                            <div>• Acelerómetros comportamiento</div>
+                            <div>• Conectividad LTE/4G + backup 3G</div>
+                            <div class="text-xs text-amber-600 mt-2">*Sin desglose específico por sensor</div>
+                        </div>
+                    </div>
+                    <div class="bg-slate-50 p-4 rounded-lg">
+                        <h4 class="font-semibold text-slate-800 mb-3">Cronograma Despliegue</h4>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between">
+                                <span>Unidad 1 (validación):</span>
+                                <span class="font-semibold text-blue-600">Mes 6</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Unidad 2 (escalamiento):</span>
+                                <span class="font-semibold text-green-600">Mes 7</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Unidad 3 (validación final):</span>
+                                <span class="font-semibold text-purple-600">Mes 8</span>
+                            </div>
+                            <div class="text-xs text-slate-500 mt-3">
+                                Total: 3 unidades × $876,667 = $2,630,000
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-slate-800 text-white mt-16">
+        <div class="container mx-auto py-4 px-4 sm:px-6 lg:px-8 text-center text-sm">
+            <p>&copy; 2025 Rodando a Gas. Blueprint Operacional.</p>
+        </div>
+    </footer>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // --- DATA OBJECTS ---
+        const presupuestoReal = { total: 7665000, distribucion: { coreIA: 2265000, capexPiloto: 2630000, equipoTotal: 1940000, saasStack: 631000, ragDNA: 150000, reserva: 49000 } };
+        const agentesDetalleCompleto = { hase: { presupuesto: 710000, breakdown: { desarrollo: 600000, socialScoring: 110000 }, horas: 1584, arquitectura: ['XGBoost', 'FastAPI <200ms', 'PostgreSQL', 'TimescaleDB', 'SHAP XAI', 'Apache Airflow'], diferenciadorUnico: 'Carta Aval de Ruta - Colateral Social Propietario', apis: ['POST /api/v1/score', 'POST /api/v1/social-scoring', 'GET /api/v1/risk-profile'], kpisTecnicos: ['Mes 3: >80% AUC offline', 'Mes 6: >90% AUC tiempo real', 'Social scoring >85% correlación'], sla: { latency: '200ms', accuracy: '90% AUC', uptime: '99.9%' } }, pia: { presupuesto: 475000, breakdown: { desarrollo: 400000, whatsappBusiness: 45000, llmTraining: 30000 }, horas: 576, arquitectura: ['WhatsApp Business API', 'LLMs empáticos', 'Decision Trees', 'FastAPI', 'Redis queue'], apis: ['POST /api/v1/trigger-alert', 'POST /api/v1/whatsapp-webhook', 'GET /api/v1/intervention-analytics'], kpisTecnicos: ['<2min response SLA', 'Motor alertas funcional', 'WhatsApp integrado'], sla: { responseTime: '2min', availability: '99.9%', successRate: '95%' } }, superPma: { presupuesto: 600000, breakdown: { desarrollo: 450000, marketplace: 100000, partnerships: 50000 }, horas: 768, arquitectura: ['Kafka', 'Spark Streaming', 'InfluxDB', 'Arquitectura Kappa', 'React', 'Python'], sensores: ['OBD-II', 'GPS 30-60seg', 'Acelerómetros', 'Medidores GNV', 'LTE conectividad'], marketplace: { comision: '15-20%', partners: ['Jetz App 90min', 'Meru 1000+ brands'] }, apis: ['POST /api/v1/telemetry', 'GET /api/v1/maintenance-predictions', 'POST /api/v1/marketplace/order'], kpisTecnicos: ['>85% precisión predicción', '>1000 events/sec Kafka', '99.5% uptime sensores'], beneficios: ['25% reducción costos mantenimiento', '30-50% menos inactividad', 'Hasta 40% optimización combustible'] }, asistente: { presupuesto: 330000, breakdown: { desarrollo: 220000, gpt4Vision: 45000, baseConocimiento: 35000, automationTools: 30000 }, horas: 480, arquitectura: ['GPT-4 Vision', 'Claude 3', 'BERT español', 'Make/n8n', 'WhatsApp chatbot'], apis: ['POST /api/v1/chat', 'POST /api/v1/visual-diagnosis', 'GET /api/v1/knowledge-base'], kpisTecnicos: ['70% consultas automatizadas', '<3seg response time', '24/7 uptime'], monetizacion: ['Diagnósticos premium $500-800/consulta', 'Base conocimiento 50+ escenarios'] }, ragDna: { presupuesto: 150000, breakdown: { entrevistas: 60000, algoritmatizacion: 50000, validacion: 40000 }, horas: 432, proposito: 'Sistematización 20+ años experiencia RAG en algoritmos', impacto: 'Conocimiento humano → Activo tecnológico escalable', diferenciador: 'Experience-to-Algorithm único en mercado' } };
+        const arquitecturaDatos = { fuentes: { gnv: { campos: ['litros_cargados', 'sobreprecio_por_litro'], endpoint: 'POST /api/v1/transactions', frecuencia: 'tiempo real' }, gps: { campos: ['odometro', 'estado_motor', 'lat_lng'], endpoint: 'POST /api/v1/telemetry', frecuencia: '30-60 segundos' }, consware: { campos: ['consumo_gnv_diario', 'ruta', 'eventos_criticos'], endpoint: 'GET /api/v1/historical?fecha=YYYY-MM-DD', frecuencia: 'diaria' }, cartaAval: { campos: ['ocr_texto', 'firma_validada', 'presidente_ruta'], endpoint: 'POST /api/v1/social-scoring', frecuencia: 'onboarding' }, iotSensores: { campos: ['obd_codes', 'acelerometro', 'flujo_gnv'], endpoint: 'POST /api/v1/sensors', frecuencia: 'streaming' } }, storage: { postgresql: 'Datos estructurados + scoring', timescaledb: 'Series temporales GPS/GNV', influxdb: 'Datos IoT alta frecuencia', redis: 'Cache APIs + cola mensajes PIA' }, etl: { herramienta: 'Apache Airflow', pipeline: 'Ingesta → Limpieza → Enriquecimiento → Storage', latencia: '<500ms datos críticos' } };
+        const cronogramaSemanalCompleto = { mes1: { titulo: 'Fundación + RAG-DNA', sem1: { tasks: ['AWS setup VPC+IAM', 'Odoo installation config', 'Ingesta Consware histórica'], owners: ['DevOps', 'Full-Stack', 'Data Scientist'], hours: 240, milestone: 'Infra base + datos limpios' }, sem2: { tasks: ['Auth0 setup', 'Features engineering HASE', 'RAG-DNA entrevistas start'], owners: ['Full-Stack', 'Data Scientist', 'Data Scientist'], hours: 240, milestone: 'Seguridad + arquitectura definida' }, sem3: { tasks: ['HASE baseline v0.5', 'API structure design', 'Database schema'], owners: ['Data Scientist', 'Backend', 'Backend'], hours: 240, milestone: 'Baseline modelo + APIs diseñadas' }, sem4: { tasks: ['RAG-DNA sistematización', 'SaaS basic integration', 'Social scoring design'], owners: ['Data Scientist', 'Full-Stack', 'ML Engineer'], hours: 240, milestone: 'RAG-DNA iniciado + social scoring diseñado' } }, mes2: { titulo: 'Social Scoring + Pagos Inclusivos', sem1: { tasks: ['Carta Aval OCR research', 'STP integration start', 'PIA architecture'], owners: ['Data Scientist', 'Backend', 'ML Engineer'], hours: 240, milestone: 'OCR research + pagos inclusivos start' }, sem2: { tasks: ['OCR engine development', 'Oxxo Pay API integration', 'XGBoost + social hybrid'], owners: ['Data Scientist', 'Backend', 'Data Scientist'], hours: 240, milestone: 'OCR funcional + pagos inclusivos' }, sem3: { tasks: ['Social scoring validation', 'PLD compliance', 'Motor alertas PIA'], owners: ['Data Scientist', 'Backend', 'ML Engineer'], hours: 240, milestone: 'Híbrido HASE+social funcional' }, sem4: { tasks: ['Correlación >85% social', 'Stack pagos testing', 'WhatsApp Business setup'], owners: ['Data Scientist', 'Backend', 'ML Engineer'], hours: 240, milestone: 'Social scoring >85% + pagos operativos' } }, mes3: { titulo: 'HASE Tiempo Real + App MVP', sem1: { tasks: ['HASE v0.8 deployment', 'Android app start', 'Super-PMA design'], owners: ['Data Scientist', 'Frontend', 'IoT Engineer'], hours: 240, milestone: 'HASE tiempo real' }, sem2: { tasks: ['API FastAPI optimization', 'App backend APIs', 'Kafka setup'], owners: ['Backend', 'Frontend', 'IoT Engineer'], hours: 240, milestone: 'APIs optimizadas + Kafka streaming' }, sem3: { tasks: ['HASE >80% AUC validation', 'App UI/UX', 'Legal REPUVE prep'], owners: ['Data Scientist', 'Frontend', 'Legal'], hours: 240, milestone: 'HASE validado + legal iniciado' }, sem4: { tasks: ['Social scoring integration final', 'App MVP beta', 'SEMARNAT applications'], owners: ['Data Scientist', 'Frontend', 'Legal'], hours: 240, milestone: 'MVP tech + legal en proceso' } }, mes4: { titulo: 'PIA + Asistente Digital + Legal', sem1: { tasks: ['PIA v1.0 WhatsApp', 'BERT español setup', 'REPUVE documentation'], owners: ['ML Engineer', 'ML Engineer', 'Legal'], hours: 240, milestone: 'PIA funcional + BERT core' }, sem2: { tasks: ['LLMs empáticos training', 'IoT sensors selection', 'Contratos piloto'], owners: ['ML Engineer', 'IoT Engineer', 'Business'], hours: 240, milestone: 'LLMs trained + sensores seleccionados' }, sem3: { tasks: ['Decision trees escalamiento', '1ra vagoneta prep', 'App Android beta'], owners: ['ML Engineer', 'IoT Engineer', 'Frontend'], hours: 240, milestone: 'PIA completo + 1ra vagoneta prep' }, sem4: { tasks: ['WhatsApp integration testing', 'Base conocimiento', 'REPUVE final'], owners: ['ML Engineer', 'ML Engineer', 'Legal'], hours: 240, milestone: 'PIA <2min SLA + legal avanzado' } }, mes5: { titulo: 'Super-PMA Streaming + Marketplace', sem1: { tasks: ['Kafka streaming production', 'Asistente base conocimiento', 'SEMARNAT final'], owners: ['IoT Engineer', 'ML Engineer', 'Legal'], hours: 240, milestone: 'Streaming operativo + legal completo' }, sem2: { tasks: ['Sensores installation', 'GPT-4 Vision integration', 'App beta testing'], owners: ['IoT Engineer', 'ML Engineer', 'QA'], hours: 240, milestone: 'Sensores instalados + Vision AI' }, sem3: { tasks: ['InfluxDB optimization', 'Marketplace MVP design', 'Dashboard operativo'], owners: ['IoT Engineer', 'Full-Stack', 'Frontend'], hours: 240, milestone: 'DB optimizada + marketplace diseñado' }, sem4: { tasks: ['Modelos predictivos', 'Proveedores onboarding', 'App production'], owners: ['Data Scientist', 'Full-Stack', 'Frontend'], hours: 240, milestone: 'Modelos >85% + marketplace funcional' } }, mes6: { titulo: 'Deployment 1ra Vagoneta + Ecosistema Integrado', sem1: { tasks: ['1ra vagoneta deployment', 'Marketplace transaccional', 'HASE >90% validation'], owners: ['IoT Engineer', 'Full-Stack', 'Data Scientist'], hours: 240, milestone: '1ra vagoneta transmitiendo datos' }, sem2: { tasks: ['Streaming datos validación', 'Asistente multimodal', 'Contratos firmados'], owners: ['IoT Engineer', 'ML Engineer', 'Business'], hours: 240, milestone: 'Datos streaming + contratos' }, sem3: { tasks: ['Super-PMA predicciones', 'Jetz+Meru integration', 'Compliance validation'], owners: ['Data Scientist', 'Full-Stack', 'Legal'], hours: 240, milestone: 'Predicciones funcionales + partnerships' }, sem4: { tasks: ['Ecosistema 4 agentes integrado', 'Marketplace primeras transacciones', 'QA setup'], owners: ['All Team', 'Full-Stack', 'QA Engineer'], hours: 240, milestone: 'MVP completo operacional' } }, mes7: { titulo: '2da Vagoneta + Validación Comercial', sem1: { tasks: ['2da vagoneta deployment', 'Marketplace optimización', 'Pruebas carga'], owners: ['IoT Engineer', 'Full-Stack', 'QA Engineer'], hours: 240, milestone: '2da vagoneta operativa' }, sem2: { tasks: ['Análisis datos piloto', 'Comisiones automatizadas', 'Performance monitoring'], owners: ['Data Scientist', 'Backend', 'DevOps'], hours: 240, milestone: 'Datos validación + comisiones' }, sem3: { tasks: ['Correlación mantenimiento-riesgo', 'Primeros ingresos marketplace', 'NPS >50 tracking'], owners: ['Data Scientist', 'Business', 'Business'], hours: 240, milestone: 'Correlación cuantificada + ingresos' }, sem4: { tasks: ['Optimización modelos', 'Feedback loops', 'Documentación QA'], owners: ['ML Engineer', 'All Team', 'QA Engineer'], hours: 240, milestone: 'Optimización + feedback integrado' } }, mes8: { titulo: '3ra Vagoneta + Marketplace Escalamiento', sem1: { tasks: ['3ra vagoneta deployment', 'Marketplace scaling', 'Diagnósticos premium'], owners: ['IoT Engineer', 'Full-Stack', 'ML Engineer'], hours: 240, milestone: '3ra vagoneta + premium services' }, sem2: { tasks: ['3 vagonetas >95% uptime', 'Proveedores expansion', 'Automatización testing'], owners: ['IoT Engineer', 'Business', 'QA Engineer'], hours: 240, milestone: '3 vagonetas estables' }, sem3: { tasks: ['Análisis economía unitaria', '$500/vehículo/mes target', 'Regresión testing'], owners: ['Data Scientist', 'Business', 'QA Engineer'], hours: 240, milestone: 'Economía unitaria validada' }, sem4: { tasks: ['Refinamiento ecosistema', 'Business validation', 'Documentation'], owners: ['All Team', 'Business', 'QA Engineer'], hours: 240, milestone: 'Ecosistema refinado + validación business' } }, mes9: { titulo: 'Optimización Final + Datos Validación', sem1: { tasks: ['Optimización performance', 'Morosidad = 0% validation', 'Stress testing'], owners: ['All Team', 'Business', 'QA Engineer'], hours: 240, milestone: 'Performance optimizado' }, sem2: { tasks: ['Machine learning refinement', 'Business metrics final', 'Load testing'], owners: ['ML Team', 'Business', 'QA Engineer'], hours: 240, milestone: 'ML optimizado + métricas' }, sem3: { tasks: ['Final validation KPIs', 'NPS >50 achieved', 'Security testing'], owners: ['All Team', 'Business', 'QA Engineer'], hours: 240, milestone: 'KPIs validados' }, sem4: { tasks: ['Piloto final analysis', 'Serie A preparation start', 'Final documentation'], owners: ['All Team', 'Business', 'All Team'], hours: 240, milestone: 'Piloto completo + Serie A prep' } }, mes10: { titulo: 'Documentación + Serie A Preparación', sem1: { tasks: ['Technical documentation', 'Business case documentation', 'Data room start'], owners: ['Tech Team', 'Business', 'All Team'], hours: 200, milestone: 'Documentación técnica completa' }, sem2: { tasks: ['API documentation', 'Financial projections', 'Investor materials'], owners: ['Backend', 'CFO', 'Business'], hours: 200, milestone: 'Documentación APIs + financiera' }, sem3: { tasks: ['Architecture diagrams', 'ROI validation', 'Pitch deck'], owners: ['CTO', 'CFO', 'CEO'], hours: 200, milestone: 'Materiales investor ready' }, sem4: { tasks: ['Final testing', 'Business validation', 'Legal compliance'], owners: ['QA Engineer', 'Business', 'Legal'], hours: 200, milestone: 'Validación final completa' } }, mes11: { titulo: 'Data Room + Investor Outreach', sem1: { tasks: ['Data room 100% complete', 'NPS >70 achievement', 'Investor meetings'], owners: ['All Team', 'Business', 'CEO'], hours: 180, milestone: 'Data room completo' }, sem2: { tasks: ['Due diligence prep', 'Financial audits', 'Tech presentations'], owners: ['All Team', 'CFO', 'CTO'], hours: 180, milestone: 'Due diligence ready' }, sem3: { tasks: ['Investor demos', 'Technical deep dives', 'Legal reviews'], owners: ['CEO', 'CTO', 'Legal'], hours: 180, milestone: 'Investor engagement activo' }, sem4: { tasks: ['Term sheet negotiations', 'Technical validation', 'Compliance final'], owners: ['CEO', 'CTO', 'Legal'], hours: 180, milestone: 'Negociaciones activas' } }, mes12: { titulo: 'Serie A Cierre + Roadmap Post-Inversión', sem1: { tasks: ['Term sheet $45M negotiation', 'Technical roadmap post-Serie A', 'Team scaling plan'], owners: ['CEO', 'CTO', 'HR'], hours: 160, milestone: 'Term sheet en negociación' }, sem2: { tasks: ['Legal documentation', 'Technology transition plan', 'Operational scaling'], owners: ['Legal', 'CTO', 'COO'], hours: 160, milestone: 'Documentación legal avanzada' }, sem3: { tasks: ['Final validations', 'Post-investment planning', 'Team preparation'], owners: ['All Team', 'Leadership', 'HR'], hours: 160, milestone: 'Preparación post-inversión' }, sem4: { tasks: ['Serie A closing', 'Roadmap execution start', 'Celebration'], owners: ['CEO', 'All Team', 'All Team'], hours: 160, milestone: 'Serie A cerrada exitosamente' } } };
+        const complianceTimeline = { repuve: { periodo: 'Mes 2-4', proceso: ['Documentación técnica vagonetas', 'Certificación conversión GNV', 'Registro oficial SEMARNAT', 'Validación final'], costo: 15000, timeline: '6-8 semanas proceso', criticidad: 'ALTA - Sin esto no opera vagoneta' }, semarnat: { periodo: 'Mes 3-4', proceso: ['Permisos conversión GNV', 'Verificación emisiones', 'Certificado ambiental', 'Aprobación final'], timeline: '6-8 semanas paralelo REPUVE', criticidad: 'ALTA - Requerido por ley' }, pld: { periodo: 'Mes 1-12', proceso: ['Políticas compliance efectivo (Oxxo Pay)', 'Monitoreo transacciones >$7,500 MXN', 'Reportes CNBV mensuales', 'Auditoría externa semestral'], criticidad: 'CONTINUA - Riesgo legal alto' } };
+        const kpisConCorrelacion = { mes3: { tecnicos: ['HASE >80% AUC', 'Social >85%', 'OCR >95%'], business: ['Equipo 100%', 'RAG-DNA completo'], financial: ['Burn rate: $638k/mes', 'Runway: 8.5 meses'], correlacion: 'Precisión técnica → Confianza investor → Capital availability' }, mes6: { tecnicos: ['HASE >90% AUC', 'PIA <2min SLA', '1ra vagoneta 99.5% uptime'], business: ['Contratos piloto firmados', 'REPUVE/SEMARNAT OK'], financial: ['Burn rate: $875k/mes', 'Runway: 5 meses'], correlacion: 'Performance técnico → Viabilidad comercial' }, mes9: { tecnicos: ['Super-PMA >85% accuracy', 'Marketplace transaccional', '3 vagonetas >95% uptime'], business: ['Ingresos marketplace', 'NPS >50'], financial: ['Ingresos: $15k/mes', 'Burn rate (neto): $850k/mes'], correlacion: 'Eficiencia operativa → Rentabilidad comprobada' }, mes12: { tecnicos: ['Ecosistema optimizado', 'Documentación completa', 'SOC2-ready'], business: ['Data room completo', 'NPS >70'], financial: ['Term sheet $45M', 'Economía unitaria validada'], correlacion: 'Madurez técnica → Readiness Serie A' } };
+        const diferenciadores = { filosofia: { titulo: 'Humanamente Tecnológica', descripcion: 'IA para escalar empatía, no reemplazar humanos', implementacion: 'PIA empático + Social scoring + Support 24/7', ventaja: 'Confianza en mercado históricamente explotado' }, cartaAval: { titulo: 'Carta Aval de Ruta - Colateral Social Único', descripcion: 'Primer scoring financiero basado en capital social', implementacion: 'OCR + validación + algoritmo correlación >85%', ventaja: 'Imposible replicar - conocimiento cultural 20+ años' }, pagosInclusivos: { titulo: 'Stack Pagos 100% Inclusivo', descripcion: '70% población no-bancarizada → 100% accesible', implementacion: 'STP + Oxxo + PLD + Terminal POS', ventaja: 'TAM mantiene $10.9B vs $3B competencia' }, ragDna: { titulo: 'RAG-DNA: Experience-to-Algorithm', descripcion: '20+ años experiencia convertida en IA', implementacion: 'Entrevistas → Sistematización → Algoritmos', ventaja: 'Conocimiento imposible adquirir por competidores' }, socios: { titulo: 'Socios, No Acreedores', descripcion: 'Resiliencia como Servicio vs préstamo tradicional', implementacion: 'Flexibilidad + Support + Marketplace + Maintenance', ventaja: 'Loyalty en mercado con desconfianza histórica' } };
+        const equipoMatrizCompleta = { roles: [ { name: 'Científico de Datos', type: 'ESOP', hours: 1584, focus: 'HASE líder + Social Scoring + RAG-DNA', allocations: ['HASE/RAG-DNA', 'HASE/Social', 'Social OCR', 'HASE API', 'Deploy RT', 'Super-PMA', 'Análisis', 'Optimización', 'Validación', 'Doc Tech', 'Serie A', 'Serie A'] }, { name: 'Ingeniero ML', type: 'ESOP', hours: 1440, focus: 'PIA líder + Asistente NLP/CV + HASE support', allocations: ['HASE Support', 'PIA/HASE', 'PIA Core', 'PIA WhatsApp', 'PIA Deploy', 'Asistente', 'Asistente CV', 'Multimodal', 'Optimización', 'Doc IA', 'Serie A', 'Serie A'] }, { name: 'Full-Stack IA', type: 'ESOP', hours: 1536, focus: 'SaaS arquitecto + RAG-DNA + Integration', allocations: ['SaaS Setup', 'SaaS/RAG-DNA', 'SaaS Complete', 'PIA Frontend', 'PIA Dash', 'Super-PMA UI', 'Marketplace', 'Integration', 'Optimization', 'Final Integration', 'Support', 'Support'] }, { name: 'Backend Developer', type: 'Contractor', hours: 1296, focus: 'APIs Core + Social Scoring + Pagos Inclusivos', allocations: ['DB Schema', 'HASE APIs', 'Social APIs', 'PIA APIs', 'Pagos APIs', 'Integration', 'Support APIs', 'Optimization', 'Performance', 'Documentation', 'Maintenance', 'Maintenance'] }, { name: 'IoT Engineer', type: 'Contractor', hours: 768, focus: 'Sensores + Kafka streaming + Hardware', allocations: ['-', 'Super-PMA HW', 'Kafka Setup', 'Sensors Select', 'Streaming', 'Deploy V1', 'Deploy V2', 'Deploy V3', 'Monitoring', 'Optimization', '-', '-'] }, { name: 'Frontend Developer', type: 'Contractor', hours: 720, focus: 'App Android + Dashboards + UX', allocations: ['-', '-', 'App Start', 'App Core', 'App Beta', 'App Production', 'Dashboard', 'UX Optimization', 'Final Polish', 'Documentation', '-', '-'] }, { name: 'DevOps Engineer', type: 'Contractor', hours: 480, focus: 'Infrastructure + CI/CD + Monitoring', allocations: ['AWS Setup', 'CI/CD', 'Monitoring', 'Scaling', 'Security', 'Support', '-', '-', '-', '-', '-', '-'] }, { name: 'QA Engineer', type: 'Contractor', hours: 384, focus: 'Testing automation + Validation', allocations: ['-', '-', '-', '-', '-', 'Setup QA', 'Testing', 'Validation', 'Regression', 'Final QA', '-', '-'] } ], totalHours: 7760, totalCost: 1940000, esopEquity: '10%', esopUpside: '~$15M MXN en Serie A exitosa' };
+        const flujosEfectivoReales = { gastoEquipo: [120000, 130000, 140000, 140000, 140000, 140000, 140000, 140000, 140000, 130000, 120000, 110000], gastoDesarrollo: [315000, 340000, 365000, 355000, 355000, 355000, 325000, 325000, 325000, 280000, 280000, 290000], gastoCapex: [0, 0, 0, 0, 0, 876667, 876667, 876666, 0, 0, 0, 0], stackInclusivo: [10000, 15000, 25000, 35000, 35000, 35000, 35000, 35000, 35000, 35000, 35000, 35000], compliance: [5000, 8000, 12000, 15000, 8000, 5000, 3000, 3000, 3000, 3000, 3000, 8000], inversionInicial: 7665000 };
+        
+        // --- HELPERS ---
+        const formatCurrency = (value) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 0 }).format(value);
+        const formatNumber = (value) => new Intl.NumberFormat('es-MX').format(value);
+
+        // --- RENDER FUNCTIONS ---
+
+        // 1. Tesis y Diferenciadores
+        function renderInvestmentChart() {
+            const ctx = document.getElementById('investmentDonutChart')?.getContext('2d');
+            if (!ctx) return;
+            const data = presupuestoReal.distribucion;
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Core IA', 'CAPEX Piloto', 'Equipo Total', 'SaaS + Pagos', 'RAG-DNA', 'Reserva'],
+                    datasets: [{
+                        data: [data.coreIA, data.capexPiloto, data.equipoTotal, data.saasStack, data.ragDNA, data.reserva],
+                        backgroundColor: ['#0d9488', '#0f766e', '#115e59', '#f59e0b', '#8b5cf6', '#f97316'],
+                        borderColor: '#f8f7f4',
+                        borderWidth: 4
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, cutout: '60%', plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: (c) => `${c.label}: ${formatCurrency(c.parsed)}` } } } }
+            });
+        }
+        
+        function renderROIChart() {
+            const ctx = document.getElementById('roiComparisonChart')?.getContext('2d');
+            if (!ctx) return;
+
+            const roiData = {
+                tradicional: [3580000, 7339000, 11285950, 15430248, 19781760],
+                iaNativo: [3140000, 3994700, 4892135, 5834442, 6823864],
+                ahorros: [440000, 3344300, 6393815, 9595806, 12957896]
+            };
+
+            const labels = Array.from({length: 5}, (_, i) => `Año ${i + 1}`);
+            const roiChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Costo Tradicional', data: roiData.tradicional, borderColor: '#ef4444', fill: false, tension: 0.3 },
+                        { label: 'Costo IA-Nativo', data: roiData.iaNativo, borderColor: '#10b981', fill: false, tension: 0.3 }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${formatCurrency(c.parsed.y)}` } } },
+                    scales: { y: { beginAtZero: true, title: { display: true, text: 'Costo Acumulado (MXN)' } } }
+                }
+            });
+
+            const roiSlider = document.getElementById('roi-years');
+            const updateMetrics = (year) => {
+                const investment = 2265000; // Core IA
+                const savings = roiData.ahorros[year-1];
+                const roi = ((savings / investment) * 100).toFixed(0);
+                const paybackMonths = 20;
+                const paybackYears = (paybackMonths / 12).toFixed(1);
+                
+                document.getElementById('roi-percentage').textContent = `${roi}%`;
+                document.getElementById('payback-period').textContent = `${paybackYears} años (${paybackMonths} meses)`;
+                document.getElementById('savings-total').textContent = formatCurrency(savings);
+                renderRoiBreakdownTable(year);
+            };
+
+            roiSlider.addEventListener('input', (e) => {
+                const years = parseInt(e.target.value);
+                document.getElementById('years-label').textContent = years;
+                roiChart.data.labels = labels.slice(0, years);
+                roiChart.data.datasets[0].data = roiData.tradicional.slice(0, years);
+                roiChart.data.datasets[1].data = roiData.iaNativo.slice(0, years);
+                roiChart.update();
+                updateMetrics(years);
+            });
+            updateMetrics(5); // Initial render
+        }
+
+        function renderRoiBreakdownTable(year) {
+            const body = document.getElementById('roi-breakdown-body');
+            if (!body) return;
+
+            const tradicionalCosts = {
+                personal: 3760000 / 5 * year,
+                scoringManual: 1800000 / 5 * year,
+                mantenimientoReactivo: 2200000 / 5 * year
+            };
+            const iaNativoCosts = {
+                personal: 1490000 / 5 * year,
+                scoringManual: (2265000 + 631000) / 5, // Simplified annual cost of tech
+                mantenimientoReactivo: 950000 / 5 * year
+            };
+
+            const data = [
+                { component: 'Costo de Personal', trad: tradicionalCosts.personal, ia: iaNativoCosts.personal },
+                { component: 'Scoring y Operaciones', trad: tradicionalCosts.scoringManual, ia: iaNativoCosts.scoringManual },
+                { component: 'Mantenimiento', trad: tradicionalCosts.mantenimientoReactivo, ia: iaNativoCosts.mantenimientoReactivo }
+            ];
+
+            body.innerHTML = data.map(row => `
+                <tr class="text-sm">
+                    <td class="px-4 py-3 font-medium text-gray-900">${row.component}</td>
+                    <td class="px-4 py-3 text-center text-red-600">${formatCurrency(row.trad)}</td>
+                    <td class="px-4 py-3 text-center text-green-600">${formatCurrency(row.ia)}</td>
+                    <td class="px-4 py-3 text-center font-semibold text-teal-700">${formatCurrency(row.trad - row.ia)}</td>
+                </tr>
+            `).join('');
+        }
+
+        function renderDiferenciadores() {
+            const container = document.getElementById('diferenciadores-container');
+            if (!container) return;
+            container.innerHTML = Object.values(diferenciadores).map(d => `
+                <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                    <h4 class="font-bold text-teal-800 mb-2">${d.titulo}</h4>
+                    <p class="text-sm text-slate-600 mb-2">${d.descripcion}</p>
+                    <p class="text-xs font-semibold text-slate-500">Ventaja: <span class="font-normal text-slate-700">${d.ventaja}</span></p>
+                </div>
+            `).join('');
+        }
+
+        // 2. Financiero
+        function renderFinancials() {
+            const ctx = document.getElementById('financialPlanChart')?.getContext('2d');
+            if (!ctx) return;
+            
+            const labels = Array.from({ length: 12 }, (_, i) => `Mes ${i + 1}`);
+            const datasets = [
+                { label: 'Equipo', data: flujosEfectivoReales.gastoEquipo, backgroundColor: '#14b8a6', stack: 'gastos' },
+                { label: 'Desarrollo', data: flujosEfectivoReales.gastoDesarrollo, backgroundColor: '#0d9488', stack: 'gastos' },
+                { label: 'CAPEX', data: flujosEfectivoReales.gastoCapex, backgroundColor: '#0f766e', stack: 'gastos' },
+                { label: 'Pagos/SaaS', data: flujosEfectivoReales.stackInclusivo, backgroundColor: '#f59e0b', stack: 'gastos' },
+                { label: 'Compliance', data: flujosEfectivoReales.compliance, backgroundColor: '#f97316', stack: 'gastos' },
+            ];
+
+            let gastoAcumulado = 0;
+            const efectivoRestante = flujosEfectivoReales.gastoEquipo.map((_, i) => {
+                const gastoMes = datasets.reduce((sum, ds) => sum + ds.data[i], 0);
+                gastoAcumulado += gastoMes;
+                return flujosEfectivoReales.inversionInicial - gastoAcumulado;
+            });
+
+            datasets.push({
+                label: 'Efectivo Restante',
+                data: efectivoRestante,
+                type: 'line',
+                borderColor: '#c2410c',
+                backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                fill: true,
+                yAxisID: 'y1',
+                tension: 0.3
+            });
+
+            const financialChart = new Chart(ctx, {
+                type: 'bar',
+                data: { labels, datasets },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${formatCurrency(c.parsed.y)}` } }, legend: { position: 'bottom' } },
+                    scales: {
+                        x: { stacked: true },
+                        y: { stacked: true, beginAtZero: true, title: { display: true, text: 'Gasto Mensual (MXN)' } },
+                        y1: { position: 'right', beginAtZero: true, title: { display: true, text: 'Efectivo Restante (MXN)' }, grid: { drawOnChartArea: false } }
+                    }
+                }
+            });
+
+            const monthSlider = document.getElementById('month-slider');
+            const updateKPIs = (month) => {
+                const index = month - 1;
+                document.getElementById('month-label').textContent = month;
+                const gastoMes = datasets.filter(ds => ds.stack === 'gastos').reduce((sum, ds) => sum + ds.data[index], 0);
+                const gastoAcc = datasets.filter(ds => ds.stack === 'gastos').reduce((total, ds) => total + ds.data.slice(0, month).reduce((a, b) => a + b, 0), 0);
+                document.getElementById('kpi-gasto-mes').textContent = formatCurrency(gastoMes);
+                document.getElementById('kpi-gasto-acumulado').textContent = formatCurrency(gastoAcc);
+                document.getElementById('kpi-efectivo').textContent = formatCurrency(efectivoRestante[index]);
+                document.getElementById('kpi-reserva').textContent = formatCurrency(presupuestoReal.distribucion.reserva);
+            };
+            monthSlider.addEventListener('input', (e) => updateKPIs(parseInt(e.target.value)));
+            updateKPIs(1);
+        }
+        
+        function renderFinancialBreakdown() {
+            const container = document.getElementById('financial-breakdown-container');
+            if (!container) return;
+            container.innerHTML = `
+                <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                    <h4 class="font-semibold text-slate-800 mb-2">Notas del Flujo de Caja:</h4>
+                    <ul class="text-sm text-slate-600 list-disc list-inside space-y-1">
+                        <li><strong>Stack Inclusivo:</strong> Escala de $10k a $35k en el Mes 4 con la activación de APIs.</li>
+                        <li><strong>Compliance:</strong> Pico de $15k en Mes 4 por setups iniciales, luego se estabiliza.</li>
+                        <li><strong>CAPEX:</strong> Concentrado 100% en los Meses 6-8 para el despliegue de las 3 vagonetas piloto.</li>
+                        <li><strong>Reserva:</strong> Los $49k se mantienen intactos como red de seguridad.</li>
+                    </ul>
+                </div>
+            `;
+        }
+
+        // 3. Tecnología
+        function renderAgentes() {
+            const container = document.getElementById('agentes-container');
+            if (!container) return;
+            container.innerHTML = Object.entries(agentesDetalleCompleto).map(([key, agent]) => {
+                const breakdownTooltip = Object.entries(agent.breakdown).map(([k, v]) => `${k.charAt(0).toUpperCase() + k.slice(1)}: ${formatCurrency(v)}`).join(' | ');
+                return `
+                <div class="agent-card bg-white p-6 rounded-lg shadow-md border-l-4 border-teal-600 cursor-pointer" data-agent-key="${key}" data-tooltip="${breakdownTooltip}">
+                    <h3 class="font-bold text-lg text-slate-800">${key.toUpperCase()}</h3>
+                    <p class="text-sm text-slate-600 mb-3">${agent.proposito || agent.diferenciadorUnico || ''}</p>
+                    <p class="text-2xl font-bold text-teal-600">${formatCurrency(agent.presupuesto)}</p>
+                    <p class="text-xs text-slate-500">${formatNumber(agent.horas)} horas desarrollo</p>
+                    <div class="mt-3 text-xs text-slate-400">Click para detalles técnicos →</div>
+                </div>
+            `}).join('');
+        }
+
+        function renderArquitecturaDatos() {
+            const container = document.getElementById('arquitectura-datos-container');
+            if (!container) return;
+            container.innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <h4 class="font-semibold text-slate-800 mb-3">Fuentes de Datos y Endpoints</h4>
+                        <div class="space-y-2 text-sm">
+                            ${Object.entries(arquitecturaDatos.fuentes).map(([key, val]) => `
+                                <div class="p-2 bg-slate-50 rounded">
+                                    <div class="font-semibold">${key} <span class="text-xs font-normal text-slate-500">(${val.frecuencia})</span></div>
+                                    <div class="text-xs text-teal-700 font-mono">${val.endpoint}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold text-slate-800 mb-3">Almacenamiento (Storage)</h4>
+                        <div class="space-y-2 text-sm">
+                            ${Object.entries(arquitecturaDatos.storage).map(([key, val]) => `
+                                <div class="p-2 bg-slate-50 rounded"><strong>${key}:</strong> ${val}</div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold text-slate-800 mb-3">ETL Pipeline</h4>
+                        <div class="p-3 bg-slate-50 rounded">
+                            <p><strong>Herramienta:</strong> ${arquitecturaDatos.etl.herramienta}</p>
+                            <p><strong>Pipeline:</strong> ${arquitecturaDatos.etl.pipeline}</p>
+                            <p><strong>Latencia Crítica:</strong> ${arquitecturaDatos.etl.latencia}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 4. Ejecución
+        function renderWeeklyTimeline() {
+            const container = document.getElementById('weekly-timeline-container');
+            if (!container) return;
+
+            const tabs = Object.keys(cronogramaSemanalCompleto).map((mesKey, index) => `
+                <button class="tab-button px-4 py-2 text-sm font-medium rounded-md ${index === 0 ? 'active' : ''}" data-tab="${mesKey}">
+                    ${mesKey.replace('mes', 'Mes ')}
+                </button>
+            `).join('');
+
+            const content = Object.entries(cronogramaSemanalCompleto).map(([mesKey, mesData], index) => `
+                <div class="tab-content mt-4 ${index === 0 ? 'active' : ''}" id="${mesKey}">
+                    <h4 class="text-lg font-bold mb-4">${mesData.titulo}</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        ${Object.entries(mesData).filter(([key]) => key.startsWith('sem')).map(([semKey, semData]) => `
+                            <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                                <h5 class="font-bold text-slate-800">Semana ${semKey.replace('sem', '')}</h5>
+                                <ul class="text-xs text-slate-600 mt-2 space-y-1 list-disc list-inside">
+                                    ${semData.tasks.map(t => `<li>${t}</li>`).join('')}
+                                </ul>
+                                <p class="text-xs font-semibold text-teal-700 mt-3">Owner(s): ${semData.owners.join(', ')}</p>
+                                <div class="mt-3 pt-3 border-t">
+                                    <p class="text-xs font-bold text-orange-600">Milestone: <span class="font-normal text-slate-700">${semData.milestone}</span></p>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+
+            container.innerHTML = `<div class="flex flex-wrap gap-2">${tabs}</div>${content}`;
+            
+            container.querySelectorAll('.tab-button').forEach(button => {
+                button.addEventListener('click', () => {
+                    container.querySelector('.tab-button.active').classList.remove('active');
+                    button.classList.add('active');
+                    container.querySelector('.tab-content.active').classList.remove('active');
+                    container.querySelector(`#${button.dataset.tab}`).classList.add('active');
+                });
+            });
+        }
+        
+        function renderKpisCorrelacionados() {
+            const container = document.getElementById('kpis-correlacionados-container');
+            if(!container) return;
+            container.innerHTML = Object.entries(kpisConCorrelacion).map(([mes, data]) => `
+                <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                    <h4 class="font-bold text-lg text-slate-800 mb-3">Hitos del ${mes.replace('mes', 'Mes ')}</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                        <div>
+                            <h5 class="font-semibold text-teal-700 mb-2">KPIs Técnicos</h5>
+                            <ul class="list-disc list-inside space-y-1">${data.tecnicos.map(k => `<li>${k}</li>`).join('')}</ul>
+                        </div>
+                        <div>
+                            <h5 class="font-semibold text-orange-700 mb-2">KPIs de Negocio</h5>
+                            <ul class="list-disc list-inside space-y-1">${data.business.map(k => `<li>${k}</li>`).join('')}</ul>
+                        </div>
+                        <div>
+                            <h5 class="font-semibold text-indigo-700 mb-2">KPIs Financieros</h5>
+                            <ul class="list-disc list-inside space-y-1">${data.financial.map(k => `<li>${k}</li>`).join('')}</ul>
+                        </div>
+                    </div>
+                    <div class="mt-3 pt-3 border-t">
+                        <p class="text-sm font-semibold text-slate-700">Correlación: <span class="font-normal">${data.correlacion}</span></p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderCompliance() {
+            const container = document.getElementById('compliance-container');
+            if(!container) return;
+            container.innerHTML = Object.entries(complianceTimeline).map(([key, data]) => `
+                <div class="p-4 rounded-lg border ${data.criticidad === 'ALTA' ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}">
+                    <h4 class="font-bold text-lg text-slate-800 uppercase">${key}</h4>
+                    <p class="text-sm font-semibold text-slate-600">${data.periodo}</p>
+                    <ul class="text-xs text-slate-700 mt-2 space-y-1 list-disc list-inside">
+                        ${data.proceso.map(p => `<li>${p}</li>`).join('')}
+                    </ul>
+                    <div class="mt-3 pt-3 border-t">
+                        <p class="text-xs font-bold ${data.criticidad === 'ALTA' ? 'text-red-700' : 'text-amber-700'}">Criticidad: ${data.criticidad}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 5. Equipo
+        function renderTeamTable() {
+            const table = document.getElementById('hr-table');
+            const filter = document.getElementById('role-filter');
+            if (!table || !filter) return;
+
+            const thead = table.querySelector('thead');
+            const tbody = table.querySelector('tbody');
+            
+            thead.innerHTML = `<tr>
+                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rol</th>
+                ${Array.from({length: 12}, (_, i) => `<th class="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">M${i+1}</th>`).join('')}
+            </tr>`;
+
+            tbody.innerHTML = '';
+            filter.innerHTML = '<option value="all">Todos los Roles</option>';
+            equipoMatrizCompleta.roles.forEach(role => {
+                const option = document.createElement('option');
+                option.value = role.name;
+                option.textContent = role.name;
+                filter.appendChild(option);
+
+                const tr = document.createElement('tr');
+                tr.dataset.role = role.name;
+                tr.className = role.type === 'ESOP' ? 'bg-amber-50' : '';
+                tr.innerHTML = `
+                    <td class="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
+                        <div class="flex items-center">
+                            ${role.type === 'ESOP' ? '<span class="text-amber-500 mr-2">★</span>' : ''}
+                            ${role.name}
+                        </div>
+                        <div class="text-xs text-slate-500">${role.focus}</div>
+                    </td>
+                    ${role.allocations.map(task => `<td class="px-2 py-2 text-center text-xs text-gray-600">${task}</td>`).join('')}
+                `;
+                tbody.appendChild(tr);
+            });
+
+            filter.addEventListener('change', () => {
+                const selectedRole = filter.value;
+                tbody.querySelectorAll('tr').forEach(tr => {
+                    tr.style.display = (selectedRole === 'all' || tr.dataset.role === selectedRole) ? '' : 'none';
+                });
+            });
+        }
+        
+        // 6. Progreso
+        function renderProgressTrackers() {
+            const techContainer = document.getElementById('tech-progress-bars');
+            const businessContainer = document.getElementById('business-progress-bars');
+            const burnCtx = document.getElementById('burn-rate-chart')?.getContext('2d');
+            if (!techContainer || !businessContainer || !burnCtx) return;
+
+            // Simple progress simulation (replace with real data later)
+            const techProgress = { 'HASE': 100, 'PIA': 80, 'Super-PMA': 60, 'Asistente': 50 };
+            const businessProgress = { 'Piloto': 75, 'Legal': 100, 'Serie A Prep': 25 };
+
+            techContainer.innerHTML = Object.entries(techProgress).map(([key, value]) => `
+                <div>
+                    <div class="flex justify-between mb-1"><span class="text-sm font-medium">${key}</span><span class="text-sm font-medium">${value}%</span></div>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5"><div class="bg-teal-600 h-2.5 rounded-full" style="width: ${value}%"></div></div>
+                </div>
+            `).join('');
+
+            businessContainer.innerHTML = Object.entries(businessProgress).map(([key, value]) => `
+                <div>
+                    <div class="flex justify-between mb-1"><span class="text-sm font-medium">${key}</span><span class="text-sm font-medium">${value}%</span></div>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5"><div class="bg-orange-500 h-2.5 rounded-full" style="width: ${value}%"></div></div>
+                </div>
+            `).join('');
+
+            const plannedBurn = flujosEfectivoReales.gastoEquipo.map((e, i) => e + flujosEfectivoReales.gastoDesarrollo[i] + flujosEfectivoReales.stackInclusivo[i] + flujosEfectivoReales.compliance[i] + flujosEfectivoReales.gastoCapex[i]);
+            // Simulate actual burn for demo
+            const actualBurn = plannedBurn.map((p, i) => i < 6 ? p * (1 - Math.random() * 0.1) : 0).filter(b => b > 0);
+            
+            new Chart(burnCtx, {
+                type: 'line',
+                data: {
+                    labels: Array.from({length: actualBurn.length}, (_, i) => `Mes ${i+1}`),
+                    datasets: [
+                        { label: 'Burn Rate Planeado', data: plannedBurn, borderColor: '#a1a1aa', borderDash: [5, 5], fill: false },
+                        { label: 'Burn Rate Real', data: actualBurn, borderColor: '#ef4444', fill: false }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+            });
+        }
+
+        // --- MODAL LOGIC ---
+        function setupModal() {
+            const agentModal = document.getElementById('agent-modal');
+            const closeAgentModalBtn = document.getElementById('close-modal');
+            const capexModal = document.getElementById('capex-modal');
+            const closeCapexModalBtn = document.getElementById('close-capex-modal');
+
+            document.body.addEventListener('click', (e) => {
+                const card = e.target.closest('.agent-card');
+                if (card) {
+                    const agentKey = card.dataset.agentKey;
+                    const agentData = agentesDetalleCompleto[agentKey];
+                    if (agentData) {
+                        document.getElementById('modal-title').textContent = `${agentKey.toUpperCase()} - Blueprint Técnico`;
+                        document.getElementById('modal-content').innerHTML = createAgentModalContent(agentData);
+                        agentModal.style.display = 'flex';
+                    }
+                }
+            });
+
+            const closeAgentModal = () => agentModal.style.display = 'none';
+            closeAgentModalBtn.addEventListener('click', closeAgentModal);
+            agentModal.addEventListener('click', (e) => {
+                if (e.target === agentModal) closeAgentModal();
+            });
+
+            const closeCapexModal = () => capexModal.style.display = 'none';
+            if(closeCapexModalBtn) closeCapexModalBtn.addEventListener('click', closeCapexModal);
+            if(capexModal) capexModal.addEventListener('click', (e) => {
+                if (e.target === capexModal) closeCapexModal();
+            });
+        }
+
+        function createAgentModalContent(agent) {
+            return `
+                <div class="space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                        <div class="bg-slate-50 p-3 rounded-lg"><p class="text-sm text-slate-500">Presupuesto</p><p class="text-xl font-bold">${formatCurrency(agent.presupuesto)}</p></div>
+                        <div class="bg-slate-50 p-3 rounded-lg"><p class="text-sm text-slate-500">Horas</p><p class="text-xl font-bold">${formatNumber(agent.horas)}</p></div>
+                        <div class="bg-slate-50 p-3 rounded-lg"><p class="text-sm text-slate-500">Diferenciador</p><p class="text-sm font-semibold">${agent.diferenciadorUnico || agent.proposito}</p></div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-slate-50 p-4 rounded-lg">
+                            <h4 class="font-semibold mb-2">Arquitectura y Stack</h4>
+                            <div class="flex flex-wrap gap-2">${(agent.arquitectura || []).map(t => `<span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">${t}</span>`).join('')}</div>
+                        </div>
+                        <div class="bg-slate-50 p-4 rounded-lg">
+                            <h4 class="font-semibold mb-2">Endpoints API Clave</h4>
+                            <div class="font-mono text-xs space-y-1">${(agent.apis || []).map(a => `<div>${a}</div>`).join('')}</div>
+                        </div>
+                        <div class="bg-slate-50 p-4 rounded-lg">
+                            <h4 class="font-semibold mb-2">KPIs Técnicos</h4>
+                            <ul class="text-sm list-disc list-inside">${(agent.kpisTecnicos || []).map(k => `<li>${k}</li>`).join('')}</ul>
+                        </div>
+                        <div class="bg-slate-50 p-4 rounded-lg">
+                            <h4 class="font-semibold mb-2">SLAs Operacionales</h4>
+                            <div class="text-sm">${Object.entries(agent.sla || {}).map(([k,v]) => `<div><strong>${k}:</strong> ${v}</div>`).join('')}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- INITIALIZATION ---
+        renderInvestmentChart();
+        renderROIChart();
+        renderDiferenciadores();
+        renderFinancials();
+        renderFinancialBreakdown();
+        renderAgentes();
+        renderArquitecturaDatos();
+        renderWeeklyTimeline();
+        renderKpisCorrelacionados();
+        renderCompliance();
+        renderTeamTable();
+        renderProgressTrackers();
+        setupModal();
+        
+        // Active navigation on scroll
+        window.addEventListener('scroll', () => {
+            let current = '';
+            document.querySelectorAll('section').forEach(section => {
+                if (window.pageYOffset >= section.offsetTop - 80) {
+                    current = section.getAttribute('id');
+                }
+            });
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href').includes(current)) {
+                    link.classList.add('active');
+                }
+            });
+        });
+
+        // Toggle functionality para vista dual
+        const vistaEjecutivaBtn = document.getElementById('vista-ejecutiva-btn');
+        const vistaOperacionalBtn = document.getElementById('vista-operacional-btn');
+        const executiveView = document.getElementById('executive-view-content');
+        const operationalView = document.getElementById('operational-view-content');
+
+        if (vistaEjecutivaBtn && vistaOperacionalBtn && executiveView && operationalView) {
+            vistaEjecutivaBtn.addEventListener('click', () => {
+                executiveView.style.display = 'block';
+                operationalView.style.display = 'none';
+                vistaEjecutivaBtn.classList.add('bg-teal-600', 'text-white');
+                vistaEjecutivaBtn.classList.remove('text-gray-600');
+                vistaOperacionalBtn.classList.remove('bg-teal-600', 'text-white');
+                vistaOperacionalBtn.classList.add('text-gray-600');
+            });
+
+            vistaOperacionalBtn.addEventListener('click', () => {
+                executiveView.style.display = 'none';
+                operationalView.style.display = 'block';
+                vistaOperacionalBtn.classList.add('bg-teal-600', 'text-white');
+                vistaOperacionalBtn.classList.remove('text-gray-600');
+                vistaEjecutivaBtn.classList.remove('bg-teal-600', 'text-white');
+                vistaEjecutivaBtn.classList.add('text-gray-600');
+            });
+        }
+    });
+    </script>
+</body>
+</html>
