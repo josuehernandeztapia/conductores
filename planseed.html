@@ -5873,26 +5873,21 @@
       const amountSpan = document.getElementById('funding-amount');
       const impactDiv = document.getElementById('funding-impact');
       
-      if (!slider || !amountSpan || !impactDiv) return;
-      
       function calculateFundingImpact(fundingMM) {
-        const funding = fundingMM * 1000000; // Convert to actual amount
+        const funding = fundingMM * 1000000;
         amountSpan.textContent = `$${fundingMM}M`;
         
-        // Usar presupuestoReal existente
         const budgets = {
-          equipo: 1940000,      // Crítico - sin esto no hay desarrollo
-          coreIA: 2265000,      // HASE + PIA + Super-PMA + Asistente  
-          saasStack: 631000,    // Odoo + Auth0 + APIs
-          ragDNA: 150000,       // RAG-DNA
-          capexPiloto: 2630000, // 3 vagonetas
-          reserva: 34000        // Emergencias
+          equipo: 1940000,
+          coreIA: 2265000,
+          saasStack: 631000,
+          capexPiloto: 2630000
         };
         
         let remaining = funding;
         let results = {};
         
-        // Prioridad 1: Equipo (sin esto, nada funciona)
+        // Prioridad 1: Equipo
         if (remaining >= budgets.equipo) {
           results.equipo = { percent: 100, status: 'success', message: 'Equipo completo ✅' };
           remaining -= budgets.equipo;
@@ -5926,58 +5921,43 @@
           results.saasStack = { percent: 0, status: 'danger', message: 'Sin infraestructura ❌' };
         }
         
-        // Prioridad 4: CAPEX (vagonetas)
+        // Prioridad 4: CAPEX
         if (remaining >= budgets.capexPiloto) {
-          results.capex = { percent: 100, status: 'success', message: '3 vagonetas piloto ✅' };
-          remaining -= budgets.capexPiloto;
+          results.capex = { percent: 100, status: 'success', message: '3 vagonetas ✅' };
         } else if (remaining >= budgets.capexPiloto * 0.67) {
           results.capex = { percent: 67, status: 'warning', message: '2 vagonetas ⚠️' };
-          remaining = 0;
         } else if (remaining >= budgets.capexPiloto * 0.33) {
           results.capex = { percent: 33, status: 'warning', message: '1 vagoneta ⚠️' };
-          remaining = 0;
         } else {
           results.capex = { percent: 0, status: 'danger', message: 'Sin vagonetas ❌' };
         }
         
-        // Determinar viabilidad Serie A
-        const serieAViable = results.equipo.percent >= 100 && 
-                            results.coreIA.percent >= 80 && 
-                            results.capex.percent >= 67;
+        const serieAViable = results.equipo.percent >= 100 && results.coreIA.percent >= 80 && results.capex.percent >= 67;
+        const overallStatus = serieAViable ? 'success' : (results.coreIA.percent >= 60 ? 'warning' : 'danger');
         
-        const overallStatus = serieAViable ? 'success' : 
-                             (results.coreIA.percent >= 60 ? 'warning' : 'danger');
-        
-        // Render results
         impactDiv.innerHTML = `
           <div class="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-500">
             <h5 class="font-semibold text-blue-800 mb-2">👥 Equipo</h5>
             <div class="text-2xl font-bold text-blue-600">${results.equipo.percent}%</div>
             <p class="text-sm text-blue-700">${results.equipo.message}</p>
           </div>
-          
           <div class="bg-green-50 p-4 rounded-lg border-l-4 border-green-500">
             <h5 class="font-semibold text-green-800 mb-2">🤖 Core IA</h5>
             <div class="text-2xl font-bold text-green-600">${results.coreIA.percent}%</div>
             <p class="text-sm text-green-700">${results.coreIA.message}</p>
           </div>
-          
           <div class="bg-purple-50 p-4 rounded-lg border-l-4 border-purple-500">
             <h5 class="font-semibold text-purple-800 mb-2">⚙️ SaaS Stack</h5>
             <div class="text-2xl font-bold text-purple-600">${results.saasStack.percent}%</div>
             <p class="text-sm text-purple-700">${results.saasStack.message}</p>
           </div>
-          
           <div class="bg-orange-50 p-4 rounded-lg border-l-4 border-orange-500">
             <h5 class="font-semibold text-orange-800 mb-2">🚛 CAPEX</h5>
             <div class="text-2xl font-bold text-orange-600">${results.capex.percent}%</div>
             <p class="text-sm text-orange-700">${results.capex.message}</p>
           </div>
-          
           <div class="col-span-full mt-4 p-4 bg-${overallStatus === 'success' ? 'green' : overallStatus === 'warning' ? 'yellow' : 'red'}-50 border border-${overallStatus === 'success' ? 'green' : overallStatus === 'warning' ? 'yellow' : 'red'}-200 rounded-lg text-center">
-            <h4 class="font-bold text-${overallStatus === 'success' ? 'green' : overallStatus === 'warning' ? 'yellow' : 'red'}-800 text-lg mb-2">
-              📈 Resultado Serie A
-            </h4>
+            <h4 class="font-bold text-${overallStatus === 'success' ? 'green' : overallStatus === 'warning' ? 'yellow' : 'red'}-800 text-lg mb-2">📈 Resultado Serie A</h4>
             <p class="text-${overallStatus === 'success' ? 'green' : overallStatus === 'warning' ? 'yellow' : 'red'}-700">
               ${serieAViable ? 'Serie A viable - Plan completo ejecutable ✅' : 
                 results.coreIA.percent >= 60 ? 'Serie A con riesgo - Validación limitada ⚠️' : 
@@ -5988,7 +5968,7 @@
       }
       
       slider.addEventListener('input', (e) => calculateFundingImpact(parseFloat(e.target.value)));
-      calculateFundingImpact(7.6); // Estado inicial
+      calculateFundingImpact(7.6);
     }
 
     function setupExecutionTracker() {
@@ -5997,20 +5977,12 @@
       const summaryDiv = document.getElementById('execution-summary');
       const detailsDiv = document.getElementById('progress-details');
       
-      if (!slider || !monthSpan || !summaryDiv || !detailsDiv) return;
-      
-      // Horas totales por agente del equipoMatrizCompleta existente
-      const totalHours = {
-        hase: 1584,    // Científico de Datos
-        pia: 576,      // ML Engineer  
-        superPma: 768, // IoT Engineer
-        asistente: 480 // Asistente tasks
-      };
+      const totalHours = { hase: 1584, pia: 576, superPma: 768, asistente: 480 };
+      const teamStartMonths = { hase: 1, pia: 2, superPma: 3, asistente: 4 };
       
       function updateExecutionData(month) {
         monthSpan.textContent = month;
         
-        // Calcular gasto desarrollo acumulado (SIN CAPEX vagonetas)
         let cumulativeDevSpent = 0;
         for (let i = 0; i < month; i++) {
           const monthlyDev = (flujosEfectivoReales.gastoEquipo[i] || 0) + 
@@ -6020,7 +5992,6 @@
           cumulativeDevSpent += monthlyDev;
         }
         
-        // Presupuesto total desarrollo (SIN CAPEX)
         const totalDevBudget = presupuestoReal.distribucion.equipoTotal + 
                               presupuestoReal.distribucion.coreIA + 
                               presupuestoReal.distribucion.saasStack + 
@@ -6030,15 +6001,7 @@
         const devBurnRate = month > 0 ? cumulativeDevSpent / month : 0;
         const devRunway = devBurnRate > 0 ? remainingDev / devBurnRate : 12;
         
-        // Calcular progreso técnico real por horas trabajadas
-        const hoursPerMonth = 160; // Aprox 160 horas laborales/mes
-        const teamStartMonths = {
-          hase: 1,     // Inicia mes 1
-          pia: 2,      // Inicia mes 2  
-          superPma: 3, // Inicia mes 3
-          asistente: 4 // Inicia mes 4
-        };
-        
+        const hoursPerMonth = 160;
         let progress = {};
         Object.keys(totalHours).forEach(agent => {
           const startMonth = teamStartMonths[agent];
@@ -6055,20 +6018,16 @@
           }
         });
         
-        // CAPEX tracking separado (vagonetas mes 6-8)
-        let capexSpent = 0;
         let vagonetasDeployed = 0;
         if (month >= 6) vagonetasDeployed++;
-        if (month >= 7) vagonetasDeployed++;  
+        if (month >= 7) vagonetasDeployed++;
         if (month >= 8) vagonetasDeployed++;
-        capexSpent = vagonetasDeployed * 876667; // Costo por vagoneta
+        const capexSpent = vagonetasDeployed * 876667;
         
-        // Efficiency score: progreso promedio vs % presupuesto dev gastado
         const avgProgress = Object.values(progress).reduce((sum, p) => sum + p.percentage, 0) / 4;
         const budgetUsedPercent = (cumulativeDevSpent / totalDevBudget) * 100;
         const efficiency = budgetUsedPercent > 0 ? avgProgress / budgetUsedPercent : 1;
         
-        // Render summary
         summaryDiv.innerHTML = `
           <div class="text-center p-3 bg-white rounded-lg border">
             <div class="text-2xl font-bold text-slate-900">$${(cumulativeDevSpent/1000000).toFixed(1)}M</div>
@@ -6094,7 +6053,6 @@
           </div>
         `;
         
-        // Render progress details
         detailsDiv.innerHTML = `
           <div class="bg-white p-4 rounded-lg">
             <h4 class="font-semibold mb-4">🤖 Progreso Técnico (Horas Reales)</h4>
@@ -6120,7 +6078,6 @@
               `).join('')}
             </div>
           </div>
-          
           <div class="bg-white p-4 rounded-lg">
             <h4 class="font-semibold mb-4">💰 Burn Rate Desarrollo</h4>
             <div class="space-y-3">
@@ -6129,26 +6086,16 @@
                 <span class="font-semibold">$${(devBurnRate/1000).toFixed(0)}K</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-sm">Presupuesto dev total:</span>
-                <span class="font-semibold">$${(totalDevBudget/1000000).toFixed(1)}M</span>
-              </div>
-              <div class="flex justify-between">
                 <span class="text-sm">% presupuesto usado:</span>
                 <span class="font-semibold ${budgetUsedPercent > 90 ? 'text-red-600' : budgetUsedPercent > 70 ? 'text-yellow-600' : 'text-green-600'}">
                   ${Math.round(budgetUsedPercent)}%
                 </span>
               </div>
-              <div class="flex justify-between">
-                <span class="text-sm">Runway desarrollo:</span>
-                <span class="font-semibold">${Math.round(devRunway)} meses</span>
-              </div>
-              <div class="pt-2 border-t">
-                <div class="text-xs text-slate-500 mb-1">Progreso vs Efficiency:</div>
-                <div class="text-sm ${efficiency >= 1 ? 'text-green-700' : efficiency >= 0.8 ? 'text-yellow-700' : 'text-red-700'}">
-                  ${efficiency >= 1 ? '✅ Eficiente - Más progreso que gasto' :
-                    efficiency >= 0.8 ? '⚠️ Normal - Progreso alineado' :
-                    '❌ Ineficiente - Gastando más de lo que progresa'}
-                </div>
+              <div class="text-xs text-slate-500 mb-1">Progreso vs Efficiency:</div>
+              <div class="text-sm ${efficiency >= 1 ? 'text-green-700' : efficiency >= 0.8 ? 'text-yellow-700' : 'text-red-700'}">
+                ${efficiency >= 1 ? '✅ Eficiente - Más progreso que gasto' :
+                  efficiency >= 0.8 ? '⚠️ Normal - Progreso alineado' :
+                  '❌ Ineficiente - Gastando más de lo que progresa'}
               </div>
             </div>
           </div>
@@ -6156,7 +6103,7 @@
       }
       
       slider.addEventListener('input', (e) => updateExecutionData(parseInt(e.target.value)));
-      updateExecutionData(6); // Estado inicial
+      updateExecutionData(6);
     }
 
     // Initialize premium controllers
