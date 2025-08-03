@@ -5865,9 +5865,17 @@
     }
 
     function setupFundingSimulator() {
+      console.log('🔧 Iniciando setupFundingSimulator()...');
       const slider = document.getElementById('funding-slider');
       const amountSpan = document.getElementById('funding-amount');
       const impactDiv = document.getElementById('funding-impact');
+      
+      console.log('Elementos encontrados:', { slider: !!slider, amountSpan: !!amountSpan, impactDiv: !!impactDiv });
+      
+      if (!slider || !amountSpan || !impactDiv) {
+        console.error('❌ ERROR: Elementos del DOM no encontrados en setupFundingSimulator');
+        return;
+      }
       
       function calculateFundingImpact(fundingMM) {
         const funding = fundingMM * 1000000;
@@ -5931,7 +5939,7 @@
         const serieAViable = results.equipo.percent >= 100 && results.coreIA.percent >= 80 && results.capex.percent >= 67;
         const overallStatus = serieAViable ? 'success' : (results.coreIA.percent >= 60 ? 'warning' : 'danger');
         
-        impactDiv.innerHTML = `
+        const htmlContent = `
           <div class="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-500">
             <h5 class="font-semibold text-blue-800 mb-2">👥 Equipo</h5>
             <div class="text-2xl font-bold text-blue-600">${results.equipo.percent}%</div>
@@ -5961,22 +5969,42 @@
             </p>
           </div>
         `;
+        
+        console.log('💻 Insertando HTML en funding-impact div...');
+        impactDiv.innerHTML = htmlContent;
+        console.log('✅ HTML insertado exitosamente');
       }
       
-      slider.addEventListener('input', (e) => calculateFundingImpact(parseFloat(e.target.value)));
+      console.log('🔗 Agregando event listener al funding slider...');
+      slider.addEventListener('input', (e) => {
+        console.log('🎚️ Funding slider cambió a:', e.target.value);
+        calculateFundingImpact(parseFloat(e.target.value));
+      });
+      
+      console.log('🚀 Ejecutando cálculo inicial de funding...');
       calculateFundingImpact(7.6);
+      console.log('✅ setupFundingSimulator completado');
     }
 
     function setupExecutionTracker() {
+      console.log('🔧 Iniciando setupExecutionTracker()...');
       const slider = document.getElementById('execution-month');
       const monthSpan = document.getElementById('current-month');
       const summaryDiv = document.getElementById('execution-summary');
       const detailsDiv = document.getElementById('progress-details');
       
+      console.log('Elementos encontrados:', { slider: !!slider, monthSpan: !!monthSpan, summaryDiv: !!summaryDiv, detailsDiv: !!detailsDiv });
+      
+      if (!slider || !monthSpan || !summaryDiv || !detailsDiv) {
+        console.error('❌ ERROR: Elementos del DOM no encontrados en setupExecutionTracker');
+        return;
+      }
+      
       const totalHours = { hase: 1584, pia: 576, superPma: 768, asistente: 480 };
       const teamStartMonths = { hase: 1, pia: 2, superPma: 3, asistente: 4 };
       
       function updateExecutionData(month) {
+        console.log(`📊 Actualizando execution data para mes ${month}`);
         monthSpan.textContent = month;
         
         let cumulativeDevSpent = 0;
@@ -6096,10 +6124,19 @@
             </div>
           </div>
         `;
+        
+        console.log(`✅ Execution data actualizada para mes ${month}`);
       }
       
-      slider.addEventListener('input', (e) => updateExecutionData(parseInt(e.target.value)));
+      console.log('🔗 Agregando event listener al execution slider...');
+      slider.addEventListener('input', (e) => {
+        console.log('🎚️ Execution slider cambió a:', e.target.value);
+        updateExecutionData(parseInt(e.target.value));
+      });
+      
+      console.log('🚀 Ejecutando actualización inicial de execution...');
       updateExecutionData(6);
+      console.log('✅ setupExecutionTracker completado');
     }
 
     // Initialize premium controllers
