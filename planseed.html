@@ -307,32 +307,28 @@
           100% { transform: translateX(100%); }
         }
 
-        /* ENHANCED ALERT CARDS */
-        .card-premium-alert-orange {
-          background: linear-gradient(135deg, #fff7ed 0%, #fef3c7 100%);
-          border-left: 4px solid #ea580c;
+        /* ENHANCED ALERT CARDS - Consolidated Base */
+        [class*="card-premium-alert"] {
           border-radius: 0.75rem;
           padding: 1.5rem;
           margin-bottom: 2rem;
           box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+          border-left: 4px solid;
+        }
+        
+        .card-premium-alert-orange {
+          background: linear-gradient(135deg, #fff7ed 0%, #fef3c7 100%);
+          border-left-color: #ea580c;
         }
         
         .card-premium-alert-green {
           background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-          border-left: 4px solid #16a34a;
-          border-radius: 0.75rem;
-          padding: 1.5rem;
-          margin-bottom: 2rem;
-          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+          border-left-color: #16a34a;
         }
         
         .card-premium-alert-blue {
           background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-          border-left: 4px solid #2563eb;
-          border-radius: 0.75rem;
-          padding: 1.5rem;
-          margin-bottom: 2rem;
-          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+          border-left-color: #2563eb;
         }
 
         /* ICON SYSTEM ENFORCEMENT */
@@ -529,19 +525,7 @@
           isolation: isolate;
         }
 
-        .btn-premium-mandatory::before {
-          content: '';
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent);
-          transform: translateX(-100%);
-          transition: transform 0.6s;
-          z-index: -1;
-        }
 
-        .btn-premium-mandatory:hover::before {
-          transform: translateX(100%);
-        }
 
         .btn-premium-mandatory:hover {
           transform: translateY(-2px);
@@ -748,13 +732,6 @@
           box-shadow: 0 4px 12px rgba(13, 148, 136, 0.15);
         }
         
-        /* Mobile padding adjustment */
-        @media (max-width: 768px) {
-          .card-premium {
-            padding: 16px;
-          }
-        }
-
         /* CONSISTENT KPI CARDS */
         .kpi-card {
             background: var(--background-white);
@@ -770,9 +747,19 @@
             box-shadow: 0 4px 12px rgba(14, 165, 233, 0.15);
         }
         
+        /* Mobile padding adjustments - Consolidated */
         @media (max-width: 768px) {
+          .card-premium,
           .kpi-card {
             padding: 16px;
+          }
+          
+          #hr-table { 
+            font-size: 0.75rem; 
+          }
+          
+          .chart-container { 
+            height: 300px; 
           }
         }
 
@@ -859,11 +846,7 @@
             opacity: 1;
             visibility: visible;
         }
-        /* Responsive styles */
-        @media (max-width: 768px) {
-            #hr-table { font-size: 0.75rem; }
-            .chart-container { height: 300px; }
-        }
+
 
         /* AGREGAR: Loading States y Premium Animations */
         .loading-skeleton {
@@ -1779,15 +1762,17 @@
           width: 80%;
         }
 
-        /* PREMIUM BUTTON SYSTEM */
-        .btn-premium {
+        /* PREMIUM BUTTON SYSTEM - Consolidated */
+        .btn-premium,
+        .btn-premium-mandatory {
           position: relative;
           overflow: hidden;
           isolation: isolate;
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        .btn-premium::before {
+        .btn-premium::before,
+        .btn-premium-mandatory::before {
           content: '';
           position: absolute;
           inset: 0;
@@ -1797,7 +1782,8 @@
           z-index: -1;
         }
 
-        .btn-premium:hover::before {
+        .btn-premium:hover::before,
+        .btn-premium-mandatory:hover::before {
           transform: translateX(100%);
         }
 
@@ -3113,42 +3099,52 @@
           transform: translateX(100%);
         }
 
-        /* COLOR VARIANTS */
+        /* COLOR VARIANTS - Optimized with CSS Variables */
         .scenario-status-card.good {
-          background: linear-gradient(135deg, #dbeafe, #bfdbfe);
-          border-color: #3b82f6;
+          --card-bg-start: #dbeafe;
+          --card-bg-end: #bfdbfe;
+          --card-border: #3b82f6;
+          --icon-bg-start: #3b82f6;
+          --icon-bg-end: #2563eb;
+          --text-color: #1d4ed8;
+          
+          background: linear-gradient(135deg, var(--card-bg-start), var(--card-bg-end));
+          border-color: var(--card-border);
         }
 
-        .scenario-status-card.good .status-icon-container {
-          background: linear-gradient(135deg, #3b82f6, #2563eb);
-        }
-
+        .scenario-status-card.good .status-icon-container,
         .scenario-status-card.good .status-badge {
-          background: linear-gradient(135deg, #3b82f6, #2563eb);
+          background: linear-gradient(135deg, var(--icon-bg-start), var(--icon-bg-end));
         }
+        
         .scenario-status-card.good .status-description {
-          color: #1d4ed8;
+          color: var(--text-color);
         }
 
         .scenario-status-card.warning {
-          background: linear-gradient(135deg, #fef3c7, #fde68a);
-          border-color: #f59e0b;
+          --card-bg-start: #fef3c7;
+          --card-bg-end: #fde68a;
+          --card-border: #f59e0b;
+          --icon-bg-start: #f59e0b;
+          --icon-bg-end: #d97706;
+          --text-color: #b45309;
+          --metric-color: #92400e;
+          
+          background: linear-gradient(135deg, var(--card-bg-start), var(--card-bg-end));
+          border-color: var(--card-border);
         }
 
-        .scenario-status-card.warning .status-icon-container {
-          background: linear-gradient(135deg, #f59e0b, #d97706);
-        }
-
+        .scenario-status-card.warning .status-icon-container,
         .scenario-status-card.warning .status-badge {
-          background: linear-gradient(135deg, #f59e0b, #d97706);
+          background: linear-gradient(135deg, var(--icon-bg-start), var(--icon-bg-end));
         }
 
         .scenario-status-card.warning .status-metric {
-          color: #92400e;
+          color: var(--metric-color);
         }
 
         .scenario-status-card.warning .status-description {
-          color: #b45309;
+          color: var(--text-color);
         }
 
         /* PREMIUM FINANCIAL SECTION STYLES */
@@ -7368,7 +7364,7 @@
             this.addTest('Progress Tracking', () => this.testProgressTracking());
             this.addTest('Mobile Navigation', () => this.testMobileNavigation());
           }
-          addTest(name, testFunction) { this.tests.push({ name, testFunction }); }
+
           runTests() {
             console.log('🧪 Ejecutando suite de pruebas...');
             this.tests.forEach(test => {
@@ -7856,22 +7852,7 @@
         window.showMoatDetails = showMoatDetails;
         window.hideMoatDetails = hideMoatDetails;
 
-        // AGREGAR: Enhanced moat analysis functions
-        function showMoatDetails(moatType) {
-          const moatData = {
-            datos: { title: 'Foso de Datos: Carta Aval de Ruta + Dación en Pago', content: `<div class="space-y-4"><div class="bg-blue-50 p-4 rounded-lg"><h4 class="font-bold text-blue-800 mb-2">Activo Propietario Único</h4><p class="text-blue-700 text-sm">La "Carta Aval de Ruta + Dación en Pago" representa 20+ años de conocimiento cultural del sector transportista mexicano, imposible de replicar por competidores tradicionales o fintechs.</p></div><div class="grid md:grid-cols-2 gap-4"><div><h5 class="font-semibold mb-2">Componentes Únicos:</h5><ul class="text-sm space-y-1"><li>• Capital social comunitario digitalizado</li><li>• Validación por presidentes de ruta</li><li>• Historial reputacional no-financiero</li><li>• Network effects culturales</li></ul></div><div><h5 class="font-semibold mb-2">Barrera de Entrada:</h5><ul class="text-sm space-y-1"><li>• Tiempo: 20+ años para construir</li><li>• Costo: Imposible monetizar</li><li>• Acceso: Requiere confianza cultural</li><li>• Competidores: Sin equivalente</li></ul></div></div></div>` },
-            tech: { title: 'Foso Tecnológico: Arquitectura Multi-Agente', content: `<div class="space-y-4"><div class="bg-green-50 p-4 rounded-lg"><h4 class="font-bold text-green-800 mb-2">4 Agentes IA Sinérgicos</h4><p class="text-green-700 text-sm">Arquitectura única donde cada agente se especializa y retroalimenta a los demás, creando un ecosistema de IA más potente que la suma de sus partes.</p></div><div class="grid md:grid-cols-2 gap-4"><div><h5 class="font-semibold mb-2">Sinergia Técnica:</h5><ul class="text-sm space-y-1"><li>• HASE → scoring → triggers PIA</li><li>• Super-PMA → datos → mejora HASE</li><li>• Asistente → interacciones → entrena PIA</li><li>• RAG-DNA → conocimiento → todos</li></ul></div><div><h5 class="font-semibold mb-2">Ventaja Competitiva:</h5><ul class="text-sm space-y-1"><li>• Fintechs: Monolíticos, no especializados</li><li>• Bancos: Legacy systems, no IA-nativo</li><li>• Startups: Single-purpose, no ecosystem</li><li>• RAG: Multi-agent, self-improving</li></ul></div></div></div>` },
-            ops: { title: 'Foso Operacional: Escalabilidad sin Headcount', content: `<div class="space-y-4"><div class="bg-purple-50 p-4 rounded-lg"><h4 class="font-bold text-purple-800 mb-2">Automatización de Costos Variables</h4><p class="text-purple-700 text-sm">La IA convierte costos variables tradicionales (soporte, cobranza, mantenimiento) en inversión de capital fija, mejorando márgenes conforme escala.</p></div><div class="grid md:grid-cols-2 gap-4"><div><h5 class="font-semibold mb-2">Reducciones Operativas:</h5><ul class="text-sm space-y-1"><li>• Soporte: 40% menos agentes humanos</li><li>• Cobranza: Automática + empática</li><li>• Mantenimiento: 30% menos reparaciones</li><li>• Diagnósticos: 70% automatizados</li></ul></div><div><h5 class="font-semibold mb-2">Escalabilidad:</h5><ul class="text-sm space-y-1"><li>• 10 vehículos: Margen 25%</li><li>• 100 vehículos: Margen 35%</li><li>• 1000 vehículos: Margen 45%</li><li>• AI mejora con más datos</li></ul></div></div></div>` },
-            network: { title: 'Foso de Red: Flywheel Auto-Reforzado', content: `<div class="space-y-4"><div class="bg-orange-50 p-4 rounded-lg"><h4 class="font-bold text-orange-800 mb-2">Efecto Red Compuesto</h4><p class="text-orange-700 text-sm">Cada nuevo cliente mejora el servicio para todos: más datos → IA más smart → mejor servicio → más clientes → más datos.</p></div><div class="grid md:grid-cols-2 gap-4"><div><h5 class="font-semibold mb-2">Flywheel Components:</h5><ul class="text-sm space-y-1"><li>• Más operadores → más datos</li><li>• Más datos → mejores modelos</li><li>• Mejores modelos → mejor servicio</li><li>• Mejor servicio → más operadores</li></ul></div><div><h5 class="font-semibold mb-2">Network Effects:</h5><ul class="text-sm space-y-1"><li>• Marketplace: Más oferta/demanda</li><li>• Datos: Benchmarking colectivo</li><li>• Comunidad: Support peer-to-peer</li><li>• Poder negociación: Mejores rates</li></ul></div></div></div>` }
-          };
-          const detailsContainer = document.getElementById('moat-details'); const contentContainer = document.getElementById('moat-content');
-          if (detailsContainer && contentContainer) {
-            const moat = moatData[moatType];
-            if (moat) { contentContainer.innerHTML = `<h3 class="text-xl font-bold mb-4 text-slate-800">${moat.title}</h3>${moat.content}<div class="mt-6 p-4 bg-slate-100 rounded-lg"><button onclick="hideMoatDetails()" class="text-slate-600 hover:text-slate-800 font-medium">← Volver a vista general</button></div>`; detailsContainer.classList.remove('hidden'); detailsContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
-          }
-        }
-        function hideMoatDetails() { const detailsContainer = document.getElementById('moat-details'); if (detailsContainer) detailsContainer.classList.add('hidden'); }
-        window.showMoatDetails = showMoatDetails; window.hideMoatDetails = hideMoatDetails;
+
 
         // Add scroll progress indicator
         const progressBar = document.createElement('div');
