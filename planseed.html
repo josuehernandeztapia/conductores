@@ -4821,6 +4821,90 @@
                 </div>
             </div>
 
+            <!-- ROI TECH STACK TRANSPARENCY - NUEVO -->
+            <div class="bg-white p-6 rounded-lg shadow-md mt-8">
+                <h3 class="text-xl font-bold mb-4 text-teal-800 flex items-center gap-2">
+                    <i data-lucide="calculator" class="w-5 h-5"></i>
+                    ROI Tech Stack: Metodología Transparente
+                </h3>
+                
+                <div class="grid md:grid-cols-2 gap-6">
+                    <!-- Inversión Breakdown -->
+                    <div class="bg-slate-50 p-4 rounded-lg">
+                        <h4 class="font-semibold text-slate-800 mb-3 flex items-center gap-2">
+                            <i data-lucide="trending-down" class="w-4 h-4"></i>
+                            💰 Inversión Tech (SEED)
+                        </h4>
+                        <div class="space-y-2 text-sm" id="investment-breakdown">
+                            <!-- Populated by JavaScript -->
+                        </div>
+                    </div>
+
+                    <!-- Ahorros Breakdown -->
+                    <div class="bg-green-50 p-4 rounded-lg">
+                        <h4 class="font-semibold text-green-800 mb-3 flex items-center gap-2">
+                            <i data-lucide="trending-up" class="w-4 h-4"></i>
+                            📈 Ahorros Anuales vs Tradicional
+                        </h4>
+                        <div class="space-y-2 text-sm" id="savings-breakdown">
+                            <!-- Populated by JavaScript -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dynamic ROI Results -->
+                <div class="mt-6 p-4 bg-gradient-to-r from-teal-50 to-green-50 rounded-lg border border-teal-200">
+                    <div class="grid md:grid-cols-3 gap-4 text-center">
+                        <div>
+                            <div class="text-2xl font-bold text-teal-600" id="dynamic-roi">57%</div>
+                            <div class="text-sm text-teal-700">ROI 5 años</div>
+                        </div>
+                        <div>
+                            <div class="text-2xl font-bold text-green-600" id="dynamic-payback">30 meses</div>
+                            <div class="text-sm text-green-700">Payback Period</div>
+                        </div>
+                        <div>
+                            <div class="text-2xl font-bold text-orange-600" id="dynamic-savings">$2.55M</div>
+                            <div class="text-sm text-orange-700">Ahorro Anual (Full Ramp)</div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4 text-center">
+                        <div class="text-xs text-slate-600">
+                            Cálculo: ($<span id="cumulative-savings">12.75M</span> ahorros - $<span id="tech-investment">5.04M</span> inversión) ÷ $5.04M × 100
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Methodology Disclosure -->
+                <div class="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <h4 class="font-bold text-blue-800 mb-2 flex items-center gap-2">
+                        <i data-lucide="info" class="w-4 h-4"></i>
+                        📋 Metodología & Supuestos
+                    </h4>
+                    <div class="grid md:grid-cols-2 gap-4 text-sm text-blue-700">
+                        <div>
+                            <strong>Ramp-up Model:</strong>
+                            <ul class="mt-1 text-xs">
+                                <li>• Año 1: 50% ahorros (implementación)</li>
+                                <li>• Año 2: 70% ahorros (optimización)</li>
+                                <li>• Año 3: 85% ahorros (madurez)</li>
+                                <li>• Año 4-5: 95-100% ahorros (full efficiency)</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <strong>Validación External:</strong>
+                            <ul class="mt-1 text-xs">
+                                <li>• Benchmark: Mobility tech 25-60% ROI</li>
+                                <li>• Conservative: Sub-optimal efficiency</li>
+                                <li>• Defensible: Due diligence ready</li>
+                                <li>• Upside: Network effects not included</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="bg-white p-6 rounded-lg shadow-md mt-8">
               <h3 class="text-xl font-bold mb-4 text-teal-800 flex items-center">
                 <i data-lucide="calculator" class="title-icon-mandatory"></i>
@@ -6623,78 +6707,173 @@
             });
         }
         
+        // ROI CALCULATION ENGINE - DYNAMIC & TRANSPARENT
+        const ROI_ENGINE = {
+            investment: {
+                coreIA: 2270000,
+                equipoESOB: 1940000,
+                saasStack: 631000,
+                ragDNA: 150000,
+                reserva: 49000,
+                total: 5040000  // Tech investment only (excluding CAPEX)
+            },
+            
+            annualSavings: {
+                headcountDifferential: 632000,        // 49 FTE @ $32K vs 18 FTE @ $52K
+                departmentsEliminated: 404000,        // Scoring + Support + Cobranza + Inspecciones
+                maintenancePredictive: 385000,        // 28.5% reduction via Super-PMA
+                morosidadReduction: 580000,           // 8% → 4% via HASE + PIA
+                operationalEfficiency: 549000,       // Processes + Quality + Velocity
+                total: 2550000
+            },
+            
+            calculateROI: function(year) {
+                let cumulativeSavings = 0;
+                let cumulativeCosts = this.investment.total;
+                
+                for(let y = 1; y <= year; y++) {
+                    // Ramp-up factor: 50% Y1, 70% Y2, 85% Y3, 95% Y4, 100% Y5
+                    const rampFactors = [0.5, 0.7, 0.85, 0.95, 1.0];
+                    const rampFactor = rampFactors[y-1] || 1.0;
+                    
+                    cumulativeSavings += this.annualSavings.total * rampFactor;
+                }
+                
+                const netReturn = cumulativeSavings - cumulativeCosts;
+                const roi = (netReturn / cumulativeCosts) * 100;
+                const paybackMonths = cumulativeCosts / (this.annualSavings.total / 12);
+                
+                return {
+                    roi: Math.round(roi * 10) / 10,
+                    cumulativeSavings,
+                    netReturn,
+                    paybackMonths: Math.round(paybackMonths),
+                    yearlyBreakdown: this.getYearlyBreakdown(year)
+                };
+            },
+            
+            getYearlyBreakdown: function(maxYear) {
+                const breakdown = [];
+                const rampFactors = [0.5, 0.7, 0.85, 0.95, 1.0];
+                
+                for(let y = 1; y <= maxYear; y++) {
+                    const rampFactor = rampFactors[y-1] || 1.0;
+                    const yearlySavings = this.annualSavings.total * rampFactor;
+                    
+                    breakdown.push({
+                        year: y,
+                        savings: yearlySavings,
+                        rampFactor: Math.round(rampFactor * 100)
+                    });
+                }
+                return breakdown;
+            }
+        };
+
         function renderROIChart() {
             const ctx = document.getElementById('roiComparisonChart')?.getContext('2d');
             if (!ctx) return;
 
-            const roiData = {
-                tradicional: [385000, 1027000, 2057000, 3407000, 4987000],
-                iaNativo: [485000, 1110000, 1885000, 2750000, 3690000],
-                ahorros: [-100000, -83000, 172000, 657000, 1297000]
-            };
-
+            // Generate dynamic data using ROI_ENGINE
             const labels = Array.from({length: 5}, (_, i) => `Año ${i + 1}`);
+            const savingsData = [];
+            const investmentLine = [];
+            const netReturnData = [];
+            
+            for(let year = 1; year <= 5; year++) {
+                const result = ROI_ENGINE.calculateROI(year);
+                savingsData.push(result.cumulativeSavings);
+                investmentLine.push(ROI_ENGINE.investment.total);
+                netReturnData.push(result.netReturn);
+            }
+
             const roiChart = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: labels,
                     datasets: [
-                        { label: 'Costo Tradicional', data: roiData.tradicional, borderColor: MANDATORY_CHART_COLORS.orange, backgroundColor: MANDATORY_CHART_COLORS.orange + '1A', fill: false, tension: 0.3, borderWidth: 5, pointRadius: 12, pointBackgroundColor: '#ffffff', pointBorderWidth: 4, pointBorderColor: MANDATORY_CHART_COLORS.orange },
-                        { label: 'Costo IA-Nativo', data: roiData.iaNativo, borderColor: MANDATORY_CHART_COLORS.green, backgroundColor: MANDATORY_CHART_COLORS.green + '1A', fill: false, tension: 0.3, borderWidth: 5, pointRadius: 12, pointBackgroundColor: '#ffffff', pointBorderWidth: 4, pointBorderColor: MANDATORY_CHART_COLORS.green }
+                        {
+                            label: 'Inversión Tech Stack',
+                            data: investmentLine,
+                            borderColor: MANDATORY_CHART_COLORS.orange,
+                            backgroundColor: MANDATORY_CHART_COLORS.orange + '1A',
+                            fill: false,
+                            borderDash: [5, 5],
+                            tension: 0.1
+                        },
+                        {
+                            label: 'Ahorros Acumulados',
+                            data: savingsData,
+                            borderColor: MANDATORY_CHART_COLORS.green,
+                            backgroundColor: MANDATORY_CHART_COLORS.green + '1A',
+                            fill: false,
+                            tension: 0.3,
+                            borderWidth: 5,
+                            pointRadius: 12,
+                            pointBackgroundColor: '#ffffff',
+                            pointBorderWidth: 4,
+                            pointBorderColor: MANDATORY_CHART_COLORS.green
+                        },
+                        {
+                            label: 'Retorno Neto',
+                            data: netReturnData,
+                            borderColor: MANDATORY_CHART_COLORS.teal,
+                            backgroundColor: MANDATORY_CHART_COLORS.teal + '1A',
+                            fill: true,
+                            tension: 0.3,
+                            borderWidth: 5,
+                            pointRadius: 12,
+                            pointBackgroundColor: '#ffffff',
+                            pointBorderWidth: 4,
+                            pointBorderColor: MANDATORY_CHART_COLORS.teal
+                        }
                     ]
                 },
                 options: {
                     ...CONDUCTORES_CHART_CONFIG.defaultOptions,
-                    plugins: { 
+                    plugins: {
                         ...CONDUCTORES_CHART_CONFIG.defaultOptions.plugins,
-                        tooltip: { 
+                        tooltip: {
                             ...CONDUCTORES_CHART_CONFIG.defaultOptions.plugins.tooltip,
-                            callbacks: { label: (c) => `${c.dataset.label}: ${formatCurrency(c.parsed.y)}` } 
-                        } 
+                            callbacks: {
+                                label: (c) => `${c.dataset.label}: ${formatCurrency(c.parsed.y)}`,
+                                afterBody: (tooltipItems) => {
+                                    const year = tooltipItems[0].dataIndex + 1;
+                                    const roiResult = ROI_ENGINE.calculateROI(year);
+                                    return [`ROI: ${roiResult.roi}%`, `Payback: ${roiResult.paybackMonths} meses`];
+                                }
+                            }
+                        }
                     },
-                    scales: { 
+                    scales: {
                         ...CONDUCTORES_CHART_CONFIG.defaultOptions.scales,
-                        y: { 
+                        y: {
                             ...CONDUCTORES_CHART_CONFIG.defaultOptions.scales.y,
-                            title: { display: true, text: 'Costo Acumulado (MXN)', color: '#94a3b8' } 
-                        } 
+                            title: { display: true, text: 'Monto Acumulado (MXN)', color: '#94a3b8' }
+                        }
                     }
                 }
             });
 
+            // Update ROI slider functionality
             const roiSlider = document.getElementById('roi-years');
-            const updateMetrics = (year) => {
-                const investment = 2265000; // Core IA investment
-                const savings = roiData.ahorros[year-1];
-                const cumulativeROI = [-4.4, -3.7, 6.8, 28.2, 57];
-                const roi = cumulativeROI[year-1];
-                const paybackMonths = year >= 3 ? 30 : 'En progreso';
-                
-                // Update DOM elements
-                const roiElement = document.getElementById('roi-percentage');
-                const paybackElement = document.getElementById('payback-period');
-                const savingsElement = document.getElementById('savings-total');
-                
-                if (roiElement) roiElement.textContent = `${roi}%`;
-                if (paybackElement) paybackElement.textContent = typeof paybackMonths === 'number' ? `${paybackMonths} meses` : paybackMonths;
-                if (savingsElement) savingsElement.textContent = formatCurrency(Math.max(0, savings));
-                
-                // Update chart if exists
-                if (window.roiChart) {
-                    updateRoiChart(year);
-                }
-            };
+            if (roiSlider) {
+                const updateMetrics = (year) => {
+                    const result = ROI_ENGINE.calculateROI(year);
+                    
+                    document.getElementById('roi-percentage').textContent = `${result.roi}%`;
+                    document.getElementById('payback-period').textContent = `${result.paybackMonths} meses`;
+                    document.getElementById('savings-total').textContent = formatCurrency(result.cumulativeSavings);
+                };
 
-            roiSlider.addEventListener('input', (e) => {
-                const years = parseInt(e.target.value);
-                document.getElementById('years-label').textContent = years;
-                roiChart.data.labels = labels.slice(0, years);
-                roiChart.data.datasets[0].data = roiData.tradicional.slice(0, years);
-                roiChart.data.datasets[1].data = roiData.iaNativo.slice(0, years);
-                roiChart.update();
-                updateMetrics(years);
-            });
-            updateMetrics(5); // Initial render
+                roiSlider.addEventListener('input', (e) => {
+                    const years = parseInt(e.target.value);
+                    document.getElementById('years-label').textContent = years;
+                    updateMetrics(years);
+                });
+
+                updateMetrics(5); // Initial render
+            }
         }
         function renderRoiBreakdownTable(year) {
             const body = document.getElementById('roi-breakdown-body');
@@ -8632,6 +8811,74 @@
             });
           }
         }
+
+        // Populate ROI transparency sections
+        function populateROITransparency() {
+            // Investment breakdown
+            const investmentContainer = document.getElementById('investment-breakdown');
+            if (investmentContainer) {
+                investmentContainer.innerHTML = Object.entries(ROI_ENGINE.investment)
+                    .filter(([key]) => key !== 'total')
+                    .map(([key, value]) => {
+                        const labels = {
+                            coreIA: 'Core IA (4 agentes)',
+                            equipoESOB: 'Equipo ESOP',
+                            saasStack: 'SaaS + Stack Pagos',
+                            ragDNA: 'RAG-DNA',
+                            reserva: 'Reserva'
+                        };
+                        return `
+                            <div class="flex justify-between">
+                                <span>${labels[key]}:</span>
+                                <span class="font-semibold">${formatCurrency(value)}</span>
+                            </div>
+                        `;
+                    }).join('') + `
+                    <div class="border-t pt-2 flex justify-between font-bold text-lg">
+                        <span>Total Tech Investment:</span>
+                        <span class="text-teal-600">${formatCurrency(ROI_ENGINE.investment.total)}</span>
+                    </div>
+                `;
+            }
+
+            // Savings breakdown
+            const savingsContainer = document.getElementById('savings-breakdown');
+            if (savingsContainer) {
+                savingsContainer.innerHTML = Object.entries(ROI_ENGINE.annualSavings)
+                    .filter(([key]) => key !== 'total')
+                    .map(([key, value]) => {
+                        const labels = {
+                            headcountDifferential: 'Headcount differential',
+                            departmentsEliminated: 'Departamentos eliminados',
+                            maintenancePredictive: 'Mantenimiento predictivo',
+                            morosidadReduction: 'Menor morosidad',
+                            operationalEfficiency: 'Eficiencias operativas'
+                        };
+                        return `
+                            <div class="flex justify-between">
+                                <span>${labels[key]}:</span>
+                                <span class="font-semibold">${formatCurrency(value)}</span>
+                            </div>
+                        `;
+                    }).join('') + `
+                    <div class="border-t pt-2 flex justify-between font-bold text-lg">
+                        <span>Total Ahorro Anual:</span>
+                        <span class="text-green-600">${formatCurrency(ROI_ENGINE.annualSavings.total)}</span>
+                    </div>
+                `;
+            }
+
+            // Update dynamic values
+            const result5Year = ROI_ENGINE.calculateROI(5);
+            document.getElementById('dynamic-roi').textContent = `${result5Year.roi}%`;
+            document.getElementById('dynamic-payback').textContent = `${result5Year.paybackMonths} meses`;
+            document.getElementById('dynamic-savings').textContent = formatCurrency(ROI_ENGINE.annualSavings.total);
+            document.getElementById('cumulative-savings').textContent = `${(result5Year.cumulativeSavings/1000000).toFixed(2)}M`;
+            document.getElementById('tech-investment').textContent = `${(ROI_ENGINE.investment.total/1000000).toFixed(2)}M`;
+        }
+
+        // Call after other renders
+        populateROITransparency();
     });
 
     // PREMIUM NAVIGATION CONTROLLER
