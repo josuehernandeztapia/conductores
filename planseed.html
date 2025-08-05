@@ -10180,6 +10180,29 @@
             }
         });
 
+        // --- 3.5. Validación de Conversión de Enlaces (Email y Calendly) ---
+        document.addEventListener('click', (e) => {
+            const link = e.target.closest('a');
+            if (!link) return;
+
+            const href = link.href;
+
+            // Validación para el correo de Conductores
+            if (href.startsWith('mailto:') && href.includes('@conductores.lat')) {
+                trackEvent('conversion_click', {
+                    type: 'email_directo',
+                    url: href
+                });
+            } 
+            // Validación para el enlace de Calendly
+            else if (href.includes('calendly.com')) {
+                trackEvent('conversion_click', {
+                    type: 'calendly_meeting',
+                    url: href
+                });
+            }
+        });
+
         // --- 4. Tracking de Conversión: CTAs ---
         document.querySelectorAll('.btn-primary-hero-enhanced, .btn-secondary-hero-enhanced, a[href^="mailto:"], a[href*="calendly.com"]').forEach(cta => {
             cta.addEventListener('click', () => {
