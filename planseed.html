@@ -3769,6 +3769,31 @@
           border: 1px solid #e2e8f0;
         }
     </style>
+    
+    <!-- PARTE 1: SCRIPTS FUNDACIONALES DE ANALÍTICA -->
+    <!-- Google Analytics 4 (GA4) - Script base para seguimiento de eventos -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-XXXXXXXXXX', {
+            'send_page_view': true,
+            'anonymize_ip': true
+        });
+    </script>
+    
+    <!-- Hotjar - Script para mapas de calor y grabaciones de sesiones -->
+    <script>
+        (function(h,o,t,j,a,r){
+            h.hj=h.hj||function(){(h.hj.q=h.hj.q||[]).push(arguments)};
+            h._hjSettings={hjid:YYYYYYYY,hjsv:6};
+            a=o.getElementsByTagName('head')[0];
+            r=o.createElement('script');r.async=1;
+            r.src=t+h._hjSettings.hjid+j+h._hjSettings.hjsv;
+            a.appendChild(r);
+        })(window,document,'https://static.hotjar.com/c/hotjar-','.js?sv=');
+    </script>
 </head>
 <body class="antialiased">
     <!-- Header & Navigation -->
@@ -5785,6 +5810,38 @@
             </div>
         </div>
     </div>
+
+    <!-- PARTE 2: FORMULARIO DE CAPTURA DE LEADS -->
+    <section id="investor-interest" class="py-16 bg-slate-800">
+        <div class="container mx-auto px-4 text-center">
+            <div class="max-w-2xl mx-auto">
+                <h3 class="text-3xl font-bold text-white mb-4">
+                    Listos para Construir el Futuro de Mobility Tech
+                </h3>
+                <p class="text-teal-200 mb-8">
+                    Si nuestra visión y plan de ejecución se alinean con su tesis, nos encantaría conversar.
+                    Deje sus datos para recibir acceso a nuestro Data Room completo.
+                </p>
+                <form id="seed-investor-form" class="max-w-lg mx-auto space-y-4" novalidate>
+                    <input type="email" name="email" placeholder="Email Profesional" required class="w-full p-3 rounded-lg border-2 border-slate-600 bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+                    <select name="role" required class="w-full p-3 rounded-lg border-2 border-slate-600 bg-slate-700 text-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+                        <option value="">Seleccione su Rol</option>
+                        <option value="seed-vc">Seed VC</option>
+                        <option value="angel">Angel Investor</option>
+                        <option value="family-office">Family Office</option>
+                        <option value="strategic">Strategic / CVC</option>
+                        <option value="accelerator">Accelerator / Incubator</option>
+                    </select>
+                    <input type="text" name="ticket_size" placeholder="Ticket Size Típico (e.g., $150k USD)" required class="w-full p-3 rounded-lg border-2 border-slate-600 bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+                    <button type="submit" class="btn-primary-hero-enhanced w-full">
+                        <i data-lucide="handshake" class="btn-icon"></i>
+                        Solicitar Acceso al Data Room
+                    </button>
+                    <p id="form-status" class="text-white text-sm h-4"></p>
+                </form>
+            </div>
+        </div>
+    </section>
 
     <footer class="bg-slate-800 text-white mt-16">
         <div class="container mx-auto py-4 px-4 sm:px-6 lg:px-8 text-center text-sm">
@@ -10045,6 +10102,143 @@
         } catch (error) {
             console.error('❌ ERROR initializing critical functions:', error);
             console.error('Full error:', error.stack);
+        }
+    });
+    </script>
+
+    <!-- PARTE 3: LÓGICA DE TRACKING AVANZADO -->
+    <script>
+    // AGREGADO: Lógica de Analítica Avanzada y Captura de Leads
+    document.addEventListener('DOMContentLoaded', () => {
+
+        // --- Helper para enviar eventos a GA4 ---
+        const trackEvent = (eventName, params = {}) => {
+            if (typeof gtag === 'function') {
+                gtag('event', eventName, { ...params, 'send_to': 'G-XXXXXXXXXX' });
+                console.log(`Event Tracked: ${eventName}`, params);
+            } else {
+                console.warn(`GA4 not available. Event not tracked: ${eventName}`);
+            }
+        };
+
+        // --- 1. Engagement Básico: Scroll Depth ---
+        const scrollMilestones = { 25: false, 50: false, 75: false, 90: false };
+        window.addEventListener('scroll', () => {
+            const scrollPercent = (window.scrollY / (document.documentElement.scrollHeight - window.innerHeight)) * 100;
+            for (const milestone in scrollMilestones) {
+                if (scrollPercent >= milestone && !scrollMilestones[milestone]) {
+                    scrollMilestones[milestone] = true;
+                    trackEvent('scroll_depth', { 'scroll_percentage': parseInt(milestone) });
+                }
+            }
+        }, { passive: true });
+
+        // --- 2. Engagement por Sección: Tiempo en Pantalla ---
+        const sectionObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                const sectionId = entry.target.id;
+                if (entry.isIntersecting) {
+                    entry.target.dataset.timeStart = Date.now();
+                } else if (entry.target.dataset.timeStart) {
+                    const timeSpent = Date.now() - parseInt(entry.target.dataset.timeStart, 10);
+                    trackEvent('time_on_section', {
+                        'section_id': sectionId,
+                        'duration_seconds': Math.round(timeSpent / 1000)
+                    });
+                    delete entry.target.dataset.timeStart;
+                }
+            });
+        }, { threshold: 0.5 });
+        document.querySelectorAll('section[id]').forEach(section => sectionObserver.observe(section));
+
+        // --- 3. Interacciones Clave con Elementos ---
+        
+        // Video Engagement
+        const videoIframe = document.querySelector('iframe[title="Rodando a Gas - Modelo de Negocio"]');
+        if (videoIframe) {
+            // Simple click tracking as we can't access iframe internals easily
+            videoIframe.parentElement.addEventListener('click', () => {
+                 trackEvent('video_play_intent');
+            }, { once: true });
+        }
+        
+        // Sliders Financieros
+        document.getElementById('roi-years')?.addEventListener('change', (e) => trackEvent('slider_interaction', { 'slider_id': 'roi_years', 'value': e.target.value }));
+        document.getElementById('funding-slider')?.addEventListener('change', (e) => trackEvent('slider_interaction', { 'slider_id': 'funding_simulator', 'value': e.target.value }));
+        document.getElementById('month-slider')?.addEventListener('change', (e) => trackEvent('slider_interaction', { 'slider_id': 'financial_plan_month', 'value': e.target.value }));
+
+        // Selectores y Filtros
+        document.getElementById('role-selector')?.addEventListener('change', (e) => trackEvent('filter_used', { 'filter_type': 'role_selector', 'selection': e.target.value }));
+        document.getElementById('scenario-select')?.addEventListener('change', (e) => trackEvent('filter_used', { 'filter_type': 'scenario_calculator', 'selection': e.target.value }));
+        document.querySelectorAll('.phase-btn-premium-mandatory').forEach(btn => btn.addEventListener('click', () => trackEvent('filter_used', { 'filter_type': 'phase_filter', 'selection': btn.dataset.phase })));
+
+        // Clics en Modales
+        document.body.addEventListener('click', (e) => {
+            const agentCard = e.target.closest('.agent-card');
+            if (agentCard) {
+                trackEvent('modal_opened', { 'modal_type': 'agent_details', 'agent_name': agentCard.dataset.agentKey });
+            }
+        });
+
+        // --- 4. Tracking de Conversión: CTAs ---
+        document.querySelectorAll('.btn-primary-hero-enhanced, .btn-secondary-hero-enhanced, a[href^="mailto:"], a[href*="calendly.com"]').forEach(cta => {
+            cta.addEventListener('click', () => {
+                let ctaId = 'unknown_cta';
+                if (cta.textContent.includes('Ver Financiero')) ctaId = 'hero_ver_financiero';
+                else if (cta.textContent.includes('Explorar Tecnología')) ctaId = 'hero_explorar_tecnologia';
+                else if (cta.href && cta.href.includes('mailto')) ctaId = 'contact_email_click';
+                else if (cta.href && cta.href.includes('calendly')) ctaId = 'calendly_meeting_click';
+                trackEvent('cta_click', { 'cta_id': ctaId });
+            });
+        });
+
+        // --- 5. Lógica del Formulario de Captura de Leads ---
+        const investorForm = document.getElementById('seed-investor-form');
+        const formStatus = document.getElementById('form-status');
+        if (investorForm) {
+            investorForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const formData = new FormData(investorForm);
+                const data = Object.fromEntries(formData.entries());
+                
+                // Validar
+                if (!data.email || !data.role || !data.ticket_size) {
+                    formStatus.textContent = 'Por favor, completa todos los campos.';
+                    formStatus.style.color = '#ef4444'; // red
+                    return;
+                }
+
+                formStatus.textContent = 'Enviando...';
+                formStatus.style.color = '#f59e0b'; // amber
+
+                // Envía el evento a GA4 ANTES de la petición de red
+                trackEvent('lead_generated', {
+                    'role': data.role,
+                    'ticket_size_category': data.ticket_size
+                });
+
+                // Envía los datos a tu endpoint (e.g., Formspree, webhook, etc.)
+                // REEMPLAZA ESTA URL con tu propio endpoint
+                fetch('https://your-webhook-endpoint.com/your-path', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data),
+                })
+                .then(response => {
+                    if (response.ok) {
+                        formStatus.textContent = '¡Gracias! Te contactaremos en menos de 24 horas.';
+                        formStatus.style.color = '#10b981'; // green
+                        investorForm.reset();
+                    } else {
+                        throw new Error('Network response was not ok.');
+                    }
+                })
+                .catch(error => {
+                    formStatus.textContent = 'Error al enviar. Intenta de nuevo o contáctanos por email.';
+                    formStatus.style.color = '#ef4444'; // red
+                    console.error('Form submission error:', error);
+                });
+            });
         }
     });
     </script>
