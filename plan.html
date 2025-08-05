@@ -9855,137 +9855,119 @@
     }
 
     function setupFundingSimulator() {
-      console.log('🔧 Iniciando setupFundingSimulator()...');
-      const slider = document.getElementById('funding-slider');
-      const amountSpan = document.getElementById('funding-amount');
-      const impactDiv = document.getElementById('funding-impact');
-      
-      console.log('Elementos encontrados:', { slider: !!slider, amountSpan: !!amountSpan, impactDiv: !!impactDiv });
-      
-      if (!slider || !amountSpan || !impactDiv) {
-        console.error('❌ ERROR: Elementos del DOM no encontrados en setupFundingSimulator');
-        return;
-      }
-      
-      function calculateFundingImpact(fundingMM) {
-        const funding = fundingMM * 1000000;
-        amountSpan.textContent = `$${fundingMM}M`;
-        
+        const slider = document.getElementById('funding-slider');
+        const amountSpan = document.getElementById('funding-amount');
+        const impactDiv = document.getElementById('funding-impact');
+
+        if (!slider || !amountSpan || !impactDiv) {
+            console.error('Elementos del simulador no encontrados.');
+            return;
+        }
+
+        // NUEVA LÓGICA DE PRESUPUESTO BASADA EN $10M
         const budgets = {
-          equipo: 1940000,
-          coreIA: 2265000,
-          saasStack: 631000,
-          capexPiloto: 2630000
+            equipoCompleto: 1940000 + 2340000, // Prioridad 1: Equipo técnico + Liderazgo/Ops
+            coreIA: 2265000,                   // Prioridad 2: El motor tecnológico
+            saasYOperaciones: 631000 + 150000,  // Prioridad 3: Infraestructura y RAG-DNA
+            capexPiloto: 2630000                // Prioridad 4: Validación con activos físicos
         };
-        
-        let remaining = funding;
-        let results = {};
-        
-        // Prioridad 1: Equipo
-        if (remaining >= budgets.equipo) {
-          results.equipo = { percent: 100, status: 'success', message: 'Equipo completo ✅' };
-          remaining -= budgets.equipo;
-        } else {
-          const percent = Math.round((remaining / budgets.equipo) * 100);
-          results.equipo = { percent, status: 'danger', message: `Solo ${percent}% del equipo ❌` };
-          remaining = 0;
+
+        function calculateFundingImpact(fundingMM) {
+            const funding = fundingMM * 1000000;
+            amountSpan.textContent = `$${fundingMM.toFixed(1)}M`;
+
+            let remaining = funding;
+            let results = {};
+
+            // Prioridad 1: Equipo Completo (Técnico + Liderazgo)
+            if (remaining >= budgets.equipoCompleto) {
+                results.equipo = { percent: 100, status: 'success', message: 'Equipo completo ✅' };
+                remaining -= budgets.equipoCompleto;
+            } else {
+                const percent = Math.round((remaining / budgets.equipoCompleto) * 100);
+                results.equipo = { percent, status: 'danger', message: `Equipo incompleto (${percent}%) ❌` };
+                remaining = 0;
+            }
+
+            // Prioridad 2: Core IA
+            if (remaining >= budgets.coreIA) {
+                results.coreIA = { percent: 100, status: 'success', message: '4 agentes completos ✅' };
+                remaining -= budgets.coreIA;
+            } else {
+                const percent = Math.round((remaining / budgets.coreIA) * 100);
+                results.coreIA = { percent, status: 'warning', message: `IA parcial (${percent}%) ⚠️` };
+                remaining = 0;
+            }
+
+            // Prioridad 3: SaaS y Operaciones
+             if (remaining >= budgets.saasYOperaciones) {
+                results.saasStack = { percent: 100, status: 'success', message: 'Stack empresarial ✅' };
+                remaining -= budgets.saasYOperaciones;
+            } else {
+                const percent = Math.round((remaining / budgets.saasYOperaciones) * 100);
+                results.saasStack = { percent, status: 'warning', message: `Stack básico (${percent}%) ⚠️` };
+                remaining = 0;
+            }
+
+            // Prioridad 4: CAPEX (Vagonetas)
+            if (remaining >= budgets.capexPiloto) {
+                results.capex = { percent: 100, status: 'success', message: '3 vagonetas ✅' };
+            } else if (remaining >= budgets.capexPiloto * 0.67) {
+                results.capex = { percent: 67, status: 'warning', message: '2 vagonetas ⚠️' };
+            } else if (remaining >= budgets.capexPiloto * 0.33) {
+                results.capex = { percent: 33, status: 'danger', message: '1 vagoneta ❌' };
+            } else {
+                results.capex = { percent: 0, status: 'danger', message: 'Sin vagonetas ❌' };
+            }
+
+            const serieAViable = results.equipo.percent === 100 && results.coreIA.percent >= 80 && results.capex.percent >= 67;
+            const overallStatus = serieAViable ? 'success' : (results.coreIA.percent >= 50 ? 'warning' : 'danger');
+            
+            const statusColors = {
+                success: 'green',
+                warning: 'yellow',
+                danger: 'red'
+            };
+
+            const htmlContent = `
+            <div class="bg-${statusColors[results.equipo.status]}-50 p-4 rounded-lg border-l-4 border-${statusColors[results.equipo.status]}-500">
+                <h5 class="font-semibold text-${statusColors[results.equipo.status]}-800 mb-2 flex items-center gap-2"><i data-lucide="users" class="w-4 h-4"></i>Equipo</h5>
+                <div class="text-2xl font-bold text-${statusColors[results.equipo.status]}-600">${results.equipo.percent}%</div>
+                <p class="text-sm text-${statusColors[results.equipo.status]}-700">${results.equipo.message}</p>
+            </div>
+            <div class="bg-${statusColors[results.coreIA.status]}-50 p-4 rounded-lg border-l-4 border-${statusColors[results.coreIA.status]}-500">
+                <h5 class="font-semibold text-${statusColors[results.coreIA.status]}-800 mb-2 flex items-center gap-2"><i data-lucide="cpu" class="w-4 h-4"></i>Core IA</h5>
+                <div class="text-2xl font-bold text-${statusColors[results.coreIA.status]}-600">${results.coreIA.percent}%</div>
+                <p class="text-sm text-${statusColors[results.coreIA.status]}-700">${results.coreIA.message}</p>
+            </div>
+            <div class="bg-${statusColors[results.saasStack.status]}-50 p-4 rounded-lg border-l-4 border-${statusColors[results.saasStack.status]}-500">
+                <h5 class="font-semibold text-${statusColors[results.saasStack.status]}-800 mb-2 flex items-center gap-2"><i data-lucide="settings" class="w-4 h-4"></i>SaaS Stack</h5>
+                <div class="text-2xl font-bold text-${statusColors[results.saasStack.status]}-600">${results.saasStack.percent}%</div>
+                <p class="text-sm text-${statusColors[results.saasStack.status]}-700">${results.saasStack.message}</p>
+            </div>
+            <div class="bg-${statusColors[results.capex.status]}-50 p-4 rounded-lg border-l-4 border-${statusColors[results.capex.status]}-500">
+                <h5 class="font-semibold text-${statusColors[results.capex.status]}-800 mb-2 flex items-center gap-2"><i data-lucide="truck" class="w-4 h-4"></i>CAPEX</h5>
+                <div class="text-2xl font-bold text-${statusColors[results.capex.status]}-600">${results.capex.percent}%</div>
+                <p class="text-sm text-${statusColors[results.capex.status]}-700">${results.capex.message}</p>
+            </div>
+            <div class="col-span-full mt-4 p-4 bg-${statusColors[overallStatus]}-50 border border-${statusColors[overallStatus]}-200 rounded-lg text-center">
+                <h4 class="font-bold text-${statusColors[overallStatus]}-800 text-lg mb-2">📈 Resultado Serie A</h4>
+                <p class="text-${statusColors[overallStatus]}-700">
+                    ${serieAViable ? 'Serie A viable - Plan completo ejecutable ✅' :
+                    (results.coreIA.percent >= 50 ? 'Serie A con riesgo - Validación limitada ⚠️' :
+                    'Serie A imposible - Sin modelo validado ❌')}
+                </p>
+            </div>
+            `;
+            impactDiv.innerHTML = htmlContent;
+            lucide.createIcons();
         }
-        
-        // Prioridad 2: Core IA
-        if (remaining >= budgets.coreIA) {
-          results.coreIA = { percent: 100, status: 'success', message: '4 agentes completos ✅' };
-          remaining -= budgets.coreIA;
-        } else if (remaining > 0) {
-          const percent = Math.round((remaining / budgets.coreIA) * 100);
-          results.coreIA = { percent, status: 'warning', message: `${percent}% agentes IA ⚠️` };
-          remaining = 0;
-        } else {
-          results.coreIA = { percent: 0, status: 'danger', message: 'Sin agentes IA ❌' };
-        }
-        
-        // Prioridad 3: SaaS Stack
-        if (remaining >= budgets.saasStack) {
-          results.saasStack = { percent: 100, status: 'success', message: 'Stack empresarial ✅' };
-          remaining -= budgets.saasStack;
-        } else if (remaining > 0) {
-          const percent = Math.round((remaining / budgets.saasStack) * 100);
-          results.saasStack = { percent, status: 'warning', message: `Stack básico ${percent}% ⚠️` };
-          remaining = 0;
-        } else {
-          results.saasStack = { percent: 0, status: 'danger', message: 'Sin infraestructura ❌' };
-        }
-        
-        // Prioridad 4: CAPEX
-        if (remaining >= budgets.capexPiloto) {
-          results.capex = { percent: 100, status: 'success', message: '3 vagonetas ✅' };
-        } else if (remaining >= budgets.capexPiloto * 0.67) {
-          results.capex = { percent: 67, status: 'warning', message: '2 vagonetas ⚠️' };
-        } else if (remaining >= budgets.capexPiloto * 0.33) {
-          results.capex = { percent: 33, status: 'warning', message: '1 vagoneta ⚠️' };
-        } else {
-          results.capex = { percent: 0, status: 'danger', message: 'Sin vagonetas ❌' };
-        }
-        
-        const serieAViable = results.equipo.percent >= 100 && results.coreIA.percent >= 80 && results.capex.percent >= 67;
-        const overallStatus = serieAViable ? 'success' : (results.coreIA.percent >= 60 ? 'warning' : 'danger');
-        
-        const htmlContent = `
-          <div class="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-500">
-            <h5 class="font-semibold text-blue-800 mb-2 flex items-center gap-2">
-              <i data-lucide="users" class="w-4 h-4"></i>
-              Equipo
-            </h5>
-            <div class="text-2xl font-bold text-blue-600">${results.equipo.percent}%</div>
-            <p class="text-sm text-blue-700">${results.equipo.message}</p>
-          </div>
-          <div class="bg-green-50 p-4 rounded-lg border-l-4 border-green-500">
-            <h5 class="font-semibold text-green-800 mb-2 flex items-center gap-2">
-              <i data-lucide="cpu" class="w-4 h-4"></i>
-              Core IA
-            </h5>
-            <div class="text-2xl font-bold text-green-600">${results.coreIA.percent}%</div>
-            <p class="text-sm text-green-700">${results.coreIA.message}</p>
-          </div>
-          <div class="bg-purple-50 p-4 rounded-lg border-l-4 border-purple-500">
-            <h5 class="font-semibold text-purple-800 mb-2 flex items-center gap-2">
-              <i data-lucide="settings" class="w-4 h-4"></i>
-              SaaS Stack
-            </h5>
-            <div class="text-2xl font-bold text-purple-600">${results.saasStack.percent}%</div>
-            <p class="text-sm text-purple-700">${results.saasStack.message}</p>
-          </div>
-          <div class="bg-orange-50 p-4 rounded-lg border-l-4 border-orange-500">
-            <h5 class="font-semibold text-orange-800 mb-2 flex items-center gap-2">
-              <i data-lucide="truck" class="w-4 h-4"></i>
-              CAPEX
-            </h5>
-            <div class="text-2xl font-bold text-orange-600">${results.capex.percent}%</div>
-            <p class="text-sm text-orange-700">${results.capex.message}</p>
-          </div>
-          <div class="col-span-full mt-4 p-4 bg-${overallStatus === 'success' ? 'green' : overallStatus === 'warning' ? 'yellow' : 'red'}-50 border border-${overallStatus === 'success' ? 'green' : overallStatus === 'warning' ? 'yellow' : 'red'}-200 rounded-lg text-center">
-            <h4 class="font-bold text-${overallStatus === 'success' ? 'green' : overallStatus === 'warning' ? 'yellow' : 'red'}-800 text-lg mb-2">📈 Resultado Serie A</h4>
-            <p class="text-${overallStatus === 'success' ? 'green' : overallStatus === 'warning' ? 'yellow' : 'red'}-700">
-              ${serieAViable ? 'Serie A viable - Plan completo ejecutable ✅' : 
-                results.coreIA.percent >= 60 ? 'Serie A con riesgo - Validación limitada ⚠️' : 
-                'Serie A imposible - Sin modelo validado ❌'}
-            </p>
-          </div>
-        `;
-        
-        console.log('💻 Insertando HTML en funding-impact div...');
-        impactDiv.innerHTML = htmlContent;
-        console.log('✅ HTML insertado exitosamente');
-      }
-      
-      console.log('🔗 Agregando event listener al funding slider...');
-      slider.addEventListener('input', (e) => {
-        console.log('🎚️ Funding slider cambió a:', e.target.value);
-        calculateFundingImpact(parseFloat(e.target.value));
-      });
-      
-      console.log('🚀 Ejecutando cálculo inicial de funding...');
-      calculateFundingImpact(7.6);
-      console.log('✅ setupFundingSimulator completado');
+
+        slider.addEventListener('input', (e) => calculateFundingImpact(parseFloat(e.target.value)));
+
+        // INICIALIZAR EL SIMULADOR CON EL VALOR CORRECTO DE $10M
+        slider.value = 10;
+        calculateFundingImpact(10);
     }
     function setupExecutionTracker() {
       console.log('🔧 Iniciando setupExecutionTracker()...');
