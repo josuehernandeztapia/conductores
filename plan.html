@@ -4901,7 +4901,7 @@
                     <input id="month-slider" type="range" min="1" max="12" value="1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
                 </div>
                 
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 text-center">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 text-center">
                     <div class="bg-slate-50 p-3 rounded-lg">
                         <p class="text-sm text-slate-500">Gasto del Mes</p>
                         <p id="kpi-gasto-mes" class="text-2xl font-bold"></p>
@@ -4910,13 +4910,9 @@
                         <p class="text-sm text-slate-500">Gasto Acumulado</p>
                         <p id="kpi-gasto-acumulado" class="text-2xl font-bold"></p>
                     </div>
-                    <div class="bg-slate-50 p-3 rounded-lg">
+                    <div class="bg-slate-50 p-3 rounded-lg border-2 border-teal-500">
                         <p class="text-sm text-slate-500">Efectivo Restante</p>
-                        <p id="kpi-efectivo" class="text-2xl font-bold"></p>
-                    </div>
-                    <div class="bg-slate-50 p-3 rounded-lg">
-                        <p class="text-sm text-slate-500">Reserva Emergencia</p>
-                        <p id="kpi-reserva" class="text-2xl font-bold text-teal-600"></p>
+                        <p id="kpi-efectivo" class="text-2xl font-bold text-teal-600"></p>
                     </div>
                 </div>
                 <div class="chart-container">
@@ -6782,7 +6778,7 @@
     const flujosEfectivoReales = {
         gastoEquipoTecnico: [120000, 130000, 140000, 140000, 140000, 140000, 140000, 140000, 140000, 130000, 120000, 110000],
         gastoLiderazgo: [130000, 130000, 130000, 130000, 130000, 130000, 130000, 130000, 130000, 130000, 130000, 130000],
-        gastoDesarrollo: [272000, 272000, 292000, 332000, 332000, 332000, 212000, 212000, 192000, 192000, 192000, 127993],
+        gastoDesarrollo: [260000, 260000, 280000, 320000, 320000, 317000, 200000, 200000, 180000, 180000, 180000, 263000],
         gastoCapex: [0, 0, 0, 0, 0, 876667, 876667, 876666, 0, 0, 0, 0],
         stackInclusivo: [10000, 15000, 25000, 35000, 35000, 35000, 35000, 35000, 35000, 35000, 35000, 35000],
         compliance: [5000, 8000, 12000, 15000, 8000, 5000, 3000, 3000, 3000, 3000, 3000, 8000],
@@ -7385,13 +7381,29 @@
             const monthSlider = document.getElementById('month-slider');
             const updateKPIs = (month) => {
                 const index = month - 1;
+                
+                const datasets = [
+                    { data: flujosEfectivoReales.gastoEquipoTecnico },
+                    { data: flujosEfectivoReales.gastoLiderazgo },
+                    { data: flujosEfectivoReales.gastoDesarrollo },
+                    { data: flujosEfectivoReales.gastoCapex },
+                    { data: flujosEfectivoReales.stackInclusivo },
+                    { data: flujosEfectivoReales.compliance },
+                ];
+                let gastoAcumuladoCalc = 0;
+                const efectivoRestanteCalc = flujosEfectivoReales.gastoEquipoTecnico.map((_, i) => {
+                    const gastoMesCalc = datasets.reduce((sum, ds) => sum + (ds.data[i] || 0), 0);
+                    gastoAcumuladoCalc += gastoMesCalc;
+                    return flujosEfectivoReales.inversionInicial - gastoAcumuladoCalc;
+                });
+
                 document.getElementById('month-label').textContent = month;
-                const gastoMes = datasets.filter(ds => ds.stack === 'gastos').reduce((sum, ds) => sum + ds.data[index], 0);
-                const gastoAcc = datasets.filter(ds => ds.stack === 'gastos').reduce((total, ds) => total + ds.data.slice(0, month).reduce((a, b) => a + b, 0), 0);
+                const gastoMes = datasets.reduce((sum, ds) => sum + (ds.data[index] || 0), 0);
+                const gastoAcc = datasets.reduce((total, ds) => total + ds.data.slice(0, month).reduce((a, b) => a + b, 0), 0);
+                
                 document.getElementById('kpi-gasto-mes').textContent = formatCurrency(gastoMes);
                 document.getElementById('kpi-gasto-acumulado').textContent = formatCurrency(gastoAcc);
-                document.getElementById('kpi-efectivo').textContent = formatCurrency(efectivoRestante[index]);
-                document.getElementById('kpi-reserva').textContent = formatCurrency(presupuestoReal.distribucion.reserva);
+                document.getElementById('kpi-efectivo').textContent = formatCurrency(efectivoRestanteCalc[index]);
             };
             monthSlider.addEventListener('input', (e) => updateKPIs(parseInt(e.target.value)));
             updateKPIs(1);
