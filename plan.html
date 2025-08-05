@@ -6780,8 +6780,9 @@
     // --- DATA OBJECTS (Global scope for widgets) ---
             const presupuestoReal = { total: 10000000, distribucion: { coreIA: 2265000, capexPiloto: 2630000, equipoTotal: 1940000, saasStack: 631000, ragDNA: 150000, garantiaEjecucion: 2340000, reserva: 44000 } };
     const flujosEfectivoReales = {
-        gastoEquipo: [166037, 179874, 193710, 193710, 193710, 193710, 193710, 193710, 193710, 179874, 166037, 152201],
-        gastoDesarrollo: [315000, 340000, 365000, 355000, 355000, 355000, 325000, 325000, 325000, 280000, 280000, 290000],
+        gastoEquipoTecnico: [120000, 130000, 140000, 140000, 140000, 140000, 140000, 140000, 140000, 130000, 120000, 110000],
+        gastoLiderazgo: [130000, 130000, 130000, 130000, 130000, 130000, 130000, 130000, 130000, 130000, 130000, 130000],
+        gastoDesarrollo: [272000, 272000, 292000, 332000, 332000, 332000, 212000, 212000, 192000, 192000, 192000, 131000],
         gastoCapex: [0, 0, 0, 0, 0, 876667, 876667, 876666, 0, 0, 0, 0],
         stackInclusivo: [10000, 15000, 25000, 35000, 35000, 35000, 35000, 35000, 35000, 35000, 35000, 35000],
         compliance: [5000, 8000, 12000, 15000, 8000, 5000, 3000, 3000, 3000, 3000, 3000, 8000],
@@ -7317,7 +7318,8 @@
             
             const labels = Array.from({ length: 12 }, (_, i) => `Mes ${i + 1}`);
             const datasets = [
-                { label: 'Equipo', data: flujosEfectivoReales.gastoEquipo, backgroundColor: MANDATORY_CHART_COLORS.teal, stack: 'gastos' },
+                { label: 'Equipo Técnico (ESOP)', data: flujosEfectivoReales.gastoEquipoTecnico, backgroundColor: MANDATORY_CHART_COLORS.teal, stack: 'gastos' },
+                { label: 'Liderazgo (COO/PMO)', data: flujosEfectivoReales.gastoLiderazgo, backgroundColor: MANDATORY_CHART_COLORS.purple, stack: 'gastos' },
                 { label: 'Desarrollo', data: flujosEfectivoReales.gastoDesarrollo, backgroundColor: MANDATORY_CHART_COLORS.orange, stack: 'gastos' },
                 { label: 'CAPEX', data: flujosEfectivoReales.gastoCapex, backgroundColor: MANDATORY_CHART_COLORS.sky, stack: 'gastos' },
                 { label: 'Pagos/SaaS', data: flujosEfectivoReales.stackInclusivo, backgroundColor: MANDATORY_CHART_COLORS.amber, stack: 'gastos' },
@@ -7325,7 +7327,7 @@
             ];
 
             let gastoAcumulado = 0;
-            const efectivoRestante = flujosEfectivoReales.gastoEquipo.map((_, i) => {
+            const efectivoRestante = flujosEfectivoReales.gastoEquipoTecnico.map((_, i) => {
                 const gastoMes = datasets.reduce((sum, ds) => sum + ds.data[i], 0);
                 gastoAcumulado += gastoMes;
                 return flujosEfectivoReales.inversionInicial - gastoAcumulado;
@@ -7720,7 +7722,7 @@
                 </div>
             `).join('');
 
-            const plannedBurn = flujosEfectivoReales.gastoEquipo.map((e, i) => e + flujosEfectivoReales.gastoDesarrollo[i] + flujosEfectivoReales.stackInclusivo[i] + flujosEfectivoReales.compliance[i] + flujosEfectivoReales.gastoCapex[i]);
+            const plannedBurn = flujosEfectivoReales.gastoEquipoTecnico.map((e, i) => e + flujosEfectivoReales.gastoLiderazgo[i] + flujosEfectivoReales.gastoDesarrollo[i] + flujosEfectivoReales.stackInclusivo[i] + flujosEfectivoReales.compliance[i] + flujosEfectivoReales.gastoCapex[i]);
             // Simulate actual burn for demo
             const actualBurn = plannedBurn.map((p, i) => i < 6 ? p * (1 - Math.random() * 0.1) : 0).filter(b => b > 0);
             
@@ -9600,7 +9602,8 @@
       
       // Calcular gasto acumulado hasta targetMonth
       for (let month = 1; month <= targetMonth; month++) {
-        const monthlyBurn = flujosEfectivoReales.gastoEquipo[month-1] + 
+        const monthlyBurn = flujosEfectivoReales.gastoEquipoTecnico[month-1] + 
+                           flujosEfectivoReales.gastoLiderazgo[month-1] + 
                            flujosEfectivoReales.gastoDesarrollo[month-1] + 
                            flujosEfectivoReales.gastoCapex[month-1] + 
                            flujosEfectivoReales.stackInclusivo[month-1] + 
@@ -9667,7 +9670,8 @@
     function canAffordMonth(month, availableFunding) {
       let cumulativeSpent = 0;
       for (let m = 1; m <= month; m++) {
-        const monthlyBurn = flujosEfectivoReales.gastoEquipo[m-1] + 
+        const monthlyBurn = flujosEfectivoReales.gastoEquipoTecnico[m-1] + 
+                           flujosEfectivoReales.gastoLiderazgo[m-1] + 
                            flujosEfectivoReales.gastoDesarrollo[m-1] + 
                            flujosEfectivoReales.gastoCapex[m-1] + 
                            flujosEfectivoReales.stackInclusivo[m-1] + 
