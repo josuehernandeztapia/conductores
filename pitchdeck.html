@@ -2507,105 +2507,162 @@ padding: 1.25rem;
     }
 }
 
-/* =================================================================== */
-/* ===== ESTILOS DE IMPRESIÓN PARA PITCH DECK PDF (V5 - CONSERVATIVO) ===== */
-/* =================================================================== */
+/* ================================================================ */
+/* ===== PRINT STYLES - BULLETPROOF VERSION (FINAL FIX) ========= */
+/* ================================================================ */
 @media print {
-    /* --- Configuración Básica --- */
+    /* Force page setup */
     @page {
         size: landscape;
-        margin: 0.5in;
+        margin: 0.3in;
     }
 
-    /* --- Preservar Colores y Fondos --- */
-    * {
+    /* Force color printing */
+    html, body, *, *::before, *::after {
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
         color-adjust: exact !important;
     }
 
-    /* --- Ocultar Solo Elementos de Navegación --- */
-    #desktop-nav,
-    #mobile-nav,
-    #download-pdf-button,
-    .scroll-progress {
+    /* Hide navigation only */
+    nav, #desktop-nav, #mobile-nav, #download-pdf-button, .scroll-progress {
         display: none !important;
     }
 
-    /* --- Resetear Animaciones --- */
+    /* Remove all animations and transitions */
     *, *::before, *::after {
-        animation: none !important;
-        transition: none !important;
+        animation-duration: 0s !important;
+        animation-delay: 0s !important;
+        transition-duration: 0s !important;
+        transition-delay: 0s !important;
+        transform: none !important;
     }
 
-    /* --- Estructura de Páginas MÁS CONSERVADORA --- */
+    /* Basic page structure - EVERY section becomes a page */
+    body {
+        margin: 0;
+        padding: 0;
+        font-family: 'Inter', sans-serif !important;
+        font-size: 12pt !important;
+        line-height: 1.4 !important;
+        background: white !important;
+    }
+
+    /* CRITICAL: Force each section to be a new page */
+    main > section,
     section {
         page-break-before: always !important;
+        page-break-after: auto !important;
         page-break-inside: avoid !important;
-        min-height: 80vh !important;
         width: 100% !important;
-        padding: 1rem !important;
+        height: auto !important;
+        min-height: 7in !important;
+        padding: 0.5in !important;
         margin: 0 !important;
-        display: block !important; /* Cambié de flex a block */
+        box-sizing: border-box !important;
+        overflow: visible !important;
         position: relative !important;
+        background: white !important;
+        display: block !important;
     }
 
-    /* Primera sección sin page-break */
-    section:first-of-type,
-    #hero-team {
+    /* First section should not break */
+    section:first-child,
+    main > section:first-child {
         page-break-before: avoid !important;
     }
 
-    /* --- PRESERVAR TODO EL CONTENIDO --- */
+    /* Force all content to be visible */
     .container,
+    .hero-content-premium,
+    .funding-card-premium-enhanced,
     .card-premium,
     .card-premium-enforced,
     .kpi-card-premium-mandatory,
     .agent-card,
-    .funding-card-premium-enhanced,
     .esop-profile-card-premium,
     .mvp-metric-enhanced,
     .breakdown-item,
-    .card-premium-alert-orange,
-    .card-premium-alert-green,
-    .card-premium-alert-blue,
-    .card-standard,
-    .credibility-grid-enhanced,
     .cred-item-premium,
-    .hero-content-premium,
+    .credibility-grid-enhanced,
     .funding-main-content,
-    .breakdown-grid {
-        display: block !important; /* Forzar que todo sea visible */
+    .breakdown-grid,
+    .hero-ctas-enhanced,
+    .funding-timeline-premium,
+    .use-of-funds-section,
+    div, p, h1, h2, h3, h4, h5, h6, span, article, aside {
+        display: block !important;
         visibility: visible !important;
         opacity: 1 !important;
         position: static !important;
-        transform: none !important;
+        overflow: visible !important;
+        width: auto !important;
+        height: auto !important;
+        max-width: 100% !important;
         page-break-inside: avoid !important;
-        margin-bottom: 1rem !important;
     }
 
-    /* --- Preservar Grids --- */
+    /* Typography fixes */
+    h1, h2, h3, h4, h5, h6 {
+        color: #1e293b !important;
+        font-weight: bold !important;
+        margin: 0.5em 0 0.3em 0 !important;
+        page-break-after: avoid !important;
+    }
+
+    h1 { font-size: 24pt !important; }
+    h2 { font-size: 20pt !important; }
+    h3 { font-size: 16pt !important; }
+    h4 { font-size: 14pt !important; }
+
+    p, li, span {
+        color: #374151 !important;
+        font-size: 11pt !important;
+        line-height: 1.4 !important;
+        margin: 0.2em 0 !important;
+    }
+
+    /* Grid layouts - convert to simple blocks */
     .grid,
     .grid-cols-1,
     .grid-cols-2,
     .grid-cols-3,
-    .grid-cols-4 {
-        display: grid !important;
-        gap: 1rem !important;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)) !important;
+    .grid-cols-4,
+    .md\:grid-cols-2,
+    .md\:grid-cols-3,
+    .lg\:grid-cols-4 {
+        display: block !important;
+        width: 100% !important;
     }
 
-    /* --- Preservar Flexbox --- */
+    .grid > *,
+    .grid-cols-2 > *,
+    .grid-cols-3 > *,
+    .grid-cols-4 > * {
+        display: block !important;
+        width: 100% !important;
+        margin-bottom: 1em !important;
+        page-break-inside: avoid !important;
+    }
+
+    /* Flex layouts - convert to blocks */
     .flex,
     .hero-ctas-enhanced,
     .funding-amount-container,
     .breakdown-header {
-        display: flex !important;
-        flex-wrap: wrap !important;
-        gap: 0.5rem !important;
+        display: block !important;
+        width: 100% !important;
     }
 
-    /* --- Iconos y Elementos Visuales --- */
+    .flex > *,
+    .hero-ctas-enhanced > *,
+    .funding-amount-container > *,
+    .breakdown-header > * {
+        display: inline-block !important;
+        margin: 0.2em 0.5em 0.2em 0 !important;
+    }
+
+    /* Icons and visual elements */
     [data-lucide],
     .lucide,
     i[data-lucide],
@@ -2614,59 +2671,71 @@ padding: 1.25rem;
     .breakdown-icon,
     .avatar-icon {
         display: inline-block !important;
-        visibility: visible !important;
-        width: 1.5em !important;
-        height: 1.5em !important;
+        width: 12pt !important;
+        height: 12pt !important;
+        vertical-align: middle !important;
+        margin-right: 0.3em !important;
     }
 
-    /* --- Tipografía Legible --- */
-    h1, h2, h3, h4, h5, h6 {
-        color: #1e293b !important;
-        margin-bottom: 1rem !important;
-        page-break-after: avoid !important;
-    }
-
-    p, li, span {
-        color: #374151 !important;
-        line-height: 1.4 !important;
-    }
-
-    /* --- Métricas y KPIs --- */
+    /* Metric values and KPIs */
     .kpi-value-mandatory,
     .metric-value-large,
     .funding-number,
     .breakdown-amount {
-        font-size: 2rem !important;
+        font-size: 18pt !important;
         font-weight: bold !important;
         color: #0d9488 !important;
         display: block !important;
+        margin: 0.3em 0 !important;
     }
 
-    /* --- Charts y Canvas --- */
+    /* Charts - show placeholder */
     canvas,
     .chart-container,
     #roiChart {
         display: block !important;
-        max-width: 100% !important;
-        height: 300px !important;
+        width: 100% !important;
+        height: 200px !important;
+        border: 2px solid #e5e7eb !important;
+        background: #f9fafb !important;
         page-break-inside: avoid !important;
-        border: 1px solid #e5e7eb !important;
     }
 
-    /* --- Botones como Texto --- */
+    canvas::before,
+    .chart-container::before {
+        content: "[Gráfico: Datos financieros]" !important;
+        display: block !important;
+        text-align: center !important;
+        padding: 50px !important;
+        color: #6b7280 !important;
+        font-style: italic !important;
+    }
+
+    /* Buttons - show as text boxes */
     .btn-primary-hero-enhanced,
     .btn-secondary-hero-enhanced,
-    .btn-premium-mandatory {
+    .btn-premium-mandatory,
+    a[class*="btn"] {
         display: inline-block !important;
-        padding: 0.5rem 1rem !important;
-        border: 2px solid #0d9488 !important;
-        border-radius: 0.5rem !important;
+        padding: 8pt 12pt !important;
+        border: 1pt solid #0d9488 !important;
         background: white !important;
         color: #0d9488 !important;
         text-decoration: none !important;
+        margin: 0.2em 0.5em 0.2em 0 !important;
+        font-size: 10pt !important;
     }
 
-    /* --- Numeración Simple --- */
+    /* Background fixes */
+    .hero-premium-enhanced,
+    .bg-slate-100,
+    .bg-gradient-premium-funding,
+    [class*="bg-"] {
+        background: white !important;
+        color: #1e293b !important;
+    }
+
+    /* Page numbering */
     body {
         counter-reset: page-counter;
     }
@@ -2675,38 +2744,37 @@ padding: 1.25rem;
         counter-increment: page-counter;
         content: counter(page-counter);
         position: absolute;
-        bottom: 0.5rem;
-        right: 0.5rem;
-        font-size: 14px;
-        color: #64748b;
+        bottom: 0.2in;
+        right: 0.2in;
+        font-size: 10pt;
+        color: #6b7280;
+        z-index: 1000;
     }
 
-    section:first-of-type::after {
+    section:first-child::after {
         content: '' !important;
     }
 
-    /* --- Ajustes de Contenedor --- */
+    /* Ensure container doesn't restrict content */
     .container {
-        max-width: 100% !important;
+        max-width: none !important;
+        width: 100% !important;
         padding: 0 !important;
         margin: 0 !important;
     }
 
-    /* --- Forzar Visibilidad de Contenido Clave --- */
+    /* Force specific problematic elements to show */
     .hero-title-enhanced,
     .funding-title-premium,
     .text-section,
-    .text-hero {
+    .text-hero,
+    .highlight-text-premium,
+    .text-gradient-primary {
         display: block !important;
         visibility: visible !important;
         color: #1e293b !important;
-    }
-
-    /* --- Backgrounds Simples --- */
-    .hero-premium-enhanced,
-    .bg-slate-100,
-    .bg-gradient-premium-funding {
-        background: #f8fafc !important;
+        background: none !important;
+        -webkit-text-fill-color: #1e293b !important;
     }
 }
 </style>
