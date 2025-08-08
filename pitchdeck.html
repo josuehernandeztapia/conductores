@@ -2516,6 +2516,21 @@ padding: 1.25rem;
         display: none !important;
     }
 }
+
+/* Add CSS fixes to prevent text duplication issues */
+.hero-title-enhanced,
+.funding-title-premium {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+}
+
+/* Ensure all sections are properly structured for capture */
+main > section {
+    min-height: 100vh;
+    position: relative;
+    overflow: visible;
+}
 </style>
 </head>
 <body class="bg-slate-50 text-slate-800">
@@ -3320,7 +3335,7 @@ padding: 1.25rem;
 
     });
 
-    // Add this function in the existing script section
+    // Enhanced captureAllSlides function with improved quality and error handling
     async function captureAllSlides() {
         const sections = document.querySelectorAll('main > section');
         const { jsPDF } = window.jspdf;
@@ -3342,45 +3357,84 @@ padding: 1.25rem;
         downloadBtn.style.display = 'none';
         
         try {
+            // Ensure all sections are visible first
+            sections.forEach(section => {
+                section.style.display = 'block';
+                section.style.visibility = 'visible';
+                section.style.opacity = '1';
+            });
+            
+            // Wait for any animations to complete
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
             for (let i = 0; i < sections.length; i++) {
                 const section = sections[i];
                 
-                // Scroll to section
-                section.scrollIntoView({ behavior: 'auto', block: 'start' });
-                
-                // Wait for animations and content to load
-                await new Promise(resolve => setTimeout(resolve, 800));
-                
-                // Capture the section
-                const canvas = await html2canvas(section, {
-                    width: 1200,
-                    height: 850,
-                    scale: 2,
-                    useCORS: true,
-                    backgroundColor: '#ffffff',
-                    logging: false,
-                    removeContainer: true
+                // Scroll to section smoothly
+                section.scrollIntoView({ 
+                    behavior: 'auto', 
+                    block: 'start',
+                    inline: 'nearest'
                 });
                 
-                const imgData = canvas.toDataURL('image/png', 0.95);
+                // Wait longer for content to load and settle
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                
+                // Force chart rendering if this section has charts
+                const charts = section.querySelectorAll('canvas, .chart-container');
+                if (charts.length > 0) {
+                    // Trigger chart redraw
+                    window.dispatchEvent(new Event('resize'));
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+                
+                // Capture the section with higher quality settings
+                const canvas = await html2canvas(section, {
+                    width: 1400,
+                    height: 900,
+                    scale: 1.5,
+                    useCORS: true,
+                    allowTaint: true,
+                    backgroundColor: '#ffffff',
+                    logging: false,
+                    removeContainer: true,
+                    foreignObjectRendering: true,
+                    imageTimeout: 15000,
+                    onclone: function(clonedDoc) {
+                        // Fix any rendering issues in the clone
+                        const clonedSection = clonedDoc.querySelector(`section:nth-child(${i+1})`);
+                        if (clonedSection) {
+                            clonedSection.style.minHeight = '900px';
+                            clonedSection.style.padding = '20px';
+                            clonedSection.style.boxSizing = 'border-box';
+                        }
+                    }
+                });
+                
+                const imgData = canvas.toDataURL('image/png', 1.0);
                 
                 // Add page to PDF
                 if (i > 0) pdf.addPage();
                 
-                // Calculate dimensions to fit landscape A4
+                // Calculate dimensions to fit landscape A4 properly
                 const imgWidth = 297; // A4 landscape width in mm
                 const imgHeight = 210; // A4 landscape height in mm
                 
                 pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
                 
-                console.log(`Captured slide ${i + 1}/${sections.length}: ${section.id || 'Section ' + (i + 1)}`);
+                console.log(`✅ Captured slide ${i + 1}/${sections.length}: ${section.id || 'Section ' + (i + 1)}`);
+                
+                // Add small delay between captures
+                await new Promise(resolve => setTimeout(resolve, 200));
             }
             
+            console.log(`🎉 Successfully captured all ${sections.length} slides!`);
+            
             // Save the PDF
-            pdf.save('conductores-pitchdeck.pdf');
+            pdf.save('conductores-pitchdeck-completo.pdf');
             
         } catch (error) {
-            console.error('Error generating PDF:', error);
+            console.error('❌ Error generating PDF:', error);
             alert('Error al generar el PDF. Por favor, inténtalo de nuevo.');
         } finally {
             // Restore navigation
@@ -3391,6 +3445,9 @@ padding: 1.25rem;
             // Restore button
             button.innerHTML = originalHTML;
             button.disabled = false;
+            
+            // Scroll back to top
+            window.scrollTo({ top: 0, behavior: 'smooth' });
             
             // Reinitialize lucide icons
             lucide.createIcons();
