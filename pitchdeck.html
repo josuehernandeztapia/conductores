@@ -2508,94 +2508,56 @@ padding: 1.25rem;
 }
 
 /* =================================================================== */
-/* ===== ESTILOS DE IMPRESIÓN PARA PITCH DECK PDF (V4 - CORREGIDO) ===== */
+/* ===== ESTILOS DE IMPRESIÓN PARA PITCH DECK PDF (V5 - CONSERVATIVO) ===== */
 /* =================================================================== */
 @media print {
-    /* --- Configuración de Página --- */
+    /* --- Configuración Básica --- */
     @page {
         size: landscape;
         margin: 0.5in;
     }
 
-    /* --- Forzar Impresión de Colores y Fondos --- */
-    html, body, * {
+    /* --- Preservar Colores y Fondos --- */
+    * {
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
         color-adjust: exact !important;
     }
 
-    /* --- Reset General --- */
-    html, body {
-        width: 100%;
-        height: 100%;
-        margin: 0 !important;
-        padding: 0 !important;
-        background: #ffffff !important;
-        font-family: 'Inter', sans-serif !important;
-    }
-
-    /* --- Ocultar Elementos de UI No Deseados --- */
+    /* --- Ocultar Solo Elementos de Navegación --- */
     #desktop-nav,
     #mobile-nav,
     #download-pdf-button,
-    .scroll-progress,
-    footer,
-    .debug-info,
-    .role-hint,
-    [data-tooltip]::after,
-    .sr-only {
+    .scroll-progress {
         display: none !important;
-        visibility: hidden !important;
     }
 
-    /* --- ESTRUCTURA DE SLIDES (LA CLAVE) --- */
-    /* Todas las secciones son slides individuales */
+    /* --- Resetear Animaciones --- */
+    *, *::before, *::after {
+        animation: none !important;
+        transition: none !important;
+    }
+
+    /* --- Estructura de Páginas MÁS CONSERVADORA --- */
     section {
         page-break-before: always !important;
-        page-break-after: auto !important;
         page-break-inside: avoid !important;
+        min-height: 80vh !important;
         width: 100% !important;
-        min-height: 90vh !important;
-        display: flex !important;
-        flex-direction: column !important;
-        justify-content: center !important;
-        padding: 2rem !important;
-        box-sizing: border-box !important;
+        padding: 1rem !important;
         margin: 0 !important;
+        display: block !important; /* Cambié de flex a block */
         position: relative !important;
-        overflow: visible !important;
     }
 
-    /* La primera sección (portada) no debe tener page-break */
+    /* Primera sección sin page-break */
     section:first-of-type,
     #hero-team {
         page-break-before: avoid !important;
     }
 
-    /* --- Preservar Layouts y Componentes --- */
-    .container {
-        max-width: 100% !important;
-        width: 100% !important;
-        padding: 0 !important;
-        margin: 0 auto !important;
-    }
-
-    /* Mantener grids funcionales */
-    .grid,
-    .grid-cols-1,
-    .grid-cols-2,
-    .grid-cols-3,
-    .grid-cols-4,
-    .md\\:grid-cols-2,
-    .md\\:grid-cols-3,
-    .md\\:grid-cols-4,
-    .lg\\:grid-cols-3,
-    .lg\\:grid-cols-4 {
-        display: grid !important;
-        gap: 1rem !important;
-    }
-
-    /* --- Preservar Cards y Componentes --- */
+    /* --- PRESERVAR TODO EL CONTENIDO --- */
+    .container,
     .card-premium,
     .card-premium-enforced,
     .kpi-card-premium-mandatory,
@@ -2603,104 +2565,148 @@ padding: 1.25rem;
     .funding-card-premium-enhanced,
     .esop-profile-card-premium,
     .mvp-metric-enhanced,
-    .breakdown-item {
-        page-break-inside: avoid !important;
+    .breakdown-item,
+    .card-premium-alert-orange,
+    .card-premium-alert-green,
+    .card-premium-alert-blue,
+    .card-standard,
+    .credibility-grid-enhanced,
+    .cred-item-premium,
+    .hero-content-premium,
+    .funding-main-content,
+    .breakdown-grid {
+        display: block !important; /* Forzar que todo sea visible */
+        visibility: visible !important;
+        opacity: 1 !important;
+        position: static !important;
         transform: none !important;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
-        border: 1px solid #e5e7eb !important;
+        page-break-inside: avoid !important;
         margin-bottom: 1rem !important;
     }
 
-    /* --- Preservar Charts y Canvas --- */
-    canvas,
-    .chart-container,
-    #roiChart {
-        page-break-inside: avoid !important;
-        max-width: 100% !important;
-        height: 400px !important;
+    /* --- Preservar Grids --- */
+    .grid,
+    .grid-cols-1,
+    .grid-cols-2,
+    .grid-cols-3,
+    .grid-cols-4 {
+        display: grid !important;
+        gap: 1rem !important;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)) !important;
+    }
+
+    /* --- Preservar Flexbox --- */
+    .flex,
+    .hero-ctas-enhanced,
+    .funding-amount-container,
+    .breakdown-header {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 0.5rem !important;
+    }
+
+    /* --- Iconos y Elementos Visuales --- */
+    [data-lucide],
+    .lucide,
+    i[data-lucide],
+    .kpi-icon-mandatory,
+    .metric-icon,
+    .breakdown-icon,
+    .avatar-icon {
+        display: inline-block !important;
+        visibility: visible !important;
+        width: 1.5em !important;
+        height: 1.5em !important;
+    }
+
+    /* --- Tipografía Legible --- */
+    h1, h2, h3, h4, h5, h6 {
+        color: #1e293b !important;
+        margin-bottom: 1rem !important;
+        page-break-after: avoid !important;
+    }
+
+    p, li, span {
+        color: #374151 !important;
+        line-height: 1.4 !important;
+    }
+
+    /* --- Métricas y KPIs --- */
+    .kpi-value-mandatory,
+    .metric-value-large,
+    .funding-number,
+    .breakdown-amount {
+        font-size: 2rem !important;
+        font-weight: bold !important;
+        color: #0d9488 !important;
         display: block !important;
     }
 
-    /* --- Preservar Iconos Lucide --- */
-    [data-lucide],
-    .lucide,
-    i[data-lucide] {
-        display: inline-block !important;
-        visibility: visible !important;
-        width: 1em !important;
-        height: 1em !important;
-    }
-
-    /* --- Ajustes de Tipografía --- */
-    h1, h2, h3, h4, h5, h6 {
-        page-break-after: avoid !important;
-        margin-bottom: 0.5rem !important;
-    }
-
-    p, li {
+    /* --- Charts y Canvas --- */
+    canvas,
+    .chart-container,
+    #roiChart {
+        display: block !important;
+        max-width: 100% !important;
+        height: 300px !important;
         page-break-inside: avoid !important;
-        orphans: 2 !important;
-        widows: 2 !important;
+        border: 1px solid #e5e7eb !important;
     }
 
-    /* --- Eliminar Animaciones --- */
-    *, *::before, *::after {
-        transition: none !important;
-        animation: none !important;
-        transform: none !important;
+    /* --- Botones como Texto --- */
+    .btn-primary-hero-enhanced,
+    .btn-secondary-hero-enhanced,
+    .btn-premium-mandatory {
+        display: inline-block !important;
+        padding: 0.5rem 1rem !important;
+        border: 2px solid #0d9488 !important;
+        border-radius: 0.5rem !important;
+        background: white !important;
+        color: #0d9488 !important;
+        text-decoration: none !important;
     }
 
-    /* --- Numeración de Slides --- */
+    /* --- Numeración Simple --- */
     body {
-        counter-reset: slide-number 0;
+        counter-reset: page-counter;
     }
 
     section::after {
-        counter-increment: slide-number;
-        content: counter(slide-number);
+        counter-increment: page-counter;
+        content: counter(page-counter);
         position: absolute;
-        bottom: 1rem;
-        right: 1rem;
-        font-size: 12px;
+        bottom: 0.5rem;
+        right: 0.5rem;
+        font-size: 14px;
         color: #64748b;
-        font-weight: 500;
     }
 
-    /* No numerar la portada */
-    section:first-of-type::after,
-    #hero-team::after {
+    section:first-of-type::after {
         content: '' !important;
     }
 
-    /* --- Ajustes Específicos para Fondos Gradient --- */
-    .hero-premium-enhanced,
-    .bg-gradient-premium-funding,
-    .bg-slate-100,
-    .bg-white {
-        background: #ffffff !important;
+    /* --- Ajustes de Contenedor --- */
+    .container {
+        max-width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    /* --- Forzar Visibilidad de Contenido Clave --- */
+    .hero-title-enhanced,
+    .funding-title-premium,
+    .text-section,
+    .text-hero {
+        display: block !important;
+        visibility: visible !important;
         color: #1e293b !important;
     }
 
-    /* Asegurar que los gradientes de texto se vean */
-    .highlight-text-premium,
-    .text-gradient-primary {
-        background: none !important;
-        color: #ea580c !important;
-        -webkit-text-fill-color: #ea580c !important;
-    }
-
-    /* --- Force Breaks en Secciones Específicas --- */
-    #team-advantage,
-    #problem-opportunity,
-    #market-size,
-    #solution-section,
-    #business-model,
-    #traction-section,
-    #technology-section,
-    #roadmap-section,
-    #financials,
-    #funding-section {
-        page-break-before: always !important;
+    /* --- Backgrounds Simples --- */
+    .hero-premium-enhanced,
+    .bg-slate-100,
+    .bg-gradient-premium-funding {
+        background: #f8fafc !important;
     }
 }
 </style>
