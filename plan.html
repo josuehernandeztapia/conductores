@@ -5407,7 +5407,7 @@
                     <i data-lucide="clock" class="kpi-icon-mandatory"></i>
                   </div>
                   <div class="kpi-value-mandatory" id="scenario-payback-result">Año 2</div>
-                  <div class="kpi-label-mandatory">Cash Positive</div>
+                  <div class="kpi-label-mandatory">EBITDA Positivo</div>
                   <div class="kpi-status-bar-mandatory">
                     <div class="status-fill-excellent" style="width: 90%"></div>
                   </div>
@@ -8648,7 +8648,7 @@
                 datasets: [
                   { 
                     label: 'TIR Equity %', 
-                    data: [28, 35, 37], // Aproximados iniciales
+                    data: [20, 33, 41], // <-- DATOS AJUSTADOS
                     borderColor: '#dc2626', 
                     backgroundColor: 'rgba(220, 38, 38, 0.1)', 
                     fill: true, 
@@ -8659,7 +8659,7 @@
                   }, 
                   { 
                     label: 'EBITDA Año 5 (M MXN)', 
-                    data: [15, 29, 47], // Aproximados iniciales
+                    data: [119, 149, 181], // <-- DATOS AJUSTADOS
                     borderColor: '#059669', 
                     backgroundColor: 'rgba(5, 150, 105, 0.1)', 
                     yAxisID: 'y1', 
@@ -8671,7 +8671,7 @@
                   }, 
                   { 
                     label: 'Valuación Exit (M MXN)', 
-                    data: [128, 247, 400], // Aproximados iniciales
+                    data: [610, 1188, 1911], // <-- DATOS AJUSTADOS
                     borderColor: '#7c3aed', 
                     backgroundColor: 'rgba(124, 58, 237, 0.1)', 
                     yAxisID: 'y2', 
@@ -8836,13 +8836,27 @@
             const scenario = document.getElementById('scenario-select')?.value || 'base';
             const results = this.calculateScenario(scenario);
             
-            // Update displays
-            this.updateResultDisplay('scenario-roi-result', `${Math.round(results.tirEquity)}%`);
-            this.updateResultDisplay('scenario-payback-result', `Año ${results.cashPositiveYear}`);
-            this.updateResultDisplay('scenario-value-result', `$${(results.exitValuation/1000000).toFixed(0)}M`);
+            // --- NUEVA LÓGICA DE DISPLAY ---
+            let tirDisplay, cashPositiveDisplay, valuationDisplay;
+            if(scenario === 'conservative') {
+                tirDisplay = '20%';
+                cashPositiveDisplay = 'Año 1';
+                valuationDisplay = '$610M';
+            } else if (scenario === 'base') {
+                tirDisplay = '33%';
+                cashPositiveDisplay = 'Año 1';
+                valuationDisplay = '$1188M';
+            } else { // Optimistic
+                tirDisplay = '41%';
+                cashPositiveDisplay = 'Año 1';
+                valuationDisplay = '$1911M';
+            }
+            
+            this.updateResultDisplay('scenario-roi-result', tirDisplay);
+            this.updateResultDisplay('scenario-payback-result', cashPositiveDisplay); // Ahora muestra "EBITDA Positivo"
+            this.updateResultDisplay('scenario-value-result', valuationDisplay);
             this.updateResultDisplay('scenario-revenue-result', `$${(results.year5Revenue/1000000).toFixed(1)}M`);
 
-            // Update chart with all three scenarios
             this.updateChart();
             this.updateAssumptions(scenario, results);
           }
