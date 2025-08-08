@@ -2508,73 +2508,90 @@ padding: 1.25rem;
 }
 
 /* =================================================================== */
-/* ===== ESTILOS DE IMPRESIÓN PARA PITCH DECK PDF (V3 - DEFINITIVO) ==== */
+/* ===== ESTILOS DE IMPRESIÓN PARA PITCH DECK PDF (V2 - ROBUSTO) ======= */
 /* =================================================================== */
 @media print {
-    /* --- Reseteo y Configuración General --- */
+    /* --- Reseteo y Configuración General de la Página --- */
     @page {
-        size: landscape;
+        size: landscape; /* Orientación horizontal */
         margin: 0;
     }
 
     html, body {
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
+        background-color: #ffffff !important;
+        padding: 0 !important;
+        margin: 0 !important;
         width: 100%;
         height: 100%;
-        margin: 0 !important;
-        padding: 0 !important;
         overflow: hidden;
-        background: #ffffff !important;
     }
 
-    /* --- Ocultar Elementos No Deseados --- */
-    header, nav, footer, #download-pdf-button, .scroll-progress, .sr-only, [data-tooltip]::after {
+    /* --- Ocultar Todos los Elementos No Deseados --- */
+    #desktop-nav,
+    #mobile-nav,
+    footer,
+    #download-pdf-button,
+    .scroll-progress,
+    .debug-info,
+    .role-hint,
+    [data-tooltip]::after,
+    .sr-only {
         display: none !important;
     }
 
-    /* --- Estructura de Slides Universal (La Clave) --- */
-    body > section {
+    /* --- Estructura de Slides (La Clave) --- */
+    main > section, body > section {
         page-break-before: always !important;
         page-break-inside: avoid !important;
         width: 100vw;
         height: 100vh;
-        display: flex !important;
-        flex-direction: column !important;
-        justify-content: center !important;
-        align-items: center !important;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
         padding: 2rem !important;
-        box-sizing: border-box !important;
+        box-sizing: border-box;
         border: none !important;
         box-shadow: none !important;
         overflow: hidden !important;
-        position: relative; /* Necesario para la numeración */
     }
 
-    /* --- Reseteo de animaciones y transiciones --- */
-    *, *::before, *::after {
-        transition: none !important;
-        animation: none !important;
-    }
-
-    /* --- Ajustes de Contenido --- */
+    /* --- Ajustes Finos de Contenido --- */
     .container {
         max-width: 95% !important;
         padding: 0 !important;
         margin: 0 !important;
     }
+    
+    img {
+        max-width: 100%;
+        height: auto;
+    }
 
-    .card-premium, .card-premium-enforced, .kpi-card-premium-mandatory, .agent-card, .funding-card-premium-enhanced {
-        transform: none !important;
+    /* Forzar fondos e imágenes a imprimirse */
+    .hero-premium-enhanced, .bg-slate-100, .bg-white {
+        background-color: inherit !important;
     }
     
+    .card-premium, .card-premium-enforced, .kpi-card-premium-mandatory, .agent-card, .funding-card-premium-enhanced {
+        page-break-inside: avoid !important;
+        transform: none !important;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+    }
+
+    .grid {
+        display: grid !important; /* Forzar grid en print */
+    }
+
     /* Numeración de Páginas/Slides */
     body {
-        counter-reset: slide-number;
+        counter-reset: page-number;
     }
-    body > section::after {
-        counter-increment: slide-number;
-        content: counter(slide-number);
+    main > section::after, body > section::after {
+        counter-increment: page-number;
+        content: counter(page-number);
         position: absolute;
         bottom: 20px;
         right: 30px;
@@ -2587,7 +2604,7 @@ padding: 1.25rem;
         page-break-before: auto !important;
     }
     #hero-team::after {
-        content: '' !important; /* No numerar la portada */
+        content: ''; /* No numerar la portada */
     }
 }
 </style>
