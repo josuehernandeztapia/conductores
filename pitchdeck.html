@@ -2504,32 +2504,7 @@ font-size: 1.25rem;
 }
 .breakdown-item {
 padding: 1.25rem;
-    }
 }
-
-/* ================================================================ */
-/* ===== OPTIMIZED PRINT STYLES - CLEAN 14-SLIDE PDF ============ */
-/* ================================================================ */
-/* Simple print styles - fallback only */
-@media print {
-    nav, #desktop-nav, #mobile-nav, #download-pdf-button, .scroll-progress {
-        display: none !important;
-    }
-}
-
-/* Add CSS fixes to prevent text duplication issues */
-.hero-title-enhanced,
-.funding-title-premium {
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    text-rendering: optimizeLegibility;
-}
-
-/* Ensure all sections are properly structured for capture */
-main > section {
-    min-height: 100vh;
-    position: relative;
-    overflow: visible;
 }
 </style>
 </head>
@@ -2560,14 +2535,6 @@ main > section {
             </a>
         </div>
     </nav>
-
-    <!-- Botón Flotante de Descarga PDF -->
-    <button id="download-pdf-button" onclick="captureAllSlides()"
-            class="fixed bottom-24 right-4 z-[9999] bg-gradient-to-br from-red-600 to-orange-500 text-white p-4 rounded-full shadow-lg hover:scale-110 transition-transform duration-300 print:hidden"
-            aria-label="Descargar Blueprint como PDF"
-            data-tooltip="Descargar como PDF">
-        <i data-lucide="download" class="w-6 h-6"></i>
-    </button>
 
     <!-- Main Content -->
     <main>
@@ -3157,7 +3124,7 @@ main > section {
                         <p class="funding-cta-text">
                             Este es el plan. Detallado, validado y listo para ejecutar. Lo invitamos a una conversación estratégica para discutir cómo podemos generar un impacto y un retorno excepcionales, juntos.
                         </p>
-                        <a href="mailto:contacto@conductores.lat?subject=Interesado en Ronda SEED" class="btn-primary-hero-enhanced">
+                        <a href="mailto:inversion@conductores.mx?subject=Interesado en Ronda SEED" class="btn-primary-hero-enhanced">
                             <span class="btn-glow"></span>
                             <i data-lucide="mail" class="btn-icon"></i>
                             <span>Iniciar Conversación por Email</span>
@@ -3203,18 +3170,6 @@ main > section {
         </div>
     </nav>
     
-    <!-- Botón Flotante de Descarga PDF -->
-    <button id="download-pdf-button" onclick="captureAllSlides()"
-            class="fixed bottom-24 right-4 z-50 bg-gradient-to-br from-red-600 to-orange-500 text-white p-4 rounded-full shadow-lg hover:scale-110 transition-transform duration-300 print:hidden"
-            aria-label="Descargar Blueprint como PDF"
-            data-tooltip="Descargar como PDF">
-        <i data-lucide="download" class="w-6 h-6"></i>
-    </button>
-    
-    <!-- Add these libraries before </body> -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         lucide.createIcons();
@@ -3334,125 +3289,6 @@ main > section {
         onScroll(); // Initial check
 
     });
-
-    // Enhanced captureAllSlides function with improved quality and error handling
-    async function captureAllSlides() {
-        const sections = document.querySelectorAll('main > section');
-        const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF('landscape', 'mm', 'a4');
-        
-        // Show loading indicator
-        const button = document.getElementById('download-pdf-button');
-        const originalHTML = button.innerHTML;
-        button.innerHTML = '<i data-lucide="loader-2" class="w-6 h-6 animate-spin"></i>';
-        button.disabled = true;
-        
-        // Hide navigation elements
-        const mobileNav = document.getElementById('mobile-nav');
-        const desktopNav = document.getElementById('desktop-nav');
-        const downloadBtn = document.getElementById('download-pdf-button');
-        
-        mobileNav.style.display = 'none';
-        desktopNav.style.display = 'none';
-        downloadBtn.style.display = 'none';
-        
-        try {
-            // Ensure all sections are visible first
-            sections.forEach(section => {
-                section.style.display = 'block';
-                section.style.visibility = 'visible';
-                section.style.opacity = '1';
-            });
-            
-            // Wait for any animations to complete
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            for (let i = 0; i < sections.length; i++) {
-                const section = sections[i];
-                
-                // Scroll to section smoothly
-                section.scrollIntoView({ 
-                    behavior: 'auto', 
-                    block: 'start',
-                    inline: 'nearest'
-                });
-                
-                // Wait longer for content to load and settle
-                await new Promise(resolve => setTimeout(resolve, 1500));
-                
-                // Force chart rendering if this section has charts
-                const charts = section.querySelectorAll('canvas, .chart-container');
-                if (charts.length > 0) {
-                    // Trigger chart redraw
-                    window.dispatchEvent(new Event('resize'));
-                    await new Promise(resolve => setTimeout(resolve, 500));
-                }
-                
-                // Capture the section with higher quality settings
-                const canvas = await html2canvas(section, {
-                    width: 1400,
-                    height: 900,
-                    scale: 1.5,
-                    useCORS: true,
-                    allowTaint: true,
-                    backgroundColor: '#ffffff',
-                    logging: false,
-                    removeContainer: true,
-                    foreignObjectRendering: true,
-                    imageTimeout: 15000,
-                    onclone: function(clonedDoc) {
-                        // Fix any rendering issues in the clone
-                        const clonedSection = clonedDoc.querySelector(`section:nth-child(${i+1})`);
-                        if (clonedSection) {
-                            clonedSection.style.minHeight = '900px';
-                            clonedSection.style.padding = '20px';
-                            clonedSection.style.boxSizing = 'border-box';
-                        }
-                    }
-                });
-                
-                const imgData = canvas.toDataURL('image/png', 1.0);
-                
-                // Add page to PDF
-                if (i > 0) pdf.addPage();
-                
-                // Calculate dimensions to fit landscape A4 properly
-                const imgWidth = 297; // A4 landscape width in mm
-                const imgHeight = 210; // A4 landscape height in mm
-                
-                pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
-                
-                console.log(`✅ Captured slide ${i + 1}/${sections.length}: ${section.id || 'Section ' + (i + 1)}`);
-                
-                // Add small delay between captures
-                await new Promise(resolve => setTimeout(resolve, 200));
-            }
-            
-            console.log(`🎉 Successfully captured all ${sections.length} slides!`);
-            
-            // Save the PDF
-            pdf.save('conductores-pitchdeck-completo.pdf');
-            
-        } catch (error) {
-            console.error('❌ Error generating PDF:', error);
-            alert('Error al generar el PDF. Por favor, inténtalo de nuevo.');
-        } finally {
-            // Restore navigation
-            mobileNav.style.display = 'block';
-            desktopNav.style.display = 'block';
-            downloadBtn.style.display = 'block';
-            
-            // Restore button
-            button.innerHTML = originalHTML;
-            button.disabled = false;
-            
-            // Scroll back to top
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-            
-            // Reinitialize lucide icons
-            lucide.createIcons();
-        }
-    }
     </script>
 </body>
 </html>
