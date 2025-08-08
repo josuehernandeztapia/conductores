@@ -2516,78 +2516,84 @@ padding: 1.25rem;
         size: A4 landscape; /* Formato apaisado tipo slide */
         margin: 0;
     }
-    body {
-        -webkit-print-color-adjust: exact !important; /* Forza la impresión de colores y fondos en Chrome/Safari */
-        print-color-adjust: exact !important; /* Estándar */
-        background-color: #ffffff !important; /* Fondo blanco para evitar problemas */
+    html, body {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        background-color: #ffffff !important;
+        padding-bottom: 0 !important;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
     }
 
     /* --- Ocultar Todos los Elementos No Deseados --- */
-    header,
-    nav,
+    #desktop-nav,
+    #mobile-nav,
     footer,
-    #download-pdf-button, /* Oculta nuestro botón de descarga */
-    .scroll-progress, /* Oculta la barra de progreso de scroll */
-    #debug-info,
+    #download-pdf-button,
+    .scroll-progress,
+    .debug-info,
     .role-hint,
-    [data-tooltip]::after, /* Oculta los tooltips */
-    .sr-only {
+    [data-tooltip]::after {
         display: none !important;
     }
 
-    /* --- Estructura de Slides (La Magia Principal) --- */
-    section {
-        page-break-before: always !important; /* ¡Crea una nueva página por cada sección! */
+    /* --- Estructura de Slides (La Clave) --- */
+    main > section {
+        page-break-before: always !important;
         page-break-inside: avoid !important;
         width: 100vw;
         height: 100vh;
         display: flex;
         flex-direction: column;
-        justify-content: center; /* Centra el contenido verticalmente */
-        align-items: center; /* Centra el contenido horizontalmente */
-        padding: 2rem !important; /* Añade un margen interno a cada slide */
+        justify-content: center;
+        align-items: center;
+        padding: 2rem !important;
         box-sizing: border-box;
+        border: none !important;
+        box-shadow: none !important;
+        overflow: hidden;
     }
 
-    /* --- Ajustes Finos de Contenido para Slides --- */
-    h1, h2, h3, p {
-        max-width: 90%; /* Evita que el texto llegue a los bordes */
-    }
-
+    /* --- Ajustes Finos de Contenido --- */
     .container {
-        max-width: 100% !important;
+        max-width: 95% !important;
         padding: 0 !important;
         margin: 0 !important;
     }
-
-    /* Asegurar que las imágenes no se desborden */
+    
     img {
         max-width: 100%;
         height: auto;
     }
-
-    /* Evitar que las tarjetas se rompan entre páginas */
-    .card-premium, .card-premium-enforced, .kpi-card-premium-mandatory {
+    
+    .card-premium, .card-premium-enforced, .kpi-card-premium-mandatory, .agent-card {
         page-break-inside: avoid !important;
+        transform: none !important;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1) !important;
+    }
+    
+    .grid {
+        display: grid !important; /* Forzar grid en print */
     }
 
-    /* Numeración de Slides (Páginas) */
+    /* Numeración de Páginas/Slides */
     body {
         counter-reset: page-number;
     }
-    section::after {
+    main > section::after {
         counter-increment: page-number;
         content: counter(page-number);
         position: absolute;
         bottom: 20px;
         right: 30px;
         font-size: 12px;
-        color: #94a3b8; /* Color sutil para el número de página */
+        color: #94a3b8;
     }
-
+    
     /* Ajustes específicos para la primera página (Hero) */
     #hero-team {
-        page-break-before: auto !important; /* La primera sección no necesita un salto de página antes */
+        page-break-before: auto !important;
     }
     #hero-team::after {
         content: ''; /* No numerar la portada */
@@ -2622,6 +2628,14 @@ padding: 1.25rem;
             </a>
         </div>
     </nav>
+
+    <!-- Botón Flotante de Descarga PDF -->
+    <button id="download-pdf-button" onclick="window.print()"
+            class="fixed bottom-24 right-4 z-[9999] bg-gradient-to-br from-red-600 to-orange-500 text-white p-4 rounded-full shadow-lg hover:scale-110 transition-transform duration-300 print:hidden"
+            aria-label="Descargar Blueprint como PDF"
+            data-tooltip="Descargar como PDF">
+        <i data-lucide="download" class="w-6 h-6"></i>
+    </button>
 
     <!-- Main Content -->
     <main>
