@@ -4,41 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Arquitectura de Integraciones</title>
-  <script crossorigin="anonymous" src="https://unpkg.com/react@18/umd/react.development.js"></script>
-  <script crossorigin="anonymous" src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-  <script crossorigin="anonymous" src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <script crossorigin="anonymous" src="https://cdn.tailwindcss.com"></script>
-  <script>
-    // Simple runtime error overlay for debugging
-    (function(){
-      function showError(message){
-        try{
-          const bar = document.createElement('div');
-          bar.style.position = 'fixed';
-          bar.style.top = '0';
-          bar.style.left = '0';
-          bar.style.right = '0';
-          bar.style.zIndex = '99999';
-          bar.style.background = '#7f1d1d';
-          bar.style.color = 'white';
-          bar.style.padding = '8px 12px';
-          bar.style.fontFamily = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
-          bar.style.fontSize = '12px';
-          bar.textContent = '[Error] ' + message;
-          document.body.appendChild(bar);
-          console.error('[Overlay]', message);
-        }catch(e){
-          console.error(message);
-        }
-      }
-      window.addEventListener('error', function(e){
-        if(!e) return; showError(e.message || 'Unknown script error');
-      });
-      window.addEventListener('unhandledrejection', function(e){
-        if(!e) return; showError((e.reason && (e.reason.stack || e.reason.message)) || 'Unhandled rejection');
-      });
-    })();
-  </script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
 
   <style>
     /* Cross-browser scroll container */
@@ -140,47 +109,13 @@
     .view-transition {
       transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
     }
+  </style>
 
-    :root{
-      --mvp:#10b981;        /* emerald-500 */
-      --phase2:#0ea5e9;     /* sky-500 */
-      --future:#f59e0b;     /* amber-500 */
-      --infra:#94a3b8;      /* slate-400 */
-      --core:#0d9488;       /* teal-600 */
-    }
-    .node{cursor:pointer;}
-    .pill{border-radius:9999px;padding:.125rem .5rem;font-size:.75rem}
-    .badge{border:1px solid rgba(148,163,184,.35)}
-    .card{border:1px solid rgba(148,163,184,.35);border-radius:0.75rem}
-    .edge{stroke:#CBD5E1;stroke-width:2;opacity:.9}
-    .edge.arrow{marker-end:url(#arrow)}
-    .glow{filter: drop-shadow(0 1px 6px rgba(2,132,199,.25));}
-    .kbd{border:1px solid #cbd5e1;border-bottom-width:3px;border-radius:.375rem;padding:.1rem .35rem;background:#f8fafc}
-    .legend-dot{width:.75rem;height:.75rem;border-radius:9999px;display:inline-block;margin-right:.35rem}
-    .status-mvp{background:var(--mvp)}
-    .status-phase2{background:var(--phase2)}
-    .status-future{background:var(--future)}
-    .status-core{background:var(--core)}
-    .status-infra{background:var(--infra)}
-    /* Scroll container (dark themed) */
-    .diagram-scroll-container{width:100%;height:calc(100vh - 210px);overflow-x:scroll!important;overflow-y:auto;position:relative;scrollbar-width:thin;scrollbar-color:#475569 #1e293b;-webkit-overflow-scrolling:touch!important}
-    .diagram-scroll-container::-webkit-scrollbar{width:14px;height:14px}
-    .diagram-scroll-container::-webkit-scrollbar-track{background:#1e293b;border-radius:4px}
-    .diagram-scroll-container::-webkit-scrollbar-thumb{background:#475569;border-radius:4px;border:2px solid #1e293b}
-    .diagram-scroll-container::-webkit-scrollbar-corner{background:#1e293b}
-        .diagram-inner-canvas{min-width:2400px!important;width:max-content;padding-bottom:10px;position:relative;display:block}
-    @keyframes pulse{0%{transform:scale(1);opacity:1}50%{transform:scale(1.05);opacity:.8}100%{transform:scale(1);opacity:1}}
-    .using-tab button:focus, .using-tab a:focus { outline: 2px solid #14b8a6; outline-offset: 2px; }
-    /* Hover/selection feedback for nodes */
-    .node:hover rect{stroke:#14b8a6;filter:drop-shadow(0 0 10px rgba(20,184,166,.6))}
-    .node.selected rect{stroke:#14b8a6;stroke-width:3;filter:drop-shadow(0 0 12px rgba(20,184,166,.85))}
-   </style>
-  </head>
+</head>
 <body class="bg-slate-950">
   <div id="root"></div>
 
-  <script type="text/babel" data-presets="env,react">
-    console.log('Integrations map script loaded');
+  <script type="text/babel">
     const { useMemo, useState, useEffect } = React;
     // Icon placeholders (lucide-react no UMD en navegador)
     const PlaceholderIcon = ({ className }) => <span className={className} style={{ display: 'inline-block' }}>●</span>;
@@ -203,11 +138,11 @@
     const Workflow = ({ className }) => <span className={className}>⚙</span>;
     const GitBranch = ({ className }) => <span className={className}>🔀</span>;
 
-    const LANE_WIDTH = 480;
+    const LANE_WIDTH = 320;
     const LANE_GAP = 28;
-    const ROW_HEIGHT = 240;
-    const CARD_W = 435;
-    const CARD_H = 210;
+    const ROW_HEIGHT = 160;
+    const CARD_W = 290;
+    const CARD_H = 140;
     const PADDING_X = 24;
     const PADDING_Y = 96;
 
@@ -643,18 +578,18 @@
           }`}
           style={{ left: pos.x, top: pos.y, width: CARD_W, height: CARD_H }}
         >
-          <div className="flex items-start gap-3">
-            <div className="shrink-0 mt-0.5 text-slate-300 text-xl">{node.icon}</div>
+          <div className="flex items-start gap-2">
+            <div className="shrink-0 mt-0.5 text-slate-300">{node.icon}</div>
             <div className="min-w-0">
-              <div className="text-slate-100 font-extrabold leading-tight text-[20px] sm:text-[22px] truncate">
+              <div className="text-slate-100 font-extrabold leading-tight text-[16px] sm:text-[18px] truncate">
                 {node.title}
               </div>
-              <div className="text-slate-300/90 font-bold text-[15px] sm:text-[16px] truncate">{node.subtitle}</div>
+              <div className="text-slate-300/90 font-bold text-[13px] sm:text-[14px] truncate">{node.subtitle}</div>
             </div>
           </div>
-          <div className="mt-3 grid grid-cols-2 gap-3 text-[14px] font-semibold text-slate-200">
+          <div className="mt-2 grid grid-cols-2 gap-2 text-[13px] font-semibold text-slate-200">
             <div>
-              <div className="uppercase tracking-wide text-[13px] font-bold text-slate-300">IN</div>
+              <div className="uppercase tracking-wide text-[12px] font-bold text-slate-300">IN</div>
               <div className="space-y-0.5">
                 {node.io.in.slice(0, 2).map((t, i) => (
                   <div key={i} className="truncate">• {t}</div>
@@ -662,7 +597,7 @@
               </div>
             </div>
             <div>
-              <div className="uppercase tracking-wide text-[13px] font-bold text-slate-300">OUT</div>
+              <div className="uppercase tracking-wide text-[12px] font-bold text-slate-300">OUT</div>
               <div className="space-y-0.5">
                 {node.io.out.slice(0, 2).map((t, i) => (
                   <div key={i} className="truncate">• {t}</div>
@@ -958,9 +893,6 @@
         .diagram-inner-canvas{min-width:2400px!important;width:max-content;padding-bottom:10px;position:relative;display:block}
     @keyframes pulse{0%{transform:scale(1);opacity:1}50%{transform:scale(1.05);opacity:.8}100%{transform:scale(1);opacity:1}}
     .using-tab button:focus, .using-tab a:focus { outline: 2px solid #14b8a6; outline-offset: 2px; }
-    /* Hover/selection feedback for nodes */
-    .node:hover rect{stroke:#14b8a6;filter:drop-shadow(0 0 10px rgba(20,184,166,.6))}
-    .node.selected rect{stroke:#14b8a6;stroke-width:3;filter:drop-shadow(0 0 12px rgba(20,184,166,.85))}
    </style>
 </head>
 <body class="bg-slate-950 text-slate-100">
@@ -992,19 +924,10 @@
           <span><span class="legend-dot status-mvp"></span>MVP</span>
           <span><span class="legend-dot status-phase2"></span>Fase 2</span>
           <span><span class="legend-dot status-future"></span>Futuro</span>
-          <div class="hidden sm:flex items-center gap-2 ml-2 text-[11px]">
-            <span>🔵 Core</span>
-            <span>🟠 Telemática</span>
-            <span>🟢 Datos</span>
-          </div>
-          <div class="ml-auto flex items-center gap-2">
-            <button id="zoomIn" class="px-2 py-1 rounded-lg border border-slate-700 bg-slate-800/60 hover:bg-slate-700">+</button>
-            <button id="zoomOut" class="px-2 py-1 rounded-lg border border-slate-700 bg-slate-800/60 hover:bg-slate-700">-</button>
-            <button id="zoomReset" class="px-2 py-1 rounded-lg border border-slate-700 bg-slate-800/60 hover:bg-slate-700">⟲</button>
-                    </div>
         </div>
+      </div>
 
-       <svg id="arch" viewBox="0 0 1320 760" class="w-full h-[70vh] md:h-[80vh]">
+      <svg id="arch" viewBox="0 0 1320 760" class="w-full h-[560px] md:h-[640px]">
         <!-- defs -->
         <defs>
           <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
@@ -1201,11 +1124,11 @@
       <div id="content" class="hidden"></div>
     </aside>
 
-         <!-- Swimlanes / Flujos clave -->
-    <section class="lg:col-span-12 rounded-2xl border border-slate-800 bg-slate-900/40 p-6 mt-6">
+    <!-- Swimlanes / Flujos clave -->
+    <section class="lg:col-span-12 rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
       <h2 class="font-extrabold text-slate-100 text-lg sm:text-xl tracking-tight mb-2">Flujos Clave</h2>
-              <div class="grid md:grid-cols-3 gap-4 text-base">
-        <div class="p-5 rounded-xl border border-slate-800 bg-slate-900/40">
+      <div class="grid md:grid-cols-3 gap-3 text-sm">
+        <div class="p-3 rounded-lg border border-slate-800 bg-slate-900/40">
           <h3 class="font-extrabold mb-1">Onboarding (Asesor)</h3>
           <ol class="list-decimal pl-5 space-y-1 font-semibold">
             <li>Portal crea prospecto (Odoo)</li>
@@ -1216,7 +1139,7 @@
             <li>Alta de crédito (Odoo)</li>
           </ol>
         </div>
-        <div class="p-5 rounded-xl border border-slate-800 bg-slate-900/40">
+        <div class="p-3 rounded-lg border border-slate-800 bg-slate-900/40">
           <h3 class="font-extrabold mb-1">Cobranza & Pagos</h3>
           <ol class="list-decimal pl-5 space-y-1 font-semibold">
             <li>PIA envía recordatorio (WA)</li>
@@ -1225,7 +1148,7 @@
             <li>Actualización de saldo y notificación</li>
           </ol>
         </div>
-        <div class="p-5 rounded-xl border border-slate-800 bg-slate-900/40">
+        <div class="p-3 rounded-lg border border-slate-800 bg-slate-900/40">
           <h3 class="font-extrabold mb-1">Postventa & PMA</h3>
           <ol class="list-decimal pl-5 space-y-1 font-semibold">
             <li>Telemática (Samsara) emite evento</li>
@@ -1418,49 +1341,11 @@
       panel.scrollIntoView({behavior:'smooth', block:'start'});
     }
 
-    // wire events + selection highlight
-    const allNodeEls = [];
+    // wire events
     Object.keys(nodes).forEach(id=>{
       const el = document.getElementById(id);
-      if(el){ 
-        allNodeEls.push(el);
-        el.addEventListener('click', ()=>{
-          allNodeEls.forEach(n=>n.classList.remove('selected'));
-          el.classList.add('selected');
-          renderDetails(id);
-        });
-      }
+      if(el){ el.addEventListener('click', ()=>renderDetails(id)); }
     });
-
-    // Zoom controls (viewBox based)
-    const svg = document.getElementById('arch');
-    const baseW = 1320, baseH = 760;
-    let zoom = 1.6;
-
-    function applyZoom(center=true){
-      const w = baseW / zoom;
-      const h = baseH / zoom;
-      let x = 0, y = 0;
-      if(center){
-        x = (baseW - w) / 2;
-        y = (baseH - h) / 2;
-      } else {
-        const vb = svg.getAttribute('viewBox').split(' ').map(parseFloat);
-        x = vb[0];
-        y = vb[1];
-      }
-            svg.setAttribute('viewBox', x + ' ' + y + ' ' + w + ' ' + h);
-     }
- 
-     // initialize larger default zoom for readability
-     applyZoom(true);
- 
-     const zi = document.getElementById('zoomIn');
-    const zo = document.getElementById('zoomOut');
-    const zr = document.getElementById('zoomReset');
-    if(zi) zi.addEventListener('click', ()=>{ zoom = Math.min(3, zoom * 1.2); applyZoom(false); });
-    if(zo) zo.addEventListener('click', ()=>{ zoom = Math.max(0.5, zoom / 1.2); applyZoom(false); });
-    if(zr) zr.addEventListener('click', ()=>{ zoom = 1.6; applyZoom(true); });
   <\/script>
 </body>
 </html>
@@ -2028,13 +1913,7 @@
       );
     }
 
-    const rootEl = document.getElementById('root');
-    if (!rootEl) {
-      console.error('Root element not found');
-    } else {
-      const root = ReactDOM.createRoot(rootEl);
-      root.render(<ConductoresIntegrationsMap />);
-    }
+    ReactDOM.render(<ConductoresIntegrationsMap />, document.getElementById('root'));
   </script>
 </body>
 </html>
