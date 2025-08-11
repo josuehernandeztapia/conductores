@@ -1,292 +1,288 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Arquitectura de Integraciones - Conductores</title>
-  <!-- TailwindCSS (CDN oficial) -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arquitectura de Integraciones - Conductores (v2)</title>
+  <!-- 1. TailwindCSS Play CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- React 18 (UMD desde unpkg) -->
-  <script defer src="https://unpkg.com/react@18/umd/react.development.js"></script>
-  <script defer src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-  <!-- Babel para JSX en un solo archivo -->
-  <script defer src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- 2. React Libraries -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <!-- 3. Lucide Icons (via UMD bundle) -->
+  <script src="https://unpkg.com/lucide-react/dist/umd/lucide-react.js"></script>
+  <!-- 4. Babel for JSX Transpilation -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
   <style>
+    /* Custom font to match the design */
     @import url('https://rsms.me/inter/inter.css');
-    html { font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
-    /* Fallbacks de ancho/alto dinámicos para las cards (Tailwind CDN no detecta dinámicos) */
-    .node-card { position: absolute; border-radius: 1rem; backdrop-filter: blur(4px); padding: 0.75rem 0.875rem; cursor: pointer; transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease; }
-    .node-card:hover { transform: scale(1.02); }
-    .lane-title { height: 40px; display: flex; align-items: center; gap: 0.5rem; font-size: 12px; color: rgb(203 213 225 / 0.9); }
-    .edge-path { transition: stroke .3s ease; }
+    html { font-family: 'Inter', sans-serif; }
   </style>
 </head>
 <body class="bg-slate-950">
-  <div id="root">
-    <!-- Fallback estático simple para cuando React no carga -->
-    <div id="fallback" class="min-h-screen text-slate-100">
-      <div class="max-w-[1200px] mx-auto px-6 py-8">
-        <div class="flex items-center gap-3 mb-4">
-          <span class="text-teal-400">⚙️</span>
-          <h1 class="text-lg font-extrabold tracking-tight">Arquitectura de Integraciones — Conductores</h1>
-        </div>
-        <p class="text-slate-300 text-sm">Cargando diagrama interactivo... Si esto tarda demasiado, revisa la consola del navegador.</p>
-        <ul class="mt-4 grid sm:grid-cols-2 md:grid-cols-3 gap-2 text-sm text-slate-300">
-          <li>🧭 Fronts / Canales</li>
-          <li>🪄 Orquestación (iPaaS)</li>
-          <li>🔌 Servicios Externos</li>
-          <li>📡 Telemática / Operación</li>
-          <li>🏢 Plataforma Interna (Core)</li>
-          <li>📊 Datos, IA y BI</li>
-        </ul>
-      </div>
-    </div>
-  </div>
-  <noscript>
-    <div class="max-w-[1200px] mx-auto px-6 py-8 text-slate-100">
-      Necesitas habilitar JavaScript para ver el diagrama interactivo.
-    </div>
-  </noscript>
+  <!-- 5. React Mount Point -->
+  <div id="root"></div>
 
-  <script type="text/babel" data-presets="env,react">
-    // Debug helpers
-    const debug = {
-      log: (...args) => console.log('[Integraciones]', ...args),
-      error: (...args) => console.error('[Integraciones][ERROR]', ...args),
+  <!-- 6. Your React Code (with dependencies) -->
+  <script type="text/babel">
+    const { useMemo, useState, useEffect } = React;
+
+    // --- Robust Icon Loading ---
+    // Create a placeholder for all icons first.
+    const PlaceholderIcon = (props) => React.createElement('span', { ...props }, '•');
+    const initialIcons = {
+      Layers: PlaceholderIcon, PlayCircle: PlaceholderIcon, ArrowRightLeft: PlaceholderIcon,
+      ShieldCheck: PlaceholderIcon, Cable: PlaceholderIcon, Users: PlaceholderIcon, ServerCog: PlaceholderIcon,
+      Database: PlaceholderIcon, BarChart3: PlaceholderIcon, FileSignature: PlaceholderIcon,
+      CreditCard: PlaceholderIcon, MessageSquare: PlaceholderIcon, Fuel: PlaceholderIcon, Bot: PlaceholderIcon,
+      Zap: PlaceholderIcon, AlertTriangle: PlaceholderIcon, Workflow: PlaceholderIcon, GitBranch: PlaceholderIcon,
     };
 
-    // Inline emoji icons (sencillos y sin dependencias)
-    const EMOJI = {
-      front: '🧭', orchestration: '🪄', external: '🔌', telematics: '📡', internal: '🏢', data: '📊',
-      portal: '🧭', whatsapp: '💬', ipaas: '🪄', metamap: '🪪', kiban: '📈', mifiel: '✍️', conekta: '💳',
-      gnv: '⛽', samsara: '⚡', odoo: '🔁', airtable: '🗂️', hase: '🤖', pia: '📣', pma: '🛠️', assistant: '🤝',
-      warehouse: '🗄️', bi: '📊'
-    };
+    // --- Main App Component ---
+    function ConductoresIntegrationsMap() {
+      const [icons, setIcons] = useState(initialIcons);
 
-    // Visual constants
-    const UI_LARGE = { LANE_WIDTH: 320, LANE_GAP: 28, ROW_HEIGHT: 132, CARD_W: 290, CARD_H: 86, PADDING_X: 24, PADDING_Y: 96 };
-    const UI_SMALL = { LANE_WIDTH: 260, LANE_GAP: 20, ROW_HEIGHT: 116, CARD_W: 240, CARD_H: 78, PADDING_X: 16, PADDING_Y: 72 };
+      useEffect(() => {
+        // Try to load real icons, if lucide is available on window
+        if (typeof lucide !== 'undefined') {
+          console.log("Lucide icons loaded successfully.");
+          setIcons(lucide);
+        } else {
+          console.warn("Lucide icons failed to load. Using text placeholders.");
+        }
+      }, []);
+      
+      const {
+        Layers, PlayCircle, ArrowRightLeft, ShieldCheck, Cable, Users, ServerCog,
+        Database, BarChart3, FileSignature, CreditCard, MessageSquare, Fuel, Bot,
+        Zap, AlertTriangle, Workflow, GitBranch
+      } = icons;
 
-    const COLORS = {
-      external: 'from-sky-500/20 to-sky-400/10 border-sky-400/40',
-      internal: 'from-emerald-500/20 to-emerald-400/10 border-emerald-400/40',
-      data: 'from-fuchsia-500/20 to-fuchsia-400/10 border-fuchsia-400/40',
-      orchestration: 'from-amber-500/20 to-amber-400/10 border-amber-400/40',
-      telematics: 'from-cyan-500/20 to-cyan-400/10 border-cyan-400/40',
-      front: 'from-teal-500/20 to-teal-400/10 border-teal-400/40',
-    };
+      const [flow, setFlow] = useState("Onboarding & Scoring");
+      const [visibleLanes, setVisibleLanes] = useState(
+        Object.fromEntries(LANES.map((l) => [l.id, true]))
+      );
+      const [selected, setSelected] = useState(null);
 
-    // 1) Datos: LANES, NODES, FLOWS
-    const LANES = [
-      { id: 'front', title: 'Fronts / Canales', icon: EMOJI.front },
-      { id: 'orchestration', title: 'Orquestación (iPaaS)', icon: EMOJI.orchestration },
-      { id: 'external', title: 'Servicios Externos (SaaS / Partners)', icon: EMOJI.external },
-      { id: 'telematics', title: 'Telemática / Operación', icon: EMOJI.telematics },
-      { id: 'internal', title: 'Plataforma Interna (Core)', icon: EMOJI.internal },
-      { id: 'data', title: 'Datos, IA y BI', icon: EMOJI.data },
-    ];
+      // --- Visual constants ---
+      const LANE_WIDTH = 320;
+      const LANE_GAP = 28;
+      const ROW_HEIGHT = 132;
+      const CARD_W = 290;
+      const CARD_H = 86;
+      const PADDING_X = 24;
+      const PADDING_Y = 96;
 
-    const NODES = [
-      // Fronts
-      { id: 'portal', lane: 'front', row: 0, title: 'Portal Cliente (Web/App)', subtitle: 'Onboarding + Panel básico', type: 'front', icon: EMOJI.portal,
-        io: { in: ['Links Mifiel / Pago', 'Mensajes Asistente'], out: ['Datos KYC', 'Documentos', 'Eventos UI'] } },
-      { id: 'whatsapp', lane: 'front', row: 1, title: 'WhatsApp Asistente (Flowise)', subtitle: 'Soporte y postventa', type: 'front', icon: EMOJI.whatsapp,
-        io: { in: ['Alertas PMA/PIA', 'Recordatorios pago'], out: ['Respuestas cliente', 'Tickets postventa'] } },
+      const COLORS = {
+        external: "from-sky-500/20 to-sky-400/10 border-sky-400/40",
+        internal: "from-emerald-500/20 to-emerald-400/10 border-emerald-400/40",
+        data: "from-fuchsia-500/20 to-fuchsia-400/10 border-fuchsia-400/40",
+        orchestration: "from-amber-500/20 to-amber-400/10 border-amber-400/40",
+        telematics: "from-cyan-500/20 to-cyan-400/10 border-cyan-400/40",
+        front: "from-teal-500/20 to-teal-400/10 border-teal-400/40",
+      };
 
-      // Orchestration
-      { id: 'ipaas', lane: 'orchestration', row: 0, title: 'Make / n8n / Zapier', subtitle: 'Flujos y conectores', type: 'orchestration', icon: EMOJI.ipaas,
-        io: { in: ['Webhooks Samsara/Conekta', 'Eventos Portal'], out: ['Acciones en Odoo/Airtable', 'Notificaciones Asistente'] } },
+      // --- Lanes (swimlanes) ---
+      const LANES = [
+        { id: "front", title: "Fronts / Canales", icon: <Layers className="w-4 h-4" /> },
+        { id: "orchestration", title: "Orquestación (iPaaS)", icon: <Workflow className="w-4 h-4" /> },
+        { id: "external", title: "Servicios Externos (SaaS / Partners)", icon: <Cable className="w-4 h-4" /> },
+        { id: "telematics", title: "Telemática / Operación", icon: <ServerCog className="w-4 h-4" /> },
+        { id: "internal", title: "Plataforma Interna (Core)", icon: <Users className="w-4 h-4" /> },
+        { id: "data", title: "Datos, IA y BI", icon: <Database className="w-4 h-4" /> },
+      ];
 
-      // External Services
-      { id: 'metamap', lane: 'external', row: 0, title: 'Metamap (KYC)', subtitle: 'INE/CURP/biometría', type: 'external', icon: EMOJI.metamap,
-        io: { in: ['Datos del solicitante'], out: ['Resultado KYC', 'Pruebas biométricas'] } },
-      { id: 'kiban', lane: 'external', row: 1, title: 'KIBAN ↔ Círculo de Crédito', subtitle: 'Consulta y Reporte', type: 'external', icon: EMOJI.kiban,
-        io: { in: ['Identificadores solicitante', 'Estado de cuenta (opcional)', 'Eventos de pago'], out: ['Reporte de crédito (consulta)', 'Estatus de envío (reporte mensual)'] } },
-      { id: 'mifiel', lane: 'external', row: 2, title: 'Mifiel', subtitle: 'Firma electrónica avanzada', type: 'external', icon: EMOJI.mifiel,
-        io: { in: ['Contrato generado (PDF)', 'Datos firmantes'], out: ['Evidencia y hash', 'Webhook de estatus'] } },
-      { id: 'conekta', lane: 'external', row: 3, title: 'Conekta', subtitle: 'Cobros (tarjeta / OXXO)', type: 'external', icon: EMOJI.conekta,
-        io: { in: ['Orden de pago', 'Referencia OXXO'], out: ['Webhook pago/fracaso/refund', 'Liquidaciones'] } },
-      { id: 'gnv', lane: 'external', row: 4, title: 'APIs Estaciones GNV', subtitle: 'Consumo / Carga', type: 'external', icon: EMOJI.gnv,
-        io: { in: ['ID unidad / tag'], out: ['Volumen/importe/estación', 'Timestamp'] } },
+      const filteredNodes = useMemo(
+        () => NODES.filter((n) => visibleLanes[n.lane]),
+        [visibleLanes]
+      );
+      const positions = useMemo(() => computePositions(filteredNodes), [filteredNodes]);
 
-      // Telematics
-      { id: 'samsara', lane: 'telematics', row: 0, title: 'Samsara (VG55 / EI21)', subtitle: 'GPS, OBD-II, Códigos falla, Inmovilizador', type: 'telematics', icon: EMOJI.samsara,
-        io: { in: ['Config / tags', 'Órdenes de inmovilización'], out: ['Ubicación/velocidad/RPM', 'Códigos DTC y DVIR', 'Webhooks eventos'] } },
+      // --- FIXED: Height Calculation ---
+      const maxRow = Math.max(0, ...filteredNodes.map((n) => n.row));
+      const width = PADDING_X * 2 + LANES.length * (LANE_WIDTH + LANE_GAP);
+      const height = PADDING_Y * 2 + (maxRow + 1) * ROW_HEIGHT;
 
-      // Internal Platform
-      { id: 'odoo', lane: 'internal', row: 0, title: 'Odoo (ERP / CRM / Field Service)', subtitle: 'Clientes, contratos, cartera, servicios', type: 'internal', icon: EMOJI.odoo,
-        io: { in: ['Resultado KYC/Crédito', 'Webhook firma y pagos', 'Alertas PMA/PIA'], out: ['Contrato (PDF)', 'Facturas / estados de cuenta', 'Órdenes de servicio'] } },
-      { id: 'airtable', lane: 'internal', row: 1, title: 'Airtable (Ops Board)', subtitle: 'Backoffice, colas, SLAs', type: 'internal', icon: EMOJI.airtable,
-        io: { in: ['Eventos iPaaS', 'Datos Odoo'], out: ['Tareas y estados', 'Feeds de control'] } },
+      // --- Nodes catalog ---
+      const NODES = [
+        { id: "portal", lane: "front", row: 0, title: "Portal Cliente (Web/App)", subtitle: "Onboarding + Panel básico", type: "front", icon: <PlayCircle className="w-4 h-4" />, io: { in: ["Links Mifiel / Pago", "Mensajes Asistente"], out: ["Datos KYC", "Documentos", "Eventos UI"],}, },
+        { id: "whatsapp", lane: "front", row: 1, title: "WhatsApp Asistente (Flowise)", subtitle: "Soporte y postventa", type: "front", icon: <MessageSquare className="w-4 h-4" />, io: { in: ["Alertas PMA/PIA", "Recordatorios pago"], out: ["Respuestas cliente", "Tickets postventa"],}, },
+        { id: "ipaas", lane: "orchestration", row: 0, title: "Make / n8n / Zapier", subtitle: "Flujos y conectores", type: "orchestration", icon: <GitBranch className="w-4 h-4" />, io: { in: ["Webhooks Samsara/Conekta", "Eventos Portal"], out: ["Acciones en Odoo/Airtable", "Notificaciones Asistente"],}, },
+        { id: "metamap", lane: "external", row: 0, title: "Metamap (KYC)", subtitle: "INE/CURP/biometría", type: "external", icon: <ShieldCheck className="w-4 h-4" />, io: { in: ["Datos del solicitante"], out: ["Resultado KYC", "Pruebas biométricas"],}, },
+        { id: "kiban", lane: "external", row: 1, title: "KIBAN ↔ Círculo de Crédito", subtitle: "Consulta y Reporte", type: "external", icon: <BarChart3 className="w-4 h-4" />, io: { in: ["Identificadores solicitante", "Estado de cuenta (opcional)", "Eventos de pago"], out: ["Reporte de crédito (consulta)", "Estatus de envío (reporte mensual)"] } },
+        { id: "mifiel", lane: "external", row: 2, title: "Mifiel", subtitle: "Firma electrónica avanzada", type: "external", icon: <FileSignature className="w-4 h-4" />, io: { in: ["Contrato generado (PDF)", "Datos firmantes"], out: ["Evidencia y hash", "Webhook de estatus"],}, },
+        { id: "conekta", lane: "external", row: 3, title: "Conekta", subtitle: "Cobros (tarjeta / OXXO)", type: "external", icon: <CreditCard className="w-4 h-4" />, io: { in: ["Orden de pago", "Referencia OXXO"], out: ["Webhook pago/fracaso/refund", "Liquidaciones"],}, },
+        { id: "gnv", lane: "external", row: 4, title: "APIs Estaciones GNV", subtitle: "Consumo / Carga", type: "external", icon: <Fuel className="w-4 h-4" />, io: { in: ["ID unidad / tag"], out: ["Volumen/importe/estación", "Timestamp"],}, },
+        { id: "samsara", lane: "telematics", row: 0, title: "Samsara (VG55 / EI21)", subtitle: "GPS, OBD-II, Códigos falla, Inmovilizador", type: "telematics", icon: <Zap className="w-4 h-4" />, io: { in: ["Config / tags", "Órdenes de inmovilización"], out: ["Ubicación/velocidad/RPM", "Códigos DTC y DVIR", "Webhooks eventos",],}, },
+        { id: "odoo", lane: "internal", row: 0, title: "Odoo (ERP / CRM / Field Service)", subtitle: "Clientes, contratos, cartera, servicios", type: "internal", icon: <ArrowRightLeft className="w-4 h-4" />, io: { in: ["Resultado KYC/Crédito", "Webhook firma y pagos", "Alertas PMA/PIA",], out: ["Contrato (PDF)", "Facturas / estados de cuenta", "Órdenes de servicio",],}, },
+        { id: "airtable", lane: "internal", row: 1, title: "Airtable (Ops Board)", subtitle: "Backoffice, colas, SLAs", type: "internal", icon: <Layers className="w-4 h-4" />, io: { in: ["Eventos iPaaS", "Datos Odoo"], out: ["Tareas y estados", "Feeds de control"],}, },
+        { id: "hase", lane: "data", row: 0, title: "HASE (Scoring operativo)", subtitle: "Score hiper-adaptativo", type: "data", icon: <Bot className="w-4 h-4" />, io: { in: ["KYC Metamap", "Consulta KIBAN", "Colateral social"], out: ["Decisión + explicabilidad", "Recomendación de términos"],}, },
+        { id: "pia", lane: "data", row: 1, title: "PIA (Intervención proactiva)", subtitle: "Cobranza empática", type: "data", icon: <AlertTriangle className="w-4 h-4" />, io: { in: ["Eventos de pago Conekta", "Telemática / hábitos"], out: ["Planes flexibles", "Mensajes Asistente"],}, },
+        { id: "pma", lane: "data", row: 2, title: "PMA (Mto. predictivo)", subtitle: "Alertas y órdenes", type: "data", icon: <ServerCog className="w-4 h-4" />, io: { in: ["DTCs / RPM / temperaturas", "DVIR, consumo GNV"], out: ["Orden de servicio Odoo", "Tips Asistente"],}, },
+        { id: "assistant", lane: "data", row: 3, title: "Asistente Postventa (Flowise)", subtitle: "WhatsApp + flujos", type: "data", icon: <MessageSquare className="w-4 h-4" />, io: { in: ["Alertas PIA/PMA", "Datos de contrato"], out: ["Conversaciones", "Confirmaciones"],}, },
+        { id: "warehouse", lane: "data", row: 4, title: "Data Lake / Warehouse", subtitle: "Historificación + BI", type: "data", icon: <Database className="w-4 h-4" />, io: { in: ["Batch/Streams telemática", "ERP/finanzas"], out: ["Dashboards, XAI, stress tests"],}, },
+        { id: "bi", lane: "data", row: 5, title: "BI (Looker/Power BI)", subtitle: "KPIs y reporting", type: "data", icon: <BarChart3 className="w-4 h-4" />, io: { in: ["Modelos semánticos"], out: ["Tableros Operación/Finanzas/Calidad"],}, },
+      ];
 
-      // Data & AI
-      { id: 'hase', lane: 'data', row: 0, title: 'HASE (Scoring operativo)', subtitle: 'Score hiper-adaptativo', type: 'data', icon: EMOJI.hase,
-        io: { in: ['KYC Metamap', 'Consulta KIBAN', 'Colateral social'], out: ['Decisión + explicabilidad', 'Recomendación de términos'] } },
-      { id: 'pia', lane: 'data', row: 1, title: 'PIA (Intervención proactiva)', subtitle: 'Cobranza empática', type: 'data', icon: EMOJI.pia,
-        io: { in: ['Eventos de pago Conekta', 'Telemática / hábitos'], out: ['Planes flexibles', 'Mensajes Asistente'] } },
-      { id: 'pma', lane: 'data', row: 2, title: 'PMA (Mto. predictivo)', subtitle: 'Alertas y órdenes', type: 'data', icon: EMOJI.pma,
-        io: { in: ['DTCs / RPM / temperaturas', 'DVIR, consumo GNV'], out: ['Orden de servicio Odoo', 'Tips Asistente'] } },
-      { id: 'assistant', lane: 'data', row: 3, title: 'Asistente Postventa (Flowise)', subtitle: 'WhatsApp + flujos', type: 'data', icon: EMOJI.assistant,
-        io: { in: ['Alertas PIA/PMA', 'Datos de contrato'], out: ['Conversaciones', 'Confirmaciones'] } },
-      { id: 'warehouse', lane: 'data', row: 4, title: 'Data Lake / Warehouse', subtitle: 'Historificación + BI', type: 'data', icon: EMOJI.warehouse,
-        io: { in: ['Batch/Streams telemática', 'ERP/finanzas'], out: ['Dashboards, XAI, stress tests'] } },
-      { id: 'bi', lane: 'data', row: 5, title: 'BI (Looker/Power BI)', subtitle: 'KPIs y reporting', type: 'data', icon: EMOJI.bi,
-        io: { in: ['Modelos semánticos'], out: ['Tableros Operación/Finanzas/Calidad'] } },
-    ];
+      // --- Helper to compute absolute positions ---
+      function computePositions(nodes) {
+        const laneIndex = Object.fromEntries(LANES.map((l, i) => [l.id, i]));
+        const positions = {};
+        nodes.forEach((n) => {
+          const x = PADDING_X + laneIndex[n.lane] * (LANE_WIDTH + LANE_GAP) + (LANE_WIDTH - CARD_W) / 2;
+          const y = PADDING_Y + n.row * ROW_HEIGHT;
+          positions[n.id] = { x, y };
+        });
+        return positions;
+      }
 
-    const FLOWS = {
-      'Onboarding & Scoring': [
-        ['portal', 'metamap'],
-        ['metamap', 'ipaas'],
-        ['ipaas', 'kiban'],
-        ['kiban', 'hase'], // consulta crédito → HASE
-        ['hase', 'odoo'],
-        ['odoo', 'mifiel'],
-        ['mifiel', 'ipaas'],
-        ['ipaas', 'odoo']
-      ],
-      'Desembolso & Entrega': [
-        ['odoo', 'conekta'],
-        ['conekta', 'ipaas'],
-        ['ipaas', 'odoo'],
-        ['odoo', 'samsara'],
-        ['odoo', 'whatsapp']
-      ],
-      'Operación & PMA': [
-        ['samsara', 'ipaas'],
-        ['ipaas', 'pma'],
-        ['pma', 'odoo'],
-        ['pma', 'assistant'],
-        ['gnv', 'warehouse'],
-        ['samsara', 'warehouse'],
-        ['warehouse', 'bi']
-      ],
-      'Cobranza & PIA': [
-        ['conekta', 'ipaas'],
-        ['ipaas', 'pia'],
-        ['pia', 'assistant'],
-        ['assistant', 'odoo']
-      ],
-      'Garantías & Postventa': [
-        ['samsara', 'pma'],
-        ['pma', 'odoo'],
-        ['assistant', 'odoo']
-      ],
-      'Reporte Buró (mensual)': [
-        ['odoo', 'kiban'],
-        ['kiban', 'odoo']
-      ],
-    };
+      // --- Flows (edges) grouped by scenario ---
+      const FLOWS = {
+        "Onboarding & Scoring": [["portal", "metamap"], ["metamap", "ipaas"], ["ipaas", "kiban"], ["kiban", "hase"], ["hase", "odoo"], ["odoo", "mifiel"], ["mifiel", "ipaas"], ["ipaas", "odoo"]],
+        "Desembolso & Entrega": [["odoo", "conekta"], ["conekta", "ipaas"], ["ipaas", "odoo"], ["odoo", "samsara"], ["odoo", "whatsapp"]],
+        "Operación & PMA": [["samsara", "ipaas"], ["ipaas", "pma"], ["pma", "odoo"], ["pma", "assistant"], ["gnv", "warehouse"], ["samsara", "warehouse"], ["warehouse", "bi"]],
+        "Cobranza & PIA": [["conekta", "ipaas"], ["ipaas", "pia"], ["pia", "assistant"], ["assistant", "odoo"]],
+        "Garantías & Postventa": [["samsara", "pma"], ["pma", "odoo"], ["assistant", "odoo"]],
+        "Reporte Buró (mensual)": [["odoo", "kiban"], ["kiban", "odoo"]],
+      };
 
-    // 2) Utilidades de layout
-    function computePositions(nodes, UI) {
-      const laneIndex = Object.fromEntries(LANES.map((l, i) => [l.id, i]));
-      const positions = {};
-      nodes.forEach((n) => {
-        const x = UI.PADDING_X + laneIndex[n.lane] * (UI.LANE_WIDTH + UI.LANE_GAP) + (UI.LANE_WIDTH - UI.CARD_W) / 2;
-        const y = UI.PADDING_Y + n.row * UI.ROW_HEIGHT;
-        positions[n.id] = { x, y };
-      });
-      return positions;
-    }
-
-    // 3) Componentes UI
-    function Header({ flow, setFlow }) {
       return (
-        <div className="sticky top-0 z-30 bg-slate-950/80 backdrop-blur border-b border-slate-800">
-          <div className="max-w-[1400px] mx-auto px-6 py-4 flex items-center gap-3">
-            <span className="w-5 h-5 text-teal-400">⚙️</span>
-            <h1 className="text-lg md:text-xl font-extrabold tracking-tight">Arquitectura de Integraciones — Conductores</h1>
-            <div className="ml-auto flex items-center gap-2 overflow-x-auto">
-              {Object.keys(FLOWS).map((f) => (
-                <button
-                  key={f}
-                  className={`px-3 py-1.5 rounded-lg border text-[12px] whitespace-nowrap transition ${f === flow ? 'bg-teal-500/20 border-teal-400 text-teal-200' : 'bg-slate-900 border-slate-700 text-slate-300 hover:border-teal-500/40'}`}
-                  onClick={() => { debug.log('Flow change →', f); setFlow(f); }}
-                >{f}</button>
-              ))}
+        <div className="min-h-screen bg-slate-950 text-slate-100 font-sans">
+          <div className="sticky top-0 z-30 bg-slate-950/80 backdrop-blur border-b border-slate-800">
+            <div className="max-w-[1400px] mx-auto px-6 py-4 flex items-center gap-3">
+              <ServerCog className="w-5 h-5 text-teal-400" />
+              <h1 className="text-lg md:text-xl font-extrabold tracking-tight">Arquitectura de Integraciones — Conductores</h1>
+              <div className="ml-auto flex items-center gap-2 overflow-x-auto">
+                {Object.keys(FLOWS).map((f) => (
+                  <button key={f} className={`px-3 py-1.5 rounded-lg border text-[12px] whitespace-nowrap transition ${f === flow ? "bg-teal-500/20 border-teal-400 text-teal-200" : "bg-slate-900 border-slate-700 text-slate-300 hover:border-teal-500/40"}`} onClick={() => { setFlow(f); setSelected(null); }}>{f}</button>
+                ))}
+              </div>
             </div>
+          </div>
+          <div className="max-w-[1400px] mx-auto px-6 py-6 grid grid-cols-12 gap-6">
+            <aside className="col-span-12 lg:col-span-3 space-y-4">
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
+                <div className="flex items-center gap-2 mb-2"><Layers className="w-4 h-4 text-slate-300" /><div className="font-semibold">Capas visibles</div></div>
+                <div className="space-y-2">
+                  {LANES.map((l) => (
+                    <label key={l.id} className="flex items-center justify-between py-1 text-sm">
+                      <span className="flex items-center gap-2 text-slate-300"><span className="text-slate-400">{l.icon}</span>{l.title}</span>
+                      <input type="checkbox" className="accent-teal-500" checked={visibleLanes[l.id]} onChange={(e) => setVisibleLanes((v) => ({ ...v, [l.id]: e.target.checked }))} />
+                    </label>
+                  ))}
+                </div>
+                <div className="mt-3 text-[12px] text-slate-400">Consejo: Activa solo las capas que necesites para cada demo.</div>
+              </div>
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
+                <div className="flex items-center gap-2 mb-2"><BarChart3 className="w-4 h-4 text-slate-300" /><div className="font-semibold">Leyenda de color</div></div>
+                <ul className="space-y-1 text-sm">
+                  <li><span className="inline-block w-3 h-3 rounded bg-gradient-to-br from-teal-500/20 to-teal-400/10 mr-2 align-middle border border-teal-400/40"/>Fronts / Canales</li>
+                  <li><span className="inline-block w-3 h-3 rounded bg-gradient-to-br from-amber-500/20 to-amber-400/10 mr-2 align-middle border border-amber-400/40"/>Orquestación</li>
+                  <li><span className="inline-block w-3 h-3 rounded bg-gradient-to-br from-sky-500/20 to-sky-400/10 mr-2 align-middle border border-sky-400/40"/>Servicios Externos</li>
+                  <li><span className="inline-block w-3 h-3 rounded bg-gradient-to-br from-cyan-500/20 to-cyan-400/10 mr-2 align-middle border border-cyan-400/40"/>Telemática</li>
+                  <li><span className="inline-block w-3 h-3 rounded bg-gradient-to-br from-emerald-500/20 to-emerald-400/10 mr-2 align-middle border border-emerald-400/40"/>Plataforma Interna</li>
+                  <li><span className="inline-block w-3 h-3 rounded bg-gradient-to-br from-fuchsia-500/20 to-fuchsia-400/10 mr-2 align-middle border border-fuchsia-400/40"/>Datos / IA / BI</li>
+                </ul>
+              </div>
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
+                <div className="flex items-center gap-2 mb-2"><ShieldCheck className="w-4 h-4 text-slate-300" /><div className="font-semibold">Puntos críticos</div></div>
+                <ul className="list-disc pl-5 text-sm space-y-1 text-slate-300/90">
+                  <li><b>KIBAN → Círculo de Crédito</b> se usa <i>siempre</i> en Onboarding (consulta) y cada mes en <b>Reporte</b>.</li>
+                  <li><b>Samsara</b> provee webhooks/stream para PMA/PIA y control de inmovilizador.</li>
+                  <li><b>Odoo</b> es la fuente operativa: contratos, cartera, OS y facturación.</li>
+                  <li><b>Warehouse/BI</b> consolida histórico para XAI y stress testing.</li>
+                </ul>
+              </div>
+            </aside>
+            <main className="col-span-12 lg:col-span-9 space-y-4">
+              <div className="relative rounded-2xl border border-slate-800 bg-gradient-to-b from-slate-900 to-slate-950 overflow-auto">
+                <div className="absolute inset-x-0 top-0 flex" style={{ left: PADDING_X, right: PADDING_X, height: 40 }}>
+                  {LANES.map((l, idx) => ( visibleLanes[l.id] && <div key={l.id} className="h-full flex items-center gap-2 text-[12px] text-slate-300/90" style={{ width: LANE_WIDTH, marginRight: LANE_GAP, }}> <span className="text-slate-400">{l.icon}</span> {l.title} </div> ))}
+                </div>
+                <svg width={width} height={height} className="block">
+                  {Object.values(FLOWS).flat().map(([a, b], i) => ( <Edge key={`${a}-${b}-${i}`} from={a} to={b} positions={positions} active={FLOWS[flow].some(([x, y]) => x === a && y === b)} /> ))}
+                </svg>
+                {filteredNodes.map((n) => ( positions[n.id] && <NodeCard key={n.id} node={n} pos={positions[n.id]} selected={selected?.id === n.id} onSelect={setSelected} /> ))}
+              </div>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
+                  <div className="flex items-center gap-2 mb-1"><ArrowRightLeft className="w-4 h-4 text-teal-300" /><div className="font-semibold">Flujo activo</div></div>
+                  <div className="text-sm text-slate-300/90 mb-2">{flow}</div>
+                  <ol className="list-decimal pl-5 text-sm space-y-1 text-slate-300/90">
+                    {(FLOWS[flow] || []).map(([a, b], i) => ( <li key={i}> <span className="font-medium text-teal-200">{NODES.find(n=>n.id===a)?.title}</span> <span className="text-slate-400"> → </span> <span className="font-medium text-teal-200">{NODES.find(n=>n.id===b)?.title}</span> </li> ))}
+                  </ol>
+                </div>
+                <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
+                  <div className="flex items-center gap-2 mb-1"><ServerCog className="w-4 h-4 text-fuchsia-300" /><div className="font-semibold">Inspector de nodo</div></div>
+                  {selected ? ( <div> <div className="text-teal-200 font-semibold">{selected.title}</div> <div className="text-slate-300/80 text-sm">{selected.subtitle}</div> <div className="grid grid-cols-2 gap-4 mt-3"> <div> <div className="uppercase tracking-wide text-[10px] text-slate-400">Entradas</div> <ul className="mt-1 text-sm list-disc pl-4 space-y-1"> {selected.io.in.map((t, i) => ( <li key={i}>{t}</li> ))} </ul> </div> <div> <div className="uppercase tracking-wide text-[10px] text-slate-400">Salidas</div> <ul className="mt-1 text-sm list-disc pl-4 space-y-1"> {selected.io.out.map((t, i) => ( <li key={i}>{t}</li> ))} </ul> </div> </div> </div> ) : ( <div className="text-slate-400 text-sm"> Selecciona un nodo en el mapa para ver detalles de entradas/salidas. </div> )}
+                </div>
+              </div>
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
+                <div className="flex items-center gap-2 mb-2"><AlertTriangle className="w-4 h-4 text-amber-300" /><div className="font-semibold">Notas de diseño y siguientes pasos</div></div>
+                <ul className="text-sm space-y-1 text-slate-300/90">
+                  <li>• <b>Contrato de datos</b> del flujo Onboarding: Portal ⇄ Metamap ⇄ KIBAN ⇄ HASE ⇄ Odoo. (Si quieres, te genero el JSON OpenAPI por endpoint.)</li>
+                  <li>• <b>Webhooks críticos</b>: Mifiel (firma), Conekta (pagos), Samsara (eventos/DT C), Asistente (mensajería).</li>
+                  <li>• <b>Historificación</b>: Telemetría y consumo GNV van a Warehouse para BI, XAI y pruebas de estrés.</li>
+                  <li>• <b>Seguridad</b>: OAuth/token por partner, aislamiento por rutas (tags) y colas idempotentes en iPaaS.</li>
+                  <li>• <b>Escala</b>: La misma arquitectura soporta 17 → 1000 unidades con colas y backfill a Warehouse.</li>
+                </ul>
+              </div>
+            </main>
           </div>
         </div>
       );
     }
-
-    function Sidebar({ visibleLanes, setVisibleLanes }) {
-      return (
-        <aside className="col-span-12 lg:col-span-3 space-y-4">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-slate-300">📚</span>
-              <div className="font-semibold">Capas visibles</div>
-            </div>
-            <div className="space-y-2">
-              {LANES.map((l) => (
-                <label key={l.id} className="flex items-center justify-between py-1 text-sm">
-                  <span className="flex items-center gap-2 text-slate-300"><span className="text-slate-400">{l.icon}</span>{l.title}</span>
-                  <input
-                    type="checkbox"
-                    className="accent-teal-500"
-                    checked={visibleLanes[l.id]}
-                    onChange={(e) => { debug.log('Lane toggle', l.id, e.target.checked); setVisibleLanes((v) => ({ ...v, [l.id]: e.target.checked })); }}
-                  />
-                </label>
-              ))}
-            </div>
-            <div className="mt-3 text-[12px] text-slate-400">Consejo: Activa solo las capas que necesites para cada demo.</div>
-          </div>
-
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
-            <div className="flex items-center gap-2 mb-2"><span className="text-slate-300">🎨</span><div className="font-semibold">Leyenda de color</div></div>
-            <ul className="space-y-1 text-sm">
-              <li><span className="inline-block w-3 h-3 rounded bg-gradient-to-br from-teal-500/20 to-teal-400/10 mr-2 align-middle border border-teal-400/40"></span>Fronts / Canales</li>
-              <li><span className="inline-block w-3 h-3 rounded bg-gradient-to-br from-amber-500/20 to-amber-400/10 mr-2 align-middle border border-amber-400/40"></span>Orquestación</li>
-              <li><span className="inline-block w-3 h-3 rounded bg-gradient-to-br from-sky-500/20 to-sky-400/10 mr-2 align-middle border border-sky-400/40"></span>Servicios Externos</li>
-              <li><span className="inline-block w-3 h-3 rounded bg-gradient-to-br from-cyan-500/20 to-cyan-400/10 mr-2 align-middle border border-cyan-400/40"></span>Telemática</li>
-              <li><span className="inline-block w-3 h-3 rounded bg-gradient-to-br from-emerald-500/20 to-emerald-400/10 mr-2 align-middle border border-emerald-400/40"></span>Plataforma Interna</li>
-              <li><span className="inline-block w-3 h-3 rounded bg-gradient-to-br from-fuchsia-500/20 to-fuchsia-400/10 mr-2 align-middle border border-fuchsia-400/40"></span>Datos / IA / BI</li>
-            </ul>
-          </div>
-
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
-            <div className="flex items-center gap-2 mb-2"><span className="text-slate-300">🧭</span><div className="font-semibold">Puntos críticos</div></div>
-            <ul className="list-disc pl-5 text-sm space-y-1 text-slate-300/90">
-              <li><b>KIBAN → Círculo de Crédito</b> se usa <i>siempre</i> en Onboarding (consulta) y cada mes en <b>Reporte</b>.</li>
-              <li><b>Samsara</b> provee webhooks/stream para PMA/PIA y control de inmovilizador.</li>
-              <li><b>Odoo</b> es la fuente operativa: contratos, cartera, OS y facturación.</li>
-              <li><b>Warehouse/BI</b> consolida histórico para XAI y stress testing.</li>
-            </ul>
-          </div>
-        </aside>
-      );
-    }
-
-    function Edge({ from, to, positions, active, UI }) {
+    
+    // --- Sub-Components (no changes needed here) ---
+    function Edge({ from, to, positions, active }) {
       const a = positions[from];
       const b = positions[to];
       if (!a || !b) return null;
-      const x1 = a.x + UI.CARD_W;
-      const y1 = a.y + UI.CARD_H / 2;
+      const x1 = a.x + 290; // CARD_W
+      const y1 = a.y + 43;  // CARD_H / 2
       const x2 = b.x;
-      const y2 = b.y + UI.CARD_H / 2;
+      const y2 = b.y + 43;  // CARD_H / 2
       const dx = Math.max(80, (x2 - x1) * 0.5);
       const path = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
-      return (
-        <path d={path} className={`edge-path ${active ? 'stroke-teal-400/80 [filter:drop-shadow(0_0_6px_rgba(45,212,191,0.6))]' : 'stroke-slate-400/30'}`} strokeWidth={active ? 3 : 2} fill="none" />
-      );
+      return ( <path d={path} className={ active ? "stroke-teal-400/80 [filter:drop-shadow(0_0_6px_rgba(45,212,191,0.6))] transition-all duration-300" : "stroke-slate-400/30 transition-all duration-300" } strokeWidth={active ? 3 : 2} fill="none" /> );
     }
 
-    function NodeCard({ node, pos, selected, onSelect, UI }) {
-      const color = COLORS[node.type];
-      const style = { left: pos.x, top: pos.y, width: `${UI.CARD_W}px`, height: `${UI.CARD_H}px` };
+    function NodeCard({ node, pos, selected, onSelect, icons }) {
+      const { Layers, PlayCircle, ArrowRightLeft, ShieldCheck, Cable, Users, ServerCog, Database, BarChart3, FileSignature, CreditCard, MessageSquare, Fuel, Bot, Zap, AlertTriangle, Workflow, GitBranch } = icons;
+      const color = ({
+        external: "from-sky-500/20 to-sky-400/10 border-sky-400/40",
+        internal: "from-emerald-500/20 to-emerald-400/10 border-emerald-400/40",
+        data: "from-fuchsia-500/20 to-fuchsia-400/10 border-fuchsia-400/40",
+        orchestration: "from-amber-500/20 to-amber-400/10 border-amber-400/40",
+        telematics: "from-cyan-500/20 to-cyan-400/10 border-cyan-400/40",
+        front: "from-teal-500/20 to-teal-400/10 border-teal-400/40",
+      })[node.type];
+      const style = { left: pos.x, top: pos.y, width: `290px`, height: `86px` };
+      const iconMap = {
+          portal: <PlayCircle className="w-4 h-4" />,
+          whatsapp: <MessageSquare className="w-4 h-4" />,
+          ipaas: <GitBranch className="w-4 h-4" />,
+          metamap: <ShieldCheck className="w-4 h-4" />,
+          kiban: <BarChart3 className="w-4 h-4" />,
+          mifiel: <FileSignature className="w-4 h-4" />,
+          conekta: <CreditCard className="w-4 h-4" />,
+          gnv: <Fuel className="w-4 h-4" />,
+          samsara: <Zap className="w-4 h-4" />,
+          odoo: <ArrowRightLeft className="w-4 h-4" />,
+          airtable: <Layers className="w-4 h-4" />,
+          hase: <Bot className="w-4 h-4" />,
+          pia: <AlertTriangle className="w-4 h-4" />,
+          pma: <ServerCog className="w-4 h-4" />,
+          assistant: <MessageSquare className="w-4 h-4" />,
+          warehouse: <Database className="w-4 h-4" />,
+          bi: <BarChart3 className="w-4 h-4" />,
+      };
+
       return (
-        <div
-          onClick={() => { debug.log('Node select →', node.id); onSelect?.(node); }}
-          title={node.subtitle}
-          className={`node-card border bg-gradient-to-br ${color} ${selected ? 'ring-2 ring-teal-400/70' : ''}`}
-          style={style}
-        >
+        <div onClick={() => onSelect?.(node)} title={node.subtitle} className={`absolute rounded-2xl border backdrop-blur px-3.5 py-3 cursor-pointer transition-all duration-200 hover:scale-[1.02] hover:shadow-xl hover:border-teal-400/50 bg-gradient-to-br ${color} ${ selected ? "ring-2 ring-teal-400/70" : "ring-0" }`} style={style} >
           <div className="flex items-start gap-2">
-            <div className="shrink-0 mt-0.5 text-slate-300" aria-hidden>{node.icon}</div>
+            <div className="shrink-0 mt-0.5 text-slate-300">{iconMap[node.id] || <PlaceholderIcon className="w-4 h-4" />}</div>
             <div className="min-w-0">
               <div className="text-slate-100 font-semibold leading-tight text-[13px] truncate">{node.title}</div>
               <div className="text-slate-300/80 text-[12px] truncate">{node.subtitle}</div>
@@ -295,170 +291,20 @@
           <div className="mt-2 grid grid-cols-2 gap-2 text-[11px] text-slate-300/90">
             <div>
               <div className="uppercase tracking-wide text-[10px] text-slate-400">IN</div>
-              <div className="space-y-0.5">{node.io.in.slice(0, 2).map((t, i) => (<div key={i} className="truncate">• {t}</div>))}</div>
+              <div className="space-y-0.5">{node.io.in.slice(0, 2).map((t, i) => ( <div key={i} className="truncate">• {t}</div> ))}</div>
             </div>
             <div>
               <div className="uppercase tracking-wide text-[10px] text-slate-400">OUT</div>
-              <div className="space-y-0.5">{node.io.out.slice(0, 2).map((t, i) => (<div key={i} className="truncate">• {t}</div>))}</div>
+              <div className="space-y-0.5">{node.io.out.slice(0, 2).map((t, i) => ( <div key={i} className="truncate">• {t}</div> ))}</div>
             </div>
           </div>
         </div>
       );
     }
 
-    function Inspector({ flow, selected }) {
-      return (
-        <div className="grid md:grid-cols-2 gap-4">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
-            <div className="flex items-center gap-2 mb-1"><span className="text-teal-300">🔀</span><div className="font-semibold">Flujo activo</div></div>
-            <div className="text-sm text-slate-300/90 mb-2">{flow}</div>
-            <ol className="list-decimal pl-5 text-sm space-y-1 text-slate-300/90">
-              {(FLOWS[flow] || []).map(([a, b], i) => (
-                <li key={i}>
-                  <span className="font-medium text-teal-200">{NODES.find(n => n.id === a)?.title}</span>
-                  <span className="text-slate-400"> → </span>
-                  <span className="font-medium text-teal-200">{NODES.find(n => n.id === b)?.title}</span>
-                </li>
-              ))}
-            </ol>
-          </div>
-
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
-            <div className="flex items-center gap-2 mb-1"><span className="text-fuchsia-300">🧩</span><div className="font-semibold">Inspector de nodo</div></div>
-            {selected ? (
-              <div>
-                <div className="text-teal-200 font-semibold">{selected.title}</div>
-                <div className="text-slate-300/80 text-sm">{selected.subtitle}</div>
-                <div className="grid grid-cols-2 gap-4 mt-3">
-                  <div>
-                    <div className="uppercase tracking-wide text-[10px] text-slate-400">Entradas</div>
-                    <ul className="mt-1 text-sm list-disc pl-4 space-y-1">{selected.io.in.map((t, i) => (<li key={i}>{t}</li>))}</ul>
-                  </div>
-                  <div>
-                    <div className="uppercase tracking-wide text-[10px] text-slate-400">Salidas</div>
-                    <ul className="mt-1 text-sm list-disc pl-4 space-y-1">{selected.io.out.map((t, i) => (<li key={i}>{t}</li>))}</ul>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="text-slate-400 text-sm">Selecciona un nodo en el mapa para ver detalles de entradas/salidas.</div>
-            )}
-          </div>
-        </div>
-      );
-    }
-
-    function Canvas({ UI, flow, visibleLanes, selected, setSelected, viewportWidth }) {
-      const filteredNodes = React.useMemo(() => NODES.filter((n) => visibleLanes[n.lane]), [visibleLanes]);
-      const positions = React.useMemo(() => computePositions(filteredNodes, UI), [filteredNodes, UI]);
-      const width = UI.PADDING_X * 2 + LANES.length * (UI.LANE_WIDTH + UI.LANE_GAP);
-      const maxRow = filteredNodes.length ? Math.max(...filteredNodes.map((n) => n.row)) : 0;
-      const height = UI.PADDING_Y * 2 + (maxRow + 1) * UI.ROW_HEIGHT;
-      const horizontalPadding = 48;
-      const scale = Math.min(1, (viewportWidth - horizontalPadding) / width);
-
-      return (
-        <div className="relative rounded-2xl border border-slate-800 bg-gradient-to-b from-slate-900 to-slate-950 overflow-auto">
-          <div style={{ width, height, transform: `scale(${scale})`, transformOrigin: 'top left', position: 'relative' }}>
-            {/* Lane headers */}
-            <div className="absolute inset-x-0 top-0 flex" style={{ left: UI.PADDING_X, right: UI.PADDING_X, height: 40 }}>
-              {LANES.map((l) => (
-                visibleLanes[l.id] && (
-                  <div key={l.id} className="lane-title" style={{ width: UI.LANE_WIDTH, marginRight: UI.LANE_GAP }}>
-                    <span className="text-slate-400" aria-hidden>{l.icon}</span>{l.title}
-                  </div>
-                )
-              ))}
-            </div>
-
-            {/* Edges */}
-            <svg width={width} height={height} className="block">
-              {Object.values(FLOWS).flat().map(([a, b], i) => (
-                <Edge key={`${a}-${b}-${i}`} from={a} to={b} positions={positions} active={(FLOWS[flow] || []).some(([x, y]) => x === a && y === b)} UI={UI} />
-              ))}
-            </svg>
-
-            {/* Cards */}
-            {filteredNodes.map((n) => (
-              positions[n.id] && (
-                <NodeCard key={n.id} node={n} pos={positions[n.id]} selected={selected?.id === n.id} onSelect={setSelected} UI={UI} />
-              )
-            ))}
-          </div>
-        </div>
-      );
-    }
-
-    function Notes() {
-      return (
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
-          <div className="flex items-center gap-2 mb-2"><span className="text-amber-300">⚠️</span><div className="font-semibold">Notas de diseño y siguientes pasos</div></div>
-          <ul className="text-sm space-y-1 text-slate-300/90">
-            <li>• <b>Contrato de datos</b> del flujo Onboarding: Portal ⇄ Metamap ⇄ KIBAN ⇄ HASE ⇄ Odoo.</li>
-            <li>• <b>Webhooks críticos</b>: Mifiel (firma), Conekta (pagos), Samsara (eventos/DTC), Asistente (mensajería).</li>
-            <li>• <b>Historificación</b>: Telemetría y consumo GNV van a Warehouse para BI, XAI y pruebas de estrés.</li>
-            <li>• <b>Seguridad</b>: OAuth/token por partner, aislamiento por rutas (tags) y colas idempotentes en iPaaS.</li>
-            <li>• <b>Escala</b>: Arquitectura lista para 17 → 1000 unidades con colas y backfill a Warehouse.</li>
-          </ul>
-        </div>
-      );
-    }
-
-    function App() {
-      const [flow, setFlow] = React.useState('Onboarding & Scoring');
-      const [visibleLanes, setVisibleLanes] = React.useState(Object.fromEntries(LANES.map((l) => [l.id, true])));
-      const [selected, setSelected] = React.useState(null);
-      const [viewportWidth, setViewportWidth] = React.useState(window.innerWidth);
-
-      React.useEffect(() => {
-        debug.log('App mount');
-        const onResize = () => { debug.log('Resize →', window.innerWidth); setViewportWidth(window.innerWidth); };
-        window.addEventListener('resize', onResize);
-        return () => window.removeEventListener('resize', onResize);
-      }, []);
-
-      const UI = viewportWidth < 640 ? UI_SMALL : UI_LARGE;
-
-      return (
-        <div className="min-h-screen bg-slate-950 text-slate-100 font-sans">
-          <Header flow={flow} setFlow={(f) => { setSelected(null); setFlow(f); }} />
-          <div className="max-w-[1400px] mx-auto px-6 py-6 grid grid-cols-12 gap-6">
-            <Sidebar visibleLanes={visibleLanes} setVisibleLanes={setVisibleLanes} />
-            <main className="col-span-12 lg:col-span-9 space-y-4">
-              <Canvas UI={UI} flow={flow} visibleLanes={visibleLanes} selected={selected} setSelected={setSelected} viewportWidth={viewportWidth} />
-              <Inspector flow={flow} selected={selected} />
-              <Notes />
-            </main>
-          </div>
-        </div>
-      );
-    }
-
-    // 4) Render y fallbacks
-    function mountReact() {
-      const container = document.getElementById('root');
-      if (!window.React || !window.ReactDOM) {
-        debug.error('React no está disponible. Mostrando fallback.');
-        return; // Deja el fallback estático en el DOM
-      }
-      try {
-        const root = ReactDOM.createRoot(container);
-        root.render(<App />);
-      } catch (err) {
-        debug.error('Fallo al renderizar React:', err);
-      }
-    }
-
-    // Esperar a que las dependencias con defer estén listas
-    if (document.readyState === 'complete' || document.readyState === 'interactive') {
-      setTimeout(mountReact, 0);
-    } else {
-      window.addEventListener('DOMContentLoaded', mountReact);
-    }
-
-    // Guard against runtime errors
-    window.addEventListener('error', (e) => debug.error('window.onerror', e.message));
-    window.addEventListener('unhandledrejection', (e) => debug.error('unhandledrejection', e.reason));
+    const container = document.getElementById('root');
+    const root = ReactDOM.createRoot(container);
+    root.render(<ConductoresIntegrationsMap />);
   </script>
 </body>
 </html>
