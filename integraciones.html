@@ -893,14 +893,24 @@
         .diagram-inner-canvas{min-width:2400px!important;width:max-content;padding-bottom:10px;position:relative;display:block}
     @keyframes pulse{0%{transform:scale(1);opacity:1}50%{transform:scale(1.05);opacity:.8}100%{transform:scale(1);opacity:1}}
     .using-tab button:focus, .using-tab a:focus { outline: 2px solid #14b8a6; outline-offset: 2px; }
-   </style>
+       </style>
+         <style>
+       /* Fullscreen for diagram section */
+       .fullscreen { position: fixed; inset: 0; z-index: 100; padding: 1rem; background: #0b1220; border-radius: 0 !important; width: 100vw; height: 100dvh; overflow: auto; }
+       /* Larger SVG text for readability */
+       #arch text { font-size: 20px !important; }
+       #arch .node text { font-size: 16px !important; font-weight: 700; }
+       /* Typographic scale */
+       :root { --font-base: clamp(16px, 1.1vw, 18px); }
+       body { font-size: var(--font-base); line-height: 1.55; }
+     </style>
 </head>
 <body class="bg-slate-950 text-slate-100">
 
   <div class="sticky top-0 z-30 bg-slate-950/80 backdrop-blur border-b border-slate-800">
     <div class="max-w-full xl:max-w-[1800px] 2xl:max-w-[2200px] mx-auto px-6 py-4 flex items-center gap-3">
       <span class="w-5 h-5 text-teal-400">⚙</span>
-      <h1 class="text-xl md:text-2xl font-extrabold tracking-tight">Arquitectura de Integraciones — Conductores</h1>
+      <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight">Arquitectura de Integraciones — Conductores</h1>
       <div class="ml-auto flex items-center gap-2 overflow-x-auto">
         <button class="px-6 py-2 rounded-xl border-2 flex items-center gap-2 text-sm font-bold bg-gradient-to-r from-purple-900/50 to-blue-900/50 border-purple-500 text-purple-200 hover:shadow-lg hover:shadow-purple-500/20">
           <span class="text-xl">🚀</span>
@@ -913,21 +923,26 @@
   <main class="max-w-full xl:max-w-[1800px] 2xl:max-w-[2200px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 px-6 pb-8">
 
     <!-- Diagram -->
-    <section class="lg:col-span-9 rounded-2xl border border-slate-800 bg-slate-900/40 p-4 relative overflow-hidden">
+          <section id="diagramSection" class="lg:col-span-10 rounded-2xl border border-slate-800 bg-slate-900/40 p-4 relative overflow-hidden">
       <div class="flex items-start justify-between mb-3">
           <div>
-            <h2 class="font-extrabold text-slate-100 text-lg sm:text-xl tracking-tight">Mapa de Integraciones</h2>
+            <h2 class="font-extrabold text-slate-100 text-xl md:text-2xl tracking-tight">Mapa de Integraciones</h2>
             <p class="mt-1 text-slate-300 text-sm max-w-3xl">Vista interactiva de cómo se conectan nuestras piezas: Portal (PWA), Odoo, Airtable, Metamap, Kiban, HASE, Mifiel, Conekta, Twilio, Samsara/Geotab, Make/Zapier, Flowise, APIs GNV y Agentes (PIA & Super-PMA).</p>
           </div>
-          <div class="flex items-center gap-3 text-xs sm:text-sm flex-wrap ml-4">
-          <span><span class="legend-dot status-core"></span>Núcleo (Core)</span>
-          <span><span class="legend-dot status-mvp"></span>MVP</span>
-          <span><span class="legend-dot status-phase2"></span>Fase 2</span>
-          <span><span class="legend-dot status-future"></span>Futuro</span>
-        </div>
+                    <div class="flex items-center gap-3 text-xs sm:text-sm flex-wrap ml-4">
+            <div class="flex items-center gap-2">
+              <button id="btnFull" class="px-3 py-1.5 rounded-lg border border-slate-700 hover:bg-slate-800">Pantalla completa</button>
+              <button id="btnToggleDetails" class="px-3 py-1.5 rounded-lg border border-slate-700 hover:bg-slate-800">Ocultar detalles</button>
+              <button id="btnToggleFlows" class="px-3 py-1.5 rounded-lg border border-slate-700 hover:bg-slate-800">Ocultar flujos</button>
+            </div>
+            <span><span class="legend-dot status-core"></span>Núcleo (Core)</span>
+            <span><span class="legend-dot status-mvp"></span>MVP</span>
+            <span><span class="legend-dot status-phase2"></span>Fase 2</span>
+            <span><span class="legend-dot status-future"></span>Futuro</span>
+          </div>
       </div>
 
-      <svg id="arch" viewBox="0 0 1320 760" class="w-full h-[560px] md:h-[640px]">
+      <svg id="arch" viewBox="0 0 1320 760" class="w-full h-[720px] lg:h-[820px]">
         <!-- defs -->
         <defs>
           <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
@@ -937,19 +952,19 @@
 
         <!-- Zones background -->
         <rect x="10" y="10" width="1180" height="740" fill="#0f172a" stroke="#334155"/>
-        <text x="24" y="42" fill="#94a3b8" font-size="18">Zona de Integraciones</text>
+                 <text x="24" y="42" fill="#94a3b8" font-size="22">Zona de Integraciones</text>
 
         <!-- CORE cluster -->
         <rect x="60" y="80" width="640" height="270" rx="16" fill="#0b1220" stroke="#334155"/>
-        <text x="76" y="104" fill="#38bdf8" font-weight="bold" font-size="18">CORE Transaccional & Orquestación</text>
+                 <text x="76" y="104" fill="#38bdf8" font-weight="bold" font-size="20">CORE Transaccional & Orquestación</text>
 
         <!-- DATA/AI cluster -->
         <rect x="60" y="380" width="1080" height="190" rx="16" fill="#0b1a13" stroke="#14532d"/>
-        <text x="76" y="404" fill="#34d399" font-weight="bold" font-size="18">Datos, IA y Automatización</text>
+                 <text x="76" y="404" fill="#34d399" font-weight="bold" font-size="20">Datos, IA y Automatización</text>
 
         <!-- TELEMATICS cluster -->
         <rect x="740" y="80" width="400" height="270" rx="16" fill="#1c1917" stroke="#a16207"/>
-        <text x="756" y="104" fill="#f59e0b" font-weight="bold" font-size="18">Telemática & Operación</text>
+                 <text x="756" y="104" fill="#f59e0b" font-weight="bold" font-size="20">Telemática & Operación</text>
 
         <!-- NODES -->
         <!-- Portal PWA -->
@@ -1110,7 +1125,7 @@
     </section>
 
     <!-- Details panel -->
-    <aside class="lg:col-span-3 rounded-2xl border border-slate-800 bg-slate-900/40 p-4 sticky top-4 h-fit" id="panel">
+    <aside id="panel" class="lg:col-span-2 lg:row-span-2 rounded-2xl border border-slate-800 bg-slate-900/40 p-4 sticky top-4 max-h-[calc(100vh-120px)] overflow-auto resize-x">
       <div id="empty" class="text-slate-300">
         <h3 class="font-bold text-lg">Detalles</h3>
         <p class="mt-1">Selecciona un bloque del diagrama para ver:</p>
@@ -1125,8 +1140,8 @@
     </aside>
 
     <!-- Swimlanes / Flujos clave -->
-    <section class="lg:col-span-12 rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
-      <h2 class="font-extrabold text-slate-100 text-lg sm:text-xl tracking-tight mb-2">Flujos Clave</h2>
+    <section id="flowsSection" class="lg:col-span-10 lg:row-start-2 rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
+      <h2 class="font-extrabold text-slate-100 text-xl md:text-2xl tracking-tight mb-2">Flujos Clave</h2>
       <div class="grid md:grid-cols-3 gap-3 text-sm">
         <div class="p-3 rounded-lg border border-slate-800 bg-slate-900/40">
           <h3 class="font-extrabold mb-1">Onboarding (Asesor)</h3>
@@ -1169,6 +1184,56 @@
         // Focus-visible support for accessibility
         document.addEventListener('keydown', (e)=>{
           if(e.key==='Tab') document.documentElement.classList.add('using-tab');
+        });
+
+        // UI state management for layout controls
+        const diagramSection = document.querySelector('#diagramSection');
+        const flowsSection = document.querySelector('#flowsSection');
+        const detailsAside = document.querySelector('#panel');
+
+        function applyState(){
+          const hideDetails = localStorage.getItem('intg_hide_details') === '1';
+          const hideFlows = localStorage.getItem('intg_hide_flows') === '1';
+          if(detailsAside){ detailsAside.classList.toggle('hidden', hideDetails); }
+          if(diagramSection){
+            diagramSection.classList.toggle('lg:col-span-12', hideDetails);
+            diagramSection.classList.toggle('lg:col-span-10', !hideDetails);
+          }
+          if(flowsSection){
+            flowsSection.classList.toggle('hidden', hideFlows);
+            flowsSection.classList.toggle('lg:col-span-12', hideDetails && !hideFlows);
+            flowsSection.classList.toggle('lg:col-span-10', !hideDetails && !hideFlows);
+          }
+        }
+
+        function toggleFullscreen(){
+          if(!diagramSection) return;
+          const isFull = diagramSection.classList.toggle('fullscreen');
+          document.body.classList.toggle('overflow-hidden', isFull);
+          localStorage.setItem('intg_fullscreen', isFull ? '1' : '0');
+        }
+        function toggleDetails(){
+          const hide = !(localStorage.getItem('intg_hide_details') === '1');
+          localStorage.setItem('intg_hide_details', hide ? '1' : '0');
+          applyState();
+        }
+        function toggleFlows(){
+          const hide = !(localStorage.getItem('intg_hide_flows') === '1');
+          localStorage.setItem('intg_hide_flows', hide ? '1' : '0');
+          applyState();
+        }
+
+        document.addEventListener('DOMContentLoaded', ()=>{
+          const btnFull = document.getElementById('btnFull');
+          const btnToggleDetails = document.getElementById('btnToggleDetails');
+          const btnToggleFlows = document.getElementById('btnToggleFlows');
+          btnFull && btnFull.addEventListener('click', toggleFullscreen);
+          btnToggleDetails && btnToggleDetails.addEventListener('click', toggleDetails);
+          btnToggleFlows && btnToggleFlows.addEventListener('click', toggleFlows);
+          if(localStorage.getItem('intg_fullscreen') === '1'){
+            toggleFullscreen();
+          }
+          applyState();
         });
 
     const nodes = {
