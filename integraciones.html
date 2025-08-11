@@ -52,6 +52,23 @@
       position: relative;
       display: block;
     }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.8; transform: scale(1.02); }
+    }
+
+    /* Headers sticky mejorados */
+    .column-headers {
+      position: sticky;
+      top: 60px;
+      z-index: 25;
+      background: linear-gradient(to bottom, 
+        rgba(15, 23, 42, 0.98) 0%, 
+        rgba(15, 23, 42, 0.95) 90%,
+        transparent 100%);
+      backdrop-filter: blur(10px);
+    }
   </style>
 
 </head>
@@ -562,6 +579,7 @@
       const [showTimeline, setShowTimeline] = useState(false);
       const [currentPhase, setCurrentPhase] = useState(null);
       const [currentWeek, setCurrentWeek] = useState(1);
+      const [hoveredWeek, setHoveredWeek] = useState(null);
 
       const TIMELINE_PHASES = {
         "Mes 1: Ignición Inmediata": {
@@ -573,6 +591,7 @@
             {
               semana: 1,
               titulo: "Kick-off Hardware y Alianzas",
+              herramientas_ids: ["samsara", "metamap", "kiban", "conekta", "mifiel"],
               tareas: [
                 "Orden de compra 17 dispositivos Samsara (VG55 + EI21)",
                 "Instalación inmediata en flota Higer 17",
@@ -582,41 +601,44 @@
               herramientas: ["Samsara", "Metamap", "KIBAN", "Conekta", "Mifiel"],
               hito: "¡Telemetría en tiempo real desde día 7!"
             },
-            {
-              semana: 2,
-              titulo: "Arranque Técnico y de Mercado",
-              tareas: [
-                "Despliegue Odoo Enterprise Plan Personalizado",
-                "Configuración módulos CRM y Core Bancario simplificado",
-                "Ofertas formales a COO/PMO y Head of Growth"
-              ],
-              herramientas: ["Odoo Enterprise"],
-              hito: "Plataforma interna lista para primer cliente"
-            },
-            {
-              semana: 3,
-              titulo: "Ingesta de Datos y Entrenamiento IA",
-              tareas: [
-                "HASE y Super-PMA en modo escucha",
-                "Ingesta datos Samsara de flota Higer",
-                "Construcción base de datos propietaria",
-                "Integración APIs estaciones GNV"
-              ],
-              herramientas: ["AWS/Google Cloud", "Samsara API", "APIs GNV"],
-              hito: "Primeros datos flota y consumo correlacionados"
-            },
-            {
-              semana: 4,
-              titulo: "Ensamble del Stack Operativo",
-              tareas: [
-                "Integración end-to-end completa",
-                "Odoo ↔ Metamap ↔ KIBAN ↔ Conekta ↔ Mifiel",
-                "MVP del Asistente Digital avanza",
-                "17 operadores como cliente objetivo"
-              ],
-              herramientas: ["Odoo", "Metamap", "KIBAN", "Conekta", "Mifiel APIs"],
-              hito: "Stack de originación 100% funcional"
-            }
+                        {
+               semana: 2,
+               titulo: "Arranque Técnico y de Mercado",
+               herramientas_ids: ["odoo"],
+               tareas: [
+                 "Despliegue Odoo Enterprise Plan Personalizado",
+                 "Configuración módulos CRM y Core Bancario simplificado",
+                 "Ofertas formales a COO/PMO y Head of Growth"
+               ],
+               herramientas: ["Odoo Enterprise"],
+               hito: "Plataforma interna lista para primer cliente"
+             },
+                        {
+               semana: 3,
+               titulo: "Ingesta de Datos y Entrenamiento IA",
+               herramientas_ids: ["samsara", "gnv", "warehouse"],
+               tareas: [
+                 "HASE y Super-PMA en modo escucha",
+                 "Ingesta datos Samsara de flota Higer",
+                 "Construcción base de datos propietaria",
+                 "Integración APIs estaciones GNV"
+               ],
+               herramientas: ["AWS/Google Cloud", "Samsara API", "APIs GNV"],
+               hito: "Primeros datos flota y consumo correlacionados"
+             },
+                        {
+               semana: 4,
+               titulo: "Ensamble del Stack Operativo",
+               herramientas_ids: ["odoo", "metamap", "kiban", "conekta", "mifiel"],
+               tareas: [
+                 "Integración end-to-end completa",
+                 "Odoo ↔ Metamap ↔ KIBAN ↔ Conekta ↔ Mifiel",
+                 "MVP del Asistente Digital avanza",
+                 "17 operadores como cliente objetivo"
+               ],
+               herramientas: ["Odoo", "Metamap", "KIBAN", "Conekta", "Mifiel APIs"],
+               hito: "Stack de originación 100% funcional"
+             }
           ]
         },
         "Mes 2: Validación en Campo": {
@@ -625,53 +647,57 @@
           borderColor: "border-yellow-400/40",
           nodos_activos: ["whatsapp", "assistant", "ipaas", "pia", "hase"],
           detalles: [
-            {
-              semana: 5,
-              titulo: "Lanzamiento MVP Higer 17",
-              tareas: [
-                "Despliegue oficial Asistente Digital",
-                "17 operadores flota Higer como usuarios",
-                "Comunicación vía API Twilio"
-              ],
-              herramientas: ["Twilio", "Flowise", "Make/n8n"],
-              hito: "MVP en producción"
-            },
-            {
-              semana: 6,
-              titulo: "Medición KPIs Validación",
-              tareas: [
-                "Medición en entorno real y controlado",
-                ">70% automatización",
-                ">95% precisión OCR",
-                "Recolección feedback operadores"
-              ],
-              herramientas: ["Analytics", "Looker Studio"],
-              hito: "Validación tecnológica en campo iniciada"
-            },
-            {
-              semana: 7,
-              titulo: "Evangelización del Pipeline",
-              tareas: [
-                "Head of Growth visita 12 rutas pipeline",
-                "Demos funcionales Asistente IA",
-                "Dashboards Looker con datos reales Higer",
-                "Evidencia tangible, no promesas"
-              ],
-              herramientas: ["Odoo CRM", "Looker Studio"],
-              hito: "Pipeline activado con evidencia real"
-            },
-            {
-              semana: 8,
-              titulo: "Pre-calificación Masiva",
-              tareas: [
-                "Preparación primeros 50 expedientes",
-                "Flujo Manual Underwriting 1.0",
-                "Recolección documentación",
-                "KYC inicial de prospectos"
-              ],
-              herramientas: ["Metamap", "Odoo CRM"],
-              hito: "50 operadores pipeline pre-calificados"
-            }
+                        {
+               semana: 5,
+               titulo: "Lanzamiento MVP Higer 17",
+               herramientas_ids: ["whatsapp", "assistant", "ipaas"],
+               tareas: [
+                 "Despliegue oficial Asistente Digital",
+                 "17 operadores flota Higer como usuarios",
+                 "Comunicación vía API Twilio"
+               ],
+               herramientas: ["Twilio", "Flowise", "Make/n8n"],
+               hito: "MVP en producción"
+             },
+                        {
+               semana: 6,
+               titulo: "Medición KPIs Validación",
+               herramientas_ids: ["warehouse"],
+               tareas: [
+                 "Medición en entorno real y controlado",
+                 ">70% automatización",
+                 ">95% precisión OCR",
+                 "Recolección feedback operadores"
+               ],
+               herramientas: ["Analytics", "Looker Studio"],
+               hito: "Validación tecnológica en campo iniciada"
+             },
+                        {
+               semana: 7,
+               titulo: "Evangelización del Pipeline",
+               herramientas_ids: ["odoo", "warehouse"],
+               tareas: [
+                 "Head of Growth visita 12 rutas pipeline",
+                 "Demos funcionales Asistente IA",
+                 "Dashboards Looker con datos reales Higer",
+                 "Evidencia tangible, no promesas"
+               ],
+               herramientas: ["Odoo CRM", "Looker Studio"],
+               hito: "Pipeline activado con evidencia real"
+             },
+                        {
+               semana: 8,
+               titulo: "Pre-calificación Masiva",
+               herramientas_ids: ["metamap", "odoo"],
+               tareas: [
+                 "Preparación primeros 50 expedientes",
+                 "Flujo Manual Underwriting 1.0",
+                 "Recolección documentación",
+                 "KYC inicial de prospectos"
+               ],
+               herramientas: ["Metamap", "Odoo CRM"],
+               hito: "50 operadores pipeline pre-calificados"
+             }
           ]
         },
         "Mes 3: Ignición y Despliegue": {
@@ -683,6 +709,7 @@
             {
               semana: 9,
               titulo: "Primer Comité de Crédito",
+              herramientas_ids: ["metamap", "kiban", "odoo"],
               tareas: [
                 "Presentación 20-30 expedientes",
                 "KYC Metamap completo",
@@ -692,42 +719,45 @@
               herramientas: ["Metamap", "KIBAN", "Odoo"],
               hito: "Primeras aprobaciones de crédito"
             },
-            {
-              semana: 10,
-              titulo: "Cierre y Firma Digital",
-              tareas: [
-                "Comité aprueba primer lote",
-                "Envío contratos vía Mifiel",
-                "Recepción enganches vía Conekta",
-                "10-20 contratos firmados"
-              ],
-              herramientas: ["Mifiel", "Conekta"],
-              hito: "20 contratos firmados digitalmente"
-            },
-            {
-              semana: 11,
-              titulo: "Ejecución Órdenes de Compra",
-              tareas: [
-                "Orden de compra 10-20 vagonetas",
-                "Instalación Samsara pre-entrega",
-                "Configuración unidades",
-                "Preparación logística entrega"
-              ],
-              herramientas: ["Samsara", "Odoo"],
-              hito: "Vagonetas listas para entrega"
-            },
-            {
-              semana: 12,
-              titulo: "Primeras Unidades en Calle",
-              tareas: [
-                "Entrega vagonetas a operadores",
-                "Samsara transmitiendo en tiempo real",
-                "PIA v1.0 activado - recordatorios pago",
-                "Gestión comunicación inicial"
-              ],
-              herramientas: ["Samsara", "PIA", "Twilio"],
-              hito: "Flota operando y generando revenue + datos"
-            }
+                        {
+               semana: 10,
+               titulo: "Cierre y Firma Digital",
+               herramientas_ids: ["mifiel", "conekta"],
+               tareas: [
+                 "Comité aprueba primer lote",
+                 "Envío contratos vía Mifiel",
+                 "Recepción enganches vía Conekta",
+                 "10-20 contratos firmados"
+               ],
+               herramientas: ["Mifiel", "Conekta"],
+               hito: "20 contratos firmados digitalmente"
+             },
+                        {
+               semana: 11,
+               titulo: "Ejecución Órdenes de Compra",
+               herramientas_ids: ["samsara", "odoo"],
+               tareas: [
+                 "Orden de compra 10-20 vagonetas",
+                 "Instalación Samsara pre-entrega",
+                 "Configuración unidades",
+                 "Preparación logística entrega"
+               ],
+               herramientas: ["Samsara", "Odoo"],
+               hito: "Vagonetas listas para entrega"
+             },
+                        {
+               semana: 12,
+               titulo: "Primeras Unidades en Calle",
+               herramientas_ids: ["samsara", "pia", "whatsapp"],
+               tareas: [
+                 "Entrega vagonetas a operadores",
+                 "Samsara transmitiendo en tiempo real",
+                 "PIA v1.0 activado - recordatorios pago",
+                 "Gestión comunicación inicial"
+               ],
+               herramientas: ["Samsara", "PIA", "Twilio"],
+               hito: "Flota operando y generando revenue + datos"
+             }
           ]
         }
       };
@@ -806,10 +836,10 @@
                 ))}
                 <div className="h-8 w-px bg-slate-700 mx-2" />
                 <button
-                  className={`px-4 py-1.5 rounded-lg border flex items-center gap-2 text-[12px] whitespace-nowrap transition ${
+                  className={`px-6 py-2 rounded-xl border-2 flex items-center gap-2 text-sm font-bold transition-all transform hover:scale-105 ${
                     showTimeline
-                      ? "bg-gradient-to-r from-purple-500/20 to-blue-500/20 border-purple-400 text-purple-200 shadow-lg shadow-purple-500/20"
-                      : "bg-slate-900 border-slate-700 text-slate-300 hover:border-purple-500/40"
+                      ? "bg-gradient-to-r from-purple-600 to-blue-600 border-purple-400 text-white shadow-xl shadow-purple-500/30 ring-2 ring-purple-400/50"
+                      : "bg-gradient-to-r from-purple-900/50 to-blue-900/50 border-purple-500 text-purple-200 hover:shadow-lg hover:shadow-purple-500/20"
                   }`}
                   onClick={() => {
                     setShowTimeline(!showTimeline);
@@ -820,12 +850,58 @@
                     }
                   }}
                 >
-                  <span className="text-base">🚀</span>
-                  Blueprint 90 Días
+                  <span className="text-xl">🚀</span>
+                  <span>Blueprint 90 Días</span>
+                  {showTimeline && <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">ACTIVO</span>}
                 </button>
               </div>
             </div>
           </div>
+
+          {showTimeline && (
+            <div className="fixed top-[120px] left-0 right-0 z-30 bg-gradient-to-b from-purple-900/40 to-transparent backdrop-blur-sm">
+              <div className="max-w-[1400px] mx-auto px-6 py-3">
+                <div className="flex items-center gap-4">
+                  <div className="bg-purple-500/20 rounded-lg px-4 py-2 border border-purple-400/50">
+                    <div className="text-lg font-bold text-purple-200">
+                      {currentPhase}
+                    </div>
+                    <div className="text-sm text-purple-300">
+                      Semana {currentWeek} de 12
+                    </div>
+                  </div>
+                  
+                  <div className="flex-1 flex gap-1">
+                    {[...Array(12)].map((_, i) => {
+                      const week = i + 1;
+                      const phase = Object.entries(TIMELINE_PHASES).find(([_, data]) => 
+                        data.semanas.includes(week)
+                      );
+                      return (
+                        <button
+                          key={week}
+                          onClick={() => {
+                            setCurrentWeek(week);
+                            setCurrentPhase(phase[0]);
+                          }}
+                          className={`flex-1 h-8 rounded transition-all ${
+                            week === currentWeek 
+                              ? 'bg-purple-500 shadow-lg shadow-purple-500/50' 
+                              : week <= currentWeek 
+                                ? 'bg-purple-600/50' 
+                                : 'bg-slate-700/50 hover:bg-slate-600/50'
+                          }`}
+                          title={`Semana ${week}`}
+                        >
+                          <span className="text-xs">{week}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="max-w-[1400px] mx-auto px-6 py-6 grid grid-cols-12 gap-6">
             <aside className="col-span-12 lg:col-span-3 space-y-4">
@@ -1020,6 +1096,23 @@
             </aside>
 
             <main className="col-span-12 lg:col-span-9 space-y-4">
+              <div className="sticky top-0 z-20 bg-slate-950/95 backdrop-blur-xl border-b border-slate-800">
+                <div style={{width: '2400px', display: 'flex', paddingLeft: '24px'}}>
+                  {LANES.map((lane, idx) => (
+                    <div key={lane.id} 
+                         style={{
+                           width: '320px',
+                           marginLeft: idx > 0 ? '28px' : '0',
+                           padding: '12px 0',
+                           textAlign: 'center'
+                         }}
+                         className="text-sm font-semibold text-slate-300 border-x border-slate-700/50">
+                      {lane.icon}
+                      <span className="ml-2">{lane.title}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
               <div
                 className="diagram-scroll-container rounded-2xl border border-slate-800 bg-gradient-to-b from-slate-900 to-slate-950"
                 style={{ width: '100%', height: 'calc(100vh - 250px)', overflowX: 'scroll', overflowY: 'auto', position: 'relative' }}
@@ -1057,58 +1150,29 @@
 
                   {showTimeline && (
                     <>
-                      <div className="absolute top-10 left-0 right-0 h-24 bg-gradient-to-b from-purple-900/30 to-transparent z-40 pointer-events-none">
-                        <div className="flex h-full px-6">
-                          {Object.entries(TIMELINE_PHASES).map(([fase, data], idx) => (
-                            <div 
-                              key={fase} 
-                              className={`flex-1 relative ${idx < 2 ? 'border-r border-purple-400/30' : ''}`}
-                            >
-                              <div className="text-center pt-2">
-                                <div className="text-xs font-bold text-purple-200">{fase}</div>
-                                <div className="text-[10px] text-purple-300 mt-1">
-                                  Semanas {data.semanas[0]}-{data.semanas[data.semanas.length - 1]}
-                                </div>
-                              </div>
-                              <div className="absolute bottom-2 left-2 right-2">
-                                <div className="h-1 bg-slate-800 rounded-full overflow-hidden">
-                                  <div 
-                                    className={`h-full bg-gradient-to-r ${
-                                      currentPhase === fase 
-                                        ? 'from-purple-500 to-blue-500' 
-                                        : 'from-slate-600 to-slate-700'
-                                    } transition-all duration-500`}
-                                    style={{ 
-                                      width: currentPhase === fase 
-                                        ? `${Math.max(0, Math.min(100, ((currentWeek - data.semanas[0] + 1) / data.semanas.length) * 100))}%` 
-                                        : currentPhase && Object.keys(TIMELINE_PHASES).indexOf(currentPhase) > idx 
-                                          ? '100%' 
-                                          : '0%'
-                                    }}
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+
 
                       {currentPhase && filteredNodes.map(node => {
-                        const isActive = TIMELINE_PHASES[currentPhase].nodos_activos.includes(node.id);
+                        const phaseData = TIMELINE_PHASES[currentPhase];
+                        const weekData = phaseData.detalles.find(d => d.semana === currentWeek);
+                        const isActive = weekData?.herramientas_ids?.includes(node.id);
+                        
                         if (!isActive) return null;
+                        
                         return (
                           <div
                             key={`highlight-${node.id}`}
-                            className="absolute pointer-events-none animate-pulse"
+                            className="absolute pointer-events-none"
                             style={{
-                              left: positions[node.id].x - 4,
-                              top: positions[node.id].y - 4,
-                              width: CARD_W + 8,
-                              height: CARD_H + 8,
-                              borderRadius: '20px',
-                              boxShadow: '0 0 20px rgba(168, 85, 247, 0.4)',
-                              border: '2px solid rgba(168, 85, 247, 0.6)',
-                              background: 'radial-gradient(circle, rgba(168, 85, 247, 0.1) 0%, transparent 70%)'
+                              left: positions[node.id].x - 6,
+                              top: positions[node.id].y - 6,
+                              width: CARD_W + 12,
+                              height: CARD_H + 12,
+                              borderRadius: '24px',
+                              border: '3px solid rgba(168, 85, 247, 0.9)',
+                              background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.3) 0%, rgba(59, 130, 246, 0.2) 100%)',
+                              boxShadow: '0 0 30px rgba(168, 85, 247, 0.6), inset 0 0 20px rgba(168, 85, 247, 0.3)',
+                              animation: 'pulse 2s infinite'
                             }}
                           />
                         );
