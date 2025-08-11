@@ -26,7 +26,7 @@
 
   <!-- 6. Your React Code (with dependencies) -->
   <script type="text/babel">
-    const { useMemo, useState } = React;
+    const { useMemo, useState, useEffect } = React;
     // Make Lucide icons available from the global `lucide-react` UMD object with fallback
     const __icons = window.LucideReact || window.lucideReact || {};
     const FallbackIcon = (props) => React.createElement('span', { className: props.className || '' });
@@ -49,14 +49,25 @@
      *  - Usa los toggles de la derecha para mostrar/ocultar capas.
      */
 
-    // --- Visual constants
-    const LANE_WIDTH = 320;
-    const LANE_GAP = 28;
-    const ROW_HEIGHT = 132;
-    const CARD_W = 290;
-    const CARD_H = 86;
-    const PADDING_X = 24;
-    const PADDING_Y = 96;
+    // --- Visual constants (responsive sets)
+    const UI_LARGE = {
+      LANE_WIDTH: 320,
+      LANE_GAP: 28,
+      ROW_HEIGHT: 132,
+      CARD_W: 290,
+      CARD_H: 86,
+      PADDING_X: 24,
+      PADDING_Y: 96,
+    };
+    const UI_SMALL = {
+      LANE_WIDTH: 260,
+      LANE_GAP: 20,
+      ROW_HEIGHT: 116,
+      CARD_W: 240,
+      CARD_H: 78,
+      PADDING_X: 16,
+      PADDING_Y: 72,
+    };
 
     const COLORS = {
       external: "from-sky-500/20 to-sky-400/10 border-sky-400/40",
@@ -326,15 +337,15 @@
     ];
 
     // --- Helper to compute absolute positions
-    function computePositions(nodes) {
+    function computePositions(nodes, UI) {
       const laneIndex = Object.fromEntries(LANES.map((l, i) => [l.id, i]));
       const positions = {};
       nodes.forEach((n) => {
         const x =
-          PADDING_X +
-          laneIndex[n.lane] * (LANE_WIDTH + LANE_GAP) +
-          (LANE_WIDTH - CARD_W) / 2;
-        const y = PADDING_Y + n.row * ROW_HEIGHT;
+          UI.PADDING_X +
+          laneIndex[n.lane] * (UI.LANE_WIDTH + UI.LANE_GAP) +
+          (UI.LANE_WIDTH - UI.CARD_W) / 2;
+        const y = UI.PADDING_Y + n.row * UI.ROW_HEIGHT;
         positions[n.id] = { x, y };
       });
       return positions;
@@ -386,14 +397,14 @@
     };
 
     // Draw curved SVG edge between two nodes
-    function Edge({ from, to, positions, active }) {
+    function Edge({ from, to, positions, active, UI }) {
       const a = positions[from];
       const b = positions[to];
       if (!a || !b) return null;
-      const x1 = a.x + CARD_W;
-      const y1 = a.y + CARD_H / 2;
+      const x1 = a.x + UI.CARD_W;
+      const y1 = a.y + UI.CARD_H / 2;
       const x2 = b.x;
-      const y2 = b.y + CARD_H / 2;
+      const y2 = b.y + UI.CARD_H / 2;
       const dx = Math.max(80, (x2 - x1) * 0.5);
       const path = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
       return (
@@ -410,14 +421,14 @@
       );
     }
 
-    function NodeCard({ node, pos, selected, onSelect }) {
+    function NodeCard({ node, pos, selected, onSelect, UI }) {
       const color = COLORS[node.type];
       // Tailwind JIT can't see dynamic classes, so we have to use a style tag for width/height
       const style = { 
         left: pos.x, 
         top: pos.y,
-        width: `${CARD_W}px`,
-        height: `${CARD_H}px`,
+        width: `${UI.CARD_W}px`,
+        height: `${UI.CARD_H}px`,
       };
       return (
         <div
@@ -465,19 +476,28 @@
         Object.fromEntries(LANES.map((l) => [l.id, true]))
       );
       const [selected, setSelected] = useState(null);
+      const [viewportWidth, setViewportWidth] = useState(window.innerWidth);
+      useEffect(() => {
+        const onResize = () => setViewportWidth(window.innerWidth);
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
+      }, []);
+      const UI = viewportWidth < 640 ? UI_SMALL : UI_LARGE;
 
       const filteredNodes = useMemo(
         () => NODES.filter((n) => visibleLanes[n.lane]),
         [visibleLanes]
       );
-      const positions = useMemo(() => computePositions(filteredNodes), [filteredNodes]);
+      const positions = useMemo(() => computePositions(filteredNodes, UI), [filteredNodes, UI]);
 
       const activeEdges = FLOWS[flow] || [];
 
       // Canvas size
-      const width = PADDING_X * 2 + LANES.length * (LANE_WIDTH + LANE_GAP);
+      const width = UI.PADDING_X * 2 + LANES.length * (UI.LANE_WIDTH + UI.LANE_GAP);
       const maxRow = Math.max(...filteredNodes.map((n) => n.row));
-      const height = PADDING_Y * 2 + (maxRow + 1) * ROW_HEIGHT;
+      const height = UI.PADDING_Y * 2 + (maxRow + 1) * UI.ROW_HEIGHT;
+      const horizontalPadding = 48; // px-6 on container (left+right)
+      const scale = Math.min(1, (viewportWidth - horizontalPadding) / width);
 
       return (
         <div className="min-h-screen bg-slate-950 text-slate-100 font-sans">
@@ -575,48 +595,52 @@
             {/* Canvas + inspector */}
             <main className="col-span-12 lg:col-span-9 space-y-4">
               <div className="relative rounded-2xl border border-slate-800 bg-gradient-to-b from-slate-900 to-slate-950 overflow-auto">
-                {/* Lane headers */}
-                <div className="absolute inset-x-0 top-0 flex" style={{ left: PADDING_X, right: PADDING_X, height: 40 }}>
-                  {LANES.map((l, idx) => (
-                    visibleLanes[l.id] && (
-                      <div
-                        key={l.id}
-                        className="h-full flex items-center gap-2 text-[12px] text-slate-300/90"
-                        style={{
-                          width: LANE_WIDTH,
-                          marginRight: LANE_GAP,
-                        }}
-                      >
-                        <span className="text-slate-400">{l.icon}</span>
-                        {l.title}
-                      </div>
-                    )
+                <div style={{ width, height, transform: `scale(${scale})`, transformOrigin: 'top left', position: 'relative' }}>
+                  {/* Lane headers */}
+                  <div className="absolute inset-x-0 top-0 flex" style={{ left: UI.PADDING_X, right: UI.PADDING_X, height: 40 }}>
+                    {LANES.map((l, idx) => (
+                      visibleLanes[l.id] && (
+                        <div
+                          key={l.id}
+                          className="h-full flex items-center gap-2 text-[12px] text-slate-300/90"
+                          style={{
+                            width: UI.LANE_WIDTH,
+                            marginRight: UI.LANE_GAP,
+                          }}
+                        >
+                          <span className="text-slate-400">{l.icon}</span>
+                          {l.title}
+                        </div>
+                      )
+                    ))}
+                  </div>
+
+                  <svg width={width} height={height} className="block">
+                    {/* Edges */}
+                    {Object.values(FLOWS).flat().map(([a, b], i) => (
+                      <Edge
+                        key={`${a}-${b}-${i}`}
+                        from={a}
+                        to={b}
+                        positions={positions}
+                        active={FLOWS[flow].some(([x, y]) => x === a && y === b)}
+                        UI={UI}
+                      />
+                    ))}
+                  </svg>
+
+                  {/* Cards */}
+                  {filteredNodes.map((n) => (
+                    positions[n.id] && <NodeCard
+                      key={n.id}
+                      node={n}
+                      pos={positions[n.id]}
+                      selected={selected?.id === n.id}
+                      onSelect={setSelected}
+                      UI={UI}
+                    />)
                   ))}
                 </div>
-
-                <svg width={width} height={height} className="block">
-                  {/* Edges */}
-                  {Object.values(FLOWS).flat().map(([a, b], i) => (
-                    <Edge
-                      key={`${a}-${b}-${i}`}
-                      from={a}
-                      to={b}
-                      positions={positions}
-                      active={FLOWS[flow].some(([x, y]) => x === a && y === b)}
-                    />
-                  ))}
-                </svg>
-
-                {/* Cards */}
-                {filteredNodes.map((n) => (
-                  positions[n.id] && <NodeCard
-                    key={n.id}
-                    node={n}
-                    pos={positions[n.id]}
-                    selected={selected?.id === n.id}
-                    onSelect={setSelected}
-                  />)
-                )}
               </div>
 
               {/* Inspector */}
