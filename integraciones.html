@@ -9,12 +9,57 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
 
+  <style>
+    /* Cross-browser scroll container */
+    .diagram-scroll-container {
+      width: 100%;
+      height: calc(100vh - 250px);
+      overflow-x: scroll !important;
+      overflow-y: auto;
+      position: relative;
+
+      /* Firefox */
+      scrollbar-width: thin;
+      scrollbar-color: #475569 #1e293b;
+
+      /* Safari/WebKit */
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* Chrome/Edge WebKit scrollbars */
+    .diagram-scroll-container::-webkit-scrollbar {
+      width: 14px;
+      height: 14px;
+    }
+    .diagram-scroll-container::-webkit-scrollbar-track {
+      background: #1e293b;
+      border-radius: 4px;
+    }
+    .diagram-scroll-container::-webkit-scrollbar-thumb {
+      background: #475569;
+      border-radius: 4px;
+      border: 2px solid #1e293b;
+    }
+    .diagram-scroll-container::-webkit-scrollbar-corner {
+      background: #1e293b;
+    }
+
+    /* Inner canvas to force horizontal scrolling */
+    .diagram-inner-canvas {
+      min-width: 2400px !important;
+      width: max-content;
+      padding-bottom: 50px;
+      position: relative;
+      display: block;
+    }
+  </style>
+
 </head>
 <body class="bg-slate-950">
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useMemo, useState } = React;
+    const { useMemo, useState, useEffect } = React;
     // Icon placeholders (lucide-react no UMD en navegador)
     const PlaceholderIcon = ({ className }) => <span className={className} style={{ display: 'inline-block' }}>●</span>;
     const Layers = ({ className }) => <span className={className}>⬢</span>;
@@ -514,6 +559,22 @@
       );
       const [selected, setSelected] = useState(null);
 
+      useEffect(() => {
+        const container = document.querySelector('.diagram-scroll-container');
+        if (container) {
+          console.log('Container width:', container.clientWidth);
+          console.log('Content width:', container.scrollWidth);
+          console.log('Can scroll:', container.scrollWidth > container.clientWidth);
+          if (container.scrollWidth <= container.clientWidth) {
+            const innerCanvas = container.querySelector('.diagram-inner-canvas');
+            if (innerCanvas) {
+              innerCanvas.style.minWidth = '2400px';
+              innerCanvas.style.width = '2400px';
+            }
+          }
+        }
+      }, []);
+
       const filteredNodes = useMemo(
         () => NODES.filter((n) => visibleLanes[n.lane]),
         [visibleLanes]
@@ -522,7 +583,7 @@
 
       const activeEdges = FLOWS[flow] || [];
 
-      const width = Math.max(2200, PADDING_X * 2 + LANES.length * (LANE_WIDTH + LANE_GAP));
+      const width = Math.max(2400, PADDING_X * 2 + LANES.length * (LANE_WIDTH + LANE_GAP));
       const maxRow = Math.max(...filteredNodes.map((n) => n.row));
       const height = PADDING_Y * 2 + (maxRow + 1) * ROW_HEIGHT;
 
@@ -620,9 +681,9 @@
             <main className="col-span-12 lg:col-span-9 space-y-4">
               <div
                 className="diagram-scroll-container rounded-2xl border border-slate-800 bg-gradient-to-b from-slate-900 to-slate-950"
-                style={{ width: '100%', overflowX: 'auto', overflowY: 'auto', maxHeight: '80vh' }}
+                style={{ width: '100%', height: 'calc(100vh - 250px)', overflowX: 'scroll', overflowY: 'auto', position: 'relative' }}
               >
-                <div className="relative" style={{ minWidth: '2200px', position: 'relative' }}>
+                <div className="diagram-inner-canvas relative" style={{ minWidth: '2400px', position: 'relative', paddingTop: '60px' }}>
                   <div className="absolute inset-x-0 top-0 flex" style={{ left: PADDING_X, right: PADDING_X, height: 40 }}>
                     {LANES.map((l, idx) => (
                       visibleLanes[l.id] && (
