@@ -8,6 +8,37 @@
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    // Simple runtime error overlay for debugging
+    (function(){
+      function showError(message){
+        try{
+          const bar = document.createElement('div');
+          bar.style.position = 'fixed';
+          bar.style.top = '0';
+          bar.style.left = '0';
+          bar.style.right = '0';
+          bar.style.zIndex = '99999';
+          bar.style.background = '#7f1d1d';
+          bar.style.color = 'white';
+          bar.style.padding = '8px 12px';
+          bar.style.fontFamily = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
+          bar.style.fontSize = '12px';
+          bar.textContent = '[Error] ' + message;
+          document.body.appendChild(bar);
+          console.error('[Overlay]', message);
+        }catch(e){
+          console.error(message);
+        }
+      }
+      window.addEventListener('error', function(e){
+        if(!e) return; showError(e.message || 'Unknown script error');
+      });
+      window.addEventListener('unhandledrejection', function(e){
+        if(!e) return; showError((e.reason && (e.reason.stack || e.reason.message)) || 'Unhandled rejection');
+      });
+    })();
+  </script>
 
   <style>
     /* Cross-browser scroll container */
@@ -149,6 +180,7 @@
   <div id="root"></div>
 
   <script type="text/babel" data-presets="env,react">
+    console.log('Integrations map script loaded');
     const { useMemo, useState, useEffect } = React;
     // Icon placeholders (lucide-react no UMD en navegador)
     const PlaceholderIcon = ({ className }) => <span className={className} style={{ display: 'inline-block' }}>●</span>;
@@ -1417,13 +1449,13 @@
         x = vb[0];
         y = vb[1];
       }
-      svg.setAttribute('viewBox', `${x} ${y} ${w} ${h}`);
-    }
-
-    // initialize larger default zoom for readability
-    applyZoom(true);
-
-    const zi = document.getElementById('zoomIn');
+            svg.setAttribute('viewBox', `\${x} \${y} \${w} \${h}`);
+     }
+ 
+     // initialize larger default zoom for readability
+     applyZoom(true);
+ 
+     const zi = document.getElementById('zoomIn');
     const zo = document.getElementById('zoomOut');
     const zr = document.getElementById('zoomReset');
     if(zi) zi.addEventListener('click', ()=>{ zoom = Math.min(3, zoom * 1.2); applyZoom(false); });
@@ -1996,7 +2028,13 @@
       );
     }
 
-    ReactDOM.render(<ConductoresIntegrationsMap />, document.getElementById('root'));
+    const rootEl = document.getElementById('root');
+    if (!rootEl) {
+      console.error('Root element not found');
+    } else {
+      const root = ReactDOM.createRoot(rootEl);
+      root.render(<ConductoresIntegrationsMap />);
+    }
   </script>
 </body>
 </html>
