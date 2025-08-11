@@ -17,24 +17,24 @@
     const { useMemo, useState } = React;
     // Icon placeholders (lucide-react no UMD en navegador)
     const PlaceholderIcon = ({ className }) => <span className={className} style={{ display: 'inline-block' }}>●</span>;
-    const Layers = (props) => <PlaceholderIcon {...props} />;
-    const PlayCircle = (props) => <PlaceholderIcon {...props} />;
-    const ArrowRightLeft = (props) => <PlaceholderIcon {...props} />;
-    const ShieldCheck = (props) => <PlaceholderIcon {...props} />;
-    const Cable = (props) => <PlaceholderIcon {...props} />;
-    const Users = (props) => <PlaceholderIcon {...props} />;
-    const ServerCog = (props) => <PlaceholderIcon {...props} />;
-    const Database = (props) => <PlaceholderIcon {...props} />;
-    const BarChart3 = (props) => <PlaceholderIcon {...props} />;
-    const FileSignature = (props) => <PlaceholderIcon {...props} />;
-    const CreditCard = (props) => <PlaceholderIcon {...props} />;
-    const MessageSquare = (props) => <PlaceholderIcon {...props} />;
-    const Fuel = (props) => <PlaceholderIcon {...props} />;
-    const Bot = (props) => <PlaceholderIcon {...props} />;
-    const Zap = (props) => <PlaceholderIcon {...props} />;
-    const AlertTriangle = (props) => <PlaceholderIcon {...props} />;
-    const Workflow = (props) => <PlaceholderIcon {...props} />;
-    const GitBranch = (props) => <PlaceholderIcon {...props} />;
+    const Layers = ({ className }) => <span className={className}>⬢</span>;
+    const PlayCircle = ({ className }) => <span className={className}>▶</span>;
+    const ArrowRightLeft = ({ className }) => <span className={className}>⇄</span>;
+    const ShieldCheck = ({ className }) => <span className={className}>🛡</span>;
+    const Cable = ({ className }) => <span className={className}>🔌</span>;
+    const Users = ({ className }) => <span className={className}>👥</span>;
+    const ServerCog = ({ className }) => <span className={className}>⚙</span>;
+    const Database = ({ className }) => <span className={className}>💾</span>;
+    const BarChart3 = ({ className }) => <span className={className}>📊</span>;
+    const FileSignature = ({ className }) => <span className={className}>✍</span>;
+    const CreditCard = ({ className }) => <span className={className}>💳</span>;
+    const MessageSquare = ({ className }) => <span className={className}>💬</span>;
+    const Fuel = ({ className }) => <span className={className}>⛽</span>;
+    const Bot = ({ className }) => <span className={className}>🤖</span>;
+    const Zap = ({ className }) => <span className={className}>⚡</span>;
+    const AlertTriangle = ({ className }) => <span className={className}>⚠</span>;
+    const Workflow = ({ className }) => <span className={className}>⚙</span>;
+    const GitBranch = ({ className }) => <span className={className}>🔀</span>;
 
     const LANE_WIDTH = 320;
     const LANE_GAP = 28;
@@ -522,7 +522,7 @@
 
       const activeEdges = FLOWS[flow] || [];
 
-      const width = PADDING_X * 2 + LANES.length * (LANE_WIDTH + LANE_GAP);
+      const width = Math.max(2200, PADDING_X * 2 + LANES.length * (LANE_WIDTH + LANE_GAP));
       const maxRow = Math.max(...filteredNodes.map((n) => n.row));
       const height = PADDING_Y * 2 + (maxRow + 1) * ROW_HEIGHT;
 
@@ -618,47 +618,52 @@
             </aside>
 
             <main className="col-span-12 lg:col-span-9 space-y-4">
-              <div className="relative rounded-2xl border border-slate-800 bg-gradient-to-b from-slate-900 to-slate-950 overflow-x-auto overflow-y-hidden">
-                <div className="absolute inset-x-0 top-0 flex" style={{ left: PADDING_X, right: PADDING_X, height: 40 }}>
-                  {LANES.map((l, idx) => (
-                    visibleLanes[l.id] && (
-                      <div
-                        key={l.id}
-                        className="h-full flex items-center gap-2 text-[12px] text-slate-300/90"
-                        style={{
-                          width: LANE_WIDTH,
-                          marginRight: LANE_GAP,
-                          transform: `translateX(${idx * (LANE_WIDTH + LANE_GAP)}px)`,
-                        }}
-                      >
-                        <span className="text-slate-400">{l.icon}</span>
-                        {l.title}
-                      </div>
-                    )
-                  ))}
+              <div
+                className="diagram-scroll-container rounded-2xl border border-slate-800 bg-gradient-to-b from-slate-900 to-slate-950"
+                style={{ width: '100%', overflowX: 'auto', overflowY: 'auto', maxHeight: '80vh' }}
+              >
+                <div className="relative" style={{ minWidth: '2200px', position: 'relative' }}>
+                  <div className="absolute inset-x-0 top-0 flex" style={{ left: PADDING_X, right: PADDING_X, height: 40 }}>
+                    {LANES.map((l, idx) => (
+                      visibleLanes[l.id] && (
+                        <div
+                          key={l.id}
+                          className="h-full flex items-center gap-2 text-[12px] text-slate-300/90"
+                          style={{
+                            width: LANE_WIDTH,
+                            marginRight: LANE_GAP,
+                            transform: `translateX(${idx * (LANE_WIDTH + LANE_GAP)}px)`,
+                          }}
+                        >
+                          <span className="text-slate-400">{l.icon}</span>
+                          {l.title}
+                        </div>
+                      )
+                    ))}
+                  </div>
+
+                  <svg width={width} height={height} className="block">
+                    {Object.values(FLOWS).flat().map(([a, b], i) => (
+                      <Edge
+                        key={i}
+                        from={a}
+                        to={b}
+                        positions={positions}
+                        active={FLOWS[flow].some(([x, y]) => x === a && y === b)}
+                      />
+                    ))}
+                  </svg>
+
+                  {filteredNodes.map((n) => (
+                    <NodeCard
+                      key={n.id}
+                      node={n}
+                      pos={positions[n.id]}
+                      selected={selected?.id === n.id}
+                      onSelect={setSelected}
+                    />)
+                  )}
                 </div>
-
-                <svg width={width} height={height} className="block">
-                  {Object.values(FLOWS).flat().map(([a, b], i) => (
-                    <Edge
-                      key={i}
-                      from={a}
-                      to={b}
-                      positions={positions}
-                      active={FLOWS[flow].some(([x, y]) => x === a && y === b)}
-                    />
-                  ))}
-                </svg>
-
-                {filteredNodes.map((n) => (
-                  <NodeCard
-                    key={n.id}
-                    node={n}
-                    pos={positions[n.id]}
-                    selected={selected?.id === n.id}
-                    onSelect={setSelected}
-                  />)
-                )}
               </div>
 
               <div className="grid md:grid-cols-1 gap-4">
