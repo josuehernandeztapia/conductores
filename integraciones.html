@@ -144,7 +144,7 @@
     const CARD_W = 290;
     const CARD_H = 86;
     const PADDING_X = 24;
-    const PADDING_Y = 96;
+    const PADDING_Y = 40;
 
     const COLORS = {
       external: "from-sky-500/20 to-sky-400/10 border-sky-400/40",
@@ -1352,9 +1352,9 @@
       );
 
       return (
-        <div className="min-h-screen bg-slate-950 text-slate-100">
-          <div className="sticky top-0 z-30 bg-slate-950/80 backdrop-blur border-b border-slate-800">
-            <div className="max-w-[1400px] mx-auto px-6 py-4 flex items-center gap-3">
+        <div className="min-h-screen bg-slate-950 text-slate-100 pt-16">
+          <header className="fixed top-0 left-0 right-0 h-16 bg-slate-950/80 backdrop-blur z-40 border-b border-slate-800">
+            <div className="h-full max-w-[1400px] mx-auto px-6 flex items-center gap-3">
               <ServerCog className="w-5 h-5 text-teal-400" />
               <h1 className="text-lg md:text-xl font-extrabold tracking-tight">
                 Arquitectura de Integraciones — Conductores
@@ -1399,7 +1399,7 @@
                 </button>
               </div>
             </div>
-          </div>
+          </header>
 
           {/* Selector de Vista Flotante */}
           <div className="fixed top-20 right-4 z-40 animate-slideIn">
@@ -1468,8 +1468,8 @@
           </div>
 
           {showTimeline && currentPhase && (
-            <div className="sticky top-0 z-30 mb-2">
-              <div className="max-w-[1400px] mx-auto px-4">
+            <div className="mb-2">
+              <div className="bg-purple-900/20 border-y border-purple-500/30 p-2">
                 <div className="bg-purple-900/30 backdrop-blur-md rounded-lg p-2 border border-purple-400/30">
                   <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2">
@@ -1705,160 +1705,162 @@
               )}
             </aside>
 
-            <main className="col-span-12 lg:col-span-9 space-y-4">
+            <main className="col-span-12 lg:col-span-9">
   {viewMode === 'timeline' ? (
     <>
-      <div
-        className={`diagram-scroll-container rounded-2xl border border-slate-800 bg-gradient-to-b from-slate-900 to-slate-950 ${showTimeline ? 'mt-24' : ''}`}
-        style={{ width: '100%', height: 'calc(100vh - 250px)', overflowX: 'scroll', overflowY: 'auto', position: 'relative' }}
-      >
-        <div className="diagram-inner-canvas relative" style={{ minWidth: '2400px', position: 'relative' }}>
+      <div className="flex overflow-hidden">
+        <div className="flex-1 relative">
+          <div
+            className="diagram-scroll-container rounded-2xl border border-slate-800 bg-gradient-to-b from-slate-900 to-slate-950"
+            style={{ width: '100%', height: 'calc(100vh - 250px)', overflowX: 'scroll', overflowY: 'auto', position: 'relative' }}
+          >
+            <div className="diagram-inner-canvas relative" style={{ minWidth: '2400px', position: 'relative' }}>
 
-          <svg width={width} height={height} className="block">
-            {LANES.map((lane, idx) => {
-              const xPosition = PADDING_X + idx * (LANE_WIDTH + LANE_GAP) + (LANE_WIDTH / 2);
-              return visibleLanes[lane.id] && (
-                <g key={lane.id}>
-                  <rect
-                    x={xPosition - LANE_WIDTH/2}
-                    y={45}
-                    width={LANE_WIDTH}
-                    height={35}
-                    fill="rgba(30, 41, 59, 0.8)"
-                    stroke="rgba(100, 116, 139, 0.3)"
-                    strokeWidth="1"
-                    rx="8"
+              <svg width={width} height={height} className="block" style={{ marginTop: 0 }}>
+                {LANES.map((lane, idx) => {
+                  const xPosition = PADDING_X + idx * (LANE_WIDTH + LANE_GAP) + (LANE_WIDTH / 2);
+                  return visibleLanes[lane.id] && (
+                    <g key={lane.id}>
+                      <rect
+                        x={xPosition - LANE_WIDTH/2}
+                        y={20}
+                        width={LANE_WIDTH}
+                        height={35}
+                        fill="rgba(30, 41, 59, 0.8)"
+                        stroke="rgba(100, 116, 139, 0.3)"
+                        strokeWidth="1"
+                        rx="8"
+                      />
+                      <text
+                        x={xPosition}
+                        y={40}
+                        textAnchor="middle"
+                        className="fill-slate-200"
+                        fontSize="15"
+                        fontWeight="600"
+                      >
+                        {lane.id === 'front' && '🎯 '}
+                        {lane.id === 'orchestration' && '⚙️ '}
+                        {lane.id === 'external' && '🔌 '}
+                        {lane.id === 'telematics' && '⚡ '}
+                        {lane.id === 'internal' && '👥 '}
+                        {lane.id === 'data' && '💾 '}
+                        {lane.title}
+                      </text>
+                    </g>
+                  );
+                })}
+                {Object.values(FLOWS).flat().map(([a, b], i) => (
+                  <Edge
+                    key={i}
+                    from={a}
+                    to={b}
+                    positions={positions}
+                    active={!!flow && FLOWS[flow].some(([x, y]) => x === a && y === b)}
                   />
-                  <text
-                    x={xPosition}
-                    y={67}
-                    textAnchor="middle"
-                    className="fill-slate-200"
-                    fontSize="15"
-                    fontWeight="600"
-                  >
-                    {lane.id === 'front' && '🎯 '}
-                    {lane.id === 'orchestration' && '⚙️ '}
-                    {lane.id === 'external' && '🔌 '}
-                    {lane.id === 'telematics' && '⚡ '}
-                    {lane.id === 'internal' && '👥 '}
-                    {lane.id === 'data' && '💾 '}
-                    {lane.title}
-                  </text>
-                </g>
-              );
-            })}
-            {Object.values(FLOWS).flat().map(([a, b], i) => (
-              <Edge
-                key={i}
-                from={a}
-                to={b}
-                positions={positions}
-                active={!!flow && FLOWS[flow].some(([x, y]) => x === a && y === b)}
-              />
-            ))}
-          </svg>
+                ))}
+              </svg>
 
-          {showTimeline && (
-            <>
-              {showTimeline && currentPhase && filteredNodes.map(node => {
-                const phaseData = TIMELINE_PHASES[currentPhase];
-                const weekData = phaseData.detalles.find(d => d.semana === currentWeek);
-                const isActiveInWeek = weekData?.herramientas_ids?.includes(node.id);
-                const isActiveInPhase = phaseData.nodos_activos.includes(node.id);
-                if (!isActiveInWeek && !isActiveInPhase) return null;
-                return (
-                  <div
-                    key={`highlight-${node.id}`}
-                    className="absolute pointer-events-none"
-                    style={{
-                      left: positions[node.id].x - 8,
-                      top: positions[node.id].y - 8,
-                      width: CARD_W + 16,
-                      height: CARD_H + 16,
-                      borderRadius: '24px',
-                      border: isActiveInWeek ? '4px solid rgba(168, 85, 247, 1)' : '2px solid rgba(168, 85, 247, 0.3)',
-                      background: isActiveInWeek 
-                        ? 'radial-gradient(circle, rgba(168, 85, 247, 0.4) 0%, transparent 70%)'
-                        : 'radial-gradient(circle, rgba(168, 85, 247, 0.1) 0%, transparent 70%)',
-                      boxShadow: isActiveInWeek 
-                        ? '0 0 40px rgba(168, 85, 247, 0.8), inset 0 0 30px rgba(168, 85, 247, 0.4)'
-                        : '0 0 10px rgba(168, 85, 247, 0.2)',
-                      animation: isActiveInWeek ? 'pulse 1.5s infinite' : 'none',
-                      zIndex: isActiveInWeek ? 10 : 5
-                    }}
-                  />
-                );
-              })}
-            </>
-          )}
-
-          {filteredNodes.map((n) => (
-            <NodeCard
-              key={n.id}
-              node={n}
-              pos={positions[n.id]}
-              selected={selected?.id === n.id}
-              onSelect={setSelected}
-            />)
-          )}
-        </div>
-      </div>
-
-      <div className="grid md:grid-cols-1 gap-4">
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <ServerCog className="w-4 h-4 text-fuchsia-300" />
-            <div className="font-semibold">Inspector de nodo</div>
-          </div>
-          {selected ? (
-            <div>
-              <div className="text-teal-200 font-semibold">{selected.title}</div>
-              <div className="text-slate-300/80 text-sm mb-4">{selected.subtitle}</div>
-              {selected.ficha && (
-                <div className="space-y-3 text-sm">
-                  <div>
-                    <div className="uppercase tracking-wide text-[10px] text-slate-400">Proceso Involucrado</div>
-                    <div className="text-slate-200">{selected.ficha.proceso}</div>
-                  </div>
-                  <div>
-                    <div className="uppercase tracking-wide text-[10px] text-slate-400">Costo Estimado (Proxy)</div>
-                    <div className="text-slate-200">{selected.ficha.costo}</div>
-                  </div>
-                  <div>
-                    <div className="uppercase tracking-wide text-[10px] text-slate-400">Justificación</div>
-                    <div className="text-slate-300/90">{selected.ficha.justificacion}</div>
-                  </div>
-                </div>
+              {showTimeline && (
+                <>
+                  {showTimeline && currentPhase && filteredNodes.map(node => {
+                    const phaseData = TIMELINE_PHASES[currentPhase];
+                    const weekData = phaseData.detalles.find(d => d.semana === currentWeek);
+                    const isActiveInWeek = weekData?.herramientas_ids?.includes(node.id);
+                    const isActiveInPhase = phaseData.nodos_activos.includes(node.id);
+                    if (!isActiveInWeek && !isActiveInPhase) return null;
+                    return (
+                      <div
+                        key={`highlight-${node.id}`}
+                        className="absolute pointer-events-none"
+                        style={{
+                          left: positions[node.id].x - 8,
+                          top: positions[node.id].y - 8,
+                          width: CARD_W + 16,
+                          height: CARD_H + 16,
+                          borderRadius: '24px',
+                          border: isActiveInWeek ? '4px solid rgba(168, 85, 247, 1)' : '2px solid rgba(168, 85, 247, 0.3)',
+                          background: isActiveInWeek 
+                            ? 'radial-gradient(circle, rgba(168, 85, 247, 0.4) 0%, transparent 70%)'
+                            : 'radial-gradient(circle, rgba(168, 85, 247, 0.1) 0%, transparent 70%)',
+                          boxShadow: isActiveInWeek 
+                            ? '0 0 40px rgba(168, 85, 247, 0.8), inset 0 0 30px rgba(168, 85, 247, 0.4)'
+                            : '0 0 10px rgba(168, 85, 247, 0.2)',
+                          animation: isActiveInWeek ? 'pulse 1.5s infinite' : 'none',
+                          zIndex: isActiveInWeek ? 10 : 5
+                        }}
+                      />
+                    );
+                  })}
+                </>
               )}
-              <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-slate-800">
-                <div>
-                  <div className="uppercase tracking-wide text-[10px] text-slate-400">Entradas</div>
-                  <ul className="mt-1 text-sm list-disc pl-4 space-y-1">
-                    {selected.io.in.map((t, i) => (
-                      <li key={i}>{t}</li>
-                    ))}
-                  </ul>
-                </div>
-                <div>
-                  <div className="uppercase tracking-wide text-[10px] text-slate-400">Salidas</div>
-                  <ul className="mt-1 text-sm list-disc pl-4 space-y-1">
-                    {selected.io.out.map((t, i) => (
-                      <li key={i}>{t}</li>
-                    ))}
-                  </ul>
+
+              {filteredNodes.map((n) => (
+                <NodeCard
+                  key={n.id}
+                  node={n}
+                  pos={positions[n.id]}
+                  selected={selected?.id === n.id}
+                  onSelect={setSelected}
+                />)
+              )}
+            </div>
+          </div>
+        </div>
+
+        <aside className="w-96 border-l border-slate-800 bg-slate-900/50 overflow-y-auto">
+          <div className="p-4">
+            <h3 className="font-semibold mb-3">Inspector de nodo</h3>
+            {selected ? (
+              <div>
+                <div className="text-teal-200 font-semibold">{selected.title}</div>
+                <div className="text-slate-300/80 text-sm mb-4">{selected.subtitle}</div>
+                {selected.ficha && (
+                  <div className="space-y-3 text-sm">
+                    <div>
+                      <div className="uppercase tracking-wide text-[10px] text-slate-400">Proceso Involucrado</div>
+                      <div className="text-slate-200">{selected.ficha.proceso}</div>
+                    </div>
+                    <div>
+                      <div className="uppercase tracking-wide text-[10px] text-slate-400">Costo Estimado (Proxy)</div>
+                      <div className="text-slate-200">{selected.ficha.costo}</div>
+                    </div>
+                    <div>
+                      <div className="uppercase tracking-wide text-[10px] text-slate-400">Justificación</div>
+                      <div className="text-slate-300/90">{selected.ficha.justificacion}</div>
+                    </div>
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-slate-800">
+                  <div>
+                    <div className="uppercase tracking-wide text-[10px] text-slate-400">Entradas</div>
+                    <ul className="mt-1 text-sm list-disc pl-4 space-y-1">
+                      {selected.io.in.map((t, i) => (
+                        <li key={i}>{t}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div>
+                    <div className="uppercase tracking-wide text-[10px] text-slate-400">Salidas</div>
+                    <ul className="mt-1 text-sm list-disc pl-4 space-y-1">
+                      {selected.io.out.map((t, i) => (
+                        <li key={i}>{t}</li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
               </div>
-            </div>
-          ) : (
-            <div className="text-slate-400 text-sm">
-              Selecciona un nodo en el mapa para ver detalles de entradas/salidas.
-            </div>
-          )}
-        </div>
+            ) : (
+              <div className="text-slate-400 text-center mt-8">
+                <span className="text-2xl">👆</span>
+                <p className="mt-2">Selecciona un nodo</p>
+              </div>
+            )}
+          </div>
+        </aside>
       </div>
 
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4 mt-4">
         <div className="flex items-center gap-2 mb-2">
           <AlertTriangle className="w-4 h-4 text-amber-300" />
           <div className="font-semibold">Notas de diseño y siguientes pasos</div>
@@ -1881,8 +1883,8 @@
           </div>
 
           {showTimeline && (
-            <div className="sticky top-0 z-30 mb-4">
-              <div className="max-w-[1400px] mx-auto px-6">
+            <div className="mb-4">
+              <div className="bg-purple-900/20 border-y border-purple-500/30 p-2">
                 <div className="bg-slate-950/80 backdrop-blur-xl border border-slate-800 rounded-xl p-4">
                   <div className="flex items-center gap-2 mb-3">
                     <span className="text-2xl">🚀</span>
