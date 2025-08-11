@@ -23,7 +23,7 @@
       scrollbar-color: #475569 #1e293b;
 
       /* Safari/WebKit */
-      -webkit-overflow-scrolling: touch;
+      -webkit-overflow-scrolling: touch !important;
     }
 
     /* Chrome/Edge WebKit scrollbars */
@@ -683,27 +683,26 @@
                 className="diagram-scroll-container rounded-2xl border border-slate-800 bg-gradient-to-b from-slate-900 to-slate-950"
                 style={{ width: '100%', height: 'calc(100vh - 250px)', overflowX: 'scroll', overflowY: 'auto', position: 'relative' }}
               >
-                <div className="diagram-inner-canvas relative" style={{ minWidth: '2400px', position: 'relative', paddingTop: '60px' }}>
-                  <div className="absolute inset-x-0 top-0 flex" style={{ left: PADDING_X, right: PADDING_X, height: 40 }}>
-                    {LANES.map((l, idx) => (
-                      visibleLanes[l.id] && (
-                        <div
-                          key={l.id}
-                          className="h-full flex items-center gap-2 text-[12px] text-slate-300/90"
-                          style={{
-                            width: LANE_WIDTH,
-                            marginRight: LANE_GAP,
-                            transform: `translateX(${idx * (LANE_WIDTH + LANE_GAP)}px)`,
-                          }}
-                        >
-                          <span className="text-slate-400">{l.icon}</span>
-                          {l.title}
-                        </div>
-                      )
-                    ))}
-                  </div>
+                <div className="diagram-inner-canvas relative" style={{ minWidth: '2400px', position: 'relative' }}>
+
 
                   <svg width={width} height={height} className="block">
+                    {LANES.map((lane, idx) => {
+                      const xPosition = PADDING_X + idx * (LANE_WIDTH + LANE_GAP) + (LANE_WIDTH / 2);
+                      return visibleLanes[lane.id] && (
+                        <text
+                          key={lane.id}
+                          x={xPosition}
+                          y={70}
+                          textAnchor="middle"
+                          className="fill-slate-300"
+                          fontSize="13"
+                          fontWeight="500"
+                        >
+                          {lane.title}
+                        </text>
+                      );
+                    })}
                     {Object.values(FLOWS).flat().map(([a, b], i) => (
                       <Edge
                         key={i}
