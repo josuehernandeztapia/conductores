@@ -8,29 +8,107 @@
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/framer-motion@10.18.0/dist/framer-motion.umd.js"></script>
 
   <style>
-    /* Cross-browser scroll container (kept for fallback only) */
-    .diagram-scroll-container { width: 100%; height: calc(100vh - 250px); overflow-x: scroll !important; overflow-y: auto; position: relative; scrollbar-width: thin; scrollbar-color: #475569 #1e293b; -webkit-overflow-scrolling: touch !important; }
-    .diagram-scroll-container::-webkit-scrollbar { width: 14px; height: 14px; }
-    .diagram-scroll-container::-webkit-scrollbar-track { background: #1e293b; border-radius: 4px; }
-    .diagram-scroll-container::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; border: 2px solid #1e293b; }
-    .diagram-scroll-container::-webkit-scrollbar-corner { background: #1e293b; }
-    .diagram-inner-canvas { min-width: 2400px !important; width: max-content; padding-bottom: 50px; position: relative; display: block; }
+    /* Cross-browser scroll container */
+    .diagram-scroll-container {
+      width: 100%;
+      height: calc(100vh - 250px);
+      overflow-x: scroll !important;
+      overflow-y: auto;
+      position: relative;
 
-    /* Smooth transitions globally */
-    * { transition: all 200ms ease-out; }
+      /* Firefox */
+      scrollbar-width: thin;
+      scrollbar-color: #475569 #1e293b;
 
-    /* Pulse glow for active nodes */
-    @keyframes pulseGlow {
-      0%, 100% { box-shadow: 0 0 20px rgba(168, 85, 247, 0.5); transform: scale(1); }
-      50% { box-shadow: 0 0 40px rgba(168, 85, 247, 0.8); transform: scale(1.02); }
+      /* Safari/WebKit */
+      -webkit-overflow-scrolling: touch !important;
     }
-    .node-active { animation: pulseGlow 2s infinite; }
 
-    /* Column headers overlay */
-    .column-header-overlay { position: absolute; top: 0; left: 0; right: 0; height: 48px; background: linear-gradient(to bottom, rgba(2,6,23,1) 0%, rgba(2,6,23,0.85) 60%, rgba(2,6,23,0) 100%); pointer-events: none; z-index: 10; }
+    /* Chrome/Edge WebKit scrollbars */
+    .diagram-scroll-container::-webkit-scrollbar {
+      width: 14px;
+      height: 14px;
+    }
+    .diagram-scroll-container::-webkit-scrollbar-track {
+      background: #1e293b;
+      border-radius: 4px;
+    }
+    .diagram-scroll-container::-webkit-scrollbar-thumb {
+      background: #475569;
+      border-radius: 4px;
+      border: 2px solid #1e293b;
+    }
+    .diagram-scroll-container::-webkit-scrollbar-corner {
+      background: #1e293b;
+    }
+
+    /* Inner canvas to force horizontal scrolling */
+    .diagram-inner-canvas {
+      min-width: 2400px !important;
+      width: max-content;
+      padding-bottom: 50px;
+      position: relative;
+      display: block;
+    }
+
+    @keyframes pulse {
+      0% { 
+        transform: scale(1);
+        opacity: 1;
+      }
+      50% { 
+        transform: scale(1.05);
+        opacity: 0.8;
+      }
+      100% { 
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    /* Headers sticky mejorados */
+    .column-headers {
+      position: sticky;
+      top: 60px;
+      z-index: 25;
+      background: linear-gradient(to bottom, 
+        rgba(15, 23, 42, 0.98) 0%, 
+        rgba(15, 23, 42, 0.95) 90%,
+        transparent 100%);
+      backdrop-filter: blur(10px);
+    }
+
+    /* Animaciones y transiciones para Modo Dual */
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateX(100px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .animate-slideIn {
+      animation: slideIn 0.5s ease-out;
+    }
+
+    .animate-fadeIn {
+      animation: fadeIn 0.3s ease-out;
+    }
+
+    /* Transición suave entre vistas */
+    .view-transition {
+      transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
   </style>
 
 </head>
@@ -38,11 +116,7 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useMemo, useState, useEffect, useCallback, useRef } = React;
-    const FM = window["framerMotion"] || {};
-    const motion = FM.motion || (({ children, ...rest }) => <div {...rest}>{children}</div>);
-    const AnimatePresence = FM.AnimatePresence || (({ children }) => <>{children}</>);
-
+    const { useMemo, useState, useEffect } = React;
     // Icon placeholders (lucide-react no UMD en navegador)
     const PlaceholderIcon = ({ className }) => <span className={className} style={{ display: 'inline-block' }}>●</span>;
     const Layers = ({ className }) => <span className={className}>⬢</span>;
@@ -63,9 +137,7 @@
     const AlertTriangle = ({ className }) => <span className={className}>⚠</span>;
     const Workflow = ({ className }) => <span className={className}>⚙</span>;
     const GitBranch = ({ className }) => <span className={className}>🔀</span>;
-    const ChevronRight = ({ className }) => <span className={className}>›</span>;
 
-    // Layout + diagram constants (preservados)
     const LANE_WIDTH = 320;
     const LANE_GAP = 28;
     const ROW_HEIGHT = 132;
@@ -74,7 +146,6 @@
     const PADDING_X = 24;
     const PADDING_Y = 96;
 
-    // Colores existentes por tipo de nodo (preservados)
     const COLORS = {
       external: "from-sky-500/20 to-sky-400/10 border-sky-400/40",
       internal: "from-emerald-500/20 to-emerald-400/10 border-emerald-400/40",
@@ -84,28 +155,6 @@
       front: "from-teal-500/20 to-teal-400/10 border-teal-400/40",
     };
 
-    // Paleta de tema consistente
-    const THEME = {
-      bg: {
-        primary: 'bg-slate-950',
-        secondary: 'bg-slate-900',
-        tertiary: 'bg-slate-800',
-        overlay: 'bg-slate-900/50 backdrop-blur-xl'
-      },
-      accent: {
-        purple: 'from-purple-600 to-purple-500',
-        blue: 'from-blue-600 to-blue-500',
-        teal: 'from-teal-500 to-teal-400'
-      },
-      states: {
-        mvp: '#10b981',
-        phase2: '#0ea5e9',
-        future: '#f59e0b',
-        core: '#0d9488'
-      }
-    };
-
-    // LANES
     const LANES = [
       { id: "front", title: "Fronts / Canales", icon: <Layers className="w-4 h-4" /> },
       { id: "orchestration", title: "Orquestación (iPaaS)", icon: <Workflow className="w-4 h-4" /> },
@@ -115,199 +164,385 @@
       { id: "data", title: "Datos, IA y BI", icon: <Database className="w-4 h-4" /> },
     ];
 
-    // NODES (preservados 17 nodos)
     const NODES = [
-      { id: "portal", lane: "front", row: 0, title: "Portal Cliente (Web/App)", subtitle: "Onboarding + Panel básico", type: "front", icon: <PlayCircle className="w-4 h-4" />, io: { in: ["Links Mifiel / Pago", "Mensajes Asistente"], out: ["Datos KYC", "Documentos", "Eventos UI"] }, ficha: { proceso: "Canal digital (Web/App) de onboarding y postventa", costo: "N/A (propio)", justificacion: "Punto de entrada del cliente; integra KYC (Metamap), pagos (Conekta) y firma (Mifiel) vía iPaaS para cerrar el contrato sin fricción." } },
-      { id: "whatsapp", lane: "front", row: 1, title: "WhatsApp Asistente (Flowise)", subtitle: "Soporte y postventa", type: "front", icon: <MessageSquare className="w-4 h-4" />, io: { in: ["Alertas PMA/PIA", "Recordatorios pago"], out: ["Respuestas cliente", "Tickets postventa"] }, ficha: { proceso: "Comunicaciones (CPaaS) & Desarrollo Low-Code de IA", costo: "~$0.005 USD / mensaje (Twilio) + Tarifa de Meta | Costo de Infraestructura + APIs LLM (Flowise)", justificacion: "Es la columna vertebral de nuestros agentes PIA y Asistente Digital. Usamos el canal nativo del operador (WhatsApp) y Flowise como la plataforma visual donde nuestro equipo construye, prueba y despliega rápidamente nuestros agentes conversacionales." } },
-      { id: "ipaas", lane: "orchestration", row: 0, title: "Make / n8n / Zapier", subtitle: "Flujos y conectores", type: "orchestration", icon: <GitBranch className="w-4 h-4" />, io: { in: ["Webhooks Samsara/Conekta", "Eventos Portal"], out: ["Acciones en Odoo/Airtable", "Notificaciones Asistente"] }, ficha: { proceso: "Orquestación y Automatización (iPaaS)", costo: "$30k MXN / año (Presupuestado)", justificacion: "El 'Pegamento Digital'. Conecta todas nuestras APIs externas (Conekta, Samsara, Mifiel) con nuestros sistemas internos (Odoo, Agentes IA). Nos permite automatizar flujos en horas, no semanas." } },
-      { id: "metamap", lane: "external", row: 0, title: "Metamap (KYC)", subtitle: "INE/CURP/biometría", type: "external", icon: <ShieldCheck className="w-4 h-4" />, io: { in: ["Datos del solicitante"], out: ["Resultado KYC", "Pruebas biométricas"] }, ficha: { proceso: "Onboarding y Verificación (KYC)", costo: "$1 - $2.50 USD / verificación", justificacion: "Prevención de Fraude. Valida la identidad del operador (INE, biometría) antes de firmar. Es nuestro primer filtro de seguridad." } },
-      { id: "kiban", lane: "external", row: 1, title: "KIBAN ↔ Círculo de Crédito", subtitle: "Consulta y Reporte", type: "external", icon: <BarChart3 className="w-4 h-4" />, io: { in: ["Identificadores solicitante", "Estado de cuenta (opcional)", "Eventos de pago"], out: ["Reporte de crédito (consulta)", "Estatus de envío (reporte mensual)"] }, ficha: { proceso: "Acelerador de Crédito y Cumplimiento", costo: "~$30,000 - $40,000 MXN / mes", justificacion: "Eficiencia Regulatoria. Lo usamos como un 'plug-in' para dos tareas complejas: consultar el historial del Buró/Círculo de Crédito (como un input para HASE) y automatizar el reporte mensual de nuestra cartera, quitándonos una carga de cumplimiento masiva." } },
-      { id: "mifiel", lane: "external", row: 2, title: "Mifiel", subtitle: "Firma electrónica avanzada", type: "external", icon: <FileSignature className="w-4 h-4" />, io: { in: ["Contrato generado (PDF)", "Datos firmantes"], out: ["Evidencia y hash", "Webhook de estatus"] }, ficha: { proceso: "Firma Electrónica de Contratos", costo: "~$15 - $90 MXN / contrato", justificacion: "Certeza Jurídica. Para firmar el contrato de arrendamiento y la dación en pago con validez legal irrefutable en México (NOM-151 y e.firma). Es el pilar de nuestra cartera de activos." } },
-      { id: "conekta", lane: "external", row: 3, title: "Conekta", subtitle: "Cobros (tarjeta / OXXO)", type: "external", icon: <CreditCard className="w-4 h-4" />, io: { in: ["Orden de pago", "Referencia OXXO"], out: ["Webhook pago/fracaso/refund", "Liquidaciones"] }, ficha: { proceso: "Procesamiento de Pagos", costo: "~3.4% + $3 MXN (tarjeta) | ~2.6% + $3 MXN (efectivo)", justificacion: "Flujo de Caja. Su red de pagos en efectivo es indispensable para nuestro mercado no bancarizado." } },
-      { id: "gnv", lane: "external", row: 4, title: "APIs Estaciones GNV", subtitle: "Consumo / Carga", type: "external", icon: <Fuel className="w-4 h-4" />, io: { in: ["ID unidad / tag"], out: ["Volumen/importe/estación", "Timestamp"] }, ficha: { proceso: "Consumo de GNV y recaudo automático", costo: "Variable por estación (no consolidado)", justificacion: "Habilita el esquema 'se paga solo' aplicando recaudo automático del ahorro de combustible y alimenta PMA/BI con hábitos de carga." } },
-      { id: "samsara", lane: "telematics", row: 0, title: "Samsara (VG55 / EI21)", subtitle: "GPS, OBD-II, Códigos falla, Inmovilizador", type: "telematics", icon: <Zap className="w-4 h-4" />, io: { in: ["Config / tags", "Órdenes de inmovilización"], out: ["Ubicación/velocidad/RPM", "Códigos DTC y DVIR", "Webhooks eventos"] }, ficha: { proceso: "Telemática e IoT", costo: "$100-150 USD / hardware (único) | $20-40 USD / mes (incluye datos)", justificacion: "Generación de Datos. Es el 'sistema nervioso' de nuestras vagonetas. Nos provee los datos del OBD-II para alimentar a HASE y Super-PMA y la capacidad de paro de motor remoto nativa." } },
-      { id: "odoo", lane: "internal", row: 0, title: "Odoo (ERP / CRM / Field Service)", subtitle: "Clientes, contratos, cartera, servicios", type: "internal", icon: <ArrowRightLeft className="w-4 h-4" />, io: { in: ["Resultado KYC/Crédito", "Webhook firma y pagos", "Alertas PMA/PIA"], out: ["Contrato (PDF)", "Facturas / estados de cuenta", "Órdenes de servicio"] }, ficha: { proceso: "ERP y Core Operativo", costo: "~$274 MXN / usuario / mes (Plan Personalizado)", justificacion: "El Corazón de la Operación. Es nuestro 'sistema operativo central' con módulos nativos de Inventario, Servicios y CRM diseñados para la complejidad de nuestra postventa. Su API externa es indispensable para que nuestra IA se comunique con la operación." } },
-      { id: "airtable", lane: "internal", row: 1, title: "Airtable (Ops Board)", subtitle: "Backoffice, colas, SLAs", type: "internal", icon: <Layers className="w-4 h-4" />, io: { in: ["Eventos iPaaS", "Datos Odoo"], out: ["Tareas y estados", "Feeds de control"] }, ficha: { proceso: "Backoffice y coordinación operativa (Ops Board)", costo: "Depende de asientos/plan", justificacion: "Tablero táctico para colas, SLAs y control operativo; se integra vía iPaaS con Odoo y agentes para acelerar la operación sin desarrollar herramientas internas." } },
-      { id: "hase", lane: "data", row: 0, title: "HASE (Scoring operativo)", subtitle: "Score hiper-adaptativo", type: "data", icon: <Bot className="w-4 h-4" />, io: { in: ["KYC Metamap", "Consulta KIBAN", "Colateral social"], out: ["Decisión + explicabilidad", "Recomendación de términos"] }, ficha: { proceso: "Scoring hiper-adaptativo (IA propietaria)", costo: "N/A (propio)", justificacion: "Nuestro 'cerebro' para evaluar riesgo y proponer términos usando señales de Metamap, KIBAN y telemática; alimenta Odoo para ejecución." } },
-      { id: "pia", lane: "data", row: 1, title: "PIA (Intervención proactiva)", subtitle: "Cobranza empática", type: "data", icon: <AlertTriangle className="w-4 h-4" />, io: { in: ["Eventos de pago Conekta", "Telemática / hábitos"], out: ["Planes flexibles", "Mensajes Asistente"] }, ficha: { proceso: "Cobranza empática (IA + CPaaS)", costo: "Variable CPaaS (Twilio/Meta) + Infra IA", justificacion: "Interviene proactivamente con planes flexibles y mensajes personalizados; se orquesta con Flowise y opera en WhatsApp (Twilio)." } },
-      { id: "pma", lane: "data", row: 2, title: "PMA (Mto. predictivo)", subtitle: "Alertas y órdenes", type: "data", icon: <ServerCog className="w-4 h-4" />, io: { in: ["DTCs / RPM / temperaturas", "DVIR, consumo GNV"], out: ["Orden de servicio Odoo", "Tips Asistente"] }, ficha: { proceso: "Mantenimiento Predictivo Asistido", costo: "N/A (propio) + Telemetría", justificacion: "Detecta anomalías y genera órdenes de servicio en Odoo a partir de DTCs/telemetría (Samsara) y hábitos de consumo GNV." } },
-      { id: "assistant", lane: "data", row: 3, title: "Asistente Postventa (Flowise)", subtitle: "WhatsApp + flujos", type: "data", icon: <MessageSquare className="w-4 h-4" />, io: { in: ["Alertas PIA/PMA", "Datos de contrato"], out: ["Conversaciones", "Confirmaciones"] }, ficha: { proceso: "Comunicaciones (CPaaS) & Desarrollo Low-Code de IA", costo: "~$0.005 USD / mensaje (Twilio) + Tarifa de Meta | Costo de Infraestructura + APIs LLM (Flowise)", justificacion: "Es la columna vertebral de nuestros agentes PIA y Asistente Digital. Usamos el canal nativo del operador (WhatsApp) y Flowise como la plataforma visual donde nuestro equipo construye, prueba y despliega rápidamente nuestros agentes conversacionales." } },
-      { id: "warehouse", lane: "data", row: 4, title: "Data Lake / Warehouse", subtitle: "Historificación + BI", type: "data", icon: <Database className="w-4 h-4" />, io: { in: ["Batch/Streams telemática", "ERP/finanzas"], out: ["Dashboards, XAI, stress tests"] }, ficha: { proceso: "Historificación y analítica (SSOT)", costo: "Depende de stack (almacenamiento/compute)", justificacion: "Fuente única de verdad para BI/XAI y pruebas de estrés; ingiere streams de telemática y datos operativos para modelado y reporting." } },
-      { id: "bi", lane: "data", row: 5, title: "BI (Looker/Power BI)", subtitle: "KPIs y reporting", type: "data", icon: <BarChart3 className="w-4 h-4" />, io: { in: ["Modelos semánticos"], out: ["Tableros Operación/Finanzas/Calidad"] }, ficha: { proceso: "KPIs y reporting ejecutivo", costo: "Licenciamiento según herramienta (Looker/Power BI)", justificacion: "Tableros accionables sobre modelos semánticos del warehouse para operación, finanzas y calidad." } },
+      {
+        id: "portal",
+        lane: "front",
+        row: 0,
+        title: "Portal Cliente (Web/App)",
+        subtitle: "Onboarding + Panel básico",
+        type: "front",
+        icon: <PlayCircle className="w-4 h-4" />,
+        io: {
+          in: ["Links Mifiel / Pago", "Mensajes Asistente"],
+          out: ["Datos KYC", "Documentos", "Eventos UI"],
+        },
+        ficha: {
+          proceso: "Canal digital (Web/App) de onboarding y postventa",
+          costo: "N/A (propio)",
+          justificacion: "Punto de entrada del cliente; integra KYC (Metamap), pagos (Conekta) y firma (Mifiel) vía iPaaS para cerrar el contrato sin fricción."
+        }
+      },
+      {
+        id: "whatsapp",
+        lane: "front",
+        row: 1,
+        title: "WhatsApp Asistente (Flowise)",
+        subtitle: "Soporte y postventa",
+        type: "front",
+        icon: <MessageSquare className="w-4 h-4" />,
+        io: {
+          in: ["Alertas PMA/PIA", "Recordatorios pago"],
+          out: ["Respuestas cliente", "Tickets postventa"],
+        },
+        ficha: {
+          proceso: "Comunicaciones (CPaaS) & Desarrollo Low-Code de IA",
+          costo: "~$0.005 USD / mensaje (Twilio) + Tarifa de Meta | Costo de Infraestructura + APIs LLM (Flowise)",
+          justificacion: "Es la columna vertebral de nuestros agentes PIA y Asistente Digital. Usamos el canal nativo del operador (WhatsApp) y Flowise como la plataforma visual donde nuestro equipo construye, prueba y despliega rápidamente nuestros agentes conversacionales."
+        }
+      },
+      {
+        id: "ipaas",
+        lane: "orchestration",
+        row: 0,
+        title: "Make / n8n / Zapier",
+        subtitle: "Flujos y conectores",
+        type: "orchestration",
+        icon: <GitBranch className="w-4 h-4" />,
+        io: {
+          in: ["Webhooks Samsara/Conekta", "Eventos Portal"],
+          out: ["Acciones en Odoo/Airtable", "Notificaciones Asistente"],
+        },
+        ficha: {
+          proceso: "Orquestación y Automatización (iPaaS)",
+          costo: "$30k MXN / año (Presupuestado)",
+          justificacion: "El 'Pegamento Digital'. Conecta todas nuestras APIs externas (Conekta, Samsara, Mifiel) con nuestros sistemas internos (Odoo, Agentes IA). Nos permite automatizar flujos en horas, no semanas."
+        }
+      },
+      {
+        id: "metamap",
+        lane: "external",
+        row: 0,
+        title: "Metamap (KYC)",
+        subtitle: "INE/CURP/biometría",
+        type: "external",
+        icon: <ShieldCheck className="w-4 h-4" />,
+        io: {
+          in: ["Datos del solicitante"],
+          out: ["Resultado KYC", "Pruebas biométricas"],
+        },
+        ficha: {
+          proceso: "Onboarding y Verificación (KYC)",
+          costo: "$1 - $2.50 USD / verificación",
+          justificacion: "Prevención de Fraude. Valida la identidad del operador (INE, biometría) antes de firmar. Es nuestro primer filtro de seguridad."
+        }
+      },
+      {
+        id: "kiban",
+        lane: "external",
+        row: 1,
+        title: "KIBAN ↔ Círculo de Crédito",
+        subtitle: "Consulta y Reporte",
+        type: "external",
+        icon: <BarChart3 className="w-4 h-4" />,
+        io: {
+          in: ["Identificadores solicitante", "Estado de cuenta (opcional)", "Eventos de pago"],
+          out: ["Reporte de crédito (consulta)", "Estatus de envío (reporte mensual)"]
+        },
+        ficha: {
+          proceso: "Acelerador de Crédito y Cumplimiento",
+          costo: "~$30,000 - $40,000 MXN / mes",
+          justificacion: "Eficiencia Regulatoria. Lo usamos como un 'plug-in' para dos tareas complejas: consultar el historial del Buró/Círculo de Crédito (como un input para HASE) y automatizar el reporte mensual de nuestra cartera, quitándonos una carga de cumplimiento masiva."
+        }
+      },
+      {
+        id: "mifiel",
+        lane: "external",
+        row: 2,
+        title: "Mifiel",
+        subtitle: "Firma electrónica avanzada",
+        type: "external",
+        icon: <FileSignature className="w-4 h-4" />,
+        io: {
+          in: ["Contrato generado (PDF)", "Datos firmantes"],
+          out: ["Evidencia y hash", "Webhook de estatus"],
+        },
+        ficha: {
+          proceso: "Firma Electrónica de Contratos",
+          costo: "~$15 - $90 MXN / contrato",
+          justificacion: "Certeza Jurídica. Para firmar el contrato de arrendamiento y la dación en pago con validez legal irrefutable en México (NOM-151 y e.firma). Es el pilar de nuestra cartera de activos."
+        }
+      },
+      {
+        id: "conekta",
+        lane: "external",
+        row: 3,
+        title: "Conekta",
+        subtitle: "Cobros (tarjeta / OXXO)",
+        type: "external",
+        icon: <CreditCard className="w-4 h-4" />,
+        io: {
+          in: ["Orden de pago", "Referencia OXXO"],
+          out: ["Webhook pago/fracaso/refund", "Liquidaciones"],
+        },
+        ficha: {
+          proceso: "Procesamiento de Pagos",
+          costo: "~3.4% + $3 MXN (tarjeta) | ~2.6% + $3 MXN (efectivo)",
+          justificacion: "Flujo de Caja. Su red de pagos en efectivo es indispensable para nuestro mercado no bancarizado."
+        }
+      },
+      {
+        id: "gnv",
+        lane: "external",
+        row: 4,
+        title: "APIs Estaciones GNV",
+        subtitle: "Consumo / Carga",
+        type: "external",
+        icon: <Fuel className="w-4 h-4" />,
+        io: {
+          in: ["ID unidad / tag"],
+          out: ["Volumen/importe/estación", "Timestamp"],
+        },
+        ficha: {
+          proceso: "Consumo de GNV y recaudo automático",
+          costo: "Variable por estación (no consolidado)",
+          justificacion: "Habilita el esquema 'se paga solo' aplicando recaudo automático del ahorro de combustible y alimenta PMA/BI con hábitos de carga."
+        }
+      },
+      {
+        id: "samsara",
+        lane: "telematics",
+        row: 0,
+        title: "Samsara (VG55 / EI21)",
+        subtitle: "GPS, OBD-II, Códigos falla, Inmovilizador",
+        type: "telematics",
+        icon: <Zap className="w-4 h-4" />,
+        io: {
+          in: ["Config / tags", "Órdenes de inmovilización"],
+          out: [
+            "Ubicación/velocidad/RPM",
+            "Códigos DTC y DVIR",
+            "Webhooks eventos",
+          ],
+        },
+        ficha: {
+          proceso: "Telemática e IoT",
+          costo: "$100-150 USD / hardware (único) | $20-40 USD / mes (incluye datos)",
+          justificacion: "Generación de Datos. Es el 'sistema nervioso' de nuestras vagonetas. Nos provee los datos del OBD-II para alimentar a HASE y Super-PMA y la capacidad de paro de motor remoto nativa."
+        }
+      },
+      {
+        id: "odoo",
+        lane: "internal",
+        row: 0,
+        title: "Odoo (ERP / CRM / Field Service)",
+        subtitle: "Clientes, contratos, cartera, servicios",
+        type: "internal",
+        icon: <ArrowRightLeft className="w-4 h-4" />,
+        io: {
+          in: [
+            "Resultado KYC/Crédito",
+            "Webhook firma y pagos",
+            "Alertas PMA/PIA",
+          ],
+          out: [
+            "Contrato (PDF)",
+            "Facturas / estados de cuenta",
+            "Órdenes de servicio",
+          ],
+        },
+        ficha: {
+          proceso: "ERP y Core Operativo",
+          costo: "~$274 MXN / usuario / mes (Plan Personalizado)",
+          justificacion: "El Corazón de la Operación. Es nuestro 'sistema operativo central' con módulos nativos de Inventario, Servicios y CRM diseñados para la complejidad de nuestra postventa. Su API externa es indispensable para que nuestra IA se comunique con la operación."
+        }
+      },
+      {
+        id: "airtable",
+        lane: "internal",
+        row: 1,
+        title: "Airtable (Ops Board)",
+        subtitle: "Backoffice, colas, SLAs",
+        type: "internal",
+        icon: <Layers className="w-4 h-4" />,
+        io: {
+          in: ["Eventos iPaaS", "Datos Odoo"],
+          out: ["Tareas y estados", "Feeds de control"],
+        },
+        ficha: {
+          proceso: "Backoffice y coordinación operativa (Ops Board)",
+          costo: "Depende de asientos/plan",
+          justificacion: "Tablero táctico para colas, SLAs y control operativo; se integra vía iPaaS con Odoo y agentes para acelerar la operación sin desarrollar herramientas internas."
+        }
+      },
+      {
+        id: "hase",
+        lane: "data",
+        row: 0,
+        title: "HASE (Scoring operativo)",
+        subtitle: "Score hiper-adaptativo",
+        type: "data",
+        icon: <Bot className="w-4 h-4" />,
+        io: {
+          in: ["KYC Metamap", "Consulta KIBAN", "Colateral social"],
+          out: ["Decisión + explicabilidad", "Recomendación de términos"],
+        },
+        ficha: {
+          proceso: "Scoring hiper-adaptativo (IA propietaria)",
+          costo: "N/A (propio)",
+          justificacion: "Nuestro 'cerebro' para evaluar riesgo y proponer términos usando señales de Metamap, KIBAN y telemática; alimenta Odoo para ejecución."
+        }
+      },
+      {
+        id: "pia",
+        lane: "data",
+        row: 1,
+        title: "PIA (Intervención proactiva)",
+        subtitle: "Cobranza empática",
+        type: "data",
+        icon: <AlertTriangle className="w-4 h-4" />,
+        io: {
+          in: ["Eventos de pago Conekta", "Telemática / hábitos"],
+          out: ["Planes flexibles", "Mensajes Asistente"],
+        },
+        ficha: {
+          proceso: "Cobranza empática (IA + CPaaS)",
+          costo: "Variable CPaaS (Twilio/Meta) + Infra IA",
+          justificacion: "Interviene proactivamente con planes flexibles y mensajes personalizados; se orquesta con Flowise y opera en WhatsApp (Twilio)."
+        }
+      },
+      {
+        id: "pma",
+        lane: "data",
+        row: 2,
+        title: "PMA (Mto. predictivo)",
+        subtitle: "Alertas y órdenes",
+        type: "data",
+        icon: <ServerCog className="w-4 h-4" />,
+        io: {
+          in: ["DTCs / RPM / temperaturas", "DVIR, consumo GNV"],
+          out: ["Orden de servicio Odoo", "Tips Asistente"],
+        },
+        ficha: {
+          proceso: "Mantenimiento Predictivo Asistido",
+          costo: "N/A (propio) + Telemetría",
+          justificacion: "Detecta anomalías y genera órdenes de servicio en Odoo a partir de DTCs/telemetría (Samsara) y hábitos de consumo GNV."
+        }
+      },
+      {
+        id: "assistant",
+        lane: "data",
+        row: 3,
+        title: "Asistente Postventa (Flowise)",
+        subtitle: "WhatsApp + flujos",
+        type: "data",
+        icon: <MessageSquare className="w-4 h-4" />,
+        io: {
+          in: ["Alertas PIA/PMA", "Datos de contrato"],
+          out: ["Conversaciones", "Confirmaciones"],
+        },
+        ficha: {
+          proceso: "Comunicaciones (CPaaS) & Desarrollo Low-Code de IA",
+          costo: "~$0.005 USD / mensaje (Twilio) + Tarifa de Meta | Costo de Infraestructura + APIs LLM (Flowise)",
+          justificacion: "Es la columna vertebral de nuestros agentes PIA y Asistente Digital. Usamos el canal nativo del operador (WhatsApp) y Flowise como la plataforma visual donde nuestro equipo construye, prueba y despliega rápidamente nuestros agentes conversacionales."
+        }
+      },
+      {
+        id: "warehouse",
+        lane: "data",
+        row: 4,
+        title: "Data Lake / Warehouse",
+        subtitle: "Historificación + BI",
+        type: "data",
+        icon: <Database className="w-4 h-4" />,
+        io: {
+          in: ["Batch/Streams telemática", "ERP/finanzas"],
+          out: ["Dashboards, XAI, stress tests"],
+        },
+        ficha: {
+          proceso: "Historificación y analítica (SSOT)",
+          costo: "Depende de stack (almacenamiento/compute)",
+          justificacion: "Fuente única de verdad para BI/XAI y pruebas de estrés; ingiere streams de telemática y datos operativos para modelado y reporting."
+        }
+      },
+      {
+        id: "bi",
+        lane: "data",
+        row: 5,
+        title: "BI (Looker/Power BI)",
+        subtitle: "KPIs y reporting",
+        type: "data",
+        icon: <BarChart3 className="w-4 h-4" />,
+        io: {
+          in: ["Modelos semánticos"],
+          out: ["Tableros Operación/Finanzas/Calidad"],
+        },
+        ficha: {
+          proceso: "KPIs y reporting ejecutivo",
+          costo: "Licenciamiento según herramienta (Looker/Power BI)",
+          justificacion: "Tableros accionables sobre modelos semánticos del warehouse para operación, finanzas y calidad."
+        }
+      },
     ];
 
-    // Posiciones por lane/row
     function computePositions(nodes) {
       const laneIndex = Object.fromEntries(LANES.map((l, i) => [l.id, i]));
       const positions = {};
       nodes.forEach((n) => {
-        const x = PADDING_X + laneIndex[n.lane] * (LANE_WIDTH + LANE_GAP) + (LANE_WIDTH - CARD_W) / 2;
+        const x =
+          PADDING_X +
+          laneIndex[n.lane] * (LANE_WIDTH + LANE_GAP) +
+          (LANE_WIDTH - CARD_W) / 2;
         const y = PADDING_Y + n.row * ROW_HEIGHT;
         positions[n.id] = { x, y };
       });
       return positions;
     }
 
-    // FLOWS (preservado)
     const FLOWS = {
-      "Onboarding & Scoring": [["portal", "metamap"], ["metamap", "ipaas"], ["ipaas", "kiban"], ["kiban", "hase"], ["hase", "odoo"], ["odoo", "mifiel"], ["mifiel", "ipaas"], ["ipaas", "odoo"]],
-      "Desembolso & Entrega": [["odoo", "conekta"], ["conekta", "ipaas"], ["ipaas", "odoo"], ["odoo", "samsara"], ["odoo", "whatsapp"]],
-      "Operación & PMA": [["samsara", "ipaas"], ["ipaas", "pma"], ["pma", "odoo"], ["pma", "assistant"], ["gnv", "warehouse"], ["samsara", "warehouse"], ["warehouse", "bi"]],
-      "Cobranza & PIA": [["conekta", "ipaas"], ["ipaas", "pia"], ["pia", "assistant"], ["assistant", "odoo"]],
-      "Garantías & Postventa": [["samsara", "pma"], ["pma", "odoo"], ["assistant", "odoo"]],
-      "Reporte Buró (mensual)": [["odoo", "kiban"], ["kiban", "odoo"]],
+      "Onboarding & Scoring": [
+        ["portal", "metamap"],
+        ["metamap", "ipaas"],
+        ["ipaas", "kiban"],
+        ["kiban", "hase"],
+        ["hase", "odoo"],
+        ["odoo", "mifiel"],
+        ["mifiel", "ipaas"],
+        ["ipaas", "odoo"],
+      ],
+      "Desembolso & Entrega": [
+        ["odoo", "conekta"],
+        ["conekta", "ipaas"],
+        ["ipaas", "odoo"],
+        ["odoo", "samsara"],
+        ["odoo", "whatsapp"],
+      ],
+      "Operación & PMA": [
+        ["samsara", "ipaas"],
+        ["ipaas", "pma"],
+        ["pma", "odoo"],
+        ["pma", "assistant"],
+        ["gnv", "warehouse"],
+        ["samsara", "warehouse"],
+        ["warehouse", "bi"],
+      ],
+      "Cobranza & PIA": [
+        ["conekta", "ipaas"],
+        ["ipaas", "pia"],
+        ["pia", "assistant"],
+        ["assistant", "odoo"],
+      ],
+      "Garantías & Postventa": [
+        ["samsara", "pma"],
+        ["pma", "odoo"],
+        ["assistant", "odoo"],
+      ],
+      "Reporte Buró (mensual)": [
+        ["odoo", "kiban"],
+        ["kiban", "odoo"],
+      ],
     };
 
-    // TIMELINE_PHASES (contenido preservado, hoisted)
-    const TIMELINE_PHASES = {
-      "Mes 1: Ignición Inmediata": { semanas: [1, 2, 3, 4], color: "from-red-500/20 to-orange-500/10", borderColor: "border-red-400/40", nodos_activos: ["portal", "samsara", "metamap", "kiban", "conekta", "mifiel", "odoo"], detalles: [ { semana: 1, titulo: "Kick-off Hardware y Alianzas", herramientas_ids: ["portal", "samsara", "metamap"], tareas: [ "Despliegue Portal Cliente para captación inicial", "Orden de compra 17 dispositivos Samsara (VG55 + EI21)", "Instalación inmediata en flota Higer 17", "Firma contratos con Metamap, KIBAN, Conekta, Mifiel", "Inicio integraciones API" ], herramientas: ["Portal Cliente", "Samsara", "Metamap", "KIBAN", "Conekta", "Mifiel"], hito: "¡Telemetría en tiempo real desde día 7!" }, { semana: 2, titulo: "Arranque Técnico y de Mercado", herramientas_ids: ["portal", "odoo", "metamap", "kiban"], tareas: [ "Despliegue Odoo Enterprise Plan Personalizado", "Configuración módulos CRM y Core Bancario simplificado", "Ofertas formales a COO/PMO y Head of Growth" ], herramientas: ["Odoo Enterprise"], hito: "Plataforma interna lista para primer cliente" }, { semana: 3, titulo: "Ingesta de Datos y Entrenamiento IA", herramientas_ids: ["samsara", "gnv", "warehouse"], tareas: [ "HASE y Super-PMA en modo escucha", "Ingesta datos Samsara de flota Higer", "Construcción base de datos propietaria", "Integración APIs estaciones GNV" ], herramientas: ["AWS/Google Cloud", "Samsara API", "APIs GNV"], hito: "Primeros datos flota y consumo correlacionados" }, { semana: 4, titulo: "Ensamble del Stack Operativo", herramientas_ids: ["odoo", "metamap", "kiban", "conekta", "mifiel"], tareas: [ "Integración end-to-end completa", "Odoo ↔ Metamap ↔ KIBAN ↔ Conekta ↔ Mifiel", "MVP del Asistente Digital avanza", "17 operadores como cliente objetivo" ], herramientas: ["Odoo", "Metamap", "KIBAN", "Conekta", "Mifiel APIs"], hito: "Stack de originación 100% funcional" } ] },
-      "Mes 2: Validación en Campo": { semanas: [5, 6, 7, 8], color: "from-yellow-500/20 to-green-500/10", borderColor: "border-yellow-400/40", nodos_activos: ["whatsapp", "assistant", "ipaas", "pia", "hase"], detalles: [ { semana: 5, titulo: "Lanzamiento MVP Higer 17", herramientas_ids: ["whatsapp", "assistant", "ipaas"], tareas: [ "Despliegue oficial Asistente Digital", "17 operadores flota Higer como usuarios", "Comunicación vía API Twilio" ], herramientas: ["Twilio", "Flowise", "Make/n8n"], hito: "MVP en producción" }, { semana: 6, titulo: "Medición KPIs Validación", herramientas_ids: ["warehouse"], tareas: [ "Medición en entorno real y controlado", ">70% automatización", ">95% precisión OCR", "Recolección feedback operadores" ], herramientas: ["Analytics", "Looker Studio"], hito: "Validación tecnológica en campo iniciada" }, { semana: 7, titulo: "Evangelización del Pipeline", herramientas_ids: ["odoo", "warehouse"], tareas: [ "Head of Growth visita 12 rutas pipeline", "Demos funcionales Asistente IA", "Dashboards Looker con datos reales Higer", "Evidencia tangible, no promesas" ], herramientas: ["Odoo CRM", "Looker Studio"], hito: "Pipeline activado con evidencia real" }, { semana: 8, titulo: "Pre-calificación Masiva", herramientas_ids: ["metamap", "odoo"], tareas: [ "Preparación primeros 50 expedientes", "Flujo Manual Underwriting 1.0", "Recolección documentación", "KYC inicial de prospectos" ], herramientas: ["Metamap", "Odoo CRM"], hito: "50 operadores pipeline pre-calificados" } ] },
-      "Mes 3: Ignición y Despliegue": { semanas: [9, 10, 11, 12], color: "from-green-500/20 to-blue-500/10", borderColor: "border-green-400/40", nodos_activos: ["odoo", "mifiel", "conekta", "samsara", "pia", "pma", "warehouse"], detalles: [ { semana: 9, titulo: "Primer Comité de Crédito", herramientas_ids: ["metamap", "kiban", "odoo"], tareas: [ "Presentación 20-30 expedientes", "KYC Metamap completo", "Reporte Buró vía KIBAN", "Scorecard Cualitativo (HASE v0.1)" ], herramientas: ["Metamap", "KIBAN", "Odoo"], hito: "Primeras aprobaciones de crédito" }, { semana: 10, titulo: "Cierre y Firma Digital", herramientas_ids: ["mifiel", "conekta"], tareas: [ "Comité aprueba primer lote", "Envío contratos vía Mifiel", "Recepción enganches vía Conekta", "10-20 contratos firmados" ], herramientas: ["Mifiel", "Conekta"], hito: "20 contratos firmados digitalmente" }, { semana: 11, titulo: "Ejecución Órdenes de Compra", herramientas_ids: ["samsara", "odoo"], tareas: [ "Orden de compra 10-20 vagonetas", "Instalación Samsara pre-entrega", "Configuración unidades", "Preparación logística entrega" ], herramientas: ["Samsara", "Odoo"], hito: "Vagonetas listas para entrega" }, { semana: 12, titulo: "Primeras Unidades en Calle", herramientas_ids: ["samsara", "pia", "whatsapp"], tareas: [ "Entrega vagonetas a operadores", "Samsara transmitiendo en tiempo real", "PIA v1.0 activado - recordatorios pago", "Gestión comunicación inicial" ], herramientas: ["Samsara", "PIA", "Twilio"], hito: "Flota operando y generando revenue + datos" } ] }
-    };
-
-    // Hooks
-    const useKeyboardShortcuts = ({ onTogglePalette, onClosePalette, onToggleTimeline }) => {
-      useEffect(() => {
-        const handler = (e) => {
-          if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); onTogglePalette?.(); }
-          if (e.key === 'Escape') { onClosePalette?.(); }
-          if (e.key.toLowerCase() === 't') { onToggleTimeline?.(); }
-        };
-        window.addEventListener('keydown', handler);
-        return () => window.removeEventListener('keydown', handler);
-      }, [onTogglePalette, onClosePalette, onToggleTimeline]);
-    };
-
-    const useZoomPan = (initialZoom = 1) => {
-      const [zoom, setZoom] = useState(initialZoom);
-      const [pan, setPan] = useState({ x: 0, y: 0 });
-      const draggingRef = useRef(false);
-      const lastRef = useRef({ x: 0, y: 0 });
-      const rafRef = useRef(null);
-      const accRef = useRef({ dx: 0, dy: 0 });
-
-      const onWheel = useCallback((e) => {
-        e.preventDefault();
-        const delta = -e.deltaY;
-        const factor = delta > 0 ? 1.1 : 0.9;
-        setZoom((z) => Math.min(2.5, Math.max(0.4, z * factor)));
-      }, []);
-
-      const onMouseDown = useCallback((e) => {
-        draggingRef.current = true;
-        lastRef.current = { x: e.clientX, y: e.clientY };
-      }, []);
-      const onMouseMove = useCallback((e) => {
-        if (!draggingRef.current) return;
-        const dx = e.clientX - lastRef.current.x;
-        const dy = e.clientY - lastRef.current.y;
-        lastRef.current = { x: e.clientX, y: e.clientY };
-        accRef.current.dx += dx;
-        accRef.current.dy += dy;
-        if (!rafRef.current) {
-          rafRef.current = requestAnimationFrame(() => {
-            setPan((p) => ({ x: p.x + accRef.current.dx, y: p.y + accRef.current.dy }));
-            accRef.current = { dx: 0, dy: 0 };
-            rafRef.current = null;
-          });
-        }
-      }, []);
-      const onMouseUp = useCallback(() => { draggingRef.current = false; }, []);
-
-      useEffect(() => {
-        window.addEventListener('mouseup', onMouseUp);
-        return () => window.removeEventListener('mouseup', onMouseUp);
-      }, [onMouseUp]);
-
-      const reset = useCallback(() => { setZoom(1); setPan({ x: 0, y: 0 }); }, []);
-      return { zoom, pan, setZoom, setPan, onWheel, onMouseDown, onMouseMove, reset };
-    };
-
-    // UI components pequeños
-    const ZoomControls = ({ onZoomIn, onZoomOut, onReset }) => (
-      <div className="absolute top-4 right-4 z-30 bg-slate-900/80 border border-slate-700 rounded-xl p-1 shadow-lg">
-        <div className="flex">
-          <button onClick={onZoomOut} className="px-3 py-2 text-slate-200 hover:text-white">−</button>
-          <div className="w-px bg-slate-700 my-1" />
-          <button onClick={onReset} className="px-3 py-2 text-slate-200 hover:text-white">⟲</button>
-          <div className="w-px bg-slate-700 my-1" />
-          <button onClick={onZoomIn} className="px-3 py-2 text-slate-200 hover:text-white">＋</button>
-        </div>
-      </div>
-    );
-
-    const MiniMap = ({ zoom, pan, diagramSize }) => (
-      <div className="absolute bottom-4 right-4 w-48 h-32 bg-slate-900/80 border border-slate-700 rounded-lg z-30">
-        <div className="text-[10px] text-slate-400 p-1">MiniMap</div>
-        {/* Placeholder viewport indicator */}
-        <div className="mx-2 h-[2px] bg-slate-700" />
-      </div>
-    );
-
-    const CommandPalette = ({ open, onClose, onChooseNode, nodes }) => {
-      const [query, setQuery] = useState('');
-      const [index, setIndex] = useState(0);
-      useEffect(() => { if (!open) { setQuery(''); setIndex(0); } }, [open]);
-      useEffect(() => {
-        const onKey = (e) => {
-          if (!open) return;
-          if (e.key === 'ArrowDown') { e.preventDefault(); setIndex((i) => Math.min(i + 1, filtered.length - 1)); }
-          if (e.key === 'ArrowUp') { e.preventDefault(); setIndex((i) => Math.max(i - 1, 0)); }
-          if (e.key === 'Enter') { e.preventDefault(); const n = filtered[index]; if (n) { onChooseNode(n); onClose(); } }
-        };
-        window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
-      }, [open, index]);
-      const filtered = useMemo(() => nodes.filter(n => (n.title + ' ' + n.subtitle).toLowerCase().includes(query.toLowerCase())), [nodes, query]);
-      if (!open) return null;
-      return (
-        <div className="fixed inset-0 z-50 flex items-start justify-center pt-24 bg-black/50 backdrop-blur-sm" onClick={onClose}>
-          <div className="w-full max-w-xl bg-slate-900 border border-slate-700 rounded-2xl overflow-hidden" onClick={(e)=>e.stopPropagation()}>
-            <div className="p-3 border-b border-slate-800">
-              <input autoFocus placeholder="Buscar nodo o acción…" value={query} onChange={(e)=>setQuery(e.target.value)} className="w-full bg-transparent outline-none text-slate-100 placeholder:text-slate-500" />
-            </div>
-            <div className="max-h-80 overflow-y-auto">
-              {filtered.map((n, i) => (
-                <button key={n.id} onClick={()=>{onChooseNode(n); onClose();}} className={`w-full text-left px-4 py-2 text-sm flex items-center gap-2 ${i===index? 'bg-slate-800' : ''}`}>
-                  <span className="text-slate-300">{n.icon}</span>
-                  <span className="text-slate-200">{n.title}</span>
-                  <span className="text-slate-400 text-xs">{n.subtitle}</span>
-                </button>
-              ))}
-              {filtered.length === 0 && <div className="px-4 py-6 text-slate-500 text-sm">Sin resultados</div>}
-            </div>
-            <div className="p-2 text-[10px] text-slate-500 border-t border-slate-800">Enter para abrir • Esc para cerrar</div>
-          </div>
-        </div>
-      );
-    };
-
-    const ViewSelector = ({ mode, setMode }) => (
-      <div className="inline-flex bg-slate-800/50 rounded-xl p-1 backdrop-blur border border-slate-700">
-        <button onClick={()=>setMode('strategic')} data-active={mode==='strategic'} className="px-4 py-2 rounded-lg text-sm font-medium text-slate-300 data-[active=true]:bg-gradient-to-r data-[active=true]:from-purple-600 data-[active=true]:to-blue-600 data-[active=true]:text-white">
-          <Layers className="w-4 h-4 mr-2 inline-block" /> Vista Estratégica
-        </button>
-        <button onClick={()=>setMode('technical')} data-active={mode==='technical'} className="px-4 py-2 rounded-lg text-sm font-medium text-slate-300 data-[active=true]:bg-gradient-to-r data-[active=true]:from-blue-600 data-[active=true]:to-cyan-600 data-[active=true]:text-white">
-          <ServerCog className="w-4 h-4 mr-2 inline-block" /> Portal Técnico
-        </button>
-      </div>
-    );
-
-    const Breadcrumbs = ({ flow, showTimeline, currentWeek }) => (
-      <div className="flex items-center gap-2 text-sm text-slate-400">
-        <span>Arquitectura</span>
-        <ChevronRight className="w-4 h-4" />
-        <span>{flow || 'Vista General'}</span>
-        {showTimeline && (
-          <>
-            <ChevronRight className="w-4 h-4" />
-            <span>Semana {currentWeek}</span>
-          </>
-        )}
-      </div>
-    );
-
-    // Piezas principales
     function Edge({ from, to, positions, active }) {
       const a = positions[from];
       const b = positions[to];
@@ -319,332 +554,1465 @@
       const dx = Math.max(80, (x2 - x1) * 0.5);
       const path = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
       return (
-        <path d={path} className={active ? "stroke-teal-400/80 [filter:drop-shadow(0_0_6px_rgba(45,212,191,0.6))]" : "stroke-slate-400/30"} strokeWidth={active ? 3 : 2} fill="none" />
+        <path
+          d={path}
+          className={
+            active
+              ? "stroke-teal-400/80 [filter:drop-shadow(0_0_6px_rgba(45,212,191,0.6))]"
+              : "stroke-slate-400/30"
+          }
+          strokeWidth={active ? 3 : 2}
+          fill="none"
+        />
       );
     }
 
-    function NodeCard({ node, pos, selected, onSelect, isActiveInWeek, isActiveInPhase }) {
+    function NodeCard({ node, pos, selected, onSelect }) {
       const color = COLORS[node.type];
-      const activeClass = isActiveInWeek ? 'node-active ring-2 ring-purple-400/70' : (isActiveInPhase ? 'ring-2 ring-purple-400/40' : (selected ? 'ring-2 ring-teal-400/70' : 'ring-0'));
       return (
-        <div onClick={() => onSelect?.(node)} title={node.subtitle} className={`absolute rounded-2xl border backdrop-blur px-3.5 py-3 cursor-pointer hover:scale-[1.02] hover:shadow-xl hover:border-teal-400/50 bg-gradient-to-br ${color} ${activeClass}`} style={{ left: pos.x, top: pos.y, width: CARD_W, height: CARD_H }}>
+        <div
+          onClick={() => onSelect?.(node)}
+          title={node.subtitle}
+          className={`absolute rounded-2xl border backdrop-blur px-3.5 py-3 cursor-pointer transition-all duration-200 hover:scale-[1.02] hover:shadow-xl hover:border-teal-400/50 bg-gradient-to-br ${color} ${
+            selected ? "ring-2 ring-teal-400/70" : "ring-0"
+          }`}
+          style={{ left: pos.x, top: pos.y, width: CARD_W, height: CARD_H }}
+        >
           <div className="flex items-start gap-2">
             <div className="shrink-0 mt-0.5 text-slate-300">{node.icon}</div>
             <div className="min-w-0">
-              <div className="text-slate-100 font-semibold leading-tight text-[13px] truncate">{node.title}</div>
+              <div className="text-slate-100 font-semibold leading-tight text-[13px] truncate">
+                {node.title}
+              </div>
               <div className="text-slate-300/80 text-[12px] truncate">{node.subtitle}</div>
             </div>
           </div>
           <div className="mt-2 grid grid-cols-2 gap-2 text-[11px] text-slate-300/90">
             <div>
               <div className="uppercase tracking-wide text-[10px] text-slate-400">IN</div>
-              <div className="space-y-0.5">{node.io.in.slice(0, 2).map((t, i) => (<div key={i} className="truncate">• {t}</div>))}</div>
+              <div className="space-y-0.5">
+                {node.io.in.slice(0, 2).map((t, i) => (
+                  <div key={i} className="truncate">• {t}</div>
+                ))}
+              </div>
             </div>
             <div>
               <div className="uppercase tracking-wide text-[10px] text-slate-400">OUT</div>
-              <div className="space-y-0.5">{node.io.out.slice(0, 2).map((t, i) => (<div key={i} className="truncate">• {t}</div>))}</div>
+              <div className="space-y-0.5">
+                {node.io.out.slice(0, 2).map((t, i) => (
+                  <div key={i} className="truncate">• {t}</div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
       );
     }
 
-    const Sidebar = ({ visibleLanes, setVisibleLanes, showTimeline, flow, setFlow }) => (
-      <aside className="w-80 flex-shrink-0 border-r border-slate-800 h-[calc(100vh-64px)] overflow-y-auto p-4 space-y-4">
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
-          <div className="flex items-center gap-2 mb-2"><Layers className="w-4 h-4 text-slate-300" /><div className="font-semibold">Capas visibles</div></div>
-          <div className="space-y-2">
-            {LANES.map((l) => (
-              <label key={l.id} className="flex items-center justify-between py-1 text-sm">
-                <span className="flex items-center gap-2 text-slate-300"><span className="text-slate-400">{l.icon}</span>{l.title}</span>
-                <input type="checkbox" className="accent-teal-500" checked={visibleLanes[l.id]} onChange={(e)=> setVisibleLanes((v)=> ({...v, [l.id]: e.target.checked}))} />
-              </label>
-            ))}
-          </div>
-        </div>
-
-        {!showTimeline && (
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
-            <div className="text-xs text-slate-400 mb-2">Blueprint Fast Track</div>
-            <div className="space-y-2">
-              {Object.keys(TIMELINE_PHASES).map((fase) => (
-                <div key={fase} className="px-3 py-2 rounded-lg bg-slate-800/50 text-slate-300 text-sm">{fase}</div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
-          <div className="text-xs text-slate-400 mb-2">Flujos</div>
-          <div className="grid grid-cols-1 gap-2">
-            {Object.keys(FLOWS).map((f) => (
-              <button key={f} onClick={()=>setFlow(f)} className={`px-3 py-2 rounded-lg text-left text-[12px] border ${f===flow? 'bg-teal-500/20 border-teal-400 text-teal-200': 'bg-slate-900 border-slate-700 text-slate-300 hover:border-teal-500/40'}`}>{f}</button>
-            ))}
-          </div>
-        </div>
-      </aside>
-    );
-
-    const Inspector = ({ selected }) => (
-      <aside className="w-96 h-[calc(100vh-64px)] bg-slate-900/50 backdrop-blur border-l border-slate-800 p-6 overflow-y-auto">
-        <AnimatePresence mode="wait">
-          {selected ? (
-            <motion.div key={selected.id} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
-              <div className="text-teal-200 font-semibold">{selected.title}</div>
-              <div className="text-slate-300/80 text-sm mb-4">{selected.subtitle}</div>
-              {selected.ficha && (
-                <div className="space-y-3 text-sm">
-                  <div><div className="uppercase tracking-wide text-[10px] text-slate-400">Proceso Involucrado</div><div className="text-slate-200">{selected.ficha.proceso}</div></div>
-                  <div><div className="uppercase tracking-wide text-[10px] text-slate-400">Costo Estimado (Proxy)</div><div className="text-slate-200">{selected.ficha.costo}</div></div>
-                  <div><div className="uppercase tracking-wide text-[10px] text-slate-400">Justificación</div><div className="text-slate-300/90">{selected.ficha.justificacion}</div></div>
-                </div>
-              )}
-              <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-slate-800">
-                <div>
-                  <div className="uppercase tracking-wide text-[10px] text-slate-400">Entradas</div>
-                  <ul className="mt-1 text-sm list-disc pl-4 space-y-1">{selected.io.in.map((t, i) => (<li key={i}>{t}</li>))}</ul>
-                </div>
-                <div>
-                  <div className="uppercase tracking-wide text-[10px] text-slate-400">Salidas</div>
-                  <ul className="mt-1 text-sm list-disc pl-4 space-y-1">{selected.io.out.map((t, i) => (<li key={i}>{t}</li>))}</ul>
-                </div>
-              </div>
-            </motion.div>
-          ) : (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-slate-400 text-sm">Selecciona un nodo en el mapa para ver detalles.</motion.div>
-          )}
-        </AnimatePresence>
-      </aside>
-    );
-
-    const TimelineSheet = ({ open, currentPhase, currentWeek, setCurrentPhase, setCurrentWeek }) => (
-      <AnimatePresence>
-        {open && (
-          <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'tween', duration: 0.25 }} className="fixed bottom-0 left-0 right-0 z-50 h-64 bg-gradient-to-t from-slate-950 via-slate-900/98 to-transparent border-t border-slate-800">
-            <div className="max-w-[1400px] mx-auto px-6 py-3">
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-bold text-purple-200">{currentPhase}</h3>
-                  <span className="text-xs text-purple-300">S{currentWeek}/12</span>
-                </div>
-                <div className="flex-1 flex gap-0.5">
-                  {[...Array(12)].map((_, i) => (
-                    <button key={i} onClick={()=>{ const week=i+1; setCurrentWeek(week); const newPhase = Object.entries(TIMELINE_PHASES).find(([_, data]) => data.semanas.includes(week)); if (newPhase) setCurrentPhase(newPhase[0]); }} className={`flex-1 h-6 rounded transition-all flex items-center justify-center text-[10px] font-bold ${i+1===currentWeek? 'bg-gradient-to-r from-purple-500 to-blue-500 text-white' : i+1<currentWeek? 'bg-purple-600/50 text-purple-200' : 'bg-slate-700/50 text-slate-400 hover:bg-slate-600/50'}`}>{i+1}</button>
-                  ))}
-                </div>
-                <div className="text-xs text-purple-400">
-                  {(TIMELINE_PHASES[currentPhase].detalles.find(d=>d.semana===currentWeek)?.herramientas_ids?.length ?? 0)} herramientas activas
-                </div>
-              </div>
-              <div className="mt-3 grid grid-cols-3 gap-3">
-                {TIMELINE_PHASES[currentPhase].detalles.filter(d=>d.semana===currentWeek).map(detalle => (
-                  <div key={detalle.semana} className="bg-slate-900/60 rounded-lg p-3 border border-slate-800">
-                    <div className="font-semibold text-sm text-purple-200 mb-1">Semana {detalle.semana}: {detalle.titulo}</div>
-                    <div className="text-[10px] uppercase tracking-wide text-slate-400 mb-1">Tareas</div>
-                    <ul className="text-[11px] text-slate-300 space-y-0.5">{detalle.tareas.map((t,i)=>(<li key={i}>• {t}</li>))}</ul>
-                    <div className="text-[10px] uppercase tracking-wide text-slate-400 mt-2 mb-1">Stack</div>
-                    <div className="flex flex-wrap gap-1">{detalle.herramientas.map(h => (<span key={h} className="px-2 py-0.5 bg-purple-500/20 border border-purple-400/30 rounded text-[10px] text-purple-300">{h}</span>))}</div>
-                  </div>
-                ))}
-                <div className="col-span-1 bg-slate-900/60 rounded-lg p-3 border border-slate-800">
-                  <div className="text-xs font-bold text-purple-200 mb-2">🤖 Estado IAs (Día 90)</div>
-                  <div className="space-y-2 text-[11px]">
-                    {Object.entries({
-                      HASE: { estado: "Cerebro Dual Activo", progreso: 75, descripcion: "3 meses datos operativos flota Higer + nueva flota propia" },
-                      PIA: { estado: "v1.0 en Producción", progreso: 60, descripcion: "Recordatorios automatizados vía Twilio con referencias Conekta" },
-                      "Super-PMA": { estado: "Modo Escucha Avanzado", progreso: 40, descripcion: "Base de datos rica, iniciando modelos predictivos" }
-                    }).map(([ia, s]) => (
-                      <div key={ia}>
-                        <div className="flex justify-between"><span className="text-purple-300">{ia}</span><span className="text-slate-400">{s.progreso}%</span></div>
-                        <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-purple-500 to-blue-500" style={{ width: `${s.progreso}%` }} /></div>
-                        <div className="text-slate-500 mt-0.5">{s.descripcion}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="col-span-1 bg-slate-900/60 rounded-lg p-3 border border-slate-800">
-                  <div className="text-xs font-bold text-green-300 mb-2">🎯 KPIs al Día 90</div>
-                  <div className="grid grid-cols-2 gap-1 text-[11px] text-green-200">
-                    <div>• 20-30 unidades</div><div>• 3 meses datos</div><div>• Pipeline 50+</div><div>• Stack 100%</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    );
-
-    const DiagramCanvas = ({ nodes, flows, flow, visibleLanes, positions, selected, setSelected, showTimeline, currentPhase, currentWeek }) => {
-      const { zoom, pan, setZoom, setPan, onWheel, onMouseDown, onMouseMove, reset } = useZoomPan(1);
-      const width = Math.max(2400, PADDING_X * 2 + LANES.length * (LANE_WIDTH + LANE_GAP));
-      const maxRow = Math.max(...nodes.map((n) => n.row));
-      const height = PADDING_Y * 2 + (maxRow + 1) * ROW_HEIGHT;
-
-      const activeEdges = flows[flow] || [];
-      const phaseData = showTimeline && currentPhase ? TIMELINE_PHASES[currentPhase] : null;
-      const weekData = phaseData ? phaseData.detalles.find(d => d.semana === currentWeek) : null;
-
-      return (
-        <div className="flex-1 relative h-[calc(100vh-64px)] overflow-hidden" onWheel={onWheel} onMouseMove={onMouseMove} onMouseDown={onMouseDown}>
-          <ZoomControls onZoomIn={()=>setZoom(z=>Math.min(2.5, z*1.1))} onZoomOut={()=>setZoom(z=>Math.max(0.4, z*0.9))} onReset={reset} />
-          <div className="column-header-overlay">
-            {LANES.map((lane, idx) => {
-              if (!visibleLanes[lane.id]) return null;
-              const xPosition = PADDING_X + idx * (LANE_WIDTH + LANE_GAP) + (LANE_WIDTH / 2);
-              return (
-                <div key={lane.id} className="absolute top-2 text-slate-300 text-sm font-semibold flex items-center gap-2" style={{ left: xPosition - (LANE_WIDTH/2) + 8 }}>
-                  <span className="text-slate-400">{lane.icon}</span>
-                  <span>{lane.title}</span>
-                </div>
-              );
-            })}
-          </div>
-          <div className="absolute inset-0" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: '0 0' }}>
-            <svg width={width} height={height} className="block">
-              {LANES.map((lane, idx) => {
-                if (!visibleLanes[lane.id]) return null;
-                const xPosition = PADDING_X + idx * (LANE_WIDTH + LANE_GAP) + (LANE_WIDTH / 2);
-                return (
-                  <g key={lane.id}>
-                    <rect x={xPosition - LANE_WIDTH/2} y={45} width={LANE_WIDTH} height={35} fill="rgba(30, 41, 59, 0.8)" stroke="rgba(100, 116, 139, 0.3)" strokeWidth="1" rx="8" />
-                    <text x={xPosition} y={67} textAnchor="middle" className="fill-slate-200" fontSize="15" fontWeight="600"></text>
-                  </g>
-                );
-              })}
-
-              {Object.values(flows).flat().map(([a, b], i) => (
-                <Edge key={i} from={a} to={b} positions={positions} active={!!flow && flows[flow]?.some(([x, y]) => x === a && y === b)} />
-              ))}
-            </svg>
-
-            {nodes.map((n) => {
-              const isActiveInPhase = !!phaseData && phaseData.nodos_activos.includes(n.id);
-              const isActiveInWeek = !!weekData && weekData.herramientas_ids?.includes(n.id);
-              return (
-                <NodeCard key={n.id} node={n} pos={positions[n.id]} selected={selected?.id === n.id} onSelect={setSelected} isActiveInWeek={isActiveInWeek} isActiveInPhase={isActiveInPhase} />
-              );
-            })}
-          </div>
-          <MiniMap zoom={zoom} pan={pan} diagramSize={{ width, height }} />
-        </div>
-      );
-    };
-
-    const PortalTecnicoImpl = () => (
-      <div className="flex-1 h-[calc(100vh-64px)] bg-slate-950 p-6 overflow-y-auto">
-        <div className="max-w-7xl mx-auto space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold">Portal Técnico</h2>
-            <div className="flex items-center gap-3 text-sm text-slate-400">
-              <span><span className="inline-block w-2 h-2 rounded-full" style={{background: THEME.states.core}}></span> Núcleo</span>
-              <span><span className="inline-block w-2 h-2 rounded-full" style={{background: THEME.states.mvp}}></span> MVP</span>
-              <span><span className="inline-block w-2 h-2 rounded-full" style={{background: THEME.states.phase2}}></span> Fase 2</span>
-              <span><span className="inline-block w-2 h-2 rounded-full" style={{background: THEME.states.future}}></span> Futuro</span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-            <section className="lg:col-span-8 rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-              <div className="font-semibold mb-2">Mapa de Integraciones (resumen)</div>
-              <div className="grid sm:grid-cols-2 gap-3">
-                {NODES.map(n => (
-                  <div key={n.id} className="rounded-lg border border-slate-800 bg-slate-900 p-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-slate-300">{n.icon}</span>
-                      <div className="font-semibold text-sm text-slate-200">{n.title}</div>
-                      <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full border border-slate-700 text-slate-400">{n.type}</span>
-                    </div>
-                    <div className="text-slate-400 text-xs mt-1">{n.subtitle}</div>
-                    <div className="mt-2 grid grid-cols-2 gap-2 text-[11px] text-slate-300">
-                      <div>
-                        <div className="text-slate-500 uppercase text-[10px]">IN</div>
-                        {n.io.in.slice(0,2).map((t,i)=>(<div key={i}>• {t}</div>))}
-                      </div>
-                      <div>
-                        <div className="text-slate-500 uppercase text-[10px]">OUT</div>
-                        {n.io.out.slice(0,2).map((t,i)=>(<div key={i}>• {t}</div>))}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-            <aside className="lg:col-span-4 rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-              <div className="font-semibold mb-2">APIs y Endpoints sugeridos</div>
-              <div className="text-[11px] text-slate-400">Selecciona un nodo en la vista estratégica para ver endpoints detallados.</div>
-              <div className="mt-3 grid grid-cols-2 gap-2 text-[11px]">
-                <div className="p-2 rounded border border-slate-800 bg-slate-900">Autenticación OTP (Twilio)</div>
-                <div className="p-2 rounded border border-slate-800 bg-slate-900">Webhook firma (Mifiel)</div>
-                <div className="p-2 rounded border border-slate-800 bg-slate-900">Pagos (Conekta)</div>
-                <div className="p-2 rounded border border-slate-800 bg-slate-900">Telemetría (Samsara)</div>
-              </div>
-            </aside>
-          </div>
-        </div>
-      </div>
-    );
-
-    // Lazy load PortalTecnico for performance
-    const PortalTecnico = React.lazy(() => Promise.resolve({ default: PortalTecnicoImpl }));
-
     function ConductoresIntegrationsMap() {
       const [flow, setFlow] = useState("Onboarding & Scoring");
-      const [visibleLanes, setVisibleLanes] = useState(Object.fromEntries(LANES.map((l) => [l.id, true])));
+      const [visibleLanes, setVisibleLanes] = useState(
+        Object.fromEntries(LANES.map((l) => [l.id, true]))
+      );
       const [selected, setSelected] = useState(null);
 
       const [showTimeline, setShowTimeline] = useState(false);
-      const [currentPhase, setCurrentPhase] = useState("Mes 1: Ignición Inmediata");
+      const [currentPhase, setCurrentPhase] = useState(null);
       const [currentWeek, setCurrentWeek] = useState(1);
+      const [hoveredWeek, setHoveredWeek] = useState(null);
 
-      const [viewMode, setViewMode] = useState('strategic'); // 'strategic' | 'technical'
-      const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+      const [viewMode, setViewMode] = useState('timeline'); // 'timeline' | 'technical'
+      const [portalLoading, setPortalLoading] = useState(true);
 
-      useKeyboardShortcuts({ onTogglePalette: ()=>setCommandPaletteOpen(v=>!v), onClosePalette: ()=>setCommandPaletteOpen(false), onToggleTimeline: ()=> setShowTimeline(v=>!v) });
+      const TIMELINE_PHASES = {
+        "Mes 1: Ignición Inmediata": {
+          semanas: [1, 2, 3, 4],
+          color: "from-red-500/20 to-orange-500/10",
+          borderColor: "border-red-400/40",
+                     nodos_activos: ["portal", "samsara", "metamap", "kiban", "conekta", "mifiel", "odoo"],
+           detalles: [
+             {
+               semana: 1,
+               titulo: "Kick-off Hardware y Alianzas",
+               herramientas_ids: ["portal", "samsara", "metamap"],
+               tareas: [
+                 "Despliegue Portal Cliente para captación inicial",
+                 "Orden de compra 17 dispositivos Samsara (VG55 + EI21)",
+                 "Instalación inmediata en flota Higer 17",
+                 "Firma contratos con Metamap, KIBAN, Conekta, Mifiel",
+                 "Inicio integraciones API"
+               ],
+               herramientas: ["Portal Cliente", "Samsara", "Metamap", "KIBAN", "Conekta", "Mifiel"],
+               hito: "¡Telemetría en tiempo real desde día 7!"
+             },
+                        {
+               semana: 2,
+               titulo: "Arranque Técnico y de Mercado",
+               herramientas_ids: ["portal", "odoo", "metamap", "kiban"],
+               tareas: [
+                 "Despliegue Odoo Enterprise Plan Personalizado",
+                 "Configuración módulos CRM y Core Bancario simplificado",
+                 "Ofertas formales a COO/PMO y Head of Growth"
+               ],
+               herramientas: ["Odoo Enterprise"],
+               hito: "Plataforma interna lista para primer cliente"
+             },
+                        {
+               semana: 3,
+               titulo: "Ingesta de Datos y Entrenamiento IA",
+               herramientas_ids: ["samsara", "gnv", "warehouse"],
+               tareas: [
+                 "HASE y Super-PMA en modo escucha",
+                 "Ingesta datos Samsara de flota Higer",
+                 "Construcción base de datos propietaria",
+                 "Integración APIs estaciones GNV"
+               ],
+               herramientas: ["AWS/Google Cloud", "Samsara API", "APIs GNV"],
+               hito: "Primeros datos flota y consumo correlacionados"
+             },
+                        {
+               semana: 4,
+               titulo: "Ensamble del Stack Operativo",
+               herramientas_ids: ["odoo", "metamap", "kiban", "conekta", "mifiel"],
+               tareas: [
+                 "Integración end-to-end completa",
+                 "Odoo ↔ Metamap ↔ KIBAN ↔ Conekta ↔ Mifiel",
+                 "MVP del Asistente Digital avanza",
+                 "17 operadores como cliente objetivo"
+               ],
+               herramientas: ["Odoo", "Metamap", "KIBAN", "Conekta", "Mifiel APIs"],
+               hito: "Stack de originación 100% funcional"
+             }
+          ]
+        },
+        "Mes 2: Validación en Campo": {
+          semanas: [5, 6, 7, 8],
+          color: "from-yellow-500/20 to-green-500/10",
+          borderColor: "border-yellow-400/40",
+          nodos_activos: ["whatsapp", "assistant", "ipaas", "pia", "hase"],
+          detalles: [
+                        {
+               semana: 5,
+               titulo: "Lanzamiento MVP Higer 17",
+               herramientas_ids: ["whatsapp", "assistant", "ipaas"],
+               tareas: [
+                 "Despliegue oficial Asistente Digital",
+                 "17 operadores flota Higer como usuarios",
+                 "Comunicación vía API Twilio"
+               ],
+               herramientas: ["Twilio", "Flowise", "Make/n8n"],
+               hito: "MVP en producción"
+             },
+                        {
+               semana: 6,
+               titulo: "Medición KPIs Validación",
+               herramientas_ids: ["warehouse"],
+               tareas: [
+                 "Medición en entorno real y controlado",
+                 ">70% automatización",
+                 ">95% precisión OCR",
+                 "Recolección feedback operadores"
+               ],
+               herramientas: ["Analytics", "Looker Studio"],
+               hito: "Validación tecnológica en campo iniciada"
+             },
+                        {
+               semana: 7,
+               titulo: "Evangelización del Pipeline",
+               herramientas_ids: ["odoo", "warehouse"],
+               tareas: [
+                 "Head of Growth visita 12 rutas pipeline",
+                 "Demos funcionales Asistente IA",
+                 "Dashboards Looker con datos reales Higer",
+                 "Evidencia tangible, no promesas"
+               ],
+               herramientas: ["Odoo CRM", "Looker Studio"],
+               hito: "Pipeline activado con evidencia real"
+             },
+                        {
+               semana: 8,
+               titulo: "Pre-calificación Masiva",
+               herramientas_ids: ["metamap", "odoo"],
+               tareas: [
+                 "Preparación primeros 50 expedientes",
+                 "Flujo Manual Underwriting 1.0",
+                 "Recolección documentación",
+                 "KYC inicial de prospectos"
+               ],
+               herramientas: ["Metamap", "Odoo CRM"],
+               hito: "50 operadores pipeline pre-calificados"
+             }
+          ]
+        },
+        "Mes 3: Ignición y Despliegue": {
+          semanas: [9, 10, 11, 12],
+          color: "from-green-500/20 to-blue-500/10",
+          borderColor: "border-green-400/40",
+          nodos_activos: ["odoo", "mifiel", "conekta", "samsara", "pia", "pma", "warehouse"],
+          detalles: [
+            {
+              semana: 9,
+              titulo: "Primer Comité de Crédito",
+              herramientas_ids: ["metamap", "kiban", "odoo"],
+              tareas: [
+                "Presentación 20-30 expedientes",
+                "KYC Metamap completo",
+                "Reporte Buró vía KIBAN",
+                "Scorecard Cualitativo (HASE v0.1)"
+              ],
+              herramientas: ["Metamap", "KIBAN", "Odoo"],
+              hito: "Primeras aprobaciones de crédito"
+            },
+                        {
+               semana: 10,
+               titulo: "Cierre y Firma Digital",
+               herramientas_ids: ["mifiel", "conekta"],
+               tareas: [
+                 "Comité aprueba primer lote",
+                 "Envío contratos vía Mifiel",
+                 "Recepción enganches vía Conekta",
+                 "10-20 contratos firmados"
+               ],
+               herramientas: ["Mifiel", "Conekta"],
+               hito: "20 contratos firmados digitalmente"
+             },
+                        {
+               semana: 11,
+               titulo: "Ejecución Órdenes de Compra",
+               herramientas_ids: ["samsara", "odoo"],
+               tareas: [
+                 "Orden de compra 10-20 vagonetas",
+                 "Instalación Samsara pre-entrega",
+                 "Configuración unidades",
+                 "Preparación logística entrega"
+               ],
+               herramientas: ["Samsara", "Odoo"],
+               hito: "Vagonetas listas para entrega"
+             },
+                        {
+               semana: 12,
+               titulo: "Primeras Unidades en Calle",
+               herramientas_ids: ["samsara", "pia", "whatsapp"],
+               tareas: [
+                 "Entrega vagonetas a operadores",
+                 "Samsara transmitiendo en tiempo real",
+                 "PIA v1.0 activado - recordatorios pago",
+                 "Gestión comunicación inicial"
+               ],
+               herramientas: ["Samsara", "PIA", "Twilio"],
+               hito: "Flota operando y generando revenue + datos"
+             }
+          ]
+        }
+      };
 
-      const filteredNodes = useMemo(() => NODES.filter((n) => visibleLanes[n.lane]), [visibleLanes]);
+      const IA_STATUS_90_DAYS = {
+        HASE: {
+          estado: "Cerebro Dual Activo",
+          descripcion: "3 meses datos operativos flota Higer + nueva flota propia",
+          progreso: 75
+        },
+        PIA: {
+          estado: "v1.0 en Producción",
+          descripcion: "Recordatorios automatizados vía Twilio con referencias Conekta",
+          progreso: 60
+        },
+        "Super-PMA": {
+          estado: "Modo Escucha Avanzado",
+          descripcion: "Base de datos rica, iniciando modelos predictivos",
+          progreso: 40
+        }
+      };
+
+      useEffect(() => {
+        const container = document.querySelector('.diagram-scroll-container');
+        if (container) {
+          console.log('Container width:', container.clientWidth);
+          console.log('Content width:', container.scrollWidth);
+          console.log('Can scroll:', container.scrollWidth > container.clientWidth);
+          if (container.scrollWidth <= container.clientWidth) {
+            const innerCanvas = container.querySelector('.diagram-inner-canvas');
+            if (innerCanvas) {
+              innerCanvas.style.minWidth = '2400px';
+              innerCanvas.style.width = '2400px';
+            }
+          }
+        }
+      }, []);
+
+      const filteredNodes = useMemo(
+        () => NODES.filter((n) => visibleLanes[n.lane]),
+        [visibleLanes]
+      );
       const positions = useMemo(() => computePositions(filteredNodes), [filteredNodes]);
+
+      const activeEdges = FLOWS[flow] || [];
 
       const width = Math.max(2400, PADDING_X * 2 + LANES.length * (LANE_WIDTH + LANE_GAP));
       const maxRow = Math.max(...filteredNodes.map((n) => n.row));
       const height = PADDING_Y * 2 + (maxRow + 1) * ROW_HEIGHT;
 
-      useEffect(() => { if (showTimeline) { setFlow(null); } }, [showTimeline]);
+      // Componente Portal Técnico embebido
+      const TechnicalPortalView = () => {
+        const portalHTML = `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Arquitectura de Integraciones – Conductores</title>
+  <script src="https://cdn.tailwindcss.com"><\/script>
+  <style>
+    :root{
+      --mvp:#10b981;        /* emerald-500 */
+      --phase2:#0ea5e9;     /* sky-500 */
+      --future:#f59e0b;     /* amber-500 */
+      --infra:#94a3b8;      /* slate-400 */
+      --core:#0d9488;       /* teal-600 */
+    }
+    .node{cursor:pointer;}
+    .pill{border-radius:9999px;padding:.125rem .5rem;font-size:.75rem}
+    .badge{border:1px solid rgba(148,163,184,.35)}
+    .card{border:1px solid rgba(148,163,184,.35);border-radius:0.75rem}
+    .edge{stroke:#CBD5E1;stroke-width:2;opacity:.9}
+    .edge.arrow{marker-end:url(#arrow)}
+    .glow{filter: drop-shadow(0 1px 6px rgba(2,132,199,.25));}
+    .kbd{border:1px solid #cbd5e1;border-bottom-width:3px;border-radius:.375rem;padding:.1rem .35rem;background:#f8fafc}
+    .legend-dot{width:.75rem;height:.75rem;border-radius:9999px;display:inline-block;margin-right:.35rem}
+    .status-mvp{background:var(--mvp)}
+    .status-phase2{background:var(--phase2)}
+    .status-future{background:var(--future)}
+    .status-core{background:var(--core)}
+    .status-infra{background:var(--infra)}
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+  <header class="max-w-7xl mx-auto px-4 py-6">
+    <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight">Arquitectura de Integraciones – Conductores (Fast Track 90 días)</h1>
+    <p class="text-slate-600 mt-2">Vista interactiva de cómo se conectan nuestras piezas: Portal (PWA), Odoo, Airtable, Metamap, Kiban, HASE, Mifiel, Conekta, Twilio, Samsara/Geotab, Make/Zapier, Flowise, APIs GNV y Agentes (PIA & Super-PMA).</p>
+  </header>
+
+  <main class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-4 px-4 pb-8">
+
+    <!-- Diagram -->
+    <section class="lg:col-span-8 bg-white card p-4 relative overflow-hidden">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-bold">Mapa de Integraciones</h2>
+        <div class="flex items-center gap-3 text-sm">
+          <span><span class="legend-dot status-core"></span>Núcleo (Core)</span>
+          <span><span class="legend-dot status-mvp"></span>MVP</span>
+          <span><span class="legend-dot status-phase2"></span>Fase 2</span>
+          <span><span class="legend-dot status-future"></span>Futuro</span>
+        </div>
+      </div>
+
+      <svg id="arch" viewBox="0 0 1200 760" class="w-full h-[560px] md:h-[640px]">
+        <!-- defs -->
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"></path>
+          </marker>
+        </defs>
+
+        <!-- Zones background -->
+        <rect x="10" y="10" width="1180" height="740" fill="#f8fafc" stroke="#e2e8f0"/>
+        <text x="24" y="42" class="fill-slate-500" font-size="14">Zona de Integraciones</text>
+
+        <!-- CORE cluster -->
+        <rect x="60" y="80" width="640" height="270" rx="16" fill="#ecfeff" stroke="#bae6fd"/>
+        <text x="76" y="104" class="fill-sky-700" font-weight="bold">CORE Transaccional & Orquestación</text>
+
+        <!-- DATA/AI cluster -->
+        <rect x="60" y="380" width="1080" height="190" rx="16" fill="#f0fdf4" stroke="#bbf7d0"/>
+        <text x="76" y="404" class="fill-emerald-700" font-weight="bold">Datos, IA y Automatización</text>
+
+        <!-- TELEMATICS cluster -->
+        <rect x="740" y="80" width="400" height="270" rx="16" fill="#fff7ed" stroke="#fed7aa"/>
+        <text x="756" y="104" class="fill-amber-700" font-weight="bold">Telemática & Operación</text>
+
+        <!-- NODES -->
+        <!-- Portal PWA -->
+        <g id="n-portal" class="node" transform="translate(90,120)">
+          <rect width="180" height="60" rx="12" fill="white" stroke="#0d9488" stroke-width="2"/>
+          <text x="90" y="36" text-anchor="middle" class="fill-slate-800 font-bold">Portal Conductores (PWA)</text>
+          <circle cx="165" cy="20" r="6" fill="var(--mvp)"/>
+        </g>
+
+        <!-- Backend Gateway -->
+        <g id="n-gw" class="node" transform="translate(330,120)">
+          <rect width="180" height="60" rx="12" fill="white" stroke="#0d9488" stroke-width="2"/>
+          <text x="90" y="36" text-anchor="middle" class="fill-slate-800 font-bold">API Gateway (BFF)</text>
+          <circle cx="165" cy="20" r="6" fill="var(--mvp)"/>
+        </g>
+
+        <!-- Odoo -->
+        <g id="n-odoo" class="node" transform="translate(210,210)">
+          <rect width="200" height="60" rx="12" fill="white" stroke="#0d9488" stroke-width="2"/>
+          <text x="100" y="36" text-anchor="middle" class="fill-slate-800 font-bold">Odoo (ERP Core)</text>
+          <circle cx="185" cy="20" r="6" fill="var(--core)"/>
+        </g>
+
+        <!-- Airtable -->
+        <g id="n-airtable" class="node" transform="translate(90,210)">
+          <rect width="100" height="60" rx="12" fill="white" stroke="#0d9488" stroke-width="2"/>
+          <text x="50" y="36" text-anchor="middle" class="fill-slate-800 font-bold">Airtable</text>
+          <circle cx="85" cy="20" r="6" fill="var(--mvp)"/>
+        </g>
+
+        <!-- Metamap -->
+        <g id="n-metamap" class="node" transform="translate(450,210)">
+          <rect width="140" height="60" rx="12" fill="white" stroke="#0d9488" stroke-width="2"/>
+          <text x="70" y="36" text-anchor="middle" class="fill-slate-800 font-bold">Metamap</text>
+          <circle cx="125" cy="20" r="6" fill="var(--mvp)"/>
+        </g>
+
+        <!-- Kiban -->
+        <g id="n-kiban" class="node" transform="translate(610,210)">
+          <rect width="130" height="60" rx="12" fill="white" stroke="#0d9488" stroke-width="2"/>
+          <text x="65" y="36" text-anchor="middle" class="fill-slate-800 font-bold">Kiban</text>
+          <circle cx="115" cy="20" r="6" fill="var(--mvp)"/>
+        </g>
+
+        <!-- Mifiel -->
+        <g id="n-mifiel" class="node" transform="translate(90,300)">
+          <rect width="150" height="60" rx="12" fill="white" stroke="#0d9488" stroke-width="2"/>
+          <text x="75" y="36" text-anchor="middle" class="fill-slate-800 font-bold">Mifiel</text>
+          <circle cx="130" cy="20" r="6" fill="var(--mvp)"/>
+        </g>
+
+        <!-- Conekta -->
+        <g id="n-conekta" class="node" transform="translate(260,300)">
+          <rect width="150" height="60" rx="12" fill="white" stroke="#0d9488" stroke-width="2"/>
+          <text x="75" y="36" text-anchor="middle" class="fill-slate-800 font-bold">Conekta</text>
+          <circle cx="130" cy="20" r="6" fill="var(--mvp)"/>
+        </g>
+
+        <!-- Twilio -->
+        <g id="n-twilio" class="node" transform="translate(430,300)">
+          <rect width="120" height="60" rx="12" fill="white" stroke="#0d9488" stroke-width="2"/>
+          <text x="60" y="36" text-anchor="middle" class="fill-slate-800 font-bold">Twilio</text>
+          <circle cx="100" cy="20" r="6" fill="var(--phase2)"/>
+        </g>
+
+        <!-- Flowise -->
+        <g id="n-flowise" class="node" transform="translate(570,300)">
+          <rect width="170" height="60" rx="12" fill="white" stroke="#0d9488" stroke-width="2"/>
+          <text x="85" y="36" text-anchor="middle" class="fill-slate-800 font-bold">Flowise / PIA</text>
+          <circle cx="155" cy="20" r="6" fill="var(--phase2)"/>
+        </g>
+
+        <!-- Samsara -->
+        <g id="n-samsara" class="node" transform="translate(770,140)">
+          <rect width="180" height="60" rx="12" fill="white" stroke="#f59e0b" stroke-width="2"/>
+          <text x="90" y="36" text-anchor="middle" class="fill-slate-800 font-bold">Samsara</text>
+          <circle cx="165" cy="20" r="6" fill="var(--mvp)"/>
+        </g>
+
+        <!-- Geotab -->
+        <g id="n-geotab" class="node" transform="translate(970,140)">
+          <rect width="150" height="60" rx="12" fill="white" stroke="#f59e0b" stroke-width="2"/>
+          <text x="75" y="36" text-anchor="middle" class="fill-slate-800 font-bold">Geotab</text>
+          <circle cx="135" cy="20" r="6" fill="var(--future)"/>
+        </g>
+
+        <!-- Super-PMA -->
+        <g id="n-pma" class="node" transform="translate(770,230)">
+          <rect width="170" height="60" rx="12" fill="white" stroke="#f59e0b" stroke-width="2"/>
+          <text x="85" y="36" text-anchor="middle" class="fill-slate-800 font-bold">Super-PMA</text>
+          <circle cx="155" cy="20" r="6" fill="var(--phase2)"/>
+        </g>
+
+        <!-- APIs GNV -->
+        <g id="n-gnv" class="node" transform="translate(960,230)">
+          <rect width="160" height="60" rx="12" fill="white" stroke="#f59e0b" stroke-width="2"/>
+          <text x="80" y="36" text-anchor="middle" class="fill-slate-800 font-bold">APIs Estaciones GNV</text>
+          <circle cx="140" cy="20" r="6" fill="var(--phase2)"/>
+        </g>
+
+        <!-- Make/Zapier -->
+        <g id="n-make" class="node" transform="translate(90,470)">
+          <rect width="180" height="60" rx="12" fill="white" stroke="#22c55e" stroke-width="2"/>
+          <text x="90" y="36" text-anchor="middle" class="fill-slate-800 font-bold">Make / Zapier / n8n</text>
+          <circle cx="165" cy="20" r="6" fill="var(--mvp)"/>
+        </g>
+
+        <!-- HASE -->
+        <g id="n-hase" class="node" transform="translate(300,470)">
+          <rect width="160" height="60" rx="12" fill="white" stroke="#22c55e" stroke-width="2"/>
+          <text x="80" y="36" text-anchor="middle" class="fill-slate-800 font-bold">HASE (Scoring)</text>
+          <circle cx="140" cy="20" r="6" fill="var(--mvp)"/>
+        </g>
+
+        <!-- Data Lake / BI -->
+        <g id="n-bi" class="node" transform="translate(480,470)">
+          <rect width="210" height="60" rx="12" fill="white" stroke="#22c55e" stroke-width="2"/>
+          <text x="105" y="36" text-anchor="middle" class="fill-slate-800 font-bold">Data Lake + BI (BQ/LS)</text>
+          <circle cx="190" cy="20" r="6" fill="var(--phase2)"/>
+        </g>
+
+        <!-- WhatsApp -->
+        <g id="n-wa" class="node" transform="translate(710,470)">
+          <rect width="140" height="60" rx="12" fill="white" stroke="#22c55e" stroke-width="2"/>
+          <text x="70" y="36" text-anchor="middle" class="fill-slate-800 font-bold">WhatsApp API</text>
+          <circle cx="120" cy="20" r="6" fill="var(--phase2)"/>
+        </g>
+
+        <!-- Flow lines (edges) -->
+        <!-- Portal -> Gateway -->
+        <line class="edge arrow" x1="270" y1="150" x2="330" y2="150" />
+        <!-- Gateway -> Odoo -->
+        <line class="edge arrow" x1="420" y1="150" x2="310" y2="240" />
+        <!-- Gateway -> Metamap/Kiban -->
+        <line class="edge arrow" x1="420" y1="150" x2="520" y2="240" />
+        <line class="edge arrow" x1="420" y1="150" x2="645" y2="240" />
+        <!-- Odoo -> Mifiel/Conekta/Twilio/Flowise -->
+        <line class="edge arrow" x1="310" y1="240" x2="165" y2="330" />
+        <line class="edge arrow" x1="310" y1="240" x2="335" y2="330" />
+        <line class="edge arrow" x1="310" y1="240" x2="490" y2="330" />
+        <line class="edge arrow" x1="310" y1="240" x2="655" y2="330" />
+        <!-- Telematics -> PMA -> Flowise/PIA/Odoo -->
+        <line class="edge arrow" x1="860" y1="170" x2="855" y2="260" />
+        <line class="edge arrow" x1="855" y1="260" x2="655" y2="330" />
+        <line class="edge arrow" x1="855" y1="260" x2="310" y2="240" />
+        <!-- GNV -> PMA & BI -->
+        <line class="edge arrow" x1="1040" y1="260" x2="855" y2="260" />
+        <line class="edge arrow" x1="1040" y1="260" x2="585" y2="500" />
+        <!-- Orchestration/AI/Datalake edges -->
+        <line class="edge arrow" x1="180" y1="500" x2="300" y2="500" />
+        <line class="edge arrow" x1="380" y1="500" x2="585" y2="500" />
+        <line class="edge arrow" x1="585" y1="500" x2="780" y2="500" />
+        <line class="edge arrow" x1="655" y1="330" x2="780" y2="500" />
+
+      </svg>
+
+      <p class="text-xs text-slate-500 mt-3">Consejo: haz clic en cualquier bloque para ver detalles, APIs y estado (MVP / Fase 2 / Futuro).</p>
+    </section>
+
+    <!-- Details panel -->
+    <aside class="lg:col-span-4 bg-white card p-4 sticky top-4 h-fit" id="panel">
+      <div id="empty" class="text-slate-600">
+        <h3 class="font-bold text-lg">Detalles</h3>
+        <p class="mt-1">Selecciona un bloque del diagrama para ver:</p>
+        <ul class="list-disc pl-5 mt-2 text-sm">
+          <li>Rol en la arquitectura</li>
+          <li>Principales datos que intercambia</li>
+          <li>EndPoints sugeridos</li>
+          <li>Estado: <span class="pill badge">MVP</span>, <span class="pill badge">Fase 2</span>, <span class="pill badge">Futuro</span></li>
+        </ul>
+      </div>
+      <div id="content" class="hidden"></div>
+    </aside>
+
+    <!-- Swimlanes / Flujos clave -->
+    <section class="lg:col-span-12 bg-white card p-4">
+      <h2 class="font-bold mb-2">Flujos Clave</h2>
+      <div class="grid md:grid-cols-3 gap-3 text-sm">
+        <div class="p-3 rounded-lg border border-slate-200">
+          <h3 class="font-semibold mb-1">Onboarding (Asesor)</h3>
+          <ol class="list-decimal pl-5 space-y-1">
+            <li>Portal crea prospecto (Odoo)</li>
+            <li>Verificación Metamap</li>
+            <li>Consulta Círculo de Crédito (Kiban)</li>
+            <li>HASE (score cualitativo + aval)</li>
+            <li>Generación y firma (Mifiel)</li>
+            <li>Alta de crédito (Odoo)</li>
+          </ol>
+        </div>
+        <div class="p-3 rounded-lg border border-slate-200">
+          <h3 class="font-semibold mb-1">Cobranza & Pagos</h3>
+          <ol class="list-decimal pl-5 space-y-1">
+            <li>PIA envía recordatorio (WA)</li>
+            <li>Generación referencia (Conekta)</li>
+            <li>Pago y conciliación → Odoo</li>
+            <li>Actualización de saldo y notificación</li>
+          </ol>
+        </div>
+        <div class="p-3 rounded-lg border border-slate-200">
+          <h3 class="font-semibold mb-1">Postventa & PMA</h3>
+          <ol class="list-decimal pl-5 space-y-1">
+            <li>Telemática (Samsara) emite evento</li>
+            <li>Super‑PMA evalúa condición</li>
+            <li>Si aplica, crear OS en Odoo</li>
+            <li>Asistente notifica al operador/propietario</li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    const panel = document.getElementById('panel');
+    const content = document.getElementById('content');
+    const empty = document.getElementById('empty');
+
+    const nodes = {
+      'n-portal': {
+        title: 'Portal Conductores (PWA)',
+        status: 'MVP',
+        role: 'Front web instalable (PWA) para Asesor y Operador. Orquesta onboarding y consulta post‑aprobación.',
+        data: ['Prospecto', 'INE + selfie (via Metamap)', 'Carta aval', 'Score HASE (resumen)', 'Contrato (link Mifiel)', 'Pagos y saldo (Odoo/Conekta)'],
+        endpoints: [
+          'POST /api/odoo/prospectos',
+          'POST /api/metamap/start {callbackUrl}',
+          'POST /api/kiban/circulo-check',
+          'POST /api/hase/score',
+          'POST /api/mifiel/contracts',
+          'POST /api/conekta/referencia'
+        ]
+      },
+      'n-gw': {
+        title: 'API Gateway (BFF – Backend for Frontend)',
+        status: 'MVP',
+        role: 'Capa de seguridad y orquestación. Firma, rate‑limit y normaliza respuestas de proveedores.',
+        data: ['Tokens OAuth/API keys', 'Logs auditoría', 'Normalización JSON'],
+        endpoints: [
+          'POST /api/auth/otp (Twilio)',
+          'POST /api/onboarding/submit',
+          'GET /api/credito/:id',
+          'GET /api/pagos?cliente=:id'
+        ]
+      },
+      'n-odoo': {
+        title: 'Odoo (ERP Core)',
+        status: 'CORE',
+        role: 'Fuente de verdad transaccional: clientes, contratos, amortización, pagos, OS de servicio.',
+        data: ['Clientes/Prospectos', 'Tabla amortización', 'Pagos', 'Inventario/OS', 'Documentos'],
+        endpoints: [
+          'POST /erp/prospectos',
+          'POST /erp/creditos',
+          'GET /erp/creditos/:id/saldo',
+          'POST /erp/os (orden de servicio)'
+        ]
+      },
+      'n-airtable': {
+        title: 'Airtable',
+        status: 'MVP',
+        role: 'Backoffice rápido para catálogos y tableros ligeros (no crítico).',
+        data: ['Catálogos', 'Checklist comité', 'Backups ligeros'],
+        endpoints: ['GET /air/meta', 'GET /air/tablas/:id']
+      },
+      'n-metamap': {
+        title: 'Metamap (KYC)',
+        status: 'MVP',
+        role: 'Verificación de identidad (INE, selfie, CURP) y señales antifraude.',
+        data: ['INE OCR', 'Biometría selfie', 'Resultado KYC'],
+        endpoints: ['POST /metamap/sessions', 'POST /metamap/webhook']
+      },
+      'n-kiban': {
+        title: 'Kiban (Círculo de Crédito vía API)',
+        status: 'MVP',
+        role: 'Consulta y (luego) reporte a SIC. Insumo tradicional para HASE.',
+        data: ['Reporte PF/PM', 'Score SIC', 'Alertas de fraude'],
+        endpoints: ['POST /kiban/circulo/consulta', 'POST /kiban/reporting/batch']
+      },
+      'n-mifiel': {
+        title: 'Mifiel (Contratos)',
+        status: 'MVP',
+        role: 'Generación, firma y resguardo de contratos con evidencia criptográfica.',
+        data: ['PDF contrato', 'Hash/folio', 'Evidencias de firma'],
+        endpoints: ['POST /mifiel/contracts', 'GET /mifiel/contracts/:id']
+      },
+      'n-conekta': {
+        title: 'Conekta (Pagos)',
+        status: 'MVP',
+        role: 'Referencias OXXO/efectivo y conciliación de pagos.',
+        data: ['Orden de pago', 'Webhook de pago', 'Comisiones'],
+        endpoints: ['POST /conekta/charges', 'POST /conekta/webhook']
+      },
+      'n-twilio': {
+        title: 'Twilio (OTP/Comms)',
+        status: 'Fase 2',
+        role: 'OTP para login y envío de SMS/WhatsApp transaccional.',
+        data: ['OTP', 'Plantillas WA'],
+        endpoints: ['POST /twilio/otp/send', 'POST /twilio/wa/send']
+      },
+      'n-flowise': {
+        title: 'Flowise / PIA (Asistente)',
+        status: 'Fase 2',
+        role: 'Motor conversacional para recordatorios y postventa, conectado a Odoo y telemática.',
+        data: ['Mensajes', 'Instrucciones de pago', 'Alertas PMA'],
+        endpoints: ['POST /pia/notify', 'POST /pia/hooks/telematica']
+      },
+      'n-samsara': {
+        title: 'Samsara (Telemática)',
+        status: 'MVP',
+        role: 'Datos de GPS, motor y eventos de conducción; webhooks/stream para alertas.',
+        data: ['GPS/velocidad', 'RPM/fallas OBD-II', 'Eventos harsh/idle'],
+        endpoints: ['POST /samsara/webhooks', 'GET /samsara/vehicles/:id/stats']
+      },
+      'n-geotab': {
+        title: 'Geotab (Telemática Avanzada)',
+        status: 'Futuro',
+        role: 'Mayor granularidad y ecosistema Marketplace para casos avanzados.',
+        data: ['Diagnóstico profundo', 'Extensiones IOX', 'Plugins'],
+        endpoints: ['POST /geotab/hooks', 'GET /geotab/feed']
+      },
+      'n-pma': {
+        title: 'Super‑PMA (Mantenimiento Predictivo)',
+        status: 'Fase 2',
+        role: 'Analítica de condiciones y creación automática de OS en Odoo.',
+        data: ['Señales OBD', 'Patrones de falla', 'Recomendaciones'],
+        endpoints: ['POST /pma/evaluate', 'POST /erp/os']
+      },
+      'n-gnv': {
+        title: 'APIs Estaciones GNV',
+        status: 'Fase 2',
+        role: 'Consumo de combustible y correlación con ingresos/operación.',
+        data: ['Litros', 'Ticket/estación', 'Timestamp'],
+        endpoints: ['GET /gnv/consumos?vehiculo=:id', 'POST /gnv/webhook']
+      },
+      'n-make': {
+        title: 'Make / Zapier / n8n',
+        status: 'MVP',
+        role: 'Automatizaciones low‑code para ganar velocidad en 90 días.',
+        data: ['Disparadores', 'Conectores', 'Transformaciones'],
+        endpoints: ['N/A (escenarios)']
+      },
+      'n-hase': {
+        title: 'HASE (Scoring Operativo/Cualitativo)',
+        status: 'MVP',
+        role: 'Score propietario con colateral social (aval), señales KYC y SIC.',
+        data: ['Inputs KYC/SIC', 'Aval/scorecard', 'Score final'],
+        endpoints: ['POST /hase/score', 'GET /hase/explicabilidad/:id']
+      },
+      'n-bi': {
+        title: 'Data Lake + BI (BigQuery / Looker Studio)',
+        status: 'Fase 2',
+        role: 'Repositorio para analítica, cohortes, stress test cartera y KPIs.',
+        data: ['Hechos pagos', 'Telemetría resumida', 'Consumos GNV'],
+        endpoints: ['BQ tables / LS dashboards']
+      },
+      'n-wa': {
+        title: 'WhatsApp Business API',
+        status: 'Fase 2',
+        role: 'Canal prioritario de comunicación con operador y propietario.',
+        data: ['Plantillas', 'Entregas', 'Respuestas'],
+        endpoints: ['POST /wa/send', 'POST /wa/webhook']
+      }
+    };
+
+    function renderDetails(k){
+      const n = nodes[k];
+      if(!n) return;
+      empty.classList.add('hidden');
+      content.classList.remove('hidden');
+      content.innerHTML = 
+        '<div>' +
+          '<div class="flex items-center justify-between">' +
+            '<h3 class="font-bold text-lg">' + n.title + '</h3>' +
+            '<span class="pill badge ' + (n.status==='MVP'?'text-emerald-700': n.status==='Fase 2'?'text-sky-700': n.status==='CORE'?'text-teal-700':'text-amber-700') + '">' + n.status + '</span>' +
+          '</div>' +
+          '<p class="mt-2 text-sm text-slate-600">' + n.role + '</p>' +
+          '<div class="mt-3">' +
+            '<h4 class="font-semibold text-sm">Datos principales</h4>' +
+            '<ul class="list-disc pl-5 text-sm space-y-1">' + n.data.map(function(d){return '<li>' + d + '</li>';}).join('') + '</ul>' +
+          '</div>' +
+          '<div class="mt-3">' +
+            '<h4 class="font-semibold text-sm">Endpoints sugeridos</h4>' +
+            '<div class="bg-slate-50 border border-slate-200 rounded p-2 text-xs font-mono overflow-x-auto">' + n.endpoints.map(function(e){return '<div>' + e + '</div>';}).join('') + '</div>' +
+          '</div>' +
+        '</div>';
+      panel.scrollIntoView({behavior:'smooth', block:'start'});
+    }
+
+    // wire events
+    Object.keys(nodes).forEach(id=>{
+      const el = document.getElementById(id);
+      if(el){ el.addEventListener('click', ()=>renderDetails(id)); }
+    });
+  <\/script>
+</body>
+</html>
+  `;
+        
+        return (
+          <div className="w-full h-full bg-slate-950 rounded-2xl overflow-hidden">
+            {portalLoading && <LoadingOverlay /> }
+            <iframe 
+              srcDoc={portalHTML}
+              className="w-full h-full border-0"
+              onLoad={() => setPortalLoading(false)}
+              title="Portal Técnico"
+            />
+          </div>
+        );
+      };
+
+      // Componente de carga elegante
+      const LoadingOverlay = () => (
+        <div className="absolute inset-0 bg-slate-950/90 backdrop-blur flex items-center justify-center z-50">
+          <div className="relative">
+            <div className="w-20 h-20 border-4 border-purple-500/20 rounded-full"></div>
+            <div className="w-20 h-20 border-4 border-transparent border-t-purple-500 rounded-full absolute inset-0 animate-spin"></div>
+            <div className="mt-4 text-purple-400 text-sm animate-pulse">Cargando vista...</div>
+          </div>
+        </div>
+      );
 
       return (
-        <div className="h-screen flex flex-col bg-slate-950 text-slate-100">
-          <header className="fixed top-0 left-0 right-0 h-16 z-40 bg-slate-950/80 backdrop-blur border-b border-slate-800">
-            <div className="h-full max-w-[1400px] mx-auto px-6 flex items-center gap-4">
+        <div className="min-h-screen bg-slate-950 text-slate-100">
+          <div className="sticky top-0 z-30 bg-slate-950/80 backdrop-blur border-b border-slate-800">
+            <div className="max-w-[1400px] mx-auto px-6 py-4 flex items-center gap-3">
               <ServerCog className="w-5 h-5 text-teal-400" />
-              <div className="font-extrabold tracking-tight">Arquitectura de Integraciones — Conductores</div>
-              <div className="ml-auto flex items-center gap-3">
-                <ViewSelector mode={viewMode} setMode={(m)=>{ setViewMode(m); setShowTimeline(false); }} />
-                <div className="hidden md:block"><Breadcrumbs flow={flow} showTimeline={showTimeline} currentWeek={currentWeek} /></div>
-                <button onClick={()=> setShowTimeline(v=>!v)} className={`px-4 py-2 rounded-xl border-2 text-sm font-bold ${showTimeline? 'bg-gradient-to-r from-purple-600 to-blue-600 border-purple-400 text-white shadow-xl shadow-purple-500/30 ring-2 ring-purple-400/50' : 'bg-gradient-to-r from-purple-900/50 to-blue-900/50 border-purple-500 text-purple-200 hover:shadow-lg hover:shadow-purple-500/20'}`}>Blueprint 90 Días {showTimeline && <span className="ml-2 text-xs bg-white/20 px-2 py-0.5 rounded-full">ACTIVO</span>}</button>
+              <h1 className="text-lg md:text-xl font-extrabold tracking-tight">
+                Arquitectura de Integraciones — Conductores
+              </h1>
+              <div className="ml-auto flex items-center gap-2 overflow-x-auto">
+                {Object.keys(FLOWS).map((f) => (
+                  <button
+                    key={f}
+                    className={`px-3 py-1.5 rounded-lg border text-[12px] whitespace-nowrap transition ${
+                      f === flow
+                        ? "bg-teal-500/20 border-teal-400 text-teal-200"
+                        : "bg-slate-900 border-slate-700 text-slate-300 hover:border-teal-500/40"
+                    }`}
+                    onClick={() => {
+                      setFlow(f);
+                      setShowTimeline(false);
+                      setSelected(null);
+                    }}
+                  >
+                    {f}
+                  </button>
+                ))}
+                <div className="h-8 w-px bg-slate-700 mx-2" />
+                <button
+                  className={`px-6 py-2 rounded-xl border-2 flex items-center gap-2 text-sm font-bold transition-all transform hover:scale-105 ${
+                    showTimeline
+                      ? "bg-gradient-to-r from-purple-600 to-blue-600 border-purple-400 text-white shadow-xl shadow-purple-500/30 ring-2 ring-purple-400/50"
+                      : "bg-gradient-to-r from-purple-900/50 to-blue-900/50 border-purple-500 text-purple-200 hover:shadow-lg hover:shadow-purple-500/20"
+                  }`}
+                  onClick={() => {
+                    setShowTimeline(!showTimeline);
+                    if (!showTimeline) {
+                      setFlow(null);
+                      setCurrentPhase("Mes 1: Ignición Inmediata");
+                      setCurrentWeek(1);
+                    }
+                  }}
+                >
+                  <span className="text-xl">🚀</span>
+                  <span>Blueprint 90 Días</span>
+                  {showTimeline && <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">ACTIVO</span>}
+                </button>
               </div>
             </div>
-          </header>
-
-          <div className="flex w-full h-full pt-16">
-            <Sidebar visibleLanes={visibleLanes} setVisibleLanes={setVisibleLanes} showTimeline={showTimeline} flow={flow} setFlow={setFlow} />
-
-            <main className="flex-1 flex">
-              {viewMode === 'strategic' ? (
-                <>
-                  <DiagramCanvas nodes={filteredNodes} flows={FLOWS} flow={flow} visibleLanes={visibleLanes} positions={positions} selected={selected} setSelected={setSelected} showTimeline={showTimeline} currentPhase={currentPhase} currentWeek={currentWeek} />
-                  <Inspector selected={selected} />
-                </>
-              ) : (
-                <React.Suspense fallback={<div className=\"flex-1 grid place-items-center text-slate-400\">Cargando Portal Técnico…</div>}>
-                  <PortalTecnico />
-                </React.Suspense>
-              )}
-            </main>
           </div>
 
-          <TimelineSheet open={showTimeline} currentPhase={currentPhase} currentWeek={currentWeek} setCurrentPhase={setCurrentPhase} setCurrentWeek={setCurrentWeek} />
+          {/* Selector de Vista Flotante */}
+          <div className="fixed top-20 right-4 z-40 animate-slideIn">
+            <div className="bg-slate-900/95 backdrop-blur-xl rounded-2xl p-2 border border-purple-500/30 shadow-2xl shadow-purple-500/10">
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={() => {
+                    setViewMode('timeline');
+                    setShowTimeline(false);
+                  }}
+                  className={`px-4 py-3 rounded-xl flex items-center gap-3 transition-all duration-300 ${
+                    viewMode === 'timeline' 
+                      ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg transform scale-105' 
+                      : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 hover:scale-102'
+                  }`}
+                >
+                  <span className="text-2xl">📅</span>
+                  <div className="text-left">
+                    <div className="font-bold text-sm">Timeline 90 Días</div>
+                    <div className="text-xs opacity-70">Vista estratégica</div>
+                  </div>
+                  {viewMode === 'timeline' && (
+                    <span className="ml-auto">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </span>
+                  )}
+                </button>
+                
+                <button
+                  onClick={() => {
+                    setViewMode('technical');
+                    setShowTimeline(false);
+                  }}
+                  className={`px-4 py-3 rounded-xl flex items-center gap-3 transition-all duration-300 ${
+                    viewMode === 'technical' 
+                      ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg transform scale-105' 
+                      : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 hover:scale-102'
+                  }`}
+                >
+                  <span className="text-2xl">🔧</span>
+                  <div className="text-left">
+                    <div className="font-bold text-sm">Portal Técnico</div>
+                    <div className="text-xs opacity-70">APIs & Endpoints</div>
+                  </div>
+                  {viewMode === 'technical' && (
+                    <span className="ml-auto">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </span>
+                  )}
+                </button>
+              </div>
+              
+              {/* Indicador de modo actual */}
+              <div className="mt-2 pt-2 border-t border-slate-700">
+                <div className="text-center text-xs text-slate-400">
+                  Modo: <span className="text-purple-300 font-semibold">
+                    {viewMode === 'timeline' ? 'Negocio' : 'Desarrollo'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
 
-          <CommandPalette open={commandPaletteOpen} onClose={()=>setCommandPaletteOpen(false)} nodes={NODES} onChooseNode={(n)=>{ setViewMode('strategic'); setSelected(n); }} />
+          {showTimeline && currentPhase && (
+            <div className="sticky top-0 z-30 mb-2">
+              <div className="max-w-[1400px] mx-auto px-4">
+                <div className="bg-purple-900/30 backdrop-blur-md rounded-lg p-2 border border-purple-400/30">
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-bold text-purple-200">{currentPhase}</h3>
+                      <span className="text-xs text-purple-300">S{currentWeek}/12</span>
+                    </div>
+                    
+                    <div className="flex-1 flex gap-0.5">
+                      {[...Array(12)].map((_, i) => (
+                        <button
+                          key={i}
+                          onClick={() => {
+                            const week = i + 1;
+                            setCurrentWeek(week);
+                            const newPhase = Object.entries(TIMELINE_PHASES).find(([_, data]) => 
+                              data.semanas.includes(week)
+                            );
+                            if (newPhase) setCurrentPhase(newPhase[0]);
+                          }}
+                          className={`flex-1 h-6 rounded transition-all flex items-center justify-center text-[10px] font-bold ${
+                            i + 1 === currentWeek 
+                              ? 'bg-gradient-to-r from-purple-500 to-blue-500 shadow-lg text-white' 
+                              : i + 1 < currentWeek 
+                                ? 'bg-purple-600/50 text-purple-200' 
+                                : 'bg-slate-700/50 text-slate-400 hover:bg-slate-600/50'
+                          }`}
+                        >
+                          {i + 1}
+                        </button>
+                      ))}
+                    </div>
+                    
+                    <div className="text-xs text-purple-400">
+                      {(TIMELINE_PHASES[currentPhase].detalles
+                        .find(d => d.semana === currentWeek)
+                        ?.herramientas_ids?.length ?? 0)} herramientas activas
+                    </div>
+                                    </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+           <div className="max-w-[1400px] mx-auto px-6 py-6 grid grid-cols-12 gap-6">
+            <aside className="col-span-12 lg:col-span-3 space-y-4">
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Layers className="w-4 h-4 text-slate-300" />
+                  <div className="font-semibold">Capas visibles</div>
+                </div>
+                <div className="space-y-2">
+                  {LANES.map((l) => (
+                    <label
+                      key={l.id}
+                      className="flex items-center justify-between py-1 text-sm"
+                    >
+                      <span className="flex items-center gap-2 text-slate-300">
+                        <span className="text-slate-400">{l.icon}</span>
+                        {l.title}
+                      </span>
+                      <input
+                        type="checkbox"
+                        className="accent-teal-500"
+                        checked={visibleLanes[l.id]}
+                        onChange={(e) =>
+                          setVisibleLanes((v) => ({ ...v, [l.id]: e.target.checked }))
+                        }
+                      />
+                    </label>
+                  ))}
+                </div>
+                <div className="mt-3 text-[12px] text-slate-400">
+                  Consejo: Activa solo las capas que necesites para cada demo.
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <BarChart3 className="w-4 h-4 text-slate-300" />
+                  <div className="font-semibold">Leyenda de color</div>
+                </div>
+                <ul className="space-y-1 text-sm">
+                  <li><span className="inline-block w-3 h-3 rounded bg-gradient-to-br from-teal-500/20 to-teal-400/10 mr-2 align-middle border border-teal-400/40"/>Fronts / Canales</li>
+                  <li><span className="inline-block w-3 h-3 rounded bg-gradient-to-br from-amber-500/20 to-amber-400/10 mr-2 align-middle border border-amber-400/40"/>Orquestación</li>
+                  <li><span className="inline-block w-3 h-3 rounded bg-gradient-to-br from-sky-500/20 to-sky-400/10 mr-2 align-middle border border-sky-400/40"/>Servicios Externos</li>
+                  <li><span className="inline-block w-3 h-3 rounded bg-gradient-to-br from-cyan-500/20 to-cyan-400/10 mr-2 align-middle border border-cyan-400/40"/>Telemática</li>
+                  <li><span className="inline-block w-3 h-3 rounded bg-gradient-to-br from-emerald-500/20 to-emerald-400/10 mr-2 align-middle border border-emerald-400/40"/>Plataforma Interna</li>
+                  <li><span className="inline-block w-3 h-3 rounded bg-gradient-to-br from-fuchsia-500/20 to-fuchsia-400/10 mr-2 align-middle border border-fuchsia-400/40"/>Datos / IA / BI</li>
+                </ul>
+              </div>
+
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <ShieldCheck className="w-4 h-4 text-slate-300" />
+                  <div className="font-semibold">Puntos críticos</div>
+                </div>
+                <ul className="list-disc pl-5 text-sm space-y-1 text-slate-300/90">
+                  <li><b>KIBAN → Círculo de Crédito</b> se usa <i>siempre</i> en Onboarding (consulta) y cada mes en <b>Reporte</b>.</li>
+                  <li><b>Samsara</b> provee webhooks/stream para PMA/PIA y control de inmovilizador.</li>
+                  <li><b>Odoo</b> es la fuente operativa: contratos, cartera, OS y facturación.</li>
+                  <li><b>Warehouse/BI</b> consolida histórico para XAI y stress testing.</li>
+                </ul>
+              </div>
+
+              {showTimeline && (
+                <div className="rounded-2xl border border-purple-800 bg-gradient-to-br from-purple-900/20 to-blue-900/20 p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-2xl">🚀</span>
+                    <div>
+                      <div className="font-bold text-purple-200">Blueprint Fast Track</div>
+                      <div className="text-[10px] text-purple-300">De la Inversión a la Operación</div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 mb-4">
+                    {Object.entries(TIMELINE_PHASES).map(([fase, data]) => (
+                      <button
+                        key={fase}
+                        onClick={() => {
+                          setCurrentPhase(fase);
+                          setCurrentWeek(data.semanas[0]);
+                        }}
+                        className={`w-full text-left p-3 rounded-lg transition-all ${
+                          currentPhase === fase 
+                            ? `bg-gradient-to-r ${data.color} ${data.borderColor} border shadow-lg` 
+                            : 'bg-slate-900/50 border border-slate-700 hover:border-purple-500/50'
+                        }`}
+                      >
+                        <div className="font-semibold text-sm">{fase}</div>
+                        <div className="text-[10px] text-slate-400 mt-1">
+                          Herramientas: {data.nodos_activos.length} activas
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+
+                  {currentPhase && (
+                    <div className="space-y-3">
+                      <div className="flex gap-1">
+                        {TIMELINE_PHASES[currentPhase].semanas.map(semana => (
+                          <button
+                            key={semana}
+                            onClick={() => setCurrentWeek(semana)}
+                            className={`flex-1 py-1 px-2 rounded text-[10px] transition ${
+                              currentWeek === semana
+                                ? 'bg-purple-500/30 text-purple-200 border border-purple-400'
+                                : 'bg-slate-800/50 text-slate-400 hover:bg-slate-700/50'
+                            }`}
+                          >
+                            S{semana}
+                          </button>
+                        ))}
+                      </div>
+
+                      {TIMELINE_PHASES[currentPhase].detalles
+                        .filter(d => d.semana === currentWeek)
+                        .map(detalle => (
+                          <div key={detalle.semana} className="bg-slate-900/50 rounded-lg p-3">
+                            <div className="font-semibold text-sm text-purple-200 mb-2">
+                              Semana {detalle.semana}: {detalle.titulo}
+                            </div>
+                            <div className="space-y-2">
+                              <div>
+                                <div className="text-[10px] uppercase tracking-wide text-slate-400 mb-1">
+                                  Tareas Críticas
+                                </div>
+                                <ul className="text-[11px] text-slate-300 space-y-0.5">
+                                  {detalle.tareas.map((tarea, i) => (
+                                    <li key={i} className="flex items-start gap-1">
+                                      <span className="text-purple-400 mt-0.5">•</span>
+                                      <span>{tarea}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                              <div>
+                                <div className="text-[10px] uppercase tracking-wide text-slate-400 mb-1">
+                                  Stack Involucrado
+                                </div>
+                                <div className="flex flex-wrap gap-1">
+                                  {detalle.herramientas.map(h => (
+                                    <span key={h} className="px-2 py-0.5 bg-purple-500/20 border border-purple-400/30 rounded text-[10px] text-purple-300">
+                                      {h}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                              <div className="pt-2 border-t border-slate-700">
+                                <div className="flex items-center gap-1">
+                                  <span className="text-green-400">✓</span>
+                                  <span className="text-[11px] font-semibold text-green-300">
+                                    HITO: {detalle.hito}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+
+                  <div className="mt-4 p-3 bg-gradient-to-br from-slate-900/70 to-purple-900/20 rounded-lg border border-purple-800/30">
+                    <div className="text-xs font-bold text-purple-200 mb-2 flex items-center gap-1">
+                      <span>🤖</span> Estado IAs al Día 90
+                    </div>
+                    {Object.entries(IA_STATUS_90_DAYS).map(([ia, status]) => (
+                      <div key={ia} className="mb-2">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-[11px] font-semibold text-purple-300">{ia}</span>
+                          <span className="text-[10px] text-slate-400">{status.progreso}%</span>
+                        </div>
+                        <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-gradient-to-r from-purple-500 to-blue-500 transition-all duration-500"
+                            style={{ width: `${status.progreso}%` }}
+                          />
+                        </div>
+                        <div className="text-[10px] text-slate-400 mt-0.5">{status.descripcion}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-3 p-2 bg-green-900/20 border border-green-800/30 rounded-lg">
+                    <div className="text-[10px] font-bold text-green-300 mb-1">🎯 KPIs al Día 90</div>
+                    <div className="grid grid-cols-2 gap-1 text-[10px]">
+                      <div className="text-green-200">• 20-30 unidades</div>
+                      <div className="text-green-200">• 3 meses datos</div>
+                      <div className="text-green-200">• Pipeline 50+</div>
+                      <div className="text-green-200">• Stack 100%</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </aside>
+
+            <main className="col-span-12 lg:col-span-9 space-y-4">
+  {viewMode === 'timeline' ? (
+    <>
+      <div
+        className={`diagram-scroll-container rounded-2xl border border-slate-800 bg-gradient-to-b from-slate-900 to-slate-950 ${showTimeline ? 'mt-24' : ''}`}
+        style={{ width: '100%', height: 'calc(100vh - 250px)', overflowX: 'scroll', overflowY: 'auto', position: 'relative' }}
+      >
+        <div className="diagram-inner-canvas relative" style={{ minWidth: '2400px', position: 'relative' }}>
+
+          <svg width={width} height={height} className="block">
+            {LANES.map((lane, idx) => {
+              const xPosition = PADDING_X + idx * (LANE_WIDTH + LANE_GAP) + (LANE_WIDTH / 2);
+              return visibleLanes[lane.id] && (
+                <g key={lane.id}>
+                  <rect
+                    x={xPosition - LANE_WIDTH/2}
+                    y={45}
+                    width={LANE_WIDTH}
+                    height={35}
+                    fill="rgba(30, 41, 59, 0.8)"
+                    stroke="rgba(100, 116, 139, 0.3)"
+                    strokeWidth="1"
+                    rx="8"
+                  />
+                  <text
+                    x={xPosition}
+                    y={67}
+                    textAnchor="middle"
+                    className="fill-slate-200"
+                    fontSize="15"
+                    fontWeight="600"
+                  >
+                    {lane.id === 'front' && '🎯 '}
+                    {lane.id === 'orchestration' && '⚙️ '}
+                    {lane.id === 'external' && '🔌 '}
+                    {lane.id === 'telematics' && '⚡ '}
+                    {lane.id === 'internal' && '👥 '}
+                    {lane.id === 'data' && '💾 '}
+                    {lane.title}
+                  </text>
+                </g>
+              );
+            })}
+            {Object.values(FLOWS).flat().map(([a, b], i) => (
+              <Edge
+                key={i}
+                from={a}
+                to={b}
+                positions={positions}
+                active={!!flow && FLOWS[flow].some(([x, y]) => x === a && y === b)}
+              />
+            ))}
+          </svg>
+
+          {showTimeline && (
+            <>
+              {showTimeline && currentPhase && filteredNodes.map(node => {
+                const phaseData = TIMELINE_PHASES[currentPhase];
+                const weekData = phaseData.detalles.find(d => d.semana === currentWeek);
+                const isActiveInWeek = weekData?.herramientas_ids?.includes(node.id);
+                const isActiveInPhase = phaseData.nodos_activos.includes(node.id);
+                if (!isActiveInWeek && !isActiveInPhase) return null;
+                return (
+                  <div
+                    key={`highlight-${node.id}`}
+                    className="absolute pointer-events-none"
+                    style={{
+                      left: positions[node.id].x - 8,
+                      top: positions[node.id].y - 8,
+                      width: CARD_W + 16,
+                      height: CARD_H + 16,
+                      borderRadius: '24px',
+                      border: isActiveInWeek ? '4px solid rgba(168, 85, 247, 1)' : '2px solid rgba(168, 85, 247, 0.3)',
+                      background: isActiveInWeek 
+                        ? 'radial-gradient(circle, rgba(168, 85, 247, 0.4) 0%, transparent 70%)'
+                        : 'radial-gradient(circle, rgba(168, 85, 247, 0.1) 0%, transparent 70%)',
+                      boxShadow: isActiveInWeek 
+                        ? '0 0 40px rgba(168, 85, 247, 0.8), inset 0 0 30px rgba(168, 85, 247, 0.4)'
+                        : '0 0 10px rgba(168, 85, 247, 0.2)',
+                      animation: isActiveInWeek ? 'pulse 1.5s infinite' : 'none',
+                      zIndex: isActiveInWeek ? 10 : 5
+                    }}
+                  />
+                );
+              })}
+            </>
+          )}
+
+          {filteredNodes.map((n) => (
+            <NodeCard
+              key={n.id}
+              node={n}
+              pos={positions[n.id]}
+              selected={selected?.id === n.id}
+              onSelect={setSelected}
+            />)
+          )}
+        </div>
+      </div>
+
+      <div className="grid md:grid-cols-1 gap-4">
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <ServerCog className="w-4 h-4 text-fuchsia-300" />
+            <div className="font-semibold">Inspector de nodo</div>
+          </div>
+          {selected ? (
+            <div>
+              <div className="text-teal-200 font-semibold">{selected.title}</div>
+              <div className="text-slate-300/80 text-sm mb-4">{selected.subtitle}</div>
+              {selected.ficha && (
+                <div className="space-y-3 text-sm">
+                  <div>
+                    <div className="uppercase tracking-wide text-[10px] text-slate-400">Proceso Involucrado</div>
+                    <div className="text-slate-200">{selected.ficha.proceso}</div>
+                  </div>
+                  <div>
+                    <div className="uppercase tracking-wide text-[10px] text-slate-400">Costo Estimado (Proxy)</div>
+                    <div className="text-slate-200">{selected.ficha.costo}</div>
+                  </div>
+                  <div>
+                    <div className="uppercase tracking-wide text-[10px] text-slate-400">Justificación</div>
+                    <div className="text-slate-300/90">{selected.ficha.justificacion}</div>
+                  </div>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-slate-800">
+                <div>
+                  <div className="uppercase tracking-wide text-[10px] text-slate-400">Entradas</div>
+                  <ul className="mt-1 text-sm list-disc pl-4 space-y-1">
+                    {selected.io.in.map((t, i) => (
+                      <li key={i}>{t}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <div className="uppercase tracking-wide text-[10px] text-slate-400">Salidas</div>
+                  <ul className="mt-1 text-sm list-disc pl-4 space-y-1">
+                    {selected.io.out.map((t, i) => (
+                      <li key={i}>{t}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-slate-400 text-sm">
+              Selecciona un nodo en el mapa para ver detalles de entradas/salidas.
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <AlertTriangle className="w-4 h-4 text-amber-300" />
+          <div className="font-semibold">Notas de diseño y siguientes pasos</div>
+        </div>
+        <ul className="text-sm space-y-1 text-slate-300/90">
+          <li>• <b>Contrato de datos</b> del flujo Onboarding: Portal ⇄ Metamap ⇄ KIBAN ⇄ HASE ⇄ Odoo. (Si quieres, te genero el JSON OpenAPI por endpoint.)</li>
+          <li>• <b>Webhooks críticos</b>: Mifiel (firma), Conekta (pagos), Samsara (eventos/DT C), Asistente (mensajería).</li>
+          <li>• <b>Historificación</b>: Telemetría y consumo GNV van a Warehouse para BI, XAI y pruebas de estrés.</li>
+          <li>• <b>Seguridad</b>: OAuth/token por partner, aislamiento por rutas (tags) y colas idempotentes en iPaaS.</li>
+          <li>• <b>Escala</b>: La misma arquitectura soporta 17 → 1000 unidades con colas y backfill a Warehouse.</li>
+        </ul>
+      </div>
+    </>
+  ) : (
+    <div className="h-[calc(100vh-200px)] rounded-2xl border border-purple-500/30 overflow-hidden shadow-2xl shadow-purple-500/10 view-transition">
+      <TechnicalPortalView />
+    </div>
+  )}
+</main>
+          </div>
+
+          {showTimeline && (
+            <div className="sticky top-0 z-30 mb-4">
+              <div className="max-w-[1400px] mx-auto px-6">
+                <div className="bg-slate-950/80 backdrop-blur-xl border border-slate-800 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-2xl">🚀</span>
+                    <div>
+                      <div className="font-bold text-purple-200">Blueprint Fast Track</div>
+                      <div className="text-[10px] text-purple-300">De la Inversión a la Operación</div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 mb-4">
+                    {Object.entries(TIMELINE_PHASES).map(([fase, data]) => (
+                      <button
+                        key={fase}
+                        onClick={() => {
+                          setCurrentPhase(fase);
+                          setCurrentWeek(data.semanas[0]);
+                        }}
+                        className={`w-full text-left p-3 rounded-lg transition-all ${
+                          currentPhase === fase 
+                            ? `bg-gradient-to-r ${data.color} ${data.borderColor} border shadow-lg` 
+                            : 'bg-slate-900/50 border border-slate-700 hover:border-purple-500/50'
+                        }`}
+                      >
+                        <div className="font-semibold text-sm">{fase}</div>
+                        <div className="text-[10px] text-slate-400 mt-1">
+                          Herramientas: {data.nodos_activos.length} activas
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+
+                  {currentPhase && (
+                    <div className="space-y-3">
+                      <div className="flex gap-1">
+                        {TIMELINE_PHASES[currentPhase].semanas.map(semana => (
+                          <button
+                            key={semana}
+                            onClick={() => setCurrentWeek(semana)}
+                            className={`flex-1 py-1 px-2 rounded text-[10px] transition ${
+                              currentWeek === semana
+                                ? 'bg-purple-500/30 text-purple-200 border border-purple-400'
+                                : 'bg-slate-800/50 text-slate-400 hover:bg-slate-700/50'
+                            }`}
+                          >
+                            S{semana}
+                          </button>
+                        ))}
+                      </div>
+
+                      {TIMELINE_PHASES[currentPhase].detalles
+                        .filter(d => d.semana === currentWeek)
+                        .map(detalle => (
+                          <div key={detalle.semana} className="bg-slate-900/50 rounded-lg p-3">
+                            <div className="font-semibold text-sm text-purple-200 mb-2">
+                              Semana {detalle.semana}: {detalle.titulo}
+                            </div>
+                            <div className="space-y-2">
+                              <div>
+                                <div className="text-[10px] uppercase tracking-wide text-slate-400 mb-1">
+                                  Tareas Críticas
+                                </div>
+                                <ul className="text-[11px] text-slate-300 space-y-0.5">
+                                  {detalle.tareas.map((tarea, i) => (
+                                    <li key={i} className="flex items-start gap-1">
+                                      <span className="text-purple-400 mt-0.5">•</span>
+                                      <span>{tarea}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                              <div>
+                                <div className="text-[10px] uppercase tracking-wide text-slate-400 mb-1">
+                                  Stack Involucrado
+                                </div>
+                                <div className="flex flex-wrap gap-1">
+                                  {detalle.herramientas.map(h => (
+                                    <span key={h} className="px-2 py-0.5 bg-purple-500/20 border border-purple-400/30 rounded text-[10px] text-purple-300">
+                                      {h}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                              <div className="pt-2 border-t border-slate-700">
+                                <div className="flex items-center gap-1">
+                                  <span className="text-green-400">✓</span>
+                                  <span className="text-[11px] font-semibold text-green-300">
+                                    HITO: {detalle.hito}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+
+                  <div className="mt-4 p-3 bg-gradient-to-br from-slate-900/70 to-purple-900/20 rounded-lg border border-purple-800/30">
+                    <div className="text-xs font-bold text-purple-200 mb-2 flex items-center gap-1">
+                      <span>🤖</span> Estado IAs al Día 90
+                    </div>
+                    {Object.entries(IA_STATUS_90_DAYS).map(([ia, status]) => (
+                      <div key={ia} className="mb-2">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-[11px] font-semibold text-purple-300">{ia}</span>
+                          <span className="text-[10px] text-slate-400">{status.progreso}%</span>
+                        </div>
+                        <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-gradient-to-r from-purple-500 to-blue-500 transition-all duration-500"
+                            style={{ width: `${status.progreso}%` }}
+                          />
+                        </div>
+                        <div className="text-[10px] text-slate-400 mt-0.5">{status.descripcion}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-3 p-2 bg-green-900/20 border border-green-800/30 rounded-lg">
+                    <div className="text-[10px] font-bold text-green-300 mb-1">🎯 KPIs al Día 90</div>
+                    <div className="grid grid-cols-2 gap-1 text-[10px]">
+                      <div className="text-green-200">• 20-30 unidades</div>
+                      <div className="text-green-200">• 3 meses datos</div>
+                      <div className="text-green-200">• Pipeline 50+</div>
+                      <div className="text-green-200">• Stack 100%</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       );
     }
