@@ -54,8 +54,18 @@
     }
 
     @keyframes pulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.8; transform: scale(1.02); }
+      0% { 
+        transform: scale(1);
+        opacity: 1;
+      }
+      50% { 
+        transform: scale(1.05);
+        opacity: 0.8;
+      }
+      100% { 
+        transform: scale(1);
+        opacity: 1;
+      }
     }
 
     /* Headers sticky mejorados */
@@ -586,25 +596,26 @@
           semanas: [1, 2, 3, 4],
           color: "from-red-500/20 to-orange-500/10",
           borderColor: "border-red-400/40",
-          nodos_activos: ["samsara", "metamap", "kiban", "conekta", "mifiel", "odoo"],
-          detalles: [
-            {
-              semana: 1,
-              titulo: "Kick-off Hardware y Alianzas",
-              herramientas_ids: ["samsara", "metamap", "kiban", "conekta", "mifiel"],
-              tareas: [
-                "Orden de compra 17 dispositivos Samsara (VG55 + EI21)",
-                "Instalación inmediata en flota Higer 17",
-                "Firma contratos con Metamap, KIBAN, Conekta, Mifiel",
-                "Inicio integraciones API"
-              ],
-              herramientas: ["Samsara", "Metamap", "KIBAN", "Conekta", "Mifiel"],
-              hito: "¡Telemetría en tiempo real desde día 7!"
-            },
+                     nodos_activos: ["portal", "samsara", "metamap", "kiban", "conekta", "mifiel", "odoo"],
+           detalles: [
+             {
+               semana: 1,
+               titulo: "Kick-off Hardware y Alianzas",
+               herramientas_ids: ["portal", "samsara", "metamap"],
+               tareas: [
+                 "Despliegue Portal Cliente para captación inicial",
+                 "Orden de compra 17 dispositivos Samsara (VG55 + EI21)",
+                 "Instalación inmediata en flota Higer 17",
+                 "Firma contratos con Metamap, KIBAN, Conekta, Mifiel",
+                 "Inicio integraciones API"
+               ],
+               herramientas: ["Portal Cliente", "Samsara", "Metamap", "KIBAN", "Conekta", "Mifiel"],
+               hito: "¡Telemetría en tiempo real desde día 7!"
+             },
                         {
                semana: 2,
                titulo: "Arranque Técnico y de Mercado",
-               herramientas_ids: ["odoo"],
+               herramientas_ids: ["portal", "odoo", "metamap", "kiban"],
                tareas: [
                  "Despliegue Odoo Enterprise Plan Personalizado",
                  "Configuración módulos CRM y Core Bancario simplificado",
@@ -858,45 +869,54 @@
             </div>
           </div>
 
-          {showTimeline && (
-            <div className="fixed top-[120px] left-0 right-0 z-30 bg-gradient-to-b from-purple-900/40 to-transparent backdrop-blur-sm">
-              <div className="max-w-[1400px] mx-auto px-6 py-3">
-                <div className="flex items-center gap-4">
-                  <div className="bg-purple-500/20 rounded-lg px-4 py-2 border border-purple-400/50">
-                    <div className="text-lg font-bold text-purple-200">
-                      {currentPhase}
+          {showTimeline && currentPhase && (
+            <div className="fixed top-[120px] left-0 right-0 z-30">
+              <div className="max-w-[1400px] mx-auto px-6">
+                <div className="bg-purple-900/30 backdrop-blur-md rounded-xl p-4 border border-purple-400/30">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-bold text-purple-200">{currentPhase}</h3>
+                      <p className="text-sm text-purple-300">Semana {currentWeek} de 12</p>
                     </div>
-                    <div className="text-sm text-purple-300">
-                      Semana {currentWeek} de 12
+                    
+                    <div className="flex gap-2">
+                      <span className="text-xs text-purple-400">Herramientas activas:</span>
+                      {TIMELINE_PHASES[currentPhase].detalles
+                        .find(d => d.semana === currentWeek)
+                        ?.herramientas_ids.map(id => {
+                          const node = NODES.find(n => n.id === id);
+                          return (
+                            <span key={id} className="px-2 py-1 bg-purple-500/30 rounded text-xs text-purple-200">
+                              {node?.title.split('(')[0].trim()}
+                            </span>
+                          );
+                        })}
                     </div>
                   </div>
                   
-                  <div className="flex-1 flex gap-1">
-                    {[...Array(12)].map((_, i) => {
-                      const week = i + 1;
-                      const phase = Object.entries(TIMELINE_PHASES).find(([_, data]) => 
-                        data.semanas.includes(week)
-                      );
-                      return (
-                        <button
-                          key={week}
-                          onClick={() => {
-                            setCurrentWeek(week);
-                            setCurrentPhase(phase[0]);
-                          }}
-                          className={`flex-1 h-8 rounded transition-all ${
-                            week === currentWeek 
-                              ? 'bg-purple-500 shadow-lg shadow-purple-500/50' 
-                              : week <= currentWeek 
-                                ? 'bg-purple-600/50' 
-                                : 'bg-slate-700/50 hover:bg-slate-600/50'
-                          }`}
-                          title={`Semana ${week}`}
-                        >
-                          <span className="text-xs">{week}</span>
-                        </button>
-                      );
-                    })}
+                  <div className="flex gap-1 mt-3">
+                    {[...Array(12)].map((_, i) => (
+                      <button
+                        key={i}
+                        onClick={() => {
+                          const week = i + 1;
+                          setCurrentWeek(week);
+                          const newPhase = Object.entries(TIMELINE_PHASES).find(([_, data]) => 
+                            data.semanas.includes(week)
+                          );
+                          if (newPhase) setCurrentPhase(newPhase[0]);
+                        }}
+                        className={`flex-1 h-10 rounded-lg transition-all flex items-center justify-center text-xs font-bold ${
+                          i + 1 === currentWeek 
+                            ? 'bg-gradient-to-r from-purple-500 to-blue-500 shadow-lg scale-110 text-white' 
+                            : i + 1 < currentWeek 
+                              ? 'bg-purple-600/50 text-purple-200' 
+                              : 'bg-slate-700/50 text-slate-400 hover:bg-slate-600/50'
+                        }`}
+                      >
+                        {i + 1}
+                      </button>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -1096,23 +1116,7 @@
             </aside>
 
             <main className="col-span-12 lg:col-span-9 space-y-4">
-              <div className="sticky top-0 z-20 bg-slate-950/95 backdrop-blur-xl border-b border-slate-800">
-                <div style={{width: '2400px', display: 'flex', paddingLeft: '24px'}}>
-                  {LANES.map((lane, idx) => (
-                    <div key={lane.id} 
-                         style={{
-                           width: '320px',
-                           marginLeft: idx > 0 ? '28px' : '0',
-                           padding: '12px 0',
-                           textAlign: 'center'
-                         }}
-                         className="text-sm font-semibold text-slate-300 border-x border-slate-700/50">
-                      {lane.icon}
-                      <span className="ml-2">{lane.title}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+
               <div
                 className="diagram-scroll-container rounded-2xl border border-slate-800 bg-gradient-to-b from-slate-900 to-slate-950"
                 style={{ width: '100%', height: 'calc(100vh - 250px)', overflowX: 'scroll', overflowY: 'auto', position: 'relative' }}
@@ -1124,17 +1128,34 @@
                     {LANES.map((lane, idx) => {
                       const xPosition = PADDING_X + idx * (LANE_WIDTH + LANE_GAP) + (LANE_WIDTH / 2);
                       return visibleLanes[lane.id] && (
-                        <text
-                          key={lane.id}
-                          x={xPosition}
-                          y={70}
-                          textAnchor="middle"
-                          className="fill-slate-300"
-                          fontSize="13"
-                          fontWeight="500"
-                        >
-                          {lane.title}
-                        </text>
+                        <g key={lane.id}>
+                          <rect
+                            x={xPosition - LANE_WIDTH/2}
+                            y={45}
+                            width={LANE_WIDTH}
+                            height={35}
+                            fill="rgba(30, 41, 59, 0.8)"
+                            stroke="rgba(100, 116, 139, 0.3)"
+                            strokeWidth="1"
+                            rx="8"
+                          />
+                          <text
+                            x={xPosition}
+                            y={67}
+                            textAnchor="middle"
+                            className="fill-slate-200"
+                            fontSize="15"
+                            fontWeight="600"
+                          >
+                            {lane.id === 'front' && '🎯 '}
+                            {lane.id === 'orchestration' && '⚙️ '}
+                            {lane.id === 'external' && '🔌 '}
+                            {lane.id === 'telematics' && '⚡ '}
+                            {lane.id === 'internal' && '👥 '}
+                            {lane.id === 'data' && '💾 '}
+                            {lane.title}
+                          </text>
+                        </g>
                       );
                     })}
                     {Object.values(FLOWS).flat().map(([a, b], i) => (
@@ -1152,27 +1173,33 @@
                     <>
 
 
-                      {currentPhase && filteredNodes.map(node => {
+                      {showTimeline && currentPhase && filteredNodes.map(node => {
                         const phaseData = TIMELINE_PHASES[currentPhase];
                         const weekData = phaseData.detalles.find(d => d.semana === currentWeek);
-                        const isActive = weekData?.herramientas_ids?.includes(node.id);
+                        const isActiveInWeek = weekData?.herramientas_ids?.includes(node.id);
+                        const isActiveInPhase = phaseData.nodos_activos.includes(node.id);
                         
-                        if (!isActive) return null;
+                        if (!isActiveInWeek && !isActiveInPhase) return null;
                         
                         return (
                           <div
                             key={`highlight-${node.id}`}
                             className="absolute pointer-events-none"
                             style={{
-                              left: positions[node.id].x - 6,
-                              top: positions[node.id].y - 6,
-                              width: CARD_W + 12,
-                              height: CARD_H + 12,
+                              left: positions[node.id].x - 8,
+                              top: positions[node.id].y - 8,
+                              width: CARD_W + 16,
+                              height: CARD_H + 16,
                               borderRadius: '24px',
-                              border: '3px solid rgba(168, 85, 247, 0.9)',
-                              background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.3) 0%, rgba(59, 130, 246, 0.2) 100%)',
-                              boxShadow: '0 0 30px rgba(168, 85, 247, 0.6), inset 0 0 20px rgba(168, 85, 247, 0.3)',
-                              animation: 'pulse 2s infinite'
+                              border: isActiveInWeek ? '4px solid rgba(168, 85, 247, 1)' : '2px solid rgba(168, 85, 247, 0.3)',
+                              background: isActiveInWeek 
+                                ? 'radial-gradient(circle, rgba(168, 85, 247, 0.4) 0%, transparent 70%)'
+                                : 'radial-gradient(circle, rgba(168, 85, 247, 0.1) 0%, transparent 70%)',
+                              boxShadow: isActiveInWeek 
+                                ? '0 0 40px rgba(168, 85, 247, 0.8), inset 0 0 30px rgba(168, 85, 247, 0.4)'
+                                : '0 0 10px rgba(168, 85, 247, 0.2)',
+                              animation: isActiveInWeek ? 'pulse 1.5s infinite' : 'none',
+                              zIndex: isActiveInWeek ? 10 : 5
                             }}
                           />
                         );
