@@ -1538,296 +1538,370 @@
           )}
 
            <div className="max-w-full xl:max-w-[1800px] 2xl:max-w-[2200px] mx-auto px-6 py-6 grid grid-cols-12 gap-6">
-            {viewMode !== 'technical' && (
-              <aside className="col-span-12 lg:col-span-3 space-y-4">
-                <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Layers className="w-4 h-4 text-slate-300" />
-                    <div className="font-semibold">Capas visibles</div>
+            <aside className="col-span-12 lg:col-span-3 space-y-4">
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Layers className="w-4 h-4 text-slate-300" />
+                  <div className="font-semibold">Capas visibles</div>
+                </div>
+                <div className="space-y-2">
+                  {LANES.map((l) => (
+                    <label
+                      key={l.id}
+                      className="flex items-center justify-between py-1 text-sm"
+                    >
+                      <span className="flex items-center gap-2 text-slate-300">
+                        <span className="text-slate-400">{l.icon}</span>
+                        {l.title}
+                      </span>
+                      <input
+                        type="checkbox"
+                        className="accent-teal-500"
+                        checked={visibleLanes[l.id]}
+                        onChange={(e) =>
+                          setVisibleLanes((v) => ({ ...v, [l.id]: e.target.checked }))
+                        }
+                      />
+                    </label>
+                  ))}
+                </div>
+                <div className="mt-3 text-[12px] text-slate-400">
+                  Consejo: Activa solo las capas que necesites para cada demo.
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <BarChart3 className="w-4 h-4 text-slate-300" />
+                  <div className="font-semibold">Leyenda de color</div>
+                </div>
+                <ul className="space-y-1 text-sm">
+                  <li><span className="inline-block w-3 h-3 rounded bg-gradient-to-br from-teal-500/20 to-teal-400/10 mr-2 align-middle border border-teal-400/40"/>Fronts / Canales</li>
+                  <li><span className="inline-block w-3 h-3 rounded bg-gradient-to-br from-amber-500/20 to-amber-400/10 mr-2 align-middle border border-amber-400/40"/>Orquestación</li>
+                  <li><span className="inline-block w-3 h-3 rounded bg-gradient-to-br from-sky-500/20 to-sky-400/10 mr-2 align-middle border border-sky-400/40"/>Servicios Externos</li>
+                  <li><span className="inline-block w-3 h-3 rounded bg-gradient-to-br from-cyan-500/20 to-cyan-400/10 mr-2 align-middle border border-cyan-400/40"/>Telemática</li>
+                  <li><span className="inline-block w-3 h-3 rounded bg-gradient-to-br from-emerald-500/20 to-emerald-400/10 mr-2 align-middle border border-emerald-400/40"/>Plataforma Interna</li>
+                  <li><span className="inline-block w-3 h-3 rounded bg-gradient-to-br from-fuchsia-500/20 to-fuchsia-400/10 mr-2 align-middle border border-fuchsia-400/40"/>Datos / IA / BI</li>
+                </ul>
+              </div>
+
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <ShieldCheck className="w-4 h-4 text-slate-300" />
+                  <div className="font-semibold">Puntos críticos</div>
+                </div>
+                <ul className="list-disc pl-5 text-sm space-y-1 text-slate-300/90">
+                  <li><b>KIBAN → Círculo de Crédito</b> se usa <i>siempre</i> en Onboarding (consulta) y cada mes en <b>Reporte</b>.</li>
+                  <li><b>Samsara</b> provee webhooks/stream para PMA/PIA y control de inmovilizador.</li>
+                  <li><b>Odoo</b> es la fuente operativa: contratos, cartera, OS y facturación.</li>
+                  <li><b>Warehouse/BI</b> consolida histórico para XAI y stress testing.</li>
+                </ul>
+              </div>
+
+              {showTimeline && (
+                <div className="rounded-2xl border border-purple-800 bg-gradient-to-br from-purple-900/20 to-blue-900/20 p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-2xl">🚀</span>
+                    <div>
+                      <div className="font-bold text-purple-200">Blueprint Fast Track</div>
+                      <div className="text-[10px] text-purple-300">De la Inversión a la Operación</div>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    {LANES.map((l) => (
-                      <label
-                        key={l.id}
-                        className="flex items-center justify-between py-1 text-sm"
+
+                  <div className="space-y-2 mb-4">
+                    {Object.entries(TIMELINE_PHASES).map(([fase, data]) => (
+                      <button
+                        key={fase}
+                        onClick={() => {
+                          setCurrentPhase(fase);
+                          setCurrentWeek(data.semanas[0]);
+                        }}
+                        className={`w-full text-left p-3 rounded-lg transition-all ${
+                          currentPhase === fase 
+                            ? `bg-gradient-to-r ${data.color} ${data.borderColor} border shadow-lg` 
+                            : 'bg-slate-900/50 border border-slate-700 hover:border-purple-500/50'
+                        }`}
                       >
-                        <span className="flex items-center gap-2 text-slate-300">
-                          <span className="text-slate-400">{l.icon}</span>
-                          {l.title}
-                        </span>
-                        <input
-                          type="checkbox"
-                          className="accent-teal-500"
-                          checked={visibleLanes[l.id]}
-                          onChange={(e) =>
-                            setVisibleLanes((v) => ({ ...v, [l.id]: e.target.checked }))
-                          }
-                        />
-                      </label>
+                        <div className="font-semibold text-sm">{fase}</div>
+                        <div className="text-[10px] text-slate-400 mt-1">
+                          Herramientas: {data.nodos_activos.length} activas
+                        </div>
+                      </button>
                     ))}
                   </div>
-                  <div className="mt-3 text-[12px] text-slate-400">
-                    Consejo: Activa solo las capas que necesites para cada demo.
-                  </div>
-                </div>
 
-                <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <BarChart3 className="w-4 h-4 text-slate-300" />
-                    <div className="font-semibold">Leyenda de color</div>
-                  </div>
-                  <ul className="space-y-1 text-sm">
-                    <li><span className="inline-block w-3 h-3 rounded bg-gradient-to-br from-teal-500/20 to-teal-400/10 mr-2 align-middle border border-teal-400/40"/>Fronts / Canales</li>
-                    <li><span className="inline-block w-3 h-3 rounded bg-gradient-to-br from-amber-500/20 to-amber-400/10 mr-2 align-middle border border-amber-400/40"/>Orquestación</li>
-                    <li><span className="inline-block w-3 h-3 rounded bg-gradient-to-br from-sky-500/20 to-sky-400/10 mr-2 align-middle border border-sky-400/40"/>Servicios Externos</li>
-                    <li><span className="inline-block w-3 h-3 rounded bg-gradient-to-br from-cyan-500/20 to-cyan-400/10 mr-2 align-middle border border-cyan-400/40"/>Telemática</li>
-                    <li><span className="inline-block w-3 h-3 rounded bg-gradient-to-br from-emerald-500/20 to-emerald-400/10 mr-2 align-middle border border-emerald-400/40"/>Plataforma Interna</li>
-                    <li><span className="inline-block w-3 h-3 rounded bg-gradient-to-br from-fuchsia-500/20 to-fuchsia-400/10 mr-2 align-middle border border-fuchsia-400/40"/>Datos / IA / BI</li>
-                  </ul>
-                </div>
-
-                <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <ShieldCheck className="w-4 h-4 text-slate-300" />
-                    <div className="font-semibold">Puntos críticos</div>
-                  </div>
-                  <ul className="list-disc pl-5 text-sm space-y-1 text-slate-300/90">
-                    <li><b>KIBAN → Círculo de Crédito</b> se usa <i>siempre</i> en Onboarding (consulta) y cada mes en <b>Reporte</b>.</li>
-                    <li><b>Samsara</b> provee webhooks/stream para PMA/PIA y control de inmovilizador.</li>
-                    <li><b>Odoo</b> es la fuente operativa: contratos, cartera, OS y facturación.</li>
-                    <li><b>Warehouse/BI</b> consolida histórico para XAI y stress testing.</li>
-                  </ul>
-                </div>
-
-                {showTimeline && (
-                  <div className="rounded-2xl border border-purple-800 bg-gradient-to-br from-purple-900/20 to-blue-900/20 p-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="text-2xl">🚀</span>
-                      <div>
-                        <div className="font-bold text-purple-200">Blueprint Fast Track</div>
-                        <div className="text-[10px] text-purple-300">De la Inversión a la Operación</div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2 mb-4">
-                      {Object.entries(TIMELINE_PHASES).map(([fase, data]) => (
-                        <button
-                          key={fase}
-                          onClick={() => {
-                            setCurrentPhase(fase);
-                            setCurrentWeek(data.semanas[0]);
-                          }}
-                          className={`w-full text-left p-3 rounded-lg transition-all ${
-                            currentPhase === fase 
-                              ? `bg-gradient-to-r ${data.color} ${data.borderColor} border shadow-lg` 
-                              : 'bg-slate-900/50 border border-slate-700 hover:border-purple-500/50'
-                          }`}
-                        >
-                          <div className="font-semibold text-sm">{fase}</div>
-                          <div className="text-[10px] text-slate-400 mt-1">
-                            Herramientas: {data.nodos_activos.length} activas
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-
-                    {currentPhase && (
-                      <div className="space-y-3">
-                        <div className="flex gap-1">
-                          {TIMELINE_PHASES[currentPhase].semanas.map(semana => (
-                            <button
-                              key={semana}
-                              onClick={() => setCurrentWeek(semana)}
-                              className={`flex-1 py-1 px-2 rounded text-[10px] transition ${
-                                currentWeek === semana
-                                  ? 'bg-purple-500/30 text-purple-200 border border-purple-400'
-                                  : 'bg-slate-800/50 text-slate-400 hover:bg-slate-700/50'
-                              }`}
-                            >
-                              S{semana}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </aside>
-            )}
- 
-            <main className={`col-span-12 ${viewMode === 'technical' ? 'lg:col-span-12' : 'lg:col-span-9'} space-y-4`}>
-              {viewMode === 'timeline' ? (
-                <>
-                  <div
-                    className={`diagram-scroll-container rounded-2xl border border-slate-800 bg-gradient-to-b from-slate-900 to-slate-950 ${showTimeline ? 'mt-10' : ''}`}
-                    style={{ width: '100%', height: 'calc(100vh - 210px)', overflowX: 'scroll', overflowY: 'auto', position: 'relative' }}
-                  >
-                    <div className="diagram-inner-canvas relative" style={{ minWidth: '2400px', position: 'relative' }}>
-
-                      <svg width={width} height={height} className="block">
-                        {LANES.map((lane, idx) => {
-                          const xPosition = PADDING_X + idx * (LANE_WIDTH + LANE_GAP) + (LANE_WIDTH / 2);
-                          return visibleLanes[lane.id] && (
-                            <g key={lane.id}>
-                              <rect
-                                x={xPosition - LANE_WIDTH/2}
-                                y={45}
-                                width={LANE_WIDTH}
-                                height={35}
-                                fill="rgba(30, 41, 59, 0.8)"
-                                stroke="rgba(100, 116, 139, 0.3)"
-                                strokeWidth="1"
-                                rx="8"
-                              />
-                              <text
-                                x={xPosition}
-                                y={67}
-                                textAnchor="middle"
-                                className="fill-slate-200"
-                                fontSize="18"
-                                fontWeight="800"
-                              >
-                                {lane.id === 'front' && '🎯 '}
-                                {lane.id === 'orchestration' && '⚙️ '}
-                                {lane.id === 'external' && '🔌 '}
-                                {lane.id === 'telematics' && '⚡ '}
-                                {lane.id === 'internal' && '👥 '}
-                                {lane.id === 'data' && '💾 '}
-                                {lane.title}
-                              </text>
-                            </g>
-                          );
-                        })}
-                        {Object.values(FLOWS).flat().map(([a, b], i) => (
-                          <Edge
-                            key={i}
-                            from={a}
-                            to={b}
-                            positions={positions}
-                            active={!!flow && FLOWS[flow].some(([x, y]) => x === a && y === b)}
-                          />
+                  {currentPhase && (
+                    <div className="space-y-3">
+                      <div className="flex gap-1">
+                        {TIMELINE_PHASES[currentPhase].semanas.map(semana => (
+                          <button
+                            key={semana}
+                            onClick={() => setCurrentWeek(semana)}
+                            className={`flex-1 py-1 px-2 rounded text-[10px] transition ${
+                              currentWeek === semana
+                                ? 'bg-purple-500/30 text-purple-200 border border-purple-400'
+                                : 'bg-slate-800/50 text-slate-400 hover:bg-slate-700/50'
+                            }`}
+                          >
+                            S{semana}
+                          </button>
                         ))}
-                      </svg>
-
-                      {showTimeline && (
-                        <>
-                          {showTimeline && currentPhase && filteredNodes.map(node => {
-                            const phaseData = TIMELINE_PHASES[currentPhase];
-                            const weekData = phaseData.detalles.find(d => d.semana === currentWeek);
-                            const isActiveInWeek = weekData?.herramientas_ids?.includes(node.id);
-                            const isActiveInPhase = phaseData.nodos_activos.includes(node.id);
-                            if (!isActiveInWeek && !isActiveInPhase) return null;
-                            return (
-                              <div
-                                key={`highlight-${node.id}`}
-                                className="absolute pointer-events-none"
-                                style={{
-                                  left: positions[node.id].x - 8,
-                                  top: positions[node.id].y - 8,
-                                  width: CARD_W + 16,
-                                  height: CARD_H + 16,
-                                  borderRadius: '24px',
-                                  border: isActiveInWeek ? '4px solid rgba(168, 85, 247, 1)' : '2px solid rgba(168, 85, 247, 0.3)',
-                                  background: isActiveInWeek 
-                                    ? 'radial-gradient(circle, rgba(168, 85, 247, 0.4) 0%, transparent 70%)'
-                                    : 'radial-gradient(circle, rgba(168, 85, 247, 0.1) 0%, transparent 70%)',
-                                  boxShadow: isActiveInWeek 
-                                    ? '0 0 40px rgba(168, 85, 247, 0.8), inset 0 0 30px rgba(168, 85, 247, 0.4)'
-                                    : '0 0 10px rgba(168, 85, 247, 0.2)',
-                                  animation: isActiveInWeek ? 'pulse 1.5s infinite' : 'none',
-                                  zIndex: isActiveInWeek ? 10 : 5
-                                }}
-                              />
-                            );
-                          })}
-                        </>
-                      )}
-
-                      {filteredNodes.map((n) => (
-                        <NodeCard
-                          key={n.id}
-                          node={n}
-                          pos={positions[n.id]}
-                          selected={selected?.id === n.id}
-                          onSelect={setSelected}
-                        />)
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="grid md:grid-cols-1 gap-4">
-                    <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
-                      <div className="flex items-center gap-2 mb-1">
-                        <ServerCog className="w-4 h-4 text-fuchsia-300" />
-                        <div className="font-semibold">Inspector de nodo</div>
                       </div>
-                      {selected ? (
-                        <div>
-                          <div className="text-teal-200 font-semibold">{selected.title}</div>
-                          <div className="text-slate-300/80 text-sm mb-4">{selected.subtitle}</div>
-                          {selected.ficha && (
-                            <div className="space-y-3 text-sm">
-                              <div>
-                                <div className="uppercase tracking-wide text-[10px] text-slate-400">Proceso Involucrado</div>
-                                <div className="text-slate-200">{selected.ficha.proceso}</div>
-                              </div>
-                              <div>
-                                <div className="uppercase tracking-wide text-[10px] text-slate-400">Costo Estimado (Proxy)</div>
-                                <div className="text-slate-200">{selected.ficha.costo}</div>
-                              </div>
-                              <div>
-                                <div className="uppercase tracking-wide text-[10px] text-slate-400">Justificación</div>
-                                <div className="text-slate-300/90">{selected.ficha.justificacion}</div>
-                              </div>
+
+                      {TIMELINE_PHASES[currentPhase].detalles
+                        .filter(d => d.semana === currentWeek)
+                        .map(detalle => (
+                          <div key={detalle.semana} className="bg-slate-900/50 rounded-lg p-3">
+                            <div className="font-semibold text-sm text-purple-200 mb-2">
+                              Semana {detalle.semana}: {detalle.titulo}
                             </div>
-                          )}
-                          <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-slate-800">
-                            <div>
-                              <div className="uppercase tracking-wide text-[10px] text-slate-400">Entradas</div>
-                              <ul className="mt-1 text-sm list-disc pl-4 space-y-1">
-                                {selected.io.in.map((t, i) => (
-                                  <li key={i}>{t}</li>
-                                ))}
-                              </ul>
-                            </div>
-                            <div>
-                              <div className="uppercase tracking-wide text-[10px] text-slate-400">Salidas</div>
-                              <ul className="mt-1 text-sm list-disc pl-4 space-y-1">
-                                {selected.io.out.map((t, i) => (
-                                  <li key={i}>{t}</li>
-                                ))}
-                              </ul>
+                            <div className="space-y-2">
+                              <div>
+                                <div className="text-[10px] uppercase tracking-wide text-slate-400 mb-1">
+                                  Tareas Críticas
+                                </div>
+                                <ul className="text-[11px] text-slate-300 space-y-0.5">
+                                  {detalle.tareas.map((tarea, i) => (
+                                    <li key={i} className="flex items-start gap-1">
+                                      <span className="text-purple-400 mt-0.5">•</span>
+                                      <span>{tarea}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                              <div>
+                                <div className="text-[10px] uppercase tracking-wide text-slate-400 mb-1">
+                                  Stack Involucrado
+                                </div>
+                                <div className="flex flex-wrap gap-1">
+                                  {detalle.herramientas.map(h => (
+                                    <span key={h} className="px-2 py-0.5 bg-purple-500/20 border border-purple-400/30 rounded text-[10px] text-purple-300">
+                                      {h}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                              <div className="pt-2 border-t border-slate-700">
+                                <div className="flex items-center gap-1">
+                                  <span className="text-green-400">✓</span>
+                                  <span className="text-[11px] font-semibold text-green-300">
+                                    HITO: {detalle.hito}
+                                  </span>
+                                </div>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ) : (
-                        <div className="text-slate-400 text-sm">
-                          Selecciona un nodo en el mapa para ver detalles de entradas/salidas.
-                        </div>
-                      )}
+                        ))}
                     </div>
+                  )}
+
+                  <div className="mt-4 p-3 bg-gradient-to-br from-slate-900/70 to-purple-900/20 rounded-lg border border-purple-800/30">
+                    <div className="text-xs font-bold text-purple-200 mb-2 flex items-center gap-1">
+                      <span>🤖</span> Estado IAs al Día 90
+                    </div>
+                    {Object.entries(IA_STATUS_90_DAYS).map(([ia, status]) => (
+                      <div key={ia} className="mb-2">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-[11px] font-semibold text-purple-300">{ia}</span>
+                          <span className="text-[10px] text-slate-400">{status.progreso}%</span>
+                        </div>
+                        <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-gradient-to-r from-purple-500 to-blue-500 transition-all duration-500"
+                            style={{ width: `${status.progreso}%` }}
+                          />
+                        </div>
+                        <div className="text-[10px] text-slate-400 mt-0.5">{status.descripcion}</div>
+                      </div>
+                    ))}
                   </div>
 
-                  <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <AlertTriangle className="w-4 h-4 text-amber-300" />
-                      <div className="font-semibold">Notas de diseño y siguientes pasos</div>
+                  <div className="mt-3 p-2 bg-green-900/20 border border-green-800/30 rounded-lg">
+                    <div className="text-[10px] font-bold text-green-300 mb-1">🎯 KPIs al Día 90</div>
+                    <div className="grid grid-cols-2 gap-1 text-[10px]">
+                      <div className="text-green-200">• 20-30 unidades</div>
+                      <div className="text-green-200">• 3 meses datos</div>
+                      <div className="text-green-200">• Pipeline 50+</div>
+                      <div className="text-green-200">• Stack 100%</div>
                     </div>
-                    <ul className="text-sm space-y-1 text-slate-300/90">
-                      <li>• <b>Contrato de datos</b> del flujo Onboarding: Portal ⇄ Metamap ⇄ KIBAN ⇄ HASE ⇄ Odoo. (Si quieres, te genero el JSON OpenAPI por endpoint.)</li>
-                      <li>• <b>Webhooks críticos</b>: Mifiel (firma), Conekta (pagos), Samsara (eventos/DT C), Asistente (mensajería).</li>
-                      <li>• <b>Historificación</b>: Telemetría y consumo GNV van a Warehouse para BI, XAI y pruebas de estrés.</li>
-                      <li>• <b>Seguridad</b>: OAuth/token por partner, aislamiento por rutas (tags) y colas idempotentes en iPaaS.</li>
-                      <li>• <b>Escala</b>: La misma arquitectura soporta 17 → 1000 unidades con colas y backfill a Warehouse.</li>
-                    </ul>
                   </div>
-                </>
-              ) : (
-                <div className="h-[calc(100vh-160px)] rounded-2xl border border-purple-500/30 overflow-hidden shadow-2xl shadow-purple-500/10 view-transition">
-                  <TechnicalPortalView />
                 </div>
               )}
-            </main>
+            </aside>
+
+            <main className="col-span-12 lg:col-span-9 space-y-4">
+  {viewMode === 'timeline' ? (
+    <>
+      <div
+        className={`diagram-scroll-container rounded-2xl border border-slate-800 bg-gradient-to-b from-slate-900 to-slate-950 ${showTimeline ? 'mt-10' : ''}`}
+        style={{ width: '100%', height: 'calc(100vh - 210px)', overflowX: 'scroll', overflowY: 'auto', position: 'relative' }}
+      >
+        <div className="diagram-inner-canvas relative" style={{ minWidth: '2400px', position: 'relative' }}>
+
+          <svg width={width} height={height} className="block">
+            {LANES.map((lane, idx) => {
+              const xPosition = PADDING_X + idx * (LANE_WIDTH + LANE_GAP) + (LANE_WIDTH / 2);
+              return visibleLanes[lane.id] && (
+                <g key={lane.id}>
+                  <rect
+                    x={xPosition - LANE_WIDTH/2}
+                    y={45}
+                    width={LANE_WIDTH}
+                    height={35}
+                    fill="rgba(30, 41, 59, 0.8)"
+                    stroke="rgba(100, 116, 139, 0.3)"
+                    strokeWidth="1"
+                    rx="8"
+                  />
+                  <text
+                    x={xPosition}
+                    y={67}
+                    textAnchor="middle"
+                    className="fill-slate-200"
+                    fontSize="18"
+                    fontWeight="800"
+                  >
+                    {lane.id === 'front' && '🎯 '}
+                    {lane.id === 'orchestration' && '⚙️ '}
+                    {lane.id === 'external' && '🔌 '}
+                    {lane.id === 'telematics' && '⚡ '}
+                    {lane.id === 'internal' && '👥 '}
+                    {lane.id === 'data' && '💾 '}
+                    {lane.title}
+                  </text>
+                </g>
+              );
+            })}
+            {Object.values(FLOWS).flat().map(([a, b], i) => (
+              <Edge
+                key={i}
+                from={a}
+                to={b}
+                positions={positions}
+                active={!!flow && FLOWS[flow].some(([x, y]) => x === a && y === b)}
+              />
+            ))}
+          </svg>
+
+          {showTimeline && (
+            <>
+              {showTimeline && currentPhase && filteredNodes.map(node => {
+                const phaseData = TIMELINE_PHASES[currentPhase];
+                const weekData = phaseData.detalles.find(d => d.semana === currentWeek);
+                const isActiveInWeek = weekData?.herramientas_ids?.includes(node.id);
+                const isActiveInPhase = phaseData.nodos_activos.includes(node.id);
+                if (!isActiveInWeek && !isActiveInPhase) return null;
+                return (
+                  <div
+                    key={`highlight-${node.id}`}
+                    className="absolute pointer-events-none"
+                    style={{
+                      left: positions[node.id].x - 8,
+                      top: positions[node.id].y - 8,
+                      width: CARD_W + 16,
+                      height: CARD_H + 16,
+                      borderRadius: '24px',
+                      border: isActiveInWeek ? '4px solid rgba(168, 85, 247, 1)' : '2px solid rgba(168, 85, 247, 0.3)',
+                      background: isActiveInWeek 
+                        ? 'radial-gradient(circle, rgba(168, 85, 247, 0.4) 0%, transparent 70%)'
+                        : 'radial-gradient(circle, rgba(168, 85, 247, 0.1) 0%, transparent 70%)',
+                      boxShadow: isActiveInWeek 
+                        ? '0 0 40px rgba(168, 85, 247, 0.8), inset 0 0 30px rgba(168, 85, 247, 0.4)'
+                        : '0 0 10px rgba(168, 85, 247, 0.2)',
+                      animation: isActiveInWeek ? 'pulse 1.5s infinite' : 'none',
+                      zIndex: isActiveInWeek ? 10 : 5
+                    }}
+                  />
+                );
+              })}
+            </>
+          )}
+
+          {filteredNodes.map((n) => (
+            <NodeCard
+              key={n.id}
+              node={n}
+              pos={positions[n.id]}
+              selected={selected?.id === n.id}
+              onSelect={setSelected}
+            />)
+          )}
+        </div>
+      </div>
+
+      <div className="grid md:grid-cols-1 gap-4">
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <ServerCog className="w-4 h-4 text-fuchsia-300" />
+            <div className="font-semibold">Inspector de nodo</div>
+          </div>
+          {selected ? (
+            <div>
+              <div className="text-teal-200 font-semibold">{selected.title}</div>
+              <div className="text-slate-300/80 text-sm mb-4">{selected.subtitle}</div>
+              {selected.ficha && (
+                <div className="space-y-3 text-sm">
+                  <div>
+                    <div className="uppercase tracking-wide text-[10px] text-slate-400">Proceso Involucrado</div>
+                    <div className="text-slate-200">{selected.ficha.proceso}</div>
+                  </div>
+                  <div>
+                    <div className="uppercase tracking-wide text-[10px] text-slate-400">Costo Estimado (Proxy)</div>
+                    <div className="text-slate-200">{selected.ficha.costo}</div>
+                  </div>
+                  <div>
+                    <div className="uppercase tracking-wide text-[10px] text-slate-400">Justificación</div>
+                    <div className="text-slate-300/90">{selected.ficha.justificacion}</div>
+                  </div>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-slate-800">
+                <div>
+                  <div className="uppercase tracking-wide text-[10px] text-slate-400">Entradas</div>
+                  <ul className="mt-1 text-sm list-disc pl-4 space-y-1">
+                    {selected.io.in.map((t, i) => (
+                      <li key={i}>{t}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <div className="uppercase tracking-wide text-[10px] text-slate-400">Salidas</div>
+                  <ul className="mt-1 text-sm list-disc pl-4 space-y-1">
+                    {selected.io.out.map((t, i) => (
+                      <li key={i}>{t}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-slate-400 text-sm">
+              Selecciona un nodo en el mapa para ver detalles de entradas/salidas.
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <AlertTriangle className="w-4 h-4 text-amber-300" />
+          <div className="font-semibold">Notas de diseño y siguientes pasos</div>
+        </div>
+        <ul className="text-sm space-y-1 text-slate-300/90">
+          <li>• <b>Contrato de datos</b> del flujo Onboarding: Portal ⇄ Metamap ⇄ KIBAN ⇄ HASE ⇄ Odoo. (Si quieres, te genero el JSON OpenAPI por endpoint.)</li>
+          <li>• <b>Webhooks críticos</b>: Mifiel (firma), Conekta (pagos), Samsara (eventos/DT C), Asistente (mensajería).</li>
+          <li>• <b>Historificación</b>: Telemetría y consumo GNV van a Warehouse para BI, XAI y pruebas de estrés.</li>
+          <li>• <b>Seguridad</b>: OAuth/token por partner, aislamiento por rutas (tags) y colas idempotentes en iPaaS.</li>
+          <li>• <b>Escala</b>: La misma arquitectura soporta 17 → 1000 unidades con colas y backfill a Warehouse.</li>
+        </ul>
+      </div>
+    </>
+  ) : (
+    <div className="h-[calc(100vh-160px)] rounded-2xl border border-purple-500/30 overflow-hidden shadow-2xl shadow-purple-500/10 view-transition">
+      <TechnicalPortalView />
+    </div>
+  )}
+</main>
           </div>
 
 
