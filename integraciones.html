@@ -559,6 +559,197 @@
       );
       const [selected, setSelected] = useState(null);
 
+      const [showTimeline, setShowTimeline] = useState(false);
+      const [currentPhase, setCurrentPhase] = useState(null);
+      const [currentWeek, setCurrentWeek] = useState(1);
+
+      const TIMELINE_PHASES = {
+        "Mes 1: Ignición Inmediata": {
+          semanas: [1, 2, 3, 4],
+          color: "from-red-500/20 to-orange-500/10",
+          borderColor: "border-red-400/40",
+          nodos_activos: ["samsara", "metamap", "kiban", "conekta", "mifiel", "odoo"],
+          detalles: [
+            {
+              semana: 1,
+              titulo: "Kick-off Hardware y Alianzas",
+              tareas: [
+                "Orden de compra 17 dispositivos Samsara (VG55 + EI21)",
+                "Instalación inmediata en flota Higer 17",
+                "Firma contratos con Metamap, KIBAN, Conekta, Mifiel",
+                "Inicio integraciones API"
+              ],
+              herramientas: ["Samsara", "Metamap", "KIBAN", "Conekta", "Mifiel"],
+              hito: "¡Telemetría en tiempo real desde día 7!"
+            },
+            {
+              semana: 2,
+              titulo: "Arranque Técnico y de Mercado",
+              tareas: [
+                "Despliegue Odoo Enterprise Plan Personalizado",
+                "Configuración módulos CRM y Core Bancario simplificado",
+                "Ofertas formales a COO/PMO y Head of Growth"
+              ],
+              herramientas: ["Odoo Enterprise"],
+              hito: "Plataforma interna lista para primer cliente"
+            },
+            {
+              semana: 3,
+              titulo: "Ingesta de Datos y Entrenamiento IA",
+              tareas: [
+                "HASE y Super-PMA en modo escucha",
+                "Ingesta datos Samsara de flota Higer",
+                "Construcción base de datos propietaria",
+                "Integración APIs estaciones GNV"
+              ],
+              herramientas: ["AWS/Google Cloud", "Samsara API", "APIs GNV"],
+              hito: "Primeros datos flota y consumo correlacionados"
+            },
+            {
+              semana: 4,
+              titulo: "Ensamble del Stack Operativo",
+              tareas: [
+                "Integración end-to-end completa",
+                "Odoo ↔ Metamap ↔ KIBAN ↔ Conekta ↔ Mifiel",
+                "MVP del Asistente Digital avanza",
+                "17 operadores como cliente objetivo"
+              ],
+              herramientas: ["Odoo", "Metamap", "KIBAN", "Conekta", "Mifiel APIs"],
+              hito: "Stack de originación 100% funcional"
+            }
+          ]
+        },
+        "Mes 2: Validación en Campo": {
+          semanas: [5, 6, 7, 8],
+          color: "from-yellow-500/20 to-green-500/10",
+          borderColor: "border-yellow-400/40",
+          nodos_activos: ["whatsapp", "assistant", "ipaas", "pia", "hase"],
+          detalles: [
+            {
+              semana: 5,
+              titulo: "Lanzamiento MVP Higer 17",
+              tareas: [
+                "Despliegue oficial Asistente Digital",
+                "17 operadores flota Higer como usuarios",
+                "Comunicación vía API Twilio"
+              ],
+              herramientas: ["Twilio", "Flowise", "Make/n8n"],
+              hito: "MVP en producción"
+            },
+            {
+              semana: 6,
+              titulo: "Medición KPIs Validación",
+              tareas: [
+                "Medición en entorno real y controlado",
+                ">70% automatización",
+                ">95% precisión OCR",
+                "Recolección feedback operadores"
+              ],
+              herramientas: ["Analytics", "Looker Studio"],
+              hito: "Validación tecnológica en campo iniciada"
+            },
+            {
+              semana: 7,
+              titulo: "Evangelización del Pipeline",
+              tareas: [
+                "Head of Growth visita 12 rutas pipeline",
+                "Demos funcionales Asistente IA",
+                "Dashboards Looker con datos reales Higer",
+                "Evidencia tangible, no promesas"
+              ],
+              herramientas: ["Odoo CRM", "Looker Studio"],
+              hito: "Pipeline activado con evidencia real"
+            },
+            {
+              semana: 8,
+              titulo: "Pre-calificación Masiva",
+              tareas: [
+                "Preparación primeros 50 expedientes",
+                "Flujo Manual Underwriting 1.0",
+                "Recolección documentación",
+                "KYC inicial de prospectos"
+              ],
+              herramientas: ["Metamap", "Odoo CRM"],
+              hito: "50 operadores pipeline pre-calificados"
+            }
+          ]
+        },
+        "Mes 3: Ignición y Despliegue": {
+          semanas: [9, 10, 11, 12],
+          color: "from-green-500/20 to-blue-500/10",
+          borderColor: "border-green-400/40",
+          nodos_activos: ["odoo", "mifiel", "conekta", "samsara", "pia", "pma", "warehouse"],
+          detalles: [
+            {
+              semana: 9,
+              titulo: "Primer Comité de Crédito",
+              tareas: [
+                "Presentación 20-30 expedientes",
+                "KYC Metamap completo",
+                "Reporte Buró vía KIBAN",
+                "Scorecard Cualitativo (HASE v0.1)"
+              ],
+              herramientas: ["Metamap", "KIBAN", "Odoo"],
+              hito: "Primeras aprobaciones de crédito"
+            },
+            {
+              semana: 10,
+              titulo: "Cierre y Firma Digital",
+              tareas: [
+                "Comité aprueba primer lote",
+                "Envío contratos vía Mifiel",
+                "Recepción enganches vía Conekta",
+                "10-20 contratos firmados"
+              ],
+              herramientas: ["Mifiel", "Conekta"],
+              hito: "20 contratos firmados digitalmente"
+            },
+            {
+              semana: 11,
+              titulo: "Ejecución Órdenes de Compra",
+              tareas: [
+                "Orden de compra 10-20 vagonetas",
+                "Instalación Samsara pre-entrega",
+                "Configuración unidades",
+                "Preparación logística entrega"
+              ],
+              herramientas: ["Samsara", "Odoo"],
+              hito: "Vagonetas listas para entrega"
+            },
+            {
+              semana: 12,
+              titulo: "Primeras Unidades en Calle",
+              tareas: [
+                "Entrega vagonetas a operadores",
+                "Samsara transmitiendo en tiempo real",
+                "PIA v1.0 activado - recordatorios pago",
+                "Gestión comunicación inicial"
+              ],
+              herramientas: ["Samsara", "PIA", "Twilio"],
+              hito: "Flota operando y generando revenue + datos"
+            }
+          ]
+        }
+      };
+
+      const IA_STATUS_90_DAYS = {
+        HASE: {
+          estado: "Cerebro Dual Activo",
+          descripcion: "3 meses datos operativos flota Higer + nueva flota propia",
+          progreso: 75
+        },
+        PIA: {
+          estado: "v1.0 en Producción",
+          descripcion: "Recordatorios automatizados vía Twilio con referencias Conekta",
+          progreso: 60
+        },
+        "Super-PMA": {
+          estado: "Modo Escucha Avanzado",
+          descripcion: "Base de datos rica, iniciando modelos predictivos",
+          progreso: 40
+        }
+      };
+
       useEffect(() => {
         const container = document.querySelector('.diagram-scroll-container');
         if (container) {
@@ -606,12 +797,32 @@
                     }`}
                     onClick={() => {
                       setFlow(f);
+                      setShowTimeline(false);
                       setSelected(null);
                     }}
                   >
                     {f}
                   </button>
                 ))}
+                <div className="h-8 w-px bg-slate-700 mx-2" />
+                <button
+                  className={`px-4 py-1.5 rounded-lg border flex items-center gap-2 text-[12px] whitespace-nowrap transition ${
+                    showTimeline
+                      ? "bg-gradient-to-r from-purple-500/20 to-blue-500/20 border-purple-400 text-purple-200 shadow-lg shadow-purple-500/20"
+                      : "bg-slate-900 border-slate-700 text-slate-300 hover:border-purple-500/40"
+                  }`}
+                  onClick={() => {
+                    setShowTimeline(!showTimeline);
+                    if (!showTimeline) {
+                      setFlow(null);
+                      setCurrentPhase("Mes 1: Ignición Inmediata");
+                      setCurrentWeek(1);
+                    }
+                  }}
+                >
+                  <span className="text-base">🚀</span>
+                  Blueprint 90 Días
+                </button>
               </div>
             </div>
           </div>
@@ -676,6 +887,136 @@
                   <li><b>Warehouse/BI</b> consolida histórico para XAI y stress testing.</li>
                 </ul>
               </div>
+
+              {showTimeline && (
+                <div className="rounded-2xl border border-purple-800 bg-gradient-to-br from-purple-900/20 to-blue-900/20 p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-2xl">🚀</span>
+                    <div>
+                      <div className="font-bold text-purple-200">Blueprint Fast Track</div>
+                      <div className="text-[10px] text-purple-300">De la Inversión a la Operación</div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 mb-4">
+                    {Object.entries(TIMELINE_PHASES).map(([fase, data]) => (
+                      <button
+                        key={fase}
+                        onClick={() => {
+                          setCurrentPhase(fase);
+                          setCurrentWeek(data.semanas[0]);
+                        }}
+                        className={`w-full text-left p-3 rounded-lg transition-all ${
+                          currentPhase === fase 
+                            ? `bg-gradient-to-r ${data.color} ${data.borderColor} border shadow-lg` 
+                            : 'bg-slate-900/50 border border-slate-700 hover:border-purple-500/50'
+                        }`}
+                      >
+                        <div className="font-semibold text-sm">{fase}</div>
+                        <div className="text-[10px] text-slate-400 mt-1">
+                          Herramientas: {data.nodos_activos.length} activas
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+
+                  {currentPhase && (
+                    <div className="space-y-3">
+                      <div className="flex gap-1">
+                        {TIMELINE_PHASES[currentPhase].semanas.map(semana => (
+                          <button
+                            key={semana}
+                            onClick={() => setCurrentWeek(semana)}
+                            className={`flex-1 py-1 px-2 rounded text-[10px] transition ${
+                              currentWeek === semana
+                                ? 'bg-purple-500/30 text-purple-200 border border-purple-400'
+                                : 'bg-slate-800/50 text-slate-400 hover:bg-slate-700/50'
+                            }`}
+                          >
+                            S{semana}
+                          </button>
+                        ))}
+                      </div>
+
+                      {TIMELINE_PHASES[currentPhase].detalles
+                        .filter(d => d.semana === currentWeek)
+                        .map(detalle => (
+                          <div key={detalle.semana} className="bg-slate-900/50 rounded-lg p-3">
+                            <div className="font-semibold text-sm text-purple-200 mb-2">
+                              Semana {detalle.semana}: {detalle.titulo}
+                            </div>
+                            <div className="space-y-2">
+                              <div>
+                                <div className="text-[10px] uppercase tracking-wide text-slate-400 mb-1">
+                                  Tareas Críticas
+                                </div>
+                                <ul className="text-[11px] text-slate-300 space-y-0.5">
+                                  {detalle.tareas.map((tarea, i) => (
+                                    <li key={i} className="flex items-start gap-1">
+                                      <span className="text-purple-400 mt-0.5">•</span>
+                                      <span>{tarea}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                              <div>
+                                <div className="text-[10px] uppercase tracking-wide text-slate-400 mb-1">
+                                  Stack Involucrado
+                                </div>
+                                <div className="flex flex-wrap gap-1">
+                                  {detalle.herramientas.map(h => (
+                                    <span key={h} className="px-2 py-0.5 bg-purple-500/20 border border-purple-400/30 rounded text-[10px] text-purple-300">
+                                      {h}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                              <div className="pt-2 border-t border-slate-700">
+                                <div className="flex items-center gap-1">
+                                  <span className="text-green-400">✓</span>
+                                  <span className="text-[11px] font-semibold text-green-300">
+                                    HITO: {detalle.hito}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+
+                  <div className="mt-4 p-3 bg-gradient-to-br from-slate-900/70 to-purple-900/20 rounded-lg border border-purple-800/30">
+                    <div className="text-xs font-bold text-purple-200 mb-2 flex items-center gap-1">
+                      <span>🤖</span> Estado IAs al Día 90
+                    </div>
+                    {Object.entries(IA_STATUS_90_DAYS).map(([ia, status]) => (
+                      <div key={ia} className="mb-2">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-[11px] font-semibold text-purple-300">{ia}</span>
+                          <span className="text-[10px] text-slate-400">{status.progreso}%</span>
+                        </div>
+                        <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-gradient-to-r from-purple-500 to-blue-500 transition-all duration-500"
+                            style={{ width: `${status.progreso}%` }}
+                          />
+                        </div>
+                        <div className="text-[10px] text-slate-400 mt-0.5">{status.descripcion}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-3 p-2 bg-green-900/20 border border-green-800/30 rounded-lg">
+                    <div className="text-[10px] font-bold text-green-300 mb-1">🎯 KPIs al Día 90</div>
+                    <div className="grid grid-cols-2 gap-1 text-[10px]">
+                      <div className="text-green-200">• 20-30 unidades</div>
+                      <div className="text-green-200">• 3 meses datos</div>
+                      <div className="text-green-200">• Pipeline 50+</div>
+                      <div className="text-green-200">• Stack 100%</div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </aside>
 
             <main className="col-span-12 lg:col-span-9 space-y-4">
@@ -709,10 +1050,71 @@
                         from={a}
                         to={b}
                         positions={positions}
-                        active={FLOWS[flow].some(([x, y]) => x === a && y === b)}
+                        active={!!flow && FLOWS[flow].some(([x, y]) => x === a && y === b)}
                       />
                     ))}
                   </svg>
+
+                  {showTimeline && (
+                    <>
+                      <div className="absolute top-10 left-0 right-0 h-24 bg-gradient-to-b from-purple-900/30 to-transparent z-40 pointer-events-none">
+                        <div className="flex h-full px-6">
+                          {Object.entries(TIMELINE_PHASES).map(([fase, data], idx) => (
+                            <div 
+                              key={fase} 
+                              className={`flex-1 relative ${idx < 2 ? 'border-r border-purple-400/30' : ''}`}
+                            >
+                              <div className="text-center pt-2">
+                                <div className="text-xs font-bold text-purple-200">{fase}</div>
+                                <div className="text-[10px] text-purple-300 mt-1">
+                                  Semanas {data.semanas[0]}-{data.semanas[data.semanas.length - 1]}
+                                </div>
+                              </div>
+                              <div className="absolute bottom-2 left-2 right-2">
+                                <div className="h-1 bg-slate-800 rounded-full overflow-hidden">
+                                  <div 
+                                    className={`h-full bg-gradient-to-r ${
+                                      currentPhase === fase 
+                                        ? 'from-purple-500 to-blue-500' 
+                                        : 'from-slate-600 to-slate-700'
+                                    } transition-all duration-500`}
+                                    style={{ 
+                                      width: currentPhase === fase 
+                                        ? `${Math.max(0, Math.min(100, ((currentWeek - data.semanas[0] + 1) / data.semanas.length) * 100))}%` 
+                                        : currentPhase && Object.keys(TIMELINE_PHASES).indexOf(currentPhase) > idx 
+                                          ? '100%' 
+                                          : '0%'
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {currentPhase && filteredNodes.map(node => {
+                        const isActive = TIMELINE_PHASES[currentPhase].nodos_activos.includes(node.id);
+                        if (!isActive) return null;
+                        return (
+                          <div
+                            key={`highlight-${node.id}`}
+                            className="absolute pointer-events-none animate-pulse"
+                            style={{
+                              left: positions[node.id].x - 4,
+                              top: positions[node.id].y - 4,
+                              width: CARD_W + 8,
+                              height: CARD_H + 8,
+                              borderRadius: '20px',
+                              boxShadow: '0 0 20px rgba(168, 85, 247, 0.4)',
+                              border: '2px solid rgba(168, 85, 247, 0.6)',
+                              background: 'radial-gradient(circle, rgba(168, 85, 247, 0.1) 0%, transparent 70%)'
+                            }}
+                          />
+                        );
+                      })}
+                    </>
+                  )}
 
                   {filteredNodes.map((n) => (
                     <NodeCard
@@ -797,6 +1199,49 @@
               </div>
             </main>
           </div>
+
+          {showTimeline && (
+            <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 
+                            bg-slate-900/95 border border-purple-400/50 rounded-full 
+                            px-6 py-3 backdrop-blur-xl z-50 shadow-2xl shadow-purple-500/20">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl animate-pulse">🚀</span>
+                  <span className="text-sm font-bold text-purple-200">Fast Track</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button 
+                    onClick={() => setCurrentWeek(Math.max(1, currentWeek - 1))}
+                    className="text-purple-300 hover:text-purple-100 transition"
+                  >
+                    ←
+                  </button>
+                  <div className="w-48 h-2 bg-slate-700 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-purple-500 via-blue-500 to-green-500 transition-all duration-500"
+                      style={{ width: `${(currentWeek / 12) * 100}%` }}
+                    />
+                  </div>
+                  <button 
+                    onClick={() => setCurrentWeek(Math.min(12, currentWeek + 1))}
+                    className="text-purple-300 hover:text-purple-100 transition"
+                  >
+                    →
+                  </button>
+                </div>
+                <div className="text-sm">
+                  <span className="text-purple-300">Semana</span>
+                  <span className="font-bold text-purple-100 ml-1">{currentWeek}</span>
+                  <span className="text-purple-400"> / 12</span>
+                </div>
+                <div className="text-xs text-slate-400 ml-2">
+                  {currentWeek <= 4 && "Ignición"}
+                  {currentWeek > 4 && currentWeek <= 8 && "Validación"}
+                  {currentWeek > 8 && "Despliegue"}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       );
     }
