@@ -1,678 +1,415 @@
-<!doctype html>
-<html lang="es">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Integraciones - Diagrama Interactivo</title>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arquitectura de Integraciones - Conductores (v2)</title>
+  <!-- 1. TailwindCSS Play CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 2. React Libraries -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <!-- 3. Lucide Icons (via UMD bundle) -->
+  <script src="https://unpkg.com/lucide-react/dist/umd/lucide-react.js"></script>
+  <!-- 4. Babel for JSX Transpilation -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- TailwindCSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      // Tailwind config (optional custom colors)
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              slate850: '#111827',
-            },
-            boxShadow: {
-              soft: '0 10px 25px -10px rgba(0,0,0,0.25)'
-            }
-          }
+  <style>
+    /* Custom font to match the design */
+    @import url('https://rsms.me/inter/inter.css');
+    html { font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-950">
+  <!-- 5. React Mount Point -->
+  <div id="root"></div>
+
+  <!-- 6. Your React Code (with dependencies) -->
+  <script type="text/babel">
+    const { useMemo, useState, useEffect } = React;
+
+    // --- Data for Tool Details Modals ---
+    const TOOL_DETAILS = {
+      mifiel: {
+        title: "Mifiel: La Certeza Jurídica",
+        items: [
+          { label: "Herramienta", value: "Mifiel" },
+          { label: "Descripción", value: "Plataforma líder en México para <strong>firmas electrónicas avanzadas con total validez jurídica</strong>. Su especialización en el marco legal mexicano (cumplimiento de la <strong>NOM-151</strong>) es su mayor diferenciador." },
+          { label: "Proceso Involucrado", value: "Es el <strong>paso final</strong> de la originación. Una vez que HASE aprueba el crédito, los contratos se envían al operador y al presidente de la ruta a través de la API de Mifiel. Permite firmar con <strong>e.firma (FIEL)</strong> para máxima seguridad o con <strong>firma electrónica simple con verificación biométrica</strong> para el 80% de nuestro mercado que no tiene FIEL." },
+          { label: "Costo Estimado", value: "<strong>~$15 - $90 MXN</strong> por contrato (dependiendo del volumen). El costo de verificación biométrica es adicional." },
+          { label: "Riesgos que Mitiga", value: "<strong>Riesgo Contractual:</strong> Nos da la certeza de que nuestros contratos son <strong>irrefutables en un tribunal mexicano</strong>. Para un negocio cuya cartera de contratos es el activo principal, esto no es negociable." },
+          { label: "URL para Devs", value: "https://docs.mifiel.com/", isLink: true },
+        ]
+      },
+      metamap: {
+        title: "Metamap: La Primera Línea de Defensa",
+        items: [
+            { label: "Herramienta", value: "Metamap" },
+            { label: "Descripción", value: "Plataforma líder en LATAM para la <strong>verificación de identidad digital (KYC/KYB)</strong>." },
+            { label: "Proceso Involucrado", value: "Es el <strong>primer paso</strong> en nuestro flujo de onboarding \"High-Tech, High-Touch\". El asesor guía al operador para que Metamap valide su INE contra bases de datos y realice una prueba de vida con biometría facial. Es nuestro filtro anti-fraude." },
+            { label: "Costo Estimado", value: "<strong>$1 - $2.50 USD</strong> por verificación completa. Ofrecen una prueba gratuita para empezar." },
+            { label: "Riesgos que Mitiga", value: "<strong>Riesgo de Fraude de Identidad:</strong> Elimina casi por completo el riesgo de originar un crédito a una identidad falsa o robada, una de las principales fuentes de pérdida en el sector." },
+            { label: "URL para Devs", value: "https://docs.metamap.com/", isLink: true },
+        ]
+      },
+      conekta: {
+          title: "Conekta: La Infraestructura de Pagos Inclusiva",
+          items: [
+              { label: "Herramienta", value: "Conekta" },
+              { label: "Descripción", value: "Pasarela de pagos líder en México con una fortaleza clave: una <strong>extensa red de pagos en efectivo y transferencias SPEI</strong>." },
+              { label: "Proceso Involucrado", value: "Se integra en dos puntos: 1) <strong>Originación:</strong> para recibir el pago del enganche. 2) <strong>Operación:</strong> para recibir las mensualidades. Crucialmente, permite a nuestro agente PIA generar referencias para que los operadores paguen en miles de tiendas de conveniencia." },
+              { label: "Costo Estimado", value: "<strong>~3.4% + $3 MXN</strong> (tarjeta), <strong>~2.6% + $3 MXN</strong> (efectivo), <strong>~$12.50 MXN</strong> (transferencia)." },
+              { label: "Riesgos que Mitiga", value: "<strong>Riesgo de Mercado:</strong> Ataca directamente el problema de la baja bancarización. Sin una opción de pago en efectivo, dejaríamos fuera a una gran parte de nuestro mercado objetivo." },
+              { label: "URL para Devs", value: "https://developers.conekta.com/", isLink: true },
+          ]
+      },
+      samsara: {
+          title: "Samsara: La Fuente de Datos del Activo",
+          items: [
+              { label: "Herramienta", value: "Samsara (Vehicle Gateway VG55 + Inmovilizador de Motor EI21)" },
+              { label: "Descripción", value: "Plataforma de telemática y gestión de flotas que ofrece un ecosistema integrado de hardware y software." },
+              { label: "Proceso Involucrado", value: "Cada vagoneta tendrá un dispositivo Samsara. Su API nos proveerá un flujo de datos en tiempo real (GPS, OBD-II, códigos de falla) para alimentar a <strong>HASE</strong> y <strong>Super-PMA</strong>. Su producto <strong>\"Inmovilizador de Motor\"</strong> se integrará con Super-PMA para el paro de motor remoto." },
+              { label: "Costo Estimado", value: "Hardware con costo inicial + <strong>suscripción mensual de $20-40 USD por vehículo</strong> (incluye plan de datos)." },
+              { label: "Riesgos que Mitiga", value: "<strong>Riesgo de Activo:</strong> Nos da visibilidad y control total sobre el activo, protegiéndolo contra robo o mal uso. <br> <strong>Riesgo de Ejecución:</strong> Usamos un producto de paro de motor probado y nativo, no un desarrollo a medida." },
+              { label: "URL para Devs", value: "https://developers.samsara.com/", isLink: true },
+          ]
+      },
+      whatsapp: {
+          title: "Twilio: La Voz Empática de Nuestra IA",
+          items: [
+              { label: "Herramienta", value: "Twilio API for WhatsApp" },
+              { label: "Descripción", value: "La plataforma de comunicaciones como servicio (CPaaS) líder en el mundo." },
+              { label: "Proceso Involucrado", value: "Es el canal de comunicación para nuestros agentes <strong>PIA</strong> y <strong>Asistente Digital</strong>. Cuando HASE detecta un riesgo, la API de Twilio permite a PIA enviar un mensaje de apoyo proactivo." },
+              { label: "Costo Estimado", value: "<strong>~$0.005 USD</strong> por mensaje (tarifa Twilio) + <strong>Tarifa de Meta</strong> por tipo de conversación." },
+              { label: "Riesgos que Mitiga", value: "<strong>Riesgo de Adopción:</strong> Usamos el canal que el operador ya tiene y usa todos los días: WhatsApp. No le pedimos que baje una nueva app." },
+              { label: "URL para Devs", value: "https://www.twilio.com/docs/whatsapp/api", isLink: true },
+          ]
+      },
+      odoo: {
+          title: "Odoo: El Corazón de la Operación",
+          items: [
+              { label: "Herramienta", value: "Odoo Enterprise (Plan Personalizado)" },
+              { label: "Descripción", value: "Un sistema ERP (Enterprise Resource Planning) completo, basado en Python, con módulos nativos para CRM, Inventario, Servicios y Contabilidad." },
+              { label: "Proceso Involucrado", value: "Es nuestro <strong>\"sistema operativo central\"</strong>. Aquí viven los perfiles de los clientes, sus contratos, las tablas de amortización, el inventario de refacciones y el historial de servicios. Su <strong>API externa</strong> es indispensable para que nuestra IA se comunique con la operación." },
+              { label: "Costo Estimado", value: "<strong>Plan \'Personalizado\'</strong> (~$37.40 USD / usuario / mes, pagado anualmente)." },
+              { label: "Riesgos que Mitiga", value: "<strong>Riesgo de Escalamiento:</strong> Nos da una fundación de grado industrial desde el día uno, evitando la \'deuda técnica\' de empezar con sistemas aislados que luego son una pesadilla para integrar." },
+              { label: "URL para Devs", value: "https://www.odoo.com/documentation/17.0/es/developer.html", isLink: true },
+          ]
+      },
+      kiban: {
+          title: "KIBAN Cloud: El Acelerador de Cumplimiento",
+          items: [
+              { label: "Herramienta", value: "KIBAN Cloud" },
+              { label: "Descripción", value: "Plataforma de orquestación de crédito que nos da acceso, vía API, a <strong>Buró/Círculo de Crédito</strong> y automatiza el reporte regulatorio." },
+              { label: "Proceso Involucrado", value: "Lo usamos como un \'plug-in\' para dos tareas: <strong>1) Consultar</strong> el historial crediticio como un input para HASE, y <strong>2) Automatizar el reporte</strong> mensual de nuestra cartera para cumplir con la ley." },
+              { label: "Costo Estimado", value: "Fee Inicial (Gestoría): ~$35,000 MXN. <br> Operación Mensual: <strong>~$30,000 - $40,000 MXN</strong>." },
+              { label: "Riesgos que Mitiga", value: "<strong>Riesgo Regulatorio:</strong> Nos quita la enorme carga de integrarnos y reportar a los burós. <br> <strong>Riesgo de Ejecución:</strong> Nos ahorra 6-9 meses de desarrollo, permitiendo un \'quick start\' real." },
+              { label: "URL para Devs", value: "https://www.kiban.com/", isLink: true },
+          ]
+      }
+    };
+
+    // --- Robust Icon Loading ---
+    const PlaceholderIcon = (props) => React.createElement('span', { ...props }, '•');
+    const initialIcons = {
+      Layers: PlaceholderIcon, PlayCircle: PlaceholderIcon, ArrowRightLeft: PlaceholderIcon,
+      ShieldCheck: PlaceholderIcon, Cable: PlaceholderIcon, Users: PlaceholderIcon, ServerCog: PlaceholderIcon,
+      Database: PlaceholderIcon, BarChart3: PlaceholderIcon, FileSignature: PlaceholderIcon,
+      CreditCard: PlaceholderIcon, MessageSquare: PlaceholderIcon, Fuel: PlaceholderIcon, Bot: PlaceholderIcon,
+      Zap: PlaceholderIcon, AlertTriangle: PlaceholderIcon, Workflow: PlaceholderIcon, GitBranch: PlaceholderIcon,
+      Info: PlaceholderIcon,
+    };
+
+    // --- Main App Component ---
+    function ConductoresIntegrationsMap() {
+      const [icons, setIcons] = useState(initialIcons);
+
+      useEffect(() => {
+        if (typeof lucide !== 'undefined') {
+          setIcons(lucide);
         }
-      }
-    </script>
+      }, []);
+      
+      const {
+        Layers, PlayCircle, ArrowRightLeft, ShieldCheck, Cable, Users, ServerCog,
+        Database, BarChart3, FileSignature, CreditCard, MessageSquare, Fuel, Bot,
+        Zap, AlertTriangle, Workflow, GitBranch, Info
+      } = icons;
 
-    <style>
-      /* Animación para líneas */
-      @keyframes dash {
-        to { stroke-dashoffset: -1000; }
-      }
-      .animate-dash {
-        stroke-dasharray: 6 6;
-        animation: dash 10s linear infinite;
-      }
+      const [flow, setFlow] = useState("Onboarding & Scoring");
+      const [visibleLanes, setVisibleLanes] = useState(
+        Object.fromEntries(LANES.map((l) => [l.id, true]))
+      );
+      const [selected, setSelected] = useState(null);
+      const [modalData, setModalData] = useState(null);
 
-      /* Scrollbar sutil */
-      .thin-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
-      .thin-scrollbar::-webkit-scrollbar-thumb { background: rgba(100,116,139,0.5); border-radius: 9999px; }
-      .thin-scrollbar::-webkit-scrollbar-track { background: transparent; }
+      // --- Visual constants ---
+      const LANE_WIDTH = 320;
+      const LANE_GAP = 28;
+      const ROW_HEIGHT = 132;
+      const CARD_W = 290;
+      const CARD_H = 86;
+      const PADDING_X = 24;
+      const PADDING_Y = 96;
 
-      /* Modal backdrop blur fallback */
-      .backdrop-blur-md { backdrop-filter: blur(8px); }
+      // --- Lanes (swimlanes) ---
+      const LANES = [
+        { id: "front", title: "Fronts / Canales", icon: <Layers className="w-4 h-4" /> },
+        { id: "orchestration", title: "Orquestación (iPaaS)", icon: <Workflow className="w-4 h-4" /> },
+        { id: "external", title: "Servicios Externos (SaaS / Partners)", icon: <Cable className="w-4 h-4" /> },
+        { id: "telematics", title: "Telemática / Operación", icon: <ServerCog className="w-4 h-4" /> },
+        { id: "internal", title: "Plataforma Interna (Core)", icon: <Users className="w-4 h-4" /> },
+        { id: "data", title: "Datos, IA y BI", icon: <Database className="w-4 h-4" /> },
+      ];
 
-      /* Mobile: el diagrama se reemplaza por lista */
-      @media (max-width: 767px) {
-        .diagram-desktop { display: none; }
-      }
-      @media (min-width: 768px) {
-        .diagram-mobile { display: none; }
-      }
-    </style>
-  </head>
-  <body class="bg-slate-900 text-slate-100 min-h-screen">
-    <div id="root" class="min-h-screen"></div>
+      // --- Nodes catalog ---
+      const NODES = [
+        { id: "portal", lane: "front", row: 0, title: "Portal Cliente (Web/App)", subtitle: "Onboarding + Panel básico", type: "front", io: { in: ["Links Mifiel / Pago", "Mensajes Asistente"], out: ["Datos KYC", "Documentos", "Eventos UI"]}, },
+        { id: "whatsapp", lane: "front", row: 1, title: "WhatsApp Asistente (Flowise)", subtitle: "Soporte y postventa", type: "front", io: { in: ["Alertas PMA/PIA", "Recordatorios pago"], out: ["Respuestas cliente", "Tickets postventa"]}, },
+        { id: "ipaas", lane: "orchestration", row: 0, title: "Make / n8n / Zapier", subtitle: "Flujos y conectores", type: "orchestration", io: { in: ["Webhooks Samsara/Conekta", "Eventos Portal"], out: ["Acciones en Odoo/Airtable", "Notificaciones Asistente"]}, },
+        { id: "metamap", lane: "external", row: 0, title: "Metamap (KYC)", subtitle: "INE/CURP/biometría", type: "external", io: { in: ["Datos del solicitante"], out: ["Resultado KYC", "Pruebas biométricas"]}, },
+        { id: "kiban", lane: "external", row: 1, title: "KIBAN ↔ Círculo de Crédito", subtitle: "Consulta y Reporte", type: "external", io: { in: ["Identificadores solicitante", "Estado de cuenta (opcional)", "Eventos de pago"], out: ["Reporte de crédito (consulta)", "Estatus de envío (reporte mensual)"] } },
+        { id: "mifiel", lane: "external", row: 2, title: "Mifiel", subtitle: "Firma electrónica avanzada", type: "external", io: { in: ["Contrato generado (PDF)", "Datos firmantes"], out: ["Evidencia y hash", "Webhook de estatus"]}, },
+        { id: "conekta", lane: "external", row: 3, title: "Conekta", subtitle: "Cobros (tarjeta / OXXO)", type: "external", io: { in: ["Orden de pago", "Referencia OXXO"], out: ["Webhook pago/fracaso/refund", "Liquidaciones"]}, },
+        { id: "gnv", lane: "external", row: 4, title: "APIs Estaciones GNV", subtitle: "Consumo / Carga", type: "external", io: { in: ["ID unidad / tag"], out: ["Volumen/importe/estación", "Timestamp"]}, },
+        { id: "samsara", lane: "telematics", row: 0, title: "Samsara (VG55 / EI21)", subtitle: "GPS, OBD-II, Códigos falla, Inmovilizador", type: "telematics", io: { in: ["Config / tags", "Órdenes de inmovilización"], out: ["Ubicación/velocidad/RPM", "Códigos DTC y DVIR", "Webhooks eventos"]}, },
+        { id: "odoo", lane: "internal", row: 0, title: "Odoo (ERP / CRM / Field Service)", subtitle: "Clientes, contratos, cartera, servicios", type: "internal", io: { in: ["Resultado KYC/Crédito", "Webhook firma y pagos", "Alertas PMA/PIA"], out: ["Contrato (PDF)", "Facturas / estados de cuenta", "Órdenes de servicio"]}, },
+        { id: "airtable", lane: "internal", row: 1, title: "Airtable (Ops Board)", subtitle: "Backoffice, colas, SLAs", type: "internal", io: { in: ["Eventos iPaaS", "Datos Odoo"], out: ["Tareas y estados", "Feeds de control"]}, },
+        { id: "hase", lane: "data", row: 0, title: "HASE (Scoring operativo)", subtitle: "Score hiper-adaptativo", type: "data", io: { in: ["KYC Metamap", "Consulta KIBAN", "Colateral social"], out: ["Decisión + explicabilidad", "Recomendación de términos"]}, },
+        { id: "pia", lane: "data", row: 1, title: "PIA (Intervención proactiva)", subtitle: "Cobranza empática", type: "data", io: { in: ["Eventos de pago Conekta", "Telemática / hábitos"], out: ["Planes flexibles", "Mensajes Asistente"]}, },
+        { id: "pma", lane: "data", row: 2, title: "PMA (Mto. predictivo)", subtitle: "Alertas y órdenes", type: "data", io: { in: ["DTCs / RPM / temperaturas", "DVIR, consumo GNV"], out: ["Orden de servicio Odoo", "Tips Asistente"]}, },
+        { id: "assistant", lane: "data", row: 3, title: "Asistente Postventa (Flowise)", subtitle: "WhatsApp + flujos", type: "data", io: { in: ["Alertas PIA/PMA", "Datos de contrato"], out: ["Conversaciones", "Confirmaciones"]}, },
+        { id: "warehouse", lane: "data", row: 4, title: "Data Lake / Warehouse", subtitle: "Historificación + BI", type: "data", io: { in: ["Batch/Streams telemática", "ERP/finanzas"], out: ["Dashboards, XAI, stress tests"]}, },
+        { id: "bi", lane: "data", row: 5, title: "BI (Looker/Power BI)", subtitle: "KPIs y reporting", type: "data", io: { in: ["Modelos semánticos"], out: ["Tableros Operación/Finanzas/Calidad"]}, },
+      ];
 
-    <!-- React 18 -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <!-- Babel -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+      const filteredNodes = useMemo(
+        () => NODES.filter((n) => visibleLanes[n.lane]),
+        [visibleLanes]
+      );
+      const positions = useMemo(() => computePositions(filteredNodes), [filteredNodes]);
 
-    <script type="text/babel">
-      console.log('Iniciando aplicación...');
+      const maxRow = Math.max(0, ...filteredNodes.map((n) => n.row));
+      const width = PADDING_X * 2 + LANES.length * (LANE_WIDTH + LANE_GAP);
+      const height = PADDING_Y * 2 + (maxRow + 1) * ROW_HEIGHT;
 
-      // Verificar que React cargó
-      if (typeof React === 'undefined' || typeof ReactDOM === 'undefined') {
-        document.addEventListener('DOMContentLoaded', function() {
-          const root = document.getElementById('root');
-          if (root) root.innerHTML = '<div class="p-6"><h1 class="text-2xl font-bold text-red-400">Error: React no cargó</h1><p class="text-slate-300 mt-2">Verifica tu conexión a Internet y recarga la página.</p></div>';
+      function computePositions(nodes) {
+        const laneIndex = Object.fromEntries(LANES.map((l, i) => [l.id, i]));
+        const positions = {};
+        nodes.forEach((n) => {
+          const x = PADDING_X + laneIndex[n.lane] * (LANE_WIDTH + LANE_GAP) + (LANE_WIDTH - CARD_W) / 2;
+          const y = PADDING_Y + n.row * ROW_HEIGHT;
+          positions[n.id] = { x, y };
         });
-      } else {
-        const { useEffect, useMemo, useRef, useState } = React;
+        return positions;
+      }
 
-        // 1) DATOS Y CONSTANTES FUERA DEL COMPONENTE
-        // -------------------------------------------------------------------------------------------------
-        const LANES = [
-          { id: 'lane-ui', name: 'Aplicaciones / UI' },
-          { id: 'lane-orch', name: 'Orquestación' },
-          { id: 'lane-svc', name: 'Servicios Internos' },
-          { id: 'lane-prov', name: 'Proveedores Externos' },
-          { id: 'lane-data', name: 'Datos y Storage' },
-          { id: 'lane-analytics', name: 'Analytics / BI' }
-        ];
-
-        // Tipos de nodo: app, orchestrator, service, provider, db, analytics
-        const COLORS = {
-          app: {
-            bg: 'from-indigo-500/20 to-indigo-700/20',
-            ring: 'ring-indigo-500/40',
-            text: 'text-indigo-200'
-          },
-          orchestrator: {
-            bg: 'from-violet-500/20 to-fuchsia-600/20',
-            ring: 'ring-violet-500/40',
-            text: 'text-violet-200'
-          },
-          service: {
-            bg: 'from-emerald-500/20 to-teal-600/20',
-            ring: 'ring-emerald-500/40',
-            text: 'text-emerald-200'
-          },
-          provider: {
-            bg: 'from-amber-500/20 to-orange-600/20',
-            ring: 'ring-amber-500/40',
-            text: 'text-amber-200'
-          },
-          db: {
-            bg: 'from-sky-500/20 to-blue-600/20',
-            ring: 'ring-sky-500/40',
-            text: 'text-sky-200'
-          },
-          analytics: {
-            bg: 'from-pink-500/20 to-rose-600/20',
-            ring: 'ring-pink-500/40',
-            text: 'text-pink-200'
-          }
-        };
-
-        const TOOL_DETAILS = {
-          metamap: {
-            title: 'MetaMap (KYC)',
-            description: 'Proveedor KYC para verificación de identidad y validaciones documentales.',
-            link: 'https://www.metamap.com',
-            inputs: ['Datos de identificación', 'Selfie', 'Documento'],
-            outputs: ['Resultado KYC', 'Riesgos', 'Evidencias']
-          },
-          mifiel: {
-            title: 'Mifiel (Firma electrónica)',
-            description: 'Firma electrónica avanzada de contratos y documentos.',
-            link: 'https://www.mifiel.com',
-            inputs: ['Documento PDF', 'Datos del firmante'],
-            outputs: ['Documento firmado', 'Evidencias de firma']
-          },
-          stripe: {
-            title: 'Stripe (Pagos)',
-            description: 'Procesamiento de pagos y cobros.',
-            link: 'https://stripe.com',
-            inputs: ['Intención de pago', 'Datos tarjeta'],
-            outputs: ['Pago confirmado', 'Eventos Webhook']
-          },
-          bank: {
-            title: 'Banco (Desembolso)',
-            description: 'Desembolso de fondos a cuentas bancarias.',
-            link: 'https://www.example-bank.com',
-            inputs: ['Cuenta destino', 'Monto', 'Referencia'],
-            outputs: ['Transferencia enviada', 'Comprobante']
-          },
-          metabase: {
-            title: 'Metabase (BI)',
-            description: 'Exploración y visualización de datos.',
-            link: 'https://www.metabase.com',
-            inputs: ['Tablas transaccionales'],
-            outputs: ['Dashboards', 'Consultas']
-          }
-        };
-
-        const NODES = [
-          // UI
-          { id: 'app-mobile', label: 'App Conductores', laneId: 'lane-ui', col: 1, type: 'app', toolKey: null, inputs: ['Eventos UI'], outputs: ['Solicitudes API'] },
-          { id: 'app-admin', label: 'Admin Web', laneId: 'lane-ui', col: 2, type: 'app', toolKey: null, inputs: ['Gestión'], outputs: ['Solicitudes API'] },
-
-          // Orchestrator
-          { id: 'orchestrator', label: 'Orquestador', laneId: 'lane-orch', col: 2, type: 'orchestrator', toolKey: null, inputs: ['Eventos', 'Webhooks'], outputs: ['Jobs', 'Notificaciones'] },
-
-          // Services
-          { id: 'api-core', label: 'Core API', laneId: 'lane-svc', col: 3, type: 'service', toolKey: null, inputs: ['HTTP'], outputs: ['Negocio', 'Persistencia'] },
-          { id: 'svc-kyc', label: 'KYC Service', laneId: 'lane-svc', col: 4, type: 'service', toolKey: null, inputs: ['Datos usuario'], outputs: ['Estado KYC'] },
-          { id: 'svc-sign', label: 'Firma Service', laneId: 'lane-svc', col: 5, type: 'service', toolKey: null, inputs: ['Contrato'], outputs: ['Documento firmado'] },
-          { id: 'svc-pay', label: 'Pagos Service', laneId: 'lane-svc', col: 6, type: 'service', toolKey: null, inputs: ['Intención de pago'], outputs: ['Recibo'] },
-
-          // Providers
-          { id: 'prov-metamap', label: 'MetaMap', laneId: 'lane-prov', col: 4, type: 'provider', toolKey: 'metamap', inputs: ['Datos + docs'], outputs: ['Resultado KYC'] },
-          { id: 'prov-mifiel', label: 'Mifiel', laneId: 'lane-prov', col: 5, type: 'provider', toolKey: 'mifiel', inputs: ['PDF + firmante'], outputs: ['PDF firmado'] },
-          { id: 'prov-stripe', label: 'Stripe', laneId: 'lane-prov', col: 6, type: 'provider', toolKey: 'stripe', inputs: ['Tarjeta + monto'], outputs: ['Pago OK / fallo'] },
-          { id: 'prov-bank', label: 'Banco', laneId: 'lane-prov', col: 6, type: 'provider', toolKey: 'bank', inputs: ['Cuenta + monto'], outputs: ['Transferencia'] },
-
-          // Data
-          { id: 'db-users', label: 'Usuarios DB', laneId: 'lane-data', col: 2, type: 'db', toolKey: null, inputs: ['Insert/Update'], outputs: ['Selects'] },
-          { id: 'db-tx', label: 'Transacciones DB', laneId: 'lane-data', col: 3, type: 'db', toolKey: null, inputs: ['Insert'], outputs: ['Consultas'] },
-
-          // Analytics
-          { id: 'bi-metabase', label: 'Metabase', laneId: 'lane-analytics', col: 3, type: 'analytics', toolKey: 'metabase', inputs: ['Datos'], outputs: ['Dashboards'] },
-        ];
-
-        const FLOWS = {
-          All: { name: 'Todos', edges: [] },
-          Onboarding: { name: 'Onboarding', edges: ['e1','e2','e3','e4','e11'] },
-          Desembolso: { name: 'Desembolso', edges: ['e5','e6','e7'] },
-          Cobro: { name: 'Cobro', edges: ['e8','e9'] },
-          Analytics: { name: 'Analytics', edges: ['e10','e11'] }
-        };
-
-        // Conexiones (edges). Los IDs se usan en FLOWS.
-        const EDGES = [
-          { id: 'e1', from: 'app-mobile', to: 'api-core' },
-          { id: 'e2', from: 'api-core', to: 'svc-kyc' },
-          { id: 'e3', from: 'svc-kyc', to: 'prov-metamap' },
-          { id: 'e4', from: 'api-core', to: 'svc-sign' },
-          { id: 'e5', from: 'api-core', to: 'svc-pay' },
-          { id: 'e6', from: 'svc-pay', to: 'prov-bank' },
-          { id: 'e7', from: 'svc-pay', to: 'prov-stripe' },
-          { id: 'e8', from: 'app-admin', to: 'api-core' },
-          { id: 'e9', from: 'orchestrator', to: 'api-core' },
-          { id: 'e10', from: 'db-tx', to: 'bi-metabase' },
-          { id: 'e11', from: 'db-users', to: 'bi-metabase' },
-        ];
-
-        console.log('NODES definidos:', NODES.length);
-        console.log('LANES definidos:', LANES.length);
-
-        // 2) ICONOS INLINE (sin Lucide)
-        // -------------------------------------------------------------------------------------------------
-        const Icons = {
-          Layers: () => (
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 2L2 7l10 5 10-5-10-5z" />
-              <path d="M2 12l10 5 10-5" />
-              <path d="M2 17l10 5 10-5" />
-            </svg>
-          ),
-          Link: () => (
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 1 0-7-7l-1 1" />
-              <path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 1 0 7 7l1-1" />
-            </svg>
-          ),
-          Info: () => (
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10" />
-              <line x1="12" y1="16" x2="12" y2="12" />
-              <line x1="12" y1="8" x2="12.01" y2="8" />
-            </svg>
-          ),
-          Close: () => (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          ),
-          Node: () => (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-              <circle cx="12" cy="12" r="6" />
-            </svg>
-          )
-        };
-
-        // 3) HELPERS
-        // -------------------------------------------------------------------------------------------------
-        function classNames(...parts) {
-          return parts.filter(Boolean).join(' ');
+      const FLOWS = {
+        "Onboarding & Scoring": [["portal", "metamap"], ["metamap", "ipaas"], ["ipaas", "kiban"], ["kiban", "hase"], ["hase", "odoo"], ["odoo", "mifiel"], ["mifiel", "ipaas"], ["ipaas", "odoo"]],
+        "Desembolso & Entrega": [["odoo", "conekta"], ["conekta", "ipaas"], ["ipaas", "odoo"], ["odoo", "samsara"], ["odoo", "whatsapp"]],
+        "Operación & PMA": [["samsara", "ipaas"], ["ipaas", "pma"], ["pma", "odoo"], ["pma", "assistant"], ["gnv", "warehouse"], ["samsara", "warehouse"], ["warehouse", "bi"]],
+        "Cobranza & PIA": [["conekta", "ipaas"], ["ipaas", "pia"], ["pia", "assistant"], ["assistant", "odoo"]],
+        "Garantías & Postventa": [["samsara", "pma"], ["pma", "odoo"], ["assistant", "odoo"]],
+        "Reporte Buró (mensual)": [["odoo", "kiban"], ["kiban", "odoo"]],
+      };
+      
+      const handleNodeSelect = (node) => {
+        setSelected(node);
+        if (TOOL_DETAILS[node.id]) {
+          setModalData(TOOL_DETAILS[node.id]);
         }
+      };
 
-        function getNodeById(id) {
-          return NODES.find(n => n.id === id);
-        }
-
-        function getColorClassesForType(type) {
-          const c = COLORS[type] || COLORS.service;
-          return {
-            bg: `bg-gradient-to-br ${c.bg}`,
-            ring: c.ring,
-            text: c.text
-          };
-        }
-
-        function useResizeObserver(targetRef, onResize) {
-          useEffect(() => {
-            if (!targetRef.current) return;
-            const ro = new ResizeObserver(() => onResize());
-            ro.observe(targetRef.current);
-            window.addEventListener('resize', onResize);
-            return () => {
-              ro.disconnect();
-              window.removeEventListener('resize', onResize);
-            };
-          }, [targetRef, onResize]);
-        }
-
-        // 4) COMPONENTE PRINCIPAL
-        // -------------------------------------------------------------------------------------------------
-        function ConductoresIntegrationsMap() {
-          const containerRef = useRef(null);
-          const nodeRefs = useRef({});
-
-          const [hiddenLaneIds, setHiddenLaneIds] = useState(new Set());
-          const [selectedFlowKey, setSelectedFlowKey] = useState('All');
-          const [edgePositions, setEdgePositions] = useState([]); // {id, x1,y1,x2,y2}
-          const [selectedNodeId, setSelectedNodeId] = useState(null);
-          const [modalToolKey, setModalToolKey] = useState(null);
-
-          const lanesVisible = useMemo(() => LANES.filter(l => !hiddenLaneIds.has(l.id)), [hiddenLaneIds]);
-
-          const nodesByLane = useMemo(() => {
-            const map = new Map();
-            LANES.forEach(l => map.set(l.id, []));
-            for (const n of NODES) {
-              if (!map.has(n.laneId)) map.set(n.laneId, []);
-              map.get(n.laneId).push(n);
-            }
-            for (const [, arr] of map) arr.sort((a,b) => a.col - b.col);
-            return map;
-          }, []);
-
-          const highlightedEdgeIds = useMemo(() => {
-            const flow = FLOWS[selectedFlowKey];
-            if (!flow || selectedFlowKey === 'All') return new Set(EDGES.map(e => e.id));
-            return new Set(flow.edges);
-          }, [selectedFlowKey]);
-
-          function recomputeEdges() {
-            const container = containerRef.current;
-            if (!container) return;
-            const crect = container.getBoundingClientRect();
-            const next = [];
-            for (const e of EDGES) {
-              const fromEl = nodeRefs.current[e.from];
-              const toEl = nodeRefs.current[e.to];
-              if (!fromEl || !toEl) continue;
-              const fr = fromEl.getBoundingClientRect();
-              const tr = toEl.getBoundingClientRect();
-              const x1 = fr.right - crect.left; // desde el centro derecho del from
-              const y1 = fr.top + fr.height / 2 - crect.top;
-              const x2 = tr.left - crect.left; // hacia el centro izquierdo del to
-              const y2 = tr.top + tr.height / 2 - crect.top;
-              next.push({ id: e.id, x1, y1, x2, y2 });
-            }
-            setEdgePositions(next);
-          }
-
-          useEffect(() => {
-            // Recompute on first paint
-            const t = setTimeout(recomputeEdges, 0);
-            return () => clearTimeout(t);
-          }, [selectedFlowKey, hiddenLaneIds]);
-
-          useResizeObserver(containerRef, recomputeEdges);
-
-          function toggleLaneVisibility(laneId) {
-            setHiddenLaneIds(prev => {
-              const next = new Set(prev);
-              if (next.has(laneId)) next.delete(laneId); else next.add(laneId);
-              return next;
-            });
-          }
-
-          function onNodeClick(node) {
-            setSelectedNodeId(node.id);
-            if (node.toolKey) setModalToolKey(node.toolKey);
-          }
-
-          const selectedNode = useMemo(
-            () => NODES.find(n => n.id === selectedNodeId) || null,
-            [selectedNodeId]
-          );
-
-          // Mobile list rendering (simple)
-          function MobileList() {
-            return (
-              <div className="diagram-mobile p-4 space-y-4">
-                <div className="flex items-center gap-2">
-                  <Icons.Layers />
-                  <h2 className="text-lg font-semibold">Diagrama (vista móvil)</h2>
-                </div>
-                {lanesVisible.map(lane => (
-                  <div key={lane.id} className="bg-slate-800/60 rounded-xl p-3 border border-slate-700/60">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-semibold text-slate-200">{lane.name}</h3>
-                      <span className="text-xs text-slate-400">{(nodesByLane.get(lane.id) || []).length} nodos</span>
-                    </div>
-                    <div className="grid grid-cols-1 gap-2">
-                      {(nodesByLane.get(lane.id) || []).map(node => (
-                        <NodeCard key={node.id} node={node} onClick={() => onNodeClick(node)} />
-                      ))}
-                    </div>
-                  </div>
+      return (
+        <div className="min-h-screen bg-slate-950 text-slate-100 font-sans">
+          <div className="sticky top-0 z-30 bg-slate-950/80 backdrop-blur border-b border-slate-800">
+            <div className="max-w-[1400px] mx-auto px-6 py-4 flex items-center gap-3">
+              <ServerCog className="w-5 h-5 text-teal-400" />
+              <h1 className="text-lg md:text-xl font-extrabold tracking-tight">Arquitectura de Integraciones — Conductores</h1>
+              <div className="ml-auto flex items-center gap-2 overflow-x-auto">
+                {Object.keys(FLOWS).map((f) => (
+                  <button key={f} className={`px-3 py-1.5 rounded-lg border text-[12px] whitespace-nowrap transition ${f === flow ? "bg-teal-500/20 border-teal-400 text-teal-200" : "bg-slate-900 border-slate-700 text-slate-300 hover:border-teal-500/40"}`} onClick={() => { setFlow(f); setSelected(null); }}>{f}</button>
                 ))}
               </div>
-            );
-          }
-
-          function DesktopDiagram() {
-            return (
-              <div ref={containerRef} className="diagram-desktop relative">
-                {/* SVG de conexiones */}
-                <svg className="absolute inset-0 w-full h-full pointer-events-none" xmlns="http://www.w3.org/2000/svg">
-                  {edgePositions.map(edge => {
-                    // Ocultar si algún extremo es de un lane oculto
-                    const fromNode = getNodeById(EDGES.find(e => e.id === edge.id).from);
-                    const toNode = getNodeById(EDGES.find(e => e.id === edge.id).to);
-                    if (hiddenLaneIds.has(fromNode.laneId) || hiddenLaneIds.has(toNode.laneId)) return null;
-
-                    const isHighlighted = highlightedEdgeIds.has(edge.id);
-
-                    // Curva suave: control points en tercio
-                    const cx1 = edge.x1 + Math.max(40, (edge.x2 - edge.x1) / 3);
-                    const cy1 = edge.y1;
-                    const cx2 = edge.x2 - Math.max(40, (edge.x2 - edge.x1) / 3);
-                    const cy2 = edge.y2;
-
-                    const d = `M ${edge.x1},${edge.y1} C ${cx1},${cy1} ${cx2},${cy2} ${edge.x2},${edge.y2}`;
-
-                    return (
-                      <path
-                        key={edge.id}
-                        d={d}
-                        fill="none"
-                        stroke={isHighlighted ? 'rgba(125,211,252,0.9)' : 'rgba(100,116,139,0.5)'}
-                        strokeWidth={isHighlighted ? 2.5 : 1.5}
-                        className={classNames('transition-opacity duration-500', isHighlighted ? 'opacity-100 animate-dash' : 'opacity-60')}
-                      />
-                    );
-                  })}
-                </svg>
-
-                {/* Lanes (filas) */}
-                <div className="space-y-4">
-                  {lanesVisible.map(lane => (
-                    <div key={lane.id} className="">
-                      <div className="flex items-center gap-2 mb-2 pl-1">
-                        <button
-                          onClick={() => toggleLaneVisibility(lane.id)}
-                          className="text-xs px-2 py-1 rounded-md bg-slate-800/80 hover:bg-slate-700/70 border border-slate-700 text-slate-300"
-                          title="Ocultar lane"
-                        >
-                          {hiddenLaneIds.has(lane.id) ? 'Mostrar' : 'Ocultar'}
-                        </button>
-                        <h3 className="text-sm font-semibold text-slate-200">{lane.name}</h3>
-                      </div>
-                      <div className="grid grid-cols-6 gap-4">
-                        {(nodesByLane.get(lane.id) || []).map(node => (
-                          <div key={node.id} style={{ gridColumnStart: node.col, gridColumnEnd: 'span 1' }}>
-                            <NodeCard node={node} onClick={() => onNodeClick(node)} refCb={(el) => nodeRefs.current[node.id] = el} />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+            </div>
+          </div>
+          <div className="max-w-[1400px] mx-auto px-6 py-6 grid grid-cols-12 gap-6">
+            <aside className="col-span-12 lg:col-span-3 space-y-4">
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
+                <div className="flex items-center gap-2 mb-2"><Layers className="w-4 h-4 text-slate-300" /><div className="font-semibold">Capas visibles</div></div>
+                <div className="space-y-2">
+                  {LANES.map((l) => (
+                    <label key={l.id} className="flex items-center justify-between py-1 text-sm">
+                      <span className="flex items-center gap-2 text-slate-300"><span className="text-slate-400">{l.icon}</span>{l.title}</span>
+                      <input type="checkbox" className="accent-teal-500" checked={visibleLanes[l.id]} onChange={(e) => setVisibleLanes((v) => ({ ...v, [l.id]: e.target.checked }))} />
+                    </label>
                   ))}
                 </div>
               </div>
-            );
-          }
-
-          return (
-            <div className="max-w-7xl mx-auto px-4 py-6">
-              {/* Header */}
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-slate-800 border border-slate-700">
-                    <Icons.Layers />
-                  </div>
-                  <div>
-                    <h1 className="text-xl md:text-2xl font-bold">Mapa de Integraciones</h1>
-                    <p className="text-slate-400 text-sm">Diagrama interactivo de arquitectura y flujos</p>
-                  </div>
-                </div>
-                <a
-                  href="#"
-                  className="hidden md:inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-md border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200"
-                  onClick={(e) => { e.preventDefault(); alert('Este es un prototipo en un solo archivo HTML.'); }}
-                >
-                  <Icons.Info />
-                  Acerca de
-                </a>
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
+                <div className="flex items-center gap-2 mb-2"><BarChart3 className="w-4 h-4 text-slate-300" /><div className="font-semibold">Leyenda de color</div></div>
+                <ul className="space-y-1 text-sm text-slate-300">
+                  <li><span className="inline-block w-3 h-3 rounded bg-gradient-to-br from-teal-500/20 to-teal-400/10 mr-2 align-middle border border-teal-400/40"/>Fronts / Canales</li>
+                  <li><span className="inline-block w-3 h-3 rounded bg-gradient-to-br from-amber-500/20 to-amber-400/10 mr-2 align-middle border border-amber-400/40"/>Orquestación</li>
+                  <li><span className="inline-block w-3 h-3 rounded bg-gradient-to-br from-sky-500/20 to-sky-400/10 mr-2 align-middle border border-sky-400/40"/>Servicios Externos</li>
+                  <li><span className="inline-block w-3 h-3 rounded bg-gradient-to-br from-cyan-500/20 to-cyan-400/10 mr-2 align-middle border border-cyan-400/40"/>Telemática</li>
+                  <li><span className="inline-block w-3 h-3 rounded bg-gradient-to-br from-emerald-500/20 to-emerald-400/10 mr-2 align-middle border border-emerald-400/40"/>Plataforma Interna</li>
+                  <li><span className="inline-block w-3 h-3 rounded bg-gradient-to-br from-fuchsia-500/20 to-fuchsia-400/10 mr-2 align-middle border border-fuchsia-400/40"/>Datos / IA / BI</li>
+                </ul>
               </div>
-
-              {/* Controles */}
-              <div className="bg-slate-800/70 border border-slate-700 rounded-xl p-4 mb-6">
-                <div className="flex flex-col md:flex-row gap-4 md:items-center md:justify-between">
-                  <div className="flex items-center gap-3">
-                    <label htmlFor="flow" className="text-sm text-slate-300">Flujo</label>
-                    <select
-                      id="flow"
-                      value={selectedFlowKey}
-                      onChange={(e) => setSelectedFlowKey(e.target.value)}
-                      className="bg-slate-900/70 text-slate-100 text-sm rounded-md border border-slate-700 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500"
-                    >
-                      {Object.keys(FLOWS).map(key => (
-                        <option key={key} value={key}>{FLOWS[key].name}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    {LANES.map(l => (
-                      <button
-                        key={l.id}
-                        onClick={() => toggleLaneVisibility(l.id)}
-                        className={classNames(
-                          'text-xs px-2.5 py-1.5 rounded-md border',
-                          hiddenLaneIds.has(l.id)
-                            ? 'bg-slate-900 text-slate-400 border-slate-700'
-                            : 'bg-slate-700/60 text-slate-100 border-slate-600 hover:bg-slate-600/60'
-                        )}
-                        title={hiddenLaneIds.has(l.id) ? 'Mostrar lane' : 'Ocultar lane'}
-                      >
-                        {l.name}
-                      </button>
-                    ))}
-                  </div>
+            </aside>
+            <main className="col-span-12 lg:col-span-9 space-y-4">
+              <div className="relative rounded-2xl border border-slate-800 bg-gradient-to-b from-slate-900 to-slate-950 overflow-auto">
+                <div className="absolute inset-x-0 top-0 flex" style={{ left: PADDING_X, right: PADDING_X, height: 40 }}>
+                  {LANES.map((l, idx) => ( visibleLanes[l.id] && <div key={l.id} className="h-full flex items-center gap-2 text-[12px] text-slate-300/90" style={{ width: LANE_WIDTH, marginRight: LANE_GAP, }}> <span className="text-slate-400">{l.icon}</span> {l.title} </div> ))}
+                </div>
+                <svg width={width} height={height} className="block">
+                  {Object.values(FLOWS).flat().map(([a, b], i) => ( <Edge key={`${a}-${b}-${i}`} from={a} to={b} positions={positions} active={FLOWS[flow].some(([x, y]) => x === a && y === b)} /> ))}
+                </svg>
+                {filteredNodes.map((n) => (
+                  positions[n.id] && <NodeCard key={n.id} node={n} pos={positions[n.id]} selected={selected?.id === n.id} onSelect={handleNodeSelect} icons={icons} />
+                ))}
+              </div>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
+                  <div className="flex items-center gap-2 mb-1"><ArrowRightLeft className="w-4 h-4 text-teal-300" /><div className="font-semibold">Flujo activo</div></div>
+                  <div className="text-sm text-slate-300/90 mb-2">{flow}</div>
+                  <ol className="list-decimal pl-5 text-sm space-y-1 text-slate-300/90">
+                    {(FLOWS[flow] || []).map(([a, b], i) => ( <li key={i}> <span className="font-medium text-teal-200">{NODES.find(n=>n.id===a)?.title}</span> <span className="text-slate-400"> → </span> <span className="font-medium text-teal-200">{NODES.find(n=>n.id===b)?.title}</span> </li> ))}
+                  </ol>
+                </div>
+                <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
+                  <div className="flex items-center gap-2 mb-1"><ServerCog className="w-4 h-4 text-fuchsia-300" /><div className="font-semibold">Inspector de nodo</div></div>
+                  {selected ? ( <div> <div className="text-teal-200 font-semibold">{selected.title}</div> <div className="text-slate-300/80 text-sm">{selected.subtitle}</div> <div className="grid grid-cols-2 gap-4 mt-3"> <div> <div className="uppercase tracking-wide text-[10px] text-slate-400">Entradas</div> <ul className="mt-1 text-sm list-disc pl-4 space-y-1"> {selected.io.in.map((t, i) => ( <li key={i}>{t}</li> ))} </ul> </div> <div> <div className="uppercase tracking-wide text-[10px] text-slate-400">Salidas</div> <ul className="mt-1 text-sm list-disc pl-4 space-y-1"> {selected.io.out.map((t, i) => ( <li key={i}>{t}</li> ))} </ul> </div> </div> </div> ) : ( <div className="text-slate-400 text-sm"> Selecciona un nodo en el mapa para ver detalles. </div> )}
                 </div>
               </div>
+            </main>
+          </div>
+          {modalData && <InfoModal toolData={modalData} onClose={() => setModalData(null)} />}
+        </div>
+      );
+    }
+    
+    // --- Modal Component for Tool Details ---
+    function InfoModal({ toolData, onClose }) {
+      const handleModalContentClick = (e) => e.stopPropagation();
 
-              {/* Diagrama desktop */}
-              <div className="diagram-desktop relative bg-slate-900/60 rounded-2xl border border-slate-800 p-4 overflow-hidden">
-                <DesktopDiagram />
-              </div>
+      useEffect(() => {
+        const handleEsc = (event) => {
+          if (event.keyCode === 27) onClose();
+        };
+        window.addEventListener('keydown', handleEsc);
+        return () => window.removeEventListener('keydown', handleEsc);
+      }, [onClose]);
 
-              {/* Vista móvil simplificada */}
-              <div className="diagram-mobile">
-                <MobileList />
-              </div>
-
-              {/* Inspector */}
-              <Inspector node={selectedNode} onClose={() => setSelectedNodeId(null)} />
-
-              {/* Modal de herramienta */}
-              {modalToolKey && (
-                <ToolModal toolKey={modalToolKey} onClose={() => setModalToolKey(null)} />
-              )}
+      return (
+        <div
+          className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 transition-opacity duration-300"
+          onClick={onClose}
+        >
+          <div
+            className="bg-slate-900 border border-teal-400/20 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl shadow-teal-900/20 transition-transform duration-300 scale-95"
+            onClick={handleModalContentClick}
+            style={{ transform: 'scale(1)' }}
+          >
+            <div className="sticky top-0 bg-slate-900/80 backdrop-blur-sm p-4 border-b border-slate-800 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-teal-300">{toolData.title}</h2>
+              <button onClick={onClose} className="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
             </div>
-          );
-        }
-
-        // 5) SUBCOMPONENTES
-        // -------------------------------------------------------------------------------------------------
-        function NodeCard({ node, onClick, refCb }) {
-          const c = getColorClassesForType(node.type);
-          return (
-            <div
-              ref={refCb}
-              onClick={onClick}
-              className={classNames(
-                'group cursor-pointer select-none rounded-xl border p-3 shadow-soft transition transform hover:-translate-y-0.5 hover:shadow-xl',
-                'backdrop-blur-md',
-                c.bg, c.ring, 'border-slate-700/60'
-              )}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <div className={classNames('p-1.5 rounded-lg bg-slate-900/40', c.ring)}>
-                    <Icons.Node />
-                  </div>
-                  <div>
-                    <div className={classNames('text-sm font-semibold leading-tight', c.text)}>{node.label}</div>
-                    <div className="text-[11px] text-slate-300/80">{node.type}</div>
-                  </div>
-                </div>
-                {node.toolKey && (
-                  <span className="text-[10px] px-2 py-1 bg-slate-900/40 border border-slate-700/60 rounded-full text-slate-300">tool</span>
-                )}
-              </div>
-              <div className="mt-2 flex items-center gap-2 text-[11px] text-slate-300/80">
-                <Icons.Link />
-                <span>{(node.inputs?.length || 0)} inputs</span>
-                <span>·</span>
-                <span>{(node.outputs?.length || 0)} outputs</span>
-              </div>
+            <div className="p-6">
+              <table className="w-full text-left border-collapse">
+                <tbody>
+                  {toolData.items.map((item, index) => (
+                    <tr key={index} className="border-b border-slate-800">
+                      <td className="py-4 pr-4 align-top font-semibold text-slate-300 w-1/3">{item.label}</td>
+                      <td className="py-4 text-slate-300/90" dangerouslySetInnerHTML={{ __html: item.isLink ? `<a href=\" + item.value + \" target=\"_blank\" rel=\"noopener noreferrer\" class=\"text-teal-400 hover:underline\">${item.value}</a>` : item.value }}></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          );
-        }
+          </div>
+        </div>
+      );
+    }
 
-        function Inspector({ node, onClose }) {
-          if (!node) return null;
-          return (
-            <div className="mt-6 bg-slate-800/70 border border-slate-700 rounded-xl p-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-slate-200">Inspector de Nodo</h3>
-                <button onClick={onClose} className="text-slate-300 hover:text-white text-sm">Cerrar</button>
-              </div>
-              <div className="mt-3 grid md:grid-cols-3 gap-4 text-sm">
-                <div>
-                  <div className="text-slate-400">Etiqueta</div>
-                  <div className="font-medium">{node.label}</div>
-                </div>
-                <div>
-                  <div className="text-slate-400">Tipo</div>
-                  <div className="font-medium">{node.type}</div>
-                </div>
-                <div>
-                  <div className="text-slate-400">Lane</div>
-                  <div className="font-medium">{LANES.find(l => l.id === node.laneId)?.name || node.laneId}</div>
-                </div>
-              </div>
-              <div className="mt-4 grid md:grid-cols-2 gap-4">
-                <div className="bg-slate-900/40 border border-slate-700/60 rounded-lg p-3">
-                  <div className="text-slate-300 text-xs mb-1">Inputs</div>
-                  <ul className="list-disc list-inside text-slate-200 text-sm">
-                    {(node.inputs || []).map((it, idx) => (
-                      <li key={idx}>{it}</li>
-                    ))}
-                  </ul>
-                </div>
-                <div className="bg-slate-900/40 border border-slate-700/60 rounded-lg p-3">
-                  <div className="text-slate-300 text-xs mb-1">Outputs</div>
-                  <ul className="list-disc list-inside text-slate-200 text-sm">
-                    {(node.outputs || []).map((it, idx) => (
-                      <li key={idx}>{it}</li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-              {node.toolKey && TOOL_DETAILS[node.toolKey] && (
-                <div className="mt-4">
-                  <a
-                    href={TOOL_DETAILS[node.toolKey].link}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-md border border-sky-600/40 bg-sky-900/20 text-sky-200 hover:bg-sky-900/30"
-                  >
-                    <Icons.Link />
-                    Ver herramienta: {TOOL_DETAILS[node.toolKey].title}
-                  </a>
-                </div>
-              )}
+    // --- Sub-Components ---
+    function Edge({ from, to, positions, active }) {
+      const a = positions[from];
+      const b = positions[to];
+      if (!a || !b) return null;
+      const x1 = a.x + 290; // CARD_W
+      const y1 = a.y + 43;  // CARD_H / 2
+      const x2 = b.x;
+      const y2 = b.y + 43;  // CARD_H / 2
+      const dx = Math.max(80, (x2 - x1) * 0.5);
+      const path = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
+      return ( <path d={path} className={ active ? "stroke-teal-400/80 [filter:drop-shadow(0_0_6px_rgba(45,212,191,0.6))] transition-all duration-300" : "stroke-slate-400/30 transition-all duration-300" } strokeWidth={active ? 3 : 2} fill="none" /> );
+    }
+
+    function NodeCard({ node, pos, selected, onSelect, icons }) {
+      const { Layers, PlayCircle, ArrowRightLeft, ShieldCheck, Cable, Users, ServerCog, Database, BarChart3, FileSignature, CreditCard, MessageSquare, Fuel, Bot, Zap, AlertTriangle, Workflow, GitBranch, Info } = icons;
+      const color = ({
+        external: "from-sky-500/20 to-sky-400/10 border-sky-400/40",
+        internal: "from-emerald-500/20 to-emerald-400/10 border-emerald-400/40",
+        data: "from-fuchsia-500/20 to-fuchsia-400/10 border-fuchsia-400/40",
+        orchestration: "from-amber-500/20 to-amber-400/10 border-amber-400/40",
+        telematics: "from-cyan-500/20 to-cyan-400/10 border-cyan-400/40",
+        front: "from-teal-500/20 to-teal-400/10 border-teal-400/40",
+      })[node.type];
+      const style = { left: pos.x, top: pos.y, width: `290px`, height: `86px` };
+      const iconMap = {
+          portal: <PlayCircle className="w-4 h-4" />,
+          whatsapp: <MessageSquare className="w-4 h-4" />,
+          ipaas: <GitBranch className="w-4 h-4" />,
+          metamap: <ShieldCheck className="w-4 h-4" />,
+          kiban: <BarChart3 className="w-4 h-4" />,
+          mifiel: <FileSignature className="w-4 h-4" />,
+          conekta: <CreditCard className="w-4 h-4" />,
+          gnv: <Fuel className="w-4 h-4" />,
+          samsara: <Zap className="w-4 h-4" />,
+          odoo: <ArrowRightLeft className="w-4 h-4" />,
+          airtable: <Layers className="w-4 h-4" />,
+          hase: <Bot className="w-4 h-4" />,
+          pia: <AlertTriangle className="w-4 h-4" />,
+          pma: <ServerCog className="w-4 h-4" />,
+          assistant: <MessageSquare className="w-4 h-4" />,
+          warehouse: <Database className="w-4 h-4" />,
+          bi: <BarChart3 className="w-4 h-4" />,
+      };
+      const hasDetails = !!TOOL_DETAILS[node.id];
+
+      return (
+        <div onClick={() => onSelect(node)} title={node.subtitle} className={`absolute rounded-2xl border backdrop-blur px-3.5 py-3 cursor-pointer transition-all duration-200 hover:scale-[1.02] hover:shadow-xl hover:border-teal-400/50 bg-gradient-to-br ${color} ${ selected ? "ring-2 ring-teal-400/70" : "ring-0" }`} style={style} >
+          <div className="flex items-start gap-2">
+            <div className="shrink-0 mt-0.5 text-slate-300">{iconMap[node.id] || <PlaceholderIcon className="w-4 h-4" />}</div>
+            <div className="min-w-0">
+              <div className="text-slate-100 font-semibold leading-tight text-[13px] truncate">{node.title}</div>
+              <div className="text-slate-300/80 text-[12px] truncate">{node.subtitle}</div>
             </div>
-          );
-        }
-
-        function ToolModal({ toolKey, onClose }) {
-          const tool = TOOL_DETAILS[toolKey];
-          if (!tool) return null;
-          return (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-              <div className="absolute inset-0 bg-slate-900/70 backdrop-blur-md" onClick={onClose} />
-              <div className="relative w-full max-w-lg bg-slate-900 border border-slate-700 rounded-2xl p-5 shadow-xl">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="text-sm text-slate-300">Detalle de herramienta</div>
-                    <h3 className="text-lg font-semibold text-white">{tool.title}</h3>
-                  </div>
-                  <button
-                    onClick={onClose}
-                    className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200"
-                    aria-label="Cerrar"
-                  >
-                    <Icons.Close />
-                  </button>
-                </div>
-                <p className="mt-3 text-slate-300 text-sm">{tool.description}</p>
-                <div className="mt-4 grid md:grid-cols-2 gap-3">
-                  <div className="bg-slate-800/70 p-3 rounded-lg border border-slate-700">
-                    <div className="text-xs text-slate-300 mb-1">Inputs</div>
-                    <ul className="list-disc list-inside text-sm text-slate-100">
-                      {tool.inputs.map((x, i) => <li key={i}>{x}</li>)}
-                    </ul>
-                  </div>
-                  <div className="bg-slate-800/70 p-3 rounded-lg border border-slate-700">
-                    <div className="text-xs text-slate-300 mb-1">Outputs</div>
-                    <ul className="list-disc list-inside text-sm text-slate-100">
-                      {tool.outputs.map((x, i) => <li key={i}>{x}</li>)}
-                    </ul>
-                  </div>
-                </div>
-                <div className="mt-4">
-                  <a
-                    href={tool.link}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-md border border-slate-600 bg-slate-800 text-slate-200 hover:bg-slate-700"
-                  >
-                    <Icons.Link />
-                    Visitar sitio
-                  </a>
-                </div>
-              </div>
+          </div>
+          {hasDetails && (
+            <div className="absolute top-2 right-2 text-teal-400">
+              <Info size={14} />
             </div>
-          );
-        }
+          )}
+          <div className="mt-2 grid grid-cols-2 gap-2 text-[11px] text-slate-300/90">
+            <div>
+              <div className="uppercase tracking-wide text-[10px] text-slate-400">IN</div>
+              <div className="space-y-0.5">{node.io.in.slice(0, 2).map((t, i) => ( <div key={i} className="truncate">• {t}</div> ))}
+            </div>
+            <div>
+              <div className="uppercase tracking-wide text-[10px] text-slate-400">OUT</div>
+              <div className="space-y-0.5">{node.io.out.slice(0, 2).map((t, i) => ( <div key={i} className="truncate">• {t}</div> ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
 
-        // 6) RENDER
-        // -------------------------------------------------------------------------------------------------
-        const root = document.getElementById('root');
-        const rootContainer = ReactDOM.createRoot(root);
-        rootContainer.render(<ConductoresIntegrationsMap />);
-      }
-    </script>
-  </body>
+    const container = document.getElementById('root');
+    const root = ReactDOM.createRoot(container);
+    root.render(<ConductoresIntegrationsMap />);
+  </script>
+</body>
 </html>
