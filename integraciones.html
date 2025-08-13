@@ -935,6 +935,60 @@ button:focus-visible {
           justificacion: "Tableros accionables sobre modelos semánticos del warehouse para operación, finanzas y calidad."
         }
       },
+      {
+        id: "twilio",
+        lane: "external",
+        row: 2.5,
+        title: "Twilio (SMS/WhatsApp)",
+        subtitle: "CPaaS para notificaciones",
+        type: "external",
+        icon: <MessageSquare className="w-4 h-4" />,
+        io: {
+          in: ["Plantillas", "Destinatarios"],
+          out: ["SMS enviados", "WhatsApp entregados"],
+        },
+        ficha: {
+          proceso: "Comunicaciones transaccionales",
+          costo: "~$0.005 USD / mensaje",
+          justificacion: "Canal crítico de comunicación con operadores."
+        }
+      },
+      {
+        id: "gateway",
+        lane: "internal",
+        row: 0.5,
+        title: "API Gateway (BFF)",
+        subtitle: "Orquestación y seguridad",
+        type: "internal",
+        icon: <GitBranch className="w-4 h-4" />,
+        io: {
+          in: ["Requests del Portal", "Tokens OAuth"],
+          out: ["Respuestas normalizadas", "Rate limiting"],
+        },
+        ficha: {
+          proceso: "Backend for Frontend",
+          costo: "N/A (propio)",
+          justificacion: "Punto único de entrada, maneja auth, rate limiting y normalización de respuestas."
+        }
+      },
+      {
+        id: "geotab",
+        lane: "telematics",
+        row: 1.5,
+        title: "Geotab (Futuro)",
+        subtitle: "Telemetría avanzada",
+        type: "telematics",
+        icon: <Zap className="w-4 h-4" />,
+        io: {
+          in: ["Config avanzada", "Plugins IOX"],
+          out: ["Diagnóstico profundo", "Extensiones"],
+        },
+        ficha: {
+          proceso: "Telemetría Enterprise",
+          costo: "~$35-50 USD/mes por unidad",
+          justificacion: "Upgrade futuro para flotas grandes con necesidades avanzadas de diagnóstico."
+        }
+      }
     ];
 
     function computePositions(nodes) {
@@ -1078,247 +1132,92 @@ button:focus-visible {
       const [tasks, setTasks] = useState(() => {
         const defaultTasks = [
           // FASE 1: Arquitectura & Setup (70h total)
-          {id: 1, w:1, phase:'1. Arquitectura & Setup', task:'Definir arquitectura, repos y ramas', owner:'Tech Lead', h:8, dep:'', status:'Pendiente',
-           stack:'GitHub/GitFlow, ADRs', 
-           entregable:'ADR-001 + monorepo'},
-          
-          {id: 2, w:1, phase:'1. Arquitectura & Setup', task:'Pipelines CI/CD (build, test, deploy)', owner:'Tech Lead', h:12, dep:'Arquitectura', status:'Pendiente',
-           stack:'GitHub Actions, Docker', 
-           entregable:'ci.yml, deploy.yml'},
-          
-          {id: 3, w:1, phase:'1. Arquitectura & Setup', task:'Provisionar DB, buckets y secretos', owner:'Tech Lead', h:12, dep:'Arquitectura', status:'Pendiente',
-           stack:'PostgreSQL, Redis, S3/MinIO', 
-           entregable:'Infra + secretos'},
-          
-          {id: 4, w:1, phase:'1. Arquitectura & Setup', task:'Base diseño UI (tokens, componentes)', owner:'UX/UI Design', h:20, dep:'', status:'Pendiente',
-           stack:'Tailwind, Design tokens', 
-           entregable:'Kit componentes'},
-          
-          {id: 5, w:1, phase:'1. Arquitectura & Setup', task:'Smoke tests y checklists', owner:'QA Engineer', h:10, dep:'CI/CD', status:'Pendiente',
-           stack:'Pytest, Playwright', 
-           entregable:'Suite mínima'},
-          
-          {id: 6, w:2, phase:'1. Arquitectura & Setup', task:'CI/CD hardening', owner:'Tech Lead', h:8, dep:'CI/CD', status:'Pendiente',
-           stack:'Cache, matrix, envs', 
-           entregable:'Pipelines robustos'},
+          {id: 1, w:1, phase:'1. Arquitectura & Setup', task:'Definir arquitectura, repos y ramas', owner:'Tech Lead', h:8, dep:'', status:'Pendiente', stack:'GitHub/GitFlow, ADRs', entregable:'ADR-001 + monorepo'},
+          {id: 2, w:1, phase:'1. Arquitectura & Setup', task:'Pipelines CI/CD (build, test, deploy)', owner:'Tech Lead', h:12, dep:'Arquitectura', status:'Pendiente', stack:'GitHub Actions, Docker', entregable:'ci.yml, deploy.yml'},
+          {id: 3, w:1, phase:'1. Arquitectura & Setup', task:'Provisionar DB, buckets y secretos', owner:'Tech Lead', h:12, dep:'Arquitectura', status:'Pendiente', stack:'PostgreSQL, Redis, S3/MinIO', entregable:'Infra + secretos'},
+          {id: 4, w:1, phase:'1. Arquitectura & Setup', task:'Base diseño UI (tokens, componentes)', owner:'UX/UI Design', h:20, dep:'', status:'Pendiente', stack:'Tailwind, Design tokens', entregable:'Kit componentes'},
+          {id: 5, w:1, phase:'1. Arquitectura & Setup', task:'Smoke tests y checklists', owner:'QA Engineer', h:10, dep:'CI/CD', status:'Pendiente', stack:'Pytest, Playwright', entregable:'Suite mínima'},
+          {id: 6, w:2, phase:'1. Arquitectura & Setup', task:'CI/CD hardening', owner:'Tech Lead', h:8, dep:'CI/CD', status:'Pendiente', stack:'Cache, matrix, envs', entregable:'Pipelines robustos'},
 
-          // FASE 2: Core Transaccional (152h total)
-          {id: 7, w:2, phase:'2. Core Transaccional', task:'Modelado DB (usuarios, vehículos, eventos)', owner:'Tech Lead', h:16, dep:'Setup', status:'Pendiente',
-           stack:'SQLAlchemy, Alembic', 
-           entregable:'Esquema v1'},
-          
-          {id: 8, w:2, phase:'2. Core Transaccional', task:'CRUDs base y servicios', owner:'Tech Lead', h:24, dep:'Modelado', status:'Pendiente',
-           stack:'FastAPI, Pydantic', 
-           entregable:'/users /vehicles /events'},
-          
-          {id: 9, w:2, phase:'2. Core Transaccional', task:'UI básicas de administración', owner:'Backend Dev', h:20, dep:'CRUDs', status:'Pendiente',
-           stack:'React, React Query', 
-           entregable:'Panel ABM'},
-          
-          {id: 10, w:3, phase:'2. Core Transaccional', task:'Logs, auditoría y métricas', owner:'Tech Lead', h:20, dep:'Servicios', status:'Pendiente',
-           stack:'OpenTelemetry, Sentry', 
-           entregable:'Trazas + métricas'},
-          
-          {id: 11, w:3, phase:'2. Core Transaccional', task:'Tests de integración', owner:'QA Engineer', h:20, dep:'Servicios', status:'Pendiente',
-           stack:'Pytest, Containers', 
-           entregable:'Pruebas verdes'},
-          
-          {id: 12, w:3, phase:'2. Core Transaccional', task:'Optimización DB e índices', owner:'Tech Lead', h:12, dep:'Modelado', status:'Pendiente',
-           stack:'EXPLAIN, Analyze', 
-           entregable:'Índices clave'},
-          
-          {id: 13, w:3, phase:'2. Core Transaccional', task:'Reglas de negocio (penalizaciones/SLA)', owner:'Tech Lead', h:40, dep:'Servicios', status:'Pendiente',
-           stack:'Celery, State Machine', 
-           entregable:'Motor reglas v1'},
+          // FASE 2: Core Transaccional (160h total)
+          {id: 7, w:2, phase:'2. Core Transaccional', task:'Portal PWA - Setup inicial', owner:'Frontend Dev', h:16, dep:'Setup', status:'Pendiente', stack:'React, PWA, Tailwind', entregable:'Portal base'},
+          {id: 8, w:2, phase:'2. Core Transaccional', task:'API Gateway - Backend for Frontend', owner:'Tech Lead', h:20, dep:'Setup', status:'Pendiente', stack:'Kong/Express, JWT', entregable:'Gateway configurado'},
+          {id: 9, w:2, phase:'2. Core Transaccional', task:'Modelado DB (usuarios, vehículos, eventos)', owner:'Tech Lead', h:16, dep:'Setup', status:'Pendiente', stack:'SQLAlchemy, Alembic', entregable:'Esquema v1'},
+          {id: 10, w:2, phase:'2. Core Transaccional', task:'Odoo - Setup y módulos core', owner:'Tech Lead', h:24, dep:'Modelado', status:'Pendiente', stack:'Odoo Enterprise, XML-RPC', entregable:'ERP configurado'},
+          {id: 11, w:2, phase:'2. Core Transaccional', task:'Airtable - Backoffice setup', owner:'Backend Dev', h:8, dep:'Setup', status:'Pendiente', stack:'Airtable API, Webhooks', entregable:'Tableros backoffice'},
+          {id: 12, w:3, phase:'2. Core Transaccional', task:'HASE - Motor de scoring v1', owner:'Tech Lead', h:32, dep:'Modelado', status:'Pendiente', stack:'Python, scikit-learn, FastAPI', entregable:'API scoring /hase/*'},
+          {id: 13, w:3, phase:'2. Core Transaccional', task:'Logs, auditoría y métricas', owner:'Tech Lead', h:16, dep:'Servicios', status:'Pendiente', stack:'OpenTelemetry, Sentry', entregable:'Trazas + métricas'},
+          {id: 14, w:3, phase:'2. Core Transaccional', task:'Tests de integración core', owner:'QA Engineer', h:16, dep:'Servicios', status:'Pendiente', stack:'Pytest, Containers', entregable:'Pruebas verdes'},
+          {id: 15, w:3, phase:'2. Core Transaccional', task:'Optimización DB e índices', owner:'Tech Lead', h:12, dep:'Modelado', status:'Pendiente', stack:'EXPLAIN, Analyze', entregable:'Índices clave'},
 
-          // FASE 3: Onboarding & Identidad (106h total)
-          {id: 14, w:3, phase:'3. Onboarding & Identidad', task:'Flujo de registro y autenticación', owner:'Tech Lead', h:16, dep:'Core', status:'Pendiente',
-           stack:'OAuth2, JWT, FastAPI', 
-           entregable:'/auth/* + roles'},
-          
-          {id: 15, w:3, phase:'3. Onboarding & Identidad', task:'UI de formularios y validaciones', owner:'Frontend Dev', h:20, dep:'Auth', status:'Pendiente',
-           stack:'React Hook Form, Zod', 
-           entregable:'Forms UX'},
-          
-          {id: 16, w:4, phase:'3. Onboarding & Identidad', task:'Integración identidad/KYC', owner:'Tech Lead', h:30, dep:'UI', status:'Pendiente',
-           stack:'Metamap API, Webhooks', 
-           entregable:'Flujo KYC'},
-          
-          {id: 17, w:4, phase:'3. Onboarding & Identidad', task:'QA de onboarding', owner:'QA Engineer', h:20, dep:'KYC', status:'Pendiente',
-           stack:'Playwright E2E', 
-           entregable:'Casos e2e'},
-          
-          {id: 18, w:4, phase:'3. Onboarding & Identidad', task:'Edge cases y resiliencia', owner:'Tech Lead', h:20, dep:'KYC', status:'Pendiente',
-           stack:'Retries, Idempotencia', 
-           entregable:'Flujo robusto'},
+          // FASE 3: Onboarding & Identidad (114h total)
+          {id: 16, w:3, phase:'3. Onboarding & Identidad', task:'Flujo de registro y autenticación', owner:'Tech Lead', h:16, dep:'Core', status:'Pendiente', stack:'OAuth2, JWT, FastAPI', entregable:'/auth/* + roles'},
+          {id: 17, w:3, phase:'3. Onboarding & Identidad', task:'UI de formularios y validaciones', owner:'Frontend Dev', h:16, dep:'Auth', status:'Pendiente', stack:'React Hook Form, Zod', entregable:'Forms UX'},
+          {id: 18, w:4, phase:'3. Onboarding & Identidad', task:'Integración Metamap KYC', owner:'Tech Lead', h:32, dep:'UI', status:'Pendiente', stack:'Metamap API, Webhooks', entregable:'Flujo KYC completo'},
+          {id: 19, w:4, phase:'3. Onboarding & Identidad', task:'Integración KIBAN - Buró de Crédito', owner:'Tech Lead', h:28, dep:'KYC', status:'Pendiente', stack:'KIBAN API, Círculo', entregable:'Consulta + reporte buró'},
+          {id: 20, w:4, phase:'3. Onboarding & Identidad', task:'QA de onboarding completo', owner:'QA Engineer', h:16, dep:'KYC', status:'Pendiente', stack:'Playwright E2E', entregable:'Casos e2e'},
+          {id: 21, w:4, phase:'3. Onboarding & Identidad', task:'Edge cases y resiliencia', owner:'Tech Lead', h:6, dep:'KYC', status:'Pendiente', stack:'Retries, Idempotencia', entregable:'Flujo robusto'},
 
-          // FASE 4: Cobranza & Pagos (98h total)
-          {id: 19, w:4, phase:'4. Cobranza & Pagos', task:'Backend pagos y conciliación', owner:'Tech Lead', h:24, dep:'Core', status:'Pendiente',
-           stack:'Conekta API, HMAC', 
-           entregable:'Órdenes/ref'},
-          
-          {id: 20, w:5, phase:'4. Cobranza & Pagos', task:'UI referencias y estado de pagos', owner:'Backend Dev', h:18, dep:'Backend pagos', status:'Pendiente',
-           stack:'React, Tailwind', 
-           entregable:'Pantalla pagos'},
-          
-          {id: 21, w:5, phase:'4. Cobranza & Pagos', task:'Integración gateway de pagos', owner:'Tech Lead', h:16, dep:'Backend pagos', status:'Pendiente',
-           stack:'Webhooks, Verificación', 
-           entregable:'Gateway v1'},
-          
-          {id: 22, w:5, phase:'4. Cobranza & Pagos', task:'Pruebas fin a fin de cobranza', owner:'QA Engineer', h:20, dep:'Integración', status:'Pendiente',
-           stack:'Playwright, Sandbox', 
-           entregable:'Suite pagos'},
-          
-          {id: 23, w:5, phase:'4. Cobranza & Pagos', task:'Reintentos e idempotencia', owner:'Tech Lead', h:20, dep:'Integración', status:'Pendiente',
-           stack:'Redis, Queues', 
-           entregable:'Pagos robustos'},
+          // FASE 4: Cobranza & Pagos (106h total)
+          {id: 22, w:4, phase:'4. Cobranza & Pagos', task:'Backend pagos y conciliación', owner:'Tech Lead', h:20, dep:'Core', status:'Pendiente', stack:'Conekta API, HMAC', entregable:'Órdenes/referencias'},
+          {id: 23, w:5, phase:'4. Cobranza & Pagos', task:'Integración Mifiel - Firma digital', owner:'Tech Lead', h:28, dep:'Pagos', status:'Pendiente', stack:'Mifiel API, PDF gen', entregable:'Contratos firmados'},
+          {id: 24, w:5, phase:'4. Cobranza & Pagos', task:'UI referencias y estado de pagos', owner:'Frontend Dev', h:16, dep:'Backend pagos', status:'Pendiente', stack:'React, Tailwind', entregable:'Pantalla pagos'},
+          {id: 25, w:5, phase:'4. Cobranza & Pagos', task:'Gateway de pagos Conekta', owner:'Tech Lead', h:16, dep:'Backend pagos', status:'Pendiente', stack:'Webhooks, Verificación', entregable:'Gateway v1'},
+          {id: 26, w:5, phase:'4. Cobranza & Pagos', task:'Pruebas fin a fin de cobranza', owner:'QA Engineer', h:16, dep:'Integración', status:'Pendiente', stack:'Playwright, Sandbox', entregable:'Suite pagos'},
+          {id: 27, w:5, phase:'4. Cobranza & Pagos', task:'Reintentos e idempotencia', owner:'Tech Lead', h:10, dep:'Integración', status:'Pendiente', stack:'Redis, Queues', entregable:'Pagos robustos'},
 
-          // FASE 5: Postventa & Tickets (83h total)
-          {id: 24, w:6, phase:'5. Postventa & Tickets', task:'Modelo y API de tickets', owner:'Tech Lead', h:18, dep:'Core', status:'Pendiente',
-           stack:'FastAPI, SQLAlchemy', 
-           entregable:'/tickets API'},
-          
-          {id: 25, w:6, phase:'5. Postventa & Tickets', task:'UI gestor de tickets', owner:'Frontend Dev', h:18, dep:'API', status:'Pendiente',
-           stack:'React, DataGrid', 
-           entregable:'Bandeja tickets'},
-          
-          {id: 26, w:6, phase:'5. Postventa & Tickets', task:'Automatizaciones básicas (reglas)', owner:'Tech Lead', h:12, dep:'API', status:'Pendiente',
-           stack:'Celery, Redis', 
-           entregable:'Auto-asignación'},
-          
-          {id: 27, w:6, phase:'5. Postventa & Tickets', task:'QA de tickets', owner:'QA Engineer', h:15, dep:'UI', status:'Pendiente',
-           stack:'Playwright', 
-           entregable:'Test suite'},
-          
-          {id: 28, w:6, phase:'5. Postventa & Tickets', task:'SLA y workflows avanzados', owner:'Tech Lead', h:20, dep:'Automatizaciones', status:'Pendiente',
-           stack:'State Machine', 
-           entregable:'SLA engine'},
+          // FASE 5: Postventa & Tickets (91h total)
+          {id: 28, w:6, phase:'5. Postventa & Tickets', task:'Modelo y API de tickets', owner:'Tech Lead', h:16, dep:'Core', status:'Pendiente', stack:'FastAPI, SQLAlchemy', entregable:'/tickets API'},
+          {id: 29, w:6, phase:'5. Postventa & Tickets', task:'Flowise/PIA - Agente conversacional', owner:'Tech Lead', h:28, dep:'Tickets', status:'Pendiente', stack:'Flowise, LangChain, GPT', entregable:'Agente PIA v1'},
+          {id: 30, w:6, phase:'5. Postventa & Tickets', task:'UI gestor de tickets', owner:'Frontend Dev', h:12, dep:'API', status:'Pendiente', stack:'React, DataGrid', entregable:'Bandeja tickets'},
+          {id: 31, w:6, phase:'5. Postventa & Tickets', task:'Automatizaciones básicas (reglas)', owner:'Backend Dev', h:12, dep:'API', status:'Pendiente', stack:'Celery, Redis', entregable:'Auto-asignación'},
+          {id: 32, w:6, phase:'5. Postventa & Tickets', task:'QA de tickets y postventa', owner:'QA Engineer', h:12, dep:'UI', status:'Pendiente', stack:'Playwright', entregable:'Test suite'},
+          {id: 33, w:6, phase:'5. Postventa & Tickets', task:'SLA y workflows avanzados', owner:'Tech Lead', h:11, dep:'Automatizaciones', status:'Pendiente', stack:'State Machine', entregable:'SLA engine'},
 
           // FASE 6: Notificaciones (72h total)
-          {id: 29, w:7, phase:'6. Notificaciones', task:'Servicio de notificaciones (plantillas)', owner:'Tech Lead', h:12, dep:'Core', status:'Pendiente',
-           stack:'Jinja2, Celery', 
-           entregable:'/notify API'},
-          
-          {id: 30, w:7, phase:'6. Notificaciones', task:'Integración SMS/WhatsApp/email', owner:'Tech Lead', h:20, dep:'Servicio notif', status:'Pendiente',
-           stack:'Twilio, SendGrid', 
-           entregable:'Canales activos'},
-          
-          {id: 31, w:7, phase:'6. Notificaciones', task:'UI centro de notificaciones', owner:'Backend Dev', h:20, dep:'Servicio notif', status:'Pendiente',
-           stack:'React, WebSocket', 
-           entregable:'Inbox notifs'},
-          
-          {id: 32, w:7, phase:'6. Notificaciones', task:'QA de notificaciones', owner:'QA Engineer', h:10, dep:'UI', status:'Pendiente',
-           stack:'E2E Testing', 
-           entregable:'Test coverage'},
-          
-          {id: 33, w:7, phase:'6. Notificaciones', task:'Templates + observabilidad', owner:'Tech Lead', h:10, dep:'Servicio notif', status:'Pendiente',
-           stack:'Grafana, Prometheus', 
-           entregable:'KPIs notifs'},
+          {id: 34, w:7, phase:'6. Notificaciones', task:'Servicio de notificaciones (plantillas)', owner:'Tech Lead', h:12, dep:'Core', status:'Pendiente', stack:'Jinja2, Celery', entregable:'/notify API'},
+          {id: 35, w:7, phase:'6. Notificaciones', task:'Integración Twilio SMS/WhatsApp', owner:'Tech Lead', h:16, dep:'Servicio notif', status:'Pendiente', stack:'Twilio API, Templates', entregable:'Canales Twilio'},
+          {id: 36, w:7, phase:'6. Notificaciones', task:'Orquestación Make/n8n/Zapier', owner:'Backend Dev', h:16, dep:'Servicio notif', status:'Pendiente', stack:'Make, n8n, Webhooks', entregable:'Flujos iPaaS'},
+          {id: 37, w:7, phase:'6. Notificaciones', task:'UI centro de notificaciones', owner:'Frontend Dev', h:10, dep:'Servicio notif', status:'Pendiente', stack:'React, WebSocket', entregable:'Inbox notifs'},
+          {id: 38, w:7, phase:'6. Notificaciones', task:'QA de notificaciones', owner:'QA Engineer', h:10, dep:'UI', status:'Pendiente', stack:'E2E Testing', entregable:'Test coverage'},
+          {id: 39, w:7, phase:'6. Notificaciones', task:'Templates + observabilidad', owner:'Tech Lead', h:8, dep:'Servicio notif', status:'Pendiente', stack:'Grafana, Prometheus', entregable:'KPIs notifs'},
 
-          // FASE 7: Integraciones Externas (120h total)
-          {id: 34, w:8, phase:'7. Integraciones Externas', task:'Conector telemetría (webhooks + pull)', owner:'Tech Lead', h:28, dep:'Core', status:'Pendiente',
-           stack:'FastAPI, HMAC, Async', 
-           entregable:'Webhook endpoint'},
-          
-          {id: 35, w:8, phase:'7. Integraciones Externas', task:'Normalizador y lago de datos', owner:'Tech Lead', h:12, dep:'Conector', status:'Pendiente',
-           stack:'S3, Parquet, Pandas', 
-           entregable:'Data Lake v1'},
-          
-          {id: 36, w:8, phase:'7. Integraciones Externas', task:'UI tiempo real (mapa / eventos)', owner:'Frontend Dev', h:20, dep:'Conector', status:'Pendiente',
-           stack:'Leaflet, WebSocket', 
-           entregable:'Mapa en vivo'},
-          
-          {id: 37, w:8, phase:'7. Integraciones Externas', task:'Pruebas de latencia y resiliencia', owner:'QA Engineer', h:20, dep:'Conector', status:'Pendiente',
-           stack:'k6, Locust', 
-           entregable:'Report p50/p95'},
-          
-          {id: 38, w:8, phase:'7. Integraciones Externas', task:'Retries, backfill e idempotencia', owner:'Tech Lead', h:40, dep:'Conector', status:'Pendiente',
-           stack:'Celery, Redis, Locks', 
-           entregable:'Sistema robusto'},
+          // FASE 7: Integraciones Externas (128h total)
+          {id: 40, w:8, phase:'7. Integraciones Externas', task:'Samsara - Telemetría e inmovilizador', owner:'Tech Lead', h:32, dep:'Core', status:'Pendiente', stack:'Samsara API, Webhooks', entregable:'Telemetría activa'},
+          {id: 41, w:8, phase:'7. Integraciones Externas', task:'Super-PMA - Mantenimiento predictivo', owner:'Tech Lead', h:28, dep:'Samsara', status:'Pendiente', stack:'Python, ML, DTCs', entregable:'Motor PMA v1'},
+          {id: 42, w:8, phase:'7. Integraciones Externas', task:'APIs GNV - Consumo combustible', owner:'Backend Dev', h:12, dep:'Core', status:'Pendiente', stack:'REST APIs, OAuth', entregable:'Integración GNV'},
+          {id: 43, w:8, phase:'7. Integraciones Externas', task:'Data Lake & BI setup', owner:'Tech Lead', h:22, dep:'Integraciones', status:'Pendiente', stack:'BigQuery, Looker, S3', entregable:'Lake + dashboards'},
+          {id: 44, w:8, phase:'7. Integraciones Externas', task:'UI tiempo real (mapa / eventos)', owner:'Frontend Dev', h:16, dep:'Telemetría', status:'Pendiente', stack:'Leaflet, WebSocket', entregable:'Mapa en vivo'},
+          {id: 45, w:8, phase:'7. Integraciones Externas', task:'Pruebas de latencia y resiliencia', owner:'QA Engineer', h:16, dep:'Integraciones', status:'Pendiente', stack:'k6, Locust', entregable:'Report p50/p95'},
+          {id: 46, w:8, phase:'7. Integraciones Externas', task:'Retries, backfill e idempotencia', owner:'Tech Lead', h:2, dep:'Integraciones', status:'Pendiente', stack:'Celery, Redis, Locks', entregable:'Sistema robusto'},
 
           // FASE 8: UI/UX Refinado (104h total)
-          {id: 39, w:9, phase:'8. UI/UX Refinado', task:'Componentes y estados vacíos', owner:'UX/UI Design', h:24, dep:'Módulos previos', status:'Pendiente',
-           stack:'Figma, Tailwind', 
-           entregable:'Empty states'},
-          
-          {id: 40, w:9, phase:'8. UI/UX Refinado', task:'Accesibilidad y responsivo', owner:'UX/UI Design', h:20, dep:'Componentes', status:'Pendiente',
-           stack:'WCAG 2.1, axe-core', 
-           entregable:'A11y compliance'},
-          
-          {id: 41, w:9, phase:'8. UI/UX Refinado', task:'Microcopys y vaciado de contenido', owner:'Backend Dev', h:16, dep:'UI/UX', status:'Pendiente',
-           stack:'i18n, Content', 
-           entregable:'Copy final'},
-          
-          {id: 42, w:9, phase:'8. UI/UX Refinado', task:'Refactor visual', owner:'Tech Lead', h:20, dep:'UI/UX', status:'Pendiente',
-           stack:'React, Performance', 
-           entregable:'UI optimizada'},
-          
-          {id: 43, w:9, phase:'8. UI/UX Refinado', task:'Design system + tokens', owner:'UX/UI Design', h:24, dep:'Componentes', status:'Pendiente',
-           stack:'Storybook, Tokens', 
-           entregable:'DS v1.0'},
+          {id: 47, w:9, phase:'8. UI/UX Refinado', task:'Componentes y estados vacíos', owner:'UX/UI Design', h:24, dep:'Módulos previos', status:'Pendiente', stack:'Figma, Tailwind', entregable:'Empty states'},
+          {id: 48, w:9, phase:'8. UI/UX Refinado', task:'Accesibilidad y responsivo', owner:'UX/UI Design', h:20, dep:'Componentes', status:'Pendiente', stack:'WCAG 2.1, axe-core', entregable:'A11y compliance'},
+          {id: 49, w:9, phase:'8. UI/UX Refinado', task:'Microcopys y contenido', owner:'Frontend Dev', h:16, dep:'UI/UX', status:'Pendiente', stack:'i18n, Content', entregable:'Copy final'},
+          {id: 50, w:9, phase:'8. UI/UX Refinado', task:'Refactor visual y performance', owner:'Tech Lead', h:20, dep:'UI/UX', status:'Pendiente', stack:'React, Lighthouse', entregable:'UI optimizada'},
+          {id: 51, w:9, phase:'8. UI/UX Refinado', task:'Design system + tokens', owner:'UX/UI Design', h:24, dep:'Componentes', status:'Pendiente', stack:'Storybook, Tokens', entregable:'DS v1.0'},
 
           // FASE 9: Seguridad & Roles (95h total)
-          {id: 44, w:10, phase:'9. Seguridad & Roles', task:'RBAC, auditoría y hardening', owner:'Tech Lead', h:28, dep:'Core', status:'Pendiente',
-           stack:'Casbin, Headers, CSP', 
-           entregable:'Security v1'},
-          
-          {id: 45, w:10, phase:'9. Seguridad & Roles', task:'Flujos de recuperación MFA', owner:'Tech Lead', h:12, dep:'RBAC', status:'Pendiente',
-           stack:'TOTP, SMS, Backup', 
-           entregable:'MFA activo'},
-          
-          {id: 46, w:10, phase:'9. Seguridad & Roles', task:'Pentest interno y fixes', owner:'QA Engineer', h:15, dep:'Hardening', status:'Pendiente',
-           stack:'OWASP, Burp Suite', 
-           entregable:'Vuln report'},
-          
-          {id: 47, w:10, phase:'9. Seguridad & Roles', task:'Revisión compliance básico', owner:'Tech Lead', h:20, dep:'RBAC', status:'Pendiente',
-           stack:'GDPR, Políticas', 
-           entregable:'Compliance doc'},
-          
-          {id: 48, w:10, phase:'9. Seguridad & Roles', task:'Hardening extra y policies', owner:'Tech Lead', h:20, dep:'RBAC', status:'Pendiente',
-           stack:'Rate limit, WAF', 
-           entregable:'Hardening v2'},
+          {id: 52, w:10, phase:'9. Seguridad & Roles', task:'RBAC, auditoría y hardening', owner:'Tech Lead', h:24, dep:'Core', status:'Pendiente', stack:'Casbin, Headers, CSP', entregable:'Security v1'},
+          {id: 53, w:10, phase:'9. Seguridad & Roles', task:'Flujos de recuperación MFA', owner:'Tech Lead', h:12, dep:'RBAC', status:'Pendiente', stack:'TOTP, SMS, Backup', entregable:'MFA activo'},
+          {id: 54, w:10, phase:'9. Seguridad & Roles', task:'Pentest interno y fixes', owner:'QA Engineer', h:16, dep:'Hardening', status:'Pendiente', stack:'OWASP, Burp Suite', entregable:'Vuln report'},
+          {id: 55, w:10, phase:'9. Seguridad & Roles', task:'Revisión compliance básico', owner:'Tech Lead', h:20, dep:'RBAC', status:'Pendiente', stack:'GDPR, Políticas', entregable:'Compliance doc'},
+          {id: 56, w:10, phase:'9. Seguridad & Roles', task:'Hardening extra y policies', owner:'Tech Lead', h:23, dep:'RBAC', status:'Pendiente', stack:'Rate limit, WAF', entregable:'Hardening v2'},
 
           // FASE 10: QA & Performance (130h total)
-          {id: 49, w:11, phase:'10. QA & Performance', task:'Pruebas fin a fin y carga', owner:'QA Engineer', h:30, dep:'Todos', status:'Pendiente',
-           stack:'Playwright, k6', 
-           entregable:'Test report'},
-          
-          {id: 50, w:11, phase:'10. QA & Performance', task:'Optimización de consultas y cachés', owner:'Tech Lead', h:20, dep:'E2E', status:'Pendiente',
-           stack:'Redis, Índices', 
-           entregable:'<100ms p95'},
-          
-          {id: 51, w:11, phase:'10. QA & Performance', task:'Bug fixing y estabilidad', owner:'Tech Lead', h:20, dep:'E2E', status:'Pendiente',
-           stack:'Sentry, Debug', 
-           entregable:'0 bugs críticos'},
-          
-          {id: 52, w:11, phase:'10. QA & Performance', task:'Mejoras UX tras hallazgos', owner:'UX/UI Design', h:20, dep:'E2E', status:'Pendiente',
-           stack:'Analytics, Hotjar', 
-           entregable:'UX refinements'},
-          
-          {id: 53, w:11, phase:'10. QA & Performance', task:'Re-testing y cierre', owner:'QA Engineer', h:20, dep:'Fixes', status:'Pendiente',
-           stack:'Regression suite', 
-           entregable:'QA sign-off'},
-          
-          {id: 54, w:11, phase:'10. QA & Performance', task:'Regresión adicional', owner:'QA Engineer', h:20, dep:'Fixes', status:'Pendiente',
-           stack:'Full regression', 
-           entregable:'Final report'},
+          {id: 57, w:11, phase:'10. QA & Performance', task:'Pruebas fin a fin y carga', owner:'QA Engineer', h:30, dep:'Todos', status:'Pendiente', stack:'Playwright, k6', entregable:'Test report'},
+          {id: 58, w:11, phase:'10. QA & Performance', task:'Optimización de consultas y cachés', owner:'Tech Lead', h:20, dep:'E2E', status:'Pendiente', stack:'Redis, Índices', entregable:'<100ms p95'},
+          {id: 59, w:11, phase:'10. QA & Performance', task:'Bug fixing y estabilidad', owner:'Tech Lead', h:20, dep:'E2E', status:'Pendiente', stack:'Sentry, Debug', entregable:'0 bugs críticos'},
+          {id: 60, w:11, phase:'10. QA & Performance', task:'Mejoras UX tras hallazgos', owner:'UX/UI Design', h:20, dep:'E2E', status:'Pendiente', stack:'Analytics, Hotjar', entregable:'UX refinements'},
+          {id: 61, w:11, phase:'10. QA & Performance', task:'Re-testing y cierre', owner:'QA Engineer', h:20, dep:'Fixes', status:'Pendiente', stack:'Regression suite', entregable:'QA sign-off'},
+          {id: 62, w:11, phase:'10. QA & Performance', task:'Regresión adicional', owner:'QA Engineer', h:20, dep:'Fixes', status:'Pendiente', stack:'Full regression', entregable:'Final report'},
 
           // FASE 11: Gestión & Documentación (50h total)
-          {id: 55, w:12, phase:'11. Gestión & Documentación', task:'Manual técnico (APIs, despliegue)', owner:'Tech Lead', h:12, dep:'Cierre QA', status:'Pendiente',
-           stack:'OpenAPI, MkDocs', 
-           entregable:'Docs técnicos'},
-          
-          {id: 56, w:12, phase:'11. Gestión & Documentación', task:'Guía operativa (soporte / runbook)', owner:'Frontend Dev', h:12, dep:'Cierre QA', status:'Pendiente',
-           stack:'Confluence', 
-           entregable:'Runbook'},
-          
-          {id: 57, w:12, phase:'11. Gestión & Documentación', task:'Procesos y handover', owner:'Tech Lead', h:16, dep:'Runbook', status:'Pendiente',
-           stack:'Videos, Sesiones', 
-           entregable:'Handover'},
-          
-          {id: 58, w:12, phase:'11. Gestión & Documentación', task:'Minutas y retro de proyecto', owner:'Management', h:10, dep:'Cierre', status:'Pendiente',
-           stack:'Miro, Retro', 
-           entregable:'Lessons learned'}
+          {id: 63, w:12, phase:'11. Gestión & Documentación', task:'Manual técnico (APIs, despliegue)', owner:'Tech Lead', h:12, dep:'Cierre QA', status:'Pendiente', stack:'OpenAPI, MkDocs', entregable:'Docs técnicos'},
+          {id: 64, w:12, phase:'11. Gestión & Documentación', task:'Guía operativa (soporte / runbook)', owner:'Backend Dev', h:12, dep:'Cierre QA', status:'Pendiente', stack:'Confluence', entregable:'Runbook'},
+          {id: 65, w:12, phase:'11. Gestión & Documentación', task:'Procesos y handover', owner:'Tech Lead', h:16, dep:'Runbook', status:'Pendiente', stack:'Videos, Sesiones', entregable:'Handover'},
+          {id: 66, w:12, phase:'11. Gestión & Documentación', task:'Minutas y retro de proyecto', owner:'Management', h:10, dep:'Cierre', status:'Pendiente', stack:'Miro, Retro', entregable:'Lessons learned'}
         ];
 
         try {
@@ -1327,7 +1226,7 @@ button:focus-visible {
             const parsed = JSON.parse(saved);
             const isArray = Array.isArray(parsed);
             const hasTechFields = isArray && parsed.every(t => t && typeof t === 'object' && 'stack' in t && 'entregable' in t);
-            const correctCount = isArray && parsed.length === 58;
+            const correctCount = isArray && parsed.length === 66;
             const totalHours = isArray ? parsed.reduce((acc, t) => acc + (t.h || 0), 0) : 0;
             const isValid = hasTechFields && correctCount && totalHours === 998;
             if (isValid) return parsed;
