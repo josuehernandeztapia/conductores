@@ -498,6 +498,62 @@ button:focus-visible {
   pointer-events: none;
   margin-bottom: 4px;
 }
+
+/* Columnas técnicas con mejor visibilidad */
+.tech-column {
+  background: rgba(99, 102, 241, 0.03);
+  border-left: 1px solid rgba(99, 102, 241, 0.2);
+  border-right: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+.stack-cell, .entregable-cell {
+  max-width: 250px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: help;
+}
+
+.stack-cell {
+  background: linear-gradient(90deg, rgba(59, 130, 246, 0.1), transparent);
+  color: #93bbfc;
+  border-left: 2px solid #3b82f6;
+}
+
+.entregable-cell {
+  background: linear-gradient(90deg, rgba(16, 185, 129, 0.1), transparent);
+  color: #6ee7b7;
+  border-left: 2px solid #10b981;
+}
+
+/* Tooltip nativo al hover */
+.stack-cell:hover, .entregable-cell:hover {
+  white-space: normal;
+  word-wrap: break-word;
+  max-width: 350px;
+  position: absolute;
+  z-index: 100;
+  background: rgba(15, 23, 42, 0.98);
+  padding: 12px;
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  margin-top: -10px;
+}
+
+/* Ancho mínimo de tabla para acomodar nuevas columnas */
+.execution-table {
+  min-width: 1600px;
+}
+
+/* Responsive - ocultar en pantallas pequeñas */
+@media (max-width: 1400px) {
+  .tech-column {
+    display: none !important;
+  }
+}
   </style>
 
 </head>
@@ -1323,9 +1379,12 @@ button:focus-visible {
                 </button>
                 <button
                   onClick={() => setShowTechnicalColumns(!showTechnicalColumns)}
-                  className="px-3 py-1.5 bg-purple-800/30 hover:bg-purple-700/30 text-purple-200 rounded-lg text-sm font-medium transition-all flex items-center gap-2"
+                  className={`px-3 py-1.5 ${showTechnicalColumns 
+                    ? 'bg-purple-600/30 border-purple-400' 
+                    : 'bg-slate-700/30 border-slate-600'} 
+                    border hover:bg-purple-700/30 text-purple-200 rounded-lg text-sm font-medium transition-all flex items-center gap-2`}
                 >
-                  {showTechnicalColumns ? '👁️' : '👁️‍🗨️'} {showTechnicalColumns ? 'Ocultar' : 'Mostrar'} Stack
+                  {showTechnicalColumns ? '👁️' : '👁️‍🗨️'} {showTechnicalColumns ? 'Stack Visible' : 'Mostrar Stack'}
                 </button>
               </div>
             </div>
@@ -1375,8 +1434,12 @@ button:focus-visible {
                     <th style={{width: '280px'}}>Tarea</th>
                     <th style={{width: '120px'}}>Responsable</th>
                     <th style={{width: '60px'}}>Hrs</th>
-                    <th className={`${showTechnicalColumns ? '' : 'hidden'} hide-tablet`} style={{width: '200px'}}>Stack/Tools</th>
-                    <th className={`${showTechnicalColumns ? '' : 'hidden'} hide-tablet`} style={{width: '200px'}}>Entregable</th>
+                    {showTechnicalColumns && (
+                      <>
+                        <th style={{minWidth: '200px'}} className="tech-column">Stack/Tools</th>
+                        <th style={{minWidth: '200px'}} className="tech-column">Entregable</th>
+                      </>
+                    )}
                     <th className="hide-mobile" style={{width: '120px'}}>Dependencia</th>
                     <th style={{width: '100px'}}>Estado</th>
                   </tr>
@@ -1385,7 +1448,7 @@ button:focus-visible {
                   {Object.entries(tasksByWeek).map(([week, weekTasks]) => (
                     <React.Fragment key={week}>
                                               <tr className="week-separator">
-                          <td colSpan="9" className="text-center py-2 bg-slate-900/50 text-purple-400 font-semibold">
+                          <td colSpan={showTechnicalColumns ? 9 : 7} className="text-center py-2 bg-slate-900/50 text-purple-400 font-semibold">
                             ── Semana {week} ──
                           </td>
                       </tr>
@@ -1396,12 +1459,20 @@ button:focus-visible {
                           <td className="font-medium">{task.task}</td>
                           <td><span className={`execution-owner-badge ${getOwnerClass(task.owner)}`}>{task.owner}</span></td>
                           <td className="execution-hours">{task.h}h</td>
-                          <td className={`text-slate-400 text-xs ${showTechnicalColumns ? '' : 'hidden'} hide-tablet`}>
-                            <div className="stack-cell">{task.stack || '-'}</div>
-                          </td>
-                          <td className={`text-slate-300 text-xs ${showTechnicalColumns ? '' : 'hidden'} hide-tablet`}>
-                            <div className="entregable-cell">{task.entregable || '-'}</div>
-                          </td>
+                          {showTechnicalColumns && (
+                            <>
+                              <td className="tech-column">
+                                <div className="stack-cell" title={task.stack}>
+                                  {task.stack || '-'}
+                                </div>
+                              </td>
+                              <td className="tech-column">
+                                <div className="entregable-cell" title={task.entregable}>
+                                  {task.entregable || '-'}
+                                </div>
+                              </td>
+                            </>
+                          )}
                           <td className="text-slate-400 text-xs hide-mobile">{task.dep || '-'}</td>
                           <td>
                             <button onClick={() => handleStatusToggle(task.id)} className={`execution-status ${getStatusClass(task.status)}`}>
