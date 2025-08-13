@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GEOTAB → Integración para Conductores (APIs, Datos y Flujos)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  .tab-btn[aria-selected="true"]{ background:#0369a1; color:white; }
+  .code{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+  .card{ background: rgba(30,41,59,.7); border:1px solid #1f2937; border-radius:1rem; padding:1.25rem; box-shadow:0 10px 30px rgba(0,0,0,.25); }
+</style>
+</head>
+<body class="bg-slate-900 text-slate-100">
+  <div class="max-w-7xl mx-auto px-6 py-8">
+    <header class="flex items-center justify-between gap-4 mb-8">
+      <div class="flex items-center gap-4">
+        <!-- Reemplaza el src con la URL o data:image/png;base64 de tu logo -->
+        <img id="cmuLogo" src=https://res.cloudinary.com/dytmjjb9l/image/upload/v1755053362/ChatGPT_Image_Aug_11_2025_04_31_40_PM_l9rulr.png"" alt="Logo CMu" class="h-10 w-10 rounded-full ring-1 ring-slate-700 bg-slate-800 object-contain" title="Coloca aquí tu logo (src)" />
+        <div>
+          <h1 class="text-2xl md:text-3xl font-bold tracking-tight">GEOTAB → Integración para <span class="text-sky-400">Conductores</span></h1>
+          <p class="text-slate-300 text-sm">APIs, esquema de datos, flujos y casos de uso — <span class="font-semibold">sin depender de dashboard ni APK</span>.</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="window.print()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-sm">Imprimir</button>
+      </div>
+    </header>
+
+    <!-- Tabs -->
+    <div class="flex flex-wrap gap-2 mb-6" role="tablist">
+      <button class="tab-btn px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700" role="tab" aria-selected="true" data-tab="apis">APIs clave</button>
+      <button class="tab-btn px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700" role="tab" data-tab="datos">Esquema de datos</button>
+      <button class="tab-btn px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700" role="tab" data-tab="flujos">Flujos (Tiempo real)</button>
+      <button class="tab-btn px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700" role="tab" data-tab="integracion">Mapa de Integración CMu</button>
+      <button class="tab-btn px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700" role="tab" data-tab="snippets">Snippets</button>
+      <button class="tab-btn px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700" role="tab" data-tab="rationale">Por qué no dashboard/APK</button>
+    </div>
+
+    <!-- Panel: APIs clave -->
+    <section id="panel-apis" class="space-y-5" role="tabpanel">
+      <div class="card">
+        <h2 class="text-2xl font-semibold mb-3">APIs esenciales para el MVP (GPS + Telemetría + Paro de motor)</h2>
+        <ul class="list-disc pl-5 space-y-2 text-slate-200">
+          <li><span class="font-medium">Autenticación</span>: token Bearer / OAuth2 (service-to-service).</li>
+          <li><span class="font-medium">Lecturas</span>:
+            <ul class="list-disc pl-5 mt-1 space-y-1">
+              <li>Ubicación actual y trayectorias: <span class="code">GET /vehicles/{id}/locations?from&to</span></li>
+              <li>Estado de ignición y velocidad: <span class="code">GET /vehicles/{id}/status</span></li>
+              <li>Odómetro y DTC (cuando aplique): <span class="code">GET /vehicles/{id}/metrics</span></li>
+            </ul>
+          </li>
+          <li><span class="font-medium">Eventos push</span> (webhooks): <span class="code">/webhooks/location_update</span>, <span class="code">/webhooks/ignition</span>, <span class="code">/webhooks/overspeed</span>, <span class="code">/webhooks/dtc</span>, <span class="code">/webhooks/immobilizer_changed</span>.</li>
+          <li><span class="font-medium">Comandos</span>:
+            <ul class="list-disc pl-5 mt-1 space-y-1">
+              <li>Inmovilizador (paro de motor): <span class="code">POST /vehicles/{id}/immobilize</span> y <span class="code">POST /vehicles/{id}/deactivate-immobilizer</span>.</li>
+              <li>Confirmación de estado: <span class="code">GET /vehicles/{id}/immobilizer</span>.</li>
+            </ul>
+          </li>
+        </ul>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-5">
+        <div class="card">
+          <h3 class="text-lg font-semibold mb-2">Latencias y límites (objetivo de piloto)</h3>
+          <ul class="list-disc pl-5 space-y-1">
+            <li>Frecuencia en movimiento: 5–10 s por fix o 200–500 m.</li>
+            <li>Heartbeat detenido: 60–120 s.</li>
+            <li>Webhook p50 &lt; 3 s, p95 &lt; 8 s desde evento.</li>
+            <li>Buffer offline mínimo 48 h (“store &amp; forward”).</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3 class="text-lg font-semibold mb-2">Seguridad</h3>
+          <ul class="list-disc pl-5 space-y-1">
+            <li>HMAC en webhooks (cabecera firma + timestamp).</li>
+            <li>Scopes por vehículo / tag (accesos granulares).</li>
+            <li>Idempotencia en comandos (header <span class="code">Idempotency-Key</span>).</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Panel: Esquema de datos -->
+    <section id="panel-datos" class="hidden space-y-5" role="tabpanel">
+      <div class="card">
+        <h2 class="text-2xl font-semibold mb-3">Modelo mínimo de datos (para nuestro lago/DB)</h2>
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-sm">
+            <thead class="text-slate-300">
+              <tr>
+                <th class="text-left py-2 pr-6">Entidad</th>
+                <th class="text-left py-2 pr-6">Campos clave</th>
+                <th class="text-left py-2">Notas</th>
+              </tr>
+            </thead>
+            <tbody class="text-slate-200/90">
+              <tr class="border-t border-slate-700"><td class="py-2 pr-6 font-medium">vehicle</td><td class="py-2 pr-6 code">id, vin, plate, make, model, year, tag, owner_id</td><td class="py-2">Fuente: alta inicial / Odoo</td></tr>
+              <tr class="border-t border-slate-700"><td class="py-2 pr-6 font-medium">location_event</td><td class="py-2 pr-6 code">vehicle_id, lat, lon, speed, heading, accuracy, ignition, ts</td><td class="py-2">Webhook + backfill histórico</td></tr>
+              <tr class="border-t border-slate-700"><td class="py-2 pr-6 font-medium">metric</td><td class="py-2 pr-6 code">vehicle_id, odometer_km, rpm, battery_v, dtc_count, ts</td><td class="py-2">Pull cada 1–5 min o por evento</td></tr>
+              <tr class="border-t border-slate-700"><td class="py-2 pr-6 font-medium">geofence_event</td><td class="py-2 pr-6 code">vehicle_id, geofence_id, type(IN|OUT), ts</td><td class="py-2">Reglas operativas y SLA</td></tr>
+              <tr class="border-t border-slate-700"><td class="py-2 pr-6 font-medium">dtc_event</td><td class="py-2 pr-6 code">vehicle_id, code, description, severity, ts</td><td class="py-2">Para PIA/PMA (postventa)</td></tr>
+              <tr class="border-t border-slate-700"><td class="py-2 pr-6 font-medium">immobilizer_cmd</td><td class="py-2 pr-6 code">vehicle_id, cmd(sent|released), requested_by, status, ts</td><td class="py-2">Auditoría y seguridad</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-5">
+        <div class="card">
+          <h3 class="text-lg font-semibold mb-2">Convenciones</h3>
+          <ul class="list-disc pl-5 space-y-1">
+            <li>Timestamps en UTC (ISO-8601).</li>
+            <li>IDs inmutables (vehicle_id ←→ VIN/externo).</li>
+            <li>Upserts idempotentes para backfills.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3 class="text-lg font-semibold mb-2">Retención</h3>
+          <ul class="list-disc pl-5 space-y-1">
+            <li>Hot: 12 meses (OLTP).</li>
+            <li>Cold: S3/MinIO en Parquet particionado por día.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Panel: Flujos tiempo real -->
+    <section id="panel-flujos" class="hidden space-y-5" role="tabpanel">
+      <div class="card">
+        <h2 class="text-2xl font-semibold mb-3">Flujo de eventos (real-time) — del vehículo a CMu</h2>
+        <ol class="list-decimal pl-5 space-y-2 text-slate-200">
+          <li>Gateway Geotab envía fix → plataforma Didcom/Geotab.</li>
+          <li>Didcom produce <span class="code">webhook: location_update</span> → <span class="code">bridge.cmu.mx/webhooks/geotab</span>.</li>
+          <li>Bridge valida firma HMAC, normaliza payload y guarda en <span class="code">location_event</span>.</li>
+          <li>Reglas (geocercas/velocidad) disparan notificaciones → PIA (WhatsApp) / Odoo.</li>
+          <li>Si comando de inmovilizador: <span class="code">POST /vehicles/{id}/immobilize</span> → confirmación de estado → auditoría.</li>
+        </ol>
+      </div>
+
+      <div class="card">
+        <h3 class="text-lg font-semibold mb-2">SLA del piloto (criterios de aceptación)</h3>
+        <ul class="list-disc pl-5 space-y-1">
+          <li>Disponibilidad de datos &gt; 99%.</li>
+          <li>Webhook p50 &lt; 3 s, p95 &lt; 8 s.</li>
+          <li>Ignición vs. realidad &gt; 98% precisión.</li>
+          <li>Paro de motor seguro 100% (con motor apagado / &lt; 5 km/h).</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- Panel: Mapa Integración CMu -->
+    <section id="panel-integracion" class="hidden space-y-5" role="tabpanel">
+      <div class="card">
+        <h2 class="text-2xl font-semibold mb-3">Mapa de Integración — CMu</h2>
+        <div class="grid md:grid-cols-2 gap-5">
+          <div class="space-y-3">
+            <h4 class="font-semibold">Entrada</h4>
+            <ul class="list-disc pl-5 space-y-1">
+              <li>Proveedor telemático → Webhooks (GPS, ignición, DTC, geocercas).</li>
+              <li>Pull incremental para métricas/odómetro.</li>
+            </ul>
+            <h4 class="font-semibold mt-4">Bridge (CMu)</h4>
+            <ul class="list-disc pl-5 space-y-1">
+              <li>Validación firma, idempotencia.</li>
+              <li>Normalización (unidades, campos).</li>
+              <li>Almacenamiento OLTP + lago S3.</li>
+              <li>APIs internas para portal/operaciones.</li>
+            </ul>
+          </div>
+          <div class="space-y-3">
+            <h4 class="font-semibold">Salida</h4>
+            <ul class="list-disc pl-5 space-y-1">
+              <li>Odoo (fleet + facturación de penalizaciones).</li>
+              <li>PIA/WhatsApp (recordatorios, alertas operativas).</li>
+              <li>PMA (postventa: tickets por DTC).</li>
+              <li>BI: Metabase/Looker Studio (KPIs por ruta/unidad).</li>
+            </ul>
+            <h4 class="font-semibold mt-4">Control</h4>
+            <ul class="list-disc pl-5 space-y-1">
+              <li>Comandos: inmovilizador on/off via API + auditoría.</li>
+              <li>Plantillas de reglas por ruta/base.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Panel: Snippets -->
+    <section id="panel-snippets" class="hidden space-y-5" role="tabpanel">
+      <div class="grid md:grid-cols-2 gap-5">
+        <div class="card">
+<pre class="code text-sm whitespace-pre-wrap"><strong>Ejemplo Webhook (location_update)</strong>
+POST /webhooks/geotab
+{
+  "vehicleId": "GTB-00123",
+  "ts": "2025-08-12T16:30:12Z",
+  "position": { "lat": 19.4326, "lon": -99.1332, "speed": 34.2, "heading": 181 },
+  "ignition": true,
+  "accuracy": 6.1,
+  "eventId": "b8b5f4e9-...",
+  "sig": "hmac-sha256:abcdef..."
+}
+</pre>
+        </div>
+        <div class="card">
+<pre class="code text-sm whitespace-pre-wrap"><strong>Comando de inmovilizador</strong>
+POST /api/vehicles/GTB-00123/immobilize
+Headers: { "Authorization": "Bearer ...", "Idempotency-Key": "uuid" }
+Body: { "mode": "safe", "minSpeedKph": 5 }
+-->
+200 { "status": "pending", "cmdId": "IMM-7745" }
+
+GET /api/vehicles/GTB-00123/immobilizer
+200 { "status": "blocked", "updatedAt": "2025-08-12T16:31:05Z" }
+</pre>
+        </div>
+        <div class="card md:col-span-2">
+<pre class="code text-sm whitespace-pre-wrap"><strong>Tabla OLTP (PostgreSQL) — location_event</strong>
+CREATE TABLE location_event (
+  id BIGSERIAL PRIMARY KEY,
+  vehicle_id TEXT NOT NULL,
+  ts TIMESTAMPTZ NOT NULL,
+  lat DOUBLE PRECISION NOT NULL,
+  lon DOUBLE PRECISION NOT NULL,
+  speed_kph DOUBLE PRECISION,
+  heading_deg DOUBLE PRECISION,
+  ignition BOOLEAN,
+  accuracy_m DOUBLE PRECISION,
+  event_id UUID UNIQUE,
+  inserted_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX ON location_event (vehicle_id, ts DESC);
+</pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- Panel: Rationale -->
+    <section id="panel-rationale" class="hidden space-y-5" role="tabpanel">
+      <div class="card">
+        <h2 class="text-2xl font-semibold mb-3">Por qué no depender de dashboard/APK</h2>
+        <ul class="list-disc pl-5 space-y-2">
+          <li><span class="font-semibold">Costo y foco</span>: pagas solo telemetría necesaria; UI custom para KPIs de ruta fija/concesión.</li>
+          <li><span class="font-semibold">Gobernanza de datos</span>: retención y modelo propios; integra scoring y postventa.</li>
+          <li><span class="font-semibold">Velocidad de iteración</span>: reglas y flujos en nuestro bridge sin esperar a terceros.</li>
+          <li><span class="font-semibold">Seguridad y auditoría</span>: comandos con trazabilidad y políticas CMu.</li>
+        </ul>
+      </div>
+      <p class="text-xs text-slate-500">Nota: reemplaza el <span class="code">src</span> del logo en la cabecera por tu URL o un <span class="code">data:image/png;base64,...</span></p>
+    </section>
+
+    <footer class="mt-10 text-sm text-slate-400">CMu · Conductores del Mundo — Integración telemática · v1.1</footer>
+  </div>
+
+<script>
+  const tabs = document.querySelectorAll('.tab-btn');
+  const panels = {
+    apis: document.getElementById('panel-apis'),
+    datos: document.getElementById('panel-datos'),
+    flujos: document.getElementById('panel-flujos'),
+    integracion: document.getElementById('panel-integracion'),
+    snippets: document.getElementById('panel-snippets'),
+    rationale: document.getElementById('panel-rationale')
+  };
+  tabs.forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      tabs.forEach(b=>b.setAttribute('aria-selected','false'));
+      btn.setAttribute('aria-selected','true');
+      Object.values(panels).forEach(p=>p.classList.add('hidden'));
+      panels[btn.dataset.tab].classList.remove('hidden');
+    });
+  });
+</script>
+</body>
+</html>
