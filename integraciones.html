@@ -383,6 +383,123 @@
     .hide-deps th:nth-child(6) { display: none; }
   </style>
 
+  <style>
+/******************** Execution Plan enhanced CSS ********************/
+.owner-lead { 
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.1)); 
+  color: #10b981; 
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+.owner-backend { 
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(59, 130, 246, 0.1)); 
+  color: #3b82f6;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+.owner-frontend { 
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(139, 92, 246, 0.1)); 
+  color: #8b5cf6;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+}
+.owner-design { 
+  background: linear-gradient(135deg, rgba(236, 72, 153, 0.2), rgba(236, 72, 153, 0.1)); 
+  color: #ec4899;
+  border: 1px solid rgba(236, 72, 153, 0.3);
+}
+.owner-qa { 
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.2), rgba(251, 191, 36, 0.1)); 
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+.owner-mgmt { 
+  background: linear-gradient(135deg, rgba(156, 163, 175, 0.2), rgba(156, 163, 175, 0.1)); 
+  color: #9ca3af;
+  border: 1px solid rgba(156, 163, 175, 0.3);
+}
+
+.scroll-indicator {
+  position: fixed;
+  bottom: 100px;
+  right: 20px;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(59, 130, 246, 0.15));
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 12px;
+  color: #a78bfa;
+  animation: pulse 2s infinite;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.week-separator td {
+  background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.1), transparent);
+  font-size: 13px;
+  padding: 8px !important;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.compact-mode { font-size: 12px; }
+.compact-mode th, .compact-mode td { padding: 6px 10px !important; }
+.compact-row td { padding: 4px 8px !important; }
+.compact-mode .execution-phase-pill { font-size: 10px; padding: 3px 8px; }
+.compact-mode .execution-owner-badge { font-size: 10px; padding: 2px 6px; }
+
+.execution-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: linear-gradient(to bottom, rgba(15, 23, 42, 0.98) 0%, rgba(15, 23, 42, 0.95) 50%, rgba(15, 23, 42, 0.9) 100%);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(168, 85, 247, 0.2);
+  padding: 20px;
+  margin: -20px -20px 20px -20px;
+}
+
+@media (max-width: 1024px) {
+  .hide-mobile { display: none !important; }
+  .execution-table { font-size: 13px; }
+  .execution-phase-pill { font-size: 11px; }
+}
+
+@media (max-width: 768px) {
+  .execution-table { font-size: 11px; }
+  .execution-table th, .execution-table td { padding: 6px 8px; }
+  .execution-filters { gap: 8px; }
+  .execution-filter-select, .execution-filter-input { min-width: unset; width: 100%; }
+  .execution-totals { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .execution-progress-bar { grid-column: 1 / -1; }
+}
+
+.execution-status { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+.execution-status:active { transform: scale(0.95); }
+
+.execution-filter-select:focus-visible,
+.execution-filter-input:focus-visible,
+button:focus-visible {
+  outline: 2px solid #a78bfa;
+  outline-offset: 2px;
+}
+
+[title] { position: relative; }
+[title]:hover::after {
+  content: attr(title);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.9);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  white-space: nowrap;
+  z-index: 1000;
+  pointer-events: none;
+  margin-bottom: 4px;
+}
+  </style>
+
 </head>
 <body class="bg-slate-950 text-slate-100">
   <div id="root"></div>
@@ -883,109 +1000,157 @@
 
     // Componente de Vista de Ejecución
     const ExecutionPlanView = () => {
-      const [filters, setFilters] = useState({ phase: '', owner: '', search: '', status: '' });
-      const [showDeps, setShowDeps] = useState(false);
-      const gridRef = useRef(null);
-      const [showScrollIndicator, setShowScrollIndicator] = useState(false);
-      const handleGridScroll = (e) => {
-        const { scrollLeft, scrollWidth, clientWidth } = e.currentTarget;
-        const isScrollable = scrollWidth > clientWidth;
-        const atEnd = scrollLeft + clientWidth >= scrollWidth - 4;
-        setShowScrollIndicator(isScrollable && !atEnd);
-      };
+      const [viewMode, setViewMode] = useState('expanded');
+      const [showScrollHint, setShowScrollHint] = useState(false);
+
+      const [filters, setFilters] = useState({
+        phase: '',
+        owner: '',
+        search: '',
+        status: '',
+        week: ''
+      });
+
+      const [tasks, setTasks] = useState(() => {
+        const saved = localStorage.getItem('executionTasks');
+        if (saved) return JSON.parse(saved);
+        return [
+          {id: 1, w:1, phase:'1. Arquitectura & Setup', task:'Definir arquitectura, repos y ramas', owner:'Tech Lead', h:8, dep:'', status:'Pendiente'},
+          {id: 2, w:1, phase:'1. Arquitectura & Setup', task:'Pipelines CI/CD (build, test, deploy)', owner:'Tech Lead', h:12, dep:'Arquitectura', status:'Pendiente'},
+          {id: 3, w:1, phase:'1. Arquitectura & Setup', task:'Provisionar DB, buckets y secretos', owner:'Tech Lead', h:12, dep:'Arquitectura', status:'Pendiente'},
+          {id: 4, w:1, phase:'1. Arquitectura & Setup', task:'Base diseño UI (tokens, componentes)', owner:'UX/UI Design', h:20, dep:'', status:'Pendiente'},
+          {id: 5, w:1, phase:'1. Arquitectura & Setup', task:'Smoke tests y checklists', owner:'QA Engineer', h:10, dep:'CI/CD', status:'Pendiente'},
+          {id: 6, w:2, phase:'2. Core Transaccional', task:'Modelado DB (usuarios, vehículos, eventos)', owner:'Tech Lead', h:16, dep:'Setup', status:'Pendiente'},
+          {id: 7, w:2, phase:'2. Core Transaccional', task:'CRUDs base y servicios', owner:'Tech Lead', h:24, dep:'Modelado', status:'Pendiente'},
+          {id: 8, w:2, phase:'2. Core Transaccional', task:'UI básicas de administración', owner:'Backend Dev', h:20, dep:'CRUDs', status:'Pendiente'},
+          {id: 9, w:3, phase:'2. Core Transaccional', task:'Logs, auditoría y métricas', owner:'Tech Lead', h:20, dep:'Servicios', status:'Pendiente'},
+          {id: 10, w:3, phase:'2. Core Transaccional', task:'Tests de integración', owner:'QA Engineer', h:20, dep:'Servicios', status:'Pendiente'},
+          {id: 11, w:3, phase:'3. Onboarding & Identidad', task:'Flujo de registro y autenticación', owner:'Tech Lead', h:16, dep:'Core', status:'Pendiente'},
+          {id: 12, w:3, phase:'3. Onboarding & Identidad', task:'UI de formularios y validaciones', owner:'Frontend Dev', h:20, dep:'Auth', status:'Pendiente'},
+          {id: 13, w:4, phase:'3. Onboarding & Identidad', task:'Integración identidad/KYC', owner:'Tech Lead', h:30, dep:'UI', status:'Pendiente'},
+          {id: 14, w:4, phase:'3. Onboarding & Identidad', task:'QA de onboarding', owner:'QA Engineer', h:20, dep:'KYC', status:'Pendiente'},
+          {id: 15, w:4, phase:'4. Cobranza & Pagos', task:'Backend pagos y conciliación', owner:'Tech Lead', h:24, dep:'Core', status:'Pendiente'},
+          {id: 16, w:5, phase:'4. Cobranza & Pagos', task:'UI referencias y estado de pagos', owner:'Backend Dev', h:18, dep:'Backend pagos', status:'Pendiente'},
+          {id: 17, w:5, phase:'4. Cobranza & Pagos', task:'Integración gateway de pagos', owner:'Tech Lead', h:16, dep:'Backend pagos', status:'Pendiente'},
+          {id: 18, w:5, phase:'4. Cobranza & Pagos', task:'Pruebas fin a fin de cobranza', owner:'QA Engineer', h:20, dep:'Integración', status:'Pendiente'},
+          {id: 19, w:6, phase:'5. Postventa & Tickets', task:'Modelo y API de tickets', owner:'Tech Lead', h:18, dep:'Core', status:'Pendiente'},
+          {id: 20, w:6, phase:'5. Postventa & Tickets', task:'UI gestor de tickets', owner:'Frontend Dev', h:18, dep:'API', status:'Pendiente'},
+          {id: 21, w:6, phase:'5. Postventa & Tickets', task:'Automatizaciones básicas (reglas)', owner:'Tech Lead', h:12, dep:'API', status:'Pendiente'},
+          {id: 22, w:6, phase:'5. Postventa & Tickets', task:'QA de tickets', owner:'QA Engineer', h:15, dep:'UI', status:'Pendiente'},
+          {id: 23, w:7, phase:'6. Notificaciones', task:'Servicio de notificaciones (plantillas)', owner:'Tech Lead', h:12, dep:'Core', status:'Pendiente'},
+          {id: 24, w:7, phase:'6. Notificaciones', task:'Integración SMS/WhatsApp/email', owner:'Tech Lead', h:20, dep:'Servicio notif', status:'Pendiente'},
+          {id: 25, w:7, phase:'6. Notificaciones', task:'UI centro de notificaciones', owner:'Backend Dev', h:20, dep:'Servicio notif', status:'Pendiente'},
+          {id: 26, w:7, phase:'6. Notificaciones', task:'QA de notificaciones', owner:'QA Engineer', h:10, dep:'UI', status:'Pendiente'},
+          {id: 27, w:8, phase:'7. Integraciones Externas', task:'Conector telemetría (webhooks + pull)', owner:'Tech Lead', h:28, dep:'Core', status:'Pendiente'},
+          {id: 28, w:8, phase:'7. Integraciones Externas', task:'Normalizador y lago de datos', owner:'Tech Lead', h:12, dep:'Conector', status:'Pendiente'},
+          {id: 29, w:8, phase:'7. Integraciones Externas', task:'UI tiempo real (mapa / eventos)', owner:'Frontend Dev', h:20, dep:'Conector', status:'Pendiente'},
+          {id: 30, w:8, phase:'7. Integraciones Externas', task:'Pruebas de latencia y resiliencia', owner:'QA Engineer', h:20, dep:'Conector', status:'Pendiente'},
+          {id: 31, w:9, phase:'8. UI/UX Refinado', task:'Componentes y estados vacíos', owner:'UX/UI Design', h:24, dep:'Módulos previos', status:'Pendiente'},
+          {id: 32, w:9, phase:'8. UI/UX Refinado', task:'Accesibilidad y responsivo', owner:'UX/UI Design', h:20, dep:'Componentes', status:'Pendiente'},
+          {id: 33, w:9, phase:'8. UI/UX Refinado', task:'Microcopys y vaciado de contenido', owner:'Backend Dev', h:16, dep:'UI/UX', status:'Pendiente'},
+          {id: 34, w:9, phase:'8. UI/UX Refinado', task:'Refactor visual', owner:'Tech Lead', h:20, dep:'UI/UX', status:'Pendiente'},
+          {id: 35, w:10, phase:'9. Seguridad & Roles', task:'RBAC, auditoría y hardening', owner:'Tech Lead', h:28, dep:'Core', status:'Pendiente'},
+          {id: 36, w:10, phase:'9. Seguridad & Roles', task:'Flujos de recuperación MFA', owner:'Tech Lead', h:12, dep:'RBAC', status:'Pendiente'},
+          {id: 37, w:10, phase:'9. Seguridad & Roles', task:'Pentest interno y fixes', owner:'QA Engineer', h:15, dep:'Hardening', status:'Pendiente'},
+          {id: 38, w:10, phase:'9. Seguridad & Roles', task:'Revisión compliance básico', owner:'Tech Lead', h:20, dep:'RBAC', status:'Pendiente'},
+          {id: 39, w:11, phase:'10. QA & Performance', task:'Pruebas fin a fin y carga', owner:'QA Engineer', h:30, dep:'Todos', status:'Pendiente'},
+          {id: 40, w:11, phase:'10. QA & Performance', task:'Optimización de consultas y cachés', owner:'Tech Lead', h:20, dep:'E2E', status:'Pendiente'},
+          {id: 41, w:11, phase:'10. QA & Performance', task:'Bug fixing y estabilidad', owner:'Tech Lead', h:20, dep:'E2E', status:'Pendiente'},
+          {id: 42, w:11, phase:'10. QA & Performance', task:'Mejoras UX tras hallazgos', owner:'UX/UI Design', h:20, dep:'E2E', status:'Pendiente'},
+          {id: 43, w:11, phase:'10. QA & Performance', task:'Re-testing y cierre', owner:'QA Engineer', h:20, dep:'Fixes', status:'Pendiente'},
+          {id: 44, w:12, phase:'11. Gestión & Documentación', task:'Manual técnico (APIs, despliegue)', owner:'Tech Lead', h:12, dep:'Cierre QA', status:'Pendiente'},
+          {id: 45, w:12, phase:'11. Gestión & Documentación', task:'Guía operativa (soporte / runbook)', owner:'Frontend Dev', h:12, dep:'Cierre QA', status:'Pendiente'},
+          {id: 46, w:12, phase:'11. Gestión & Documentación', task:'Procesos y handover', owner:'Tech Lead', h:16, dep:'Runbook', status:'Pendiente'},
+          {id: 47, w:12, phase:'11. Gestión & Documentación', task:'Minutas y retro de proyecto', owner:'Management', h:10, dep:'Cierre', status:'Pendiente'}
+        ];
+      });
+
       useEffect(() => {
-        const el = gridRef.current;
-        if (!el) return;
-        const isScrollable = el.scrollWidth > el.clientWidth;
-        setShowScrollIndicator(isScrollable);
+        localStorage.setItem('executionTasks', JSON.stringify(tasks));
+      }, [tasks]);
+
+      useEffect(() => {
+        const checkScroll = () => {
+          const table = document.querySelector('.execution-table-container');
+          if (table) setShowScrollHint(table.scrollWidth > table.clientWidth);
+        };
+        checkScroll();
+        window.addEventListener('resize', checkScroll);
+        return () => window.removeEventListener('resize', checkScroll);
       }, []);
-      const [tasks, setTasks] = useState([
-        {id: 1, w:1, phase:'1. Arquitectura & Setup', task:'Definir arquitectura, repos y ramas', owner:'Tech Lead', h:8, dep:'', status:'Pendiente'},
-        {id: 2, w:1, phase:'1. Arquitectura & Setup', task:'Pipelines CI/CD (build, test, deploy)', owner:'Tech Lead', h:12, dep:'Arquitectura', status:'Pendiente'},
-        {id: 3, w:1, phase:'1. Arquitectura & Setup', task:'Provisionar DB, buckets y secretos', owner:'Tech Lead', h:12, dep:'Arquitectura', status:'Pendiente'},
-        {id: 4, w:1, phase:'1. Arquitectura & Setup', task:'Base diseño UI (tokens, componentes)', owner:'UX/UI Design', h:20, dep:'', status:'Pendiente'},
-        {id: 5, w:1, phase:'1. Arquitectura & Setup', task:'Smoke tests y checklists', owner:'QA Engineer', h:10, dep:'CI/CD', status:'Pendiente'},
-        {id: 6, w:2, phase:'2. Core Transaccional', task:'Modelado DB (usuarios, vehículos, eventos)', owner:'Tech Lead', h:16, dep:'Setup', status:'Pendiente'},
-        {id: 7, w:2, phase:'2. Core Transaccional', task:'CRUDs base y servicios', owner:'Tech Lead', h:24, dep:'Modelado', status:'Pendiente'},
-        {id: 8, w:2, phase:'2. Core Transaccional', task:'UI básicas de administración', owner:'Backend Dev', h:20, dep:'CRUDs', status:'Pendiente'},
-        {id: 9, w:3, phase:'2. Core Transaccional', task:'Logs, auditoría y métricas', owner:'Tech Lead', h:20, dep:'Servicios', status:'Pendiente'},
-        {id: 10, w:3, phase:'2. Core Transaccional', task:'Tests de integración', owner:'QA Engineer', h:20, dep:'Servicios', status:'Pendiente'},
-        {id: 11, w:3, phase:'3. Onboarding & Identidad', task:'Flujo de registro y autenticación', owner:'Tech Lead', h:16, dep:'Core', status:'Pendiente'},
-        {id: 12, w:3, phase:'3. Onboarding & Identidad', task:'UI de formularios y validaciones', owner:'Frontend Dev', h:20, dep:'Auth', status:'Pendiente'},
-        {id: 13, w:4, phase:'3. Onboarding & Identidad', task:'Integración identidad/KYC', owner:'Tech Lead', h:30, dep:'UI', status:'Pendiente'},
-        {id: 14, w:4, phase:'3. Onboarding & Identidad', task:'QA de onboarding', owner:'QA Engineer', h:20, dep:'KYC', status:'Pendiente'},
-        {id: 15, w:4, phase:'4. Cobranza & Pagos', task:'Backend pagos y conciliación', owner:'Tech Lead', h:24, dep:'Core', status:'Pendiente'},
-        {id: 16, w:5, phase:'4. Cobranza & Pagos', task:'UI referencias y estado de pagos', owner:'Backend Dev', h:18, dep:'Backend pagos', status:'Pendiente'},
-        {id: 17, w:5, phase:'4. Cobranza & Pagos', task:'Integración gateway de pagos', owner:'Tech Lead', h:16, dep:'Backend pagos', status:'Pendiente'},
-        {id: 18, w:5, phase:'4. Cobranza & Pagos', task:'Pruebas fin a fin de cobranza', owner:'QA Engineer', h:20, dep:'Integración', status:'Pendiente'},
-        {id: 19, w:6, phase:'5. Postventa & Tickets', task:'Modelo y API de tickets', owner:'Tech Lead', h:18, dep:'Core', status:'Pendiente'},
-        {id: 20, w:6, phase:'5. Postventa & Tickets', task:'UI gestor de tickets', owner:'Frontend Dev', h:18, dep:'API', status:'Pendiente'},
-        {id: 21, w:6, phase:'5. Postventa & Tickets', task:'Automatizaciones básicas (reglas)', owner:'Tech Lead', h:12, dep:'API', status:'Pendiente'},
-        {id: 22, w:6, phase:'5. Postventa & Tickets', task:'QA de tickets', owner:'QA Engineer', h:15, dep:'UI', status:'Pendiente'},
-        {id: 23, w:7, phase:'6. Notificaciones', task:'Servicio de notificaciones (plantillas)', owner:'Tech Lead', h:12, dep:'Core', status:'Pendiente'},
-        {id: 24, w:7, phase:'6. Notificaciones', task:'Integración SMS/WhatsApp/email', owner:'Tech Lead', h:20, dep:'Servicio notif', status:'Pendiente'},
-        {id: 25, w:7, phase:'6. Notificaciones', task:'UI centro de notificaciones', owner:'Backend Dev', h:20, dep:'Servicio notif', status:'Pendiente'},
-        {id: 26, w:7, phase:'6. Notificaciones', task:'QA de notificaciones', owner:'QA Engineer', h:10, dep:'UI', status:'Pendiente'},
-        {id: 27, w:8, phase:'7. Integraciones Externas', task:'Conector telemetría (webhooks + pull)', owner:'Tech Lead', h:28, dep:'Core', status:'Pendiente'},
-        {id: 28, w:8, phase:'7. Integraciones Externas', task:'Normalizador y lago de datos', owner:'Tech Lead', h:12, dep:'Conector', status:'Pendiente'},
-        {id: 29, w:8, phase:'7. Integraciones Externas', task:'UI tiempo real (mapa / eventos)', owner:'Frontend Dev', h:20, dep:'Conector', status:'Pendiente'},
-        {id: 30, w:8, phase:'7. Integraciones Externas', task:'Pruebas de latencia y resiliencia', owner:'QA Engineer', h:20, dep:'Conector', status:'Pendiente'},
-        {id: 31, w:9, phase:'8. UI/UX Refinado', task:'Componentes y estados vacíos', owner:'UX/UI Design', h:24, dep:'Módulos previos', status:'Pendiente'},
-        {id: 32, w:9, phase:'8. UI/UX Refinado', task:'Accesibilidad y responsivo', owner:'UX/UI Design', h:20, dep:'Componentes', status:'Pendiente'},
-        {id: 33, w:9, phase:'8. UI/UX Refinado', task:'Microcopys y vaciado de contenido', owner:'Backend Dev', h:16, dep:'UX/UI Design', status:'Pendiente'},
-        {id: 34, w:9, phase:'8. UI/UX Refinado', task:'Refactor visual', owner:'Tech Lead', h:20, dep:'UX/UI Design', status:'Pendiente'},
-        {id: 35, w:10, phase:'9. Seguridad & Roles', task:'RBAC, auditoría y hardening', owner:'Tech Lead', h:28, dep:'Core', status:'Pendiente'},
-        {id: 36, w:10, phase:'9. Seguridad & Roles', task:'Flujos de recuperación MFA', owner:'Tech Lead', h:12, dep:'RBAC', status:'Pendiente'},
-        {id: 37, w:10, phase:'9. Seguridad & Roles', task:'Pentest interno y fixes', owner:'QA Engineer', h:15, dep:'Hardening', status:'Pendiente'},
-        {id: 38, w:10, phase:'9. Seguridad & Roles', task:'Revisión compliance básico', owner:'Tech Lead', h:20, dep:'RBAC', status:'Pendiente'},
-        {id: 39, w:11, phase:'10. QA & Performance', task:'Pruebas fin a fin y carga', owner:'QA Engineer', h:30, dep:'Todos', status:'Pendiente'},
-        {id: 40, w:11, phase:'10. QA & Performance', task:'Optimización de consultas y cachés', owner:'Tech Lead', h:20, dep:'E2E', status:'Pendiente'},
-        {id: 41, w:11, phase:'10. QA & Performance', task:'Bug fixing y estabilidad', owner:'Tech Lead', h:20, dep:'E2E', status:'Pendiente'},
-        {id: 42, w:11, phase:'10. QA & Performance', task:'Mejoras UX tras hallazgos', owner:'UX/UI Design', h:20, dep:'E2E', status:'Pendiente'},
-        {id: 43, w:11, phase:'10. QA & Performance', task:'Re-testing y cierre', owner:'QA Engineer', h:20, dep:'Fixes', status:'Pendiente'},
-        {id: 44, w:12, phase:'11. Gestión & Documentación', task:'Manual técnico (APIs, despliegue)', owner:'Tech Lead', h:12, dep:'Cierre QA', status:'Pendiente'},
-        {id: 45, w:12, phase:'11. Gestión & Documentación', task:'Guía operativa (soporte / runbook)', owner:'Frontend Dev', h:12, dep:'Cierre QA', status:'Pendiente'},
-        {id: 46, w:12, phase:'11. Gestión & Documentación', task:'Procesos y handover', owner:'Tech Lead', h:16, dep:'Runbook', status:'Pendiente'},
-        {id: 47, w:12, phase:'11. Gestión & Documentación', task:'Minutas y retro de proyecto', owner:'Management', h:10, dep:'Cierre', status:'Pendiente'},
-      ]);
+
+      useEffect(() => {
+        const handleKeyPress = (e) => {
+          if (e.target.tagName === 'INPUT') return;
+          switch(e.key.toLowerCase()) {
+            case 'f':
+              if (e.ctrlKey || e.metaKey) {
+                e.preventDefault();
+                document.querySelector('.execution-filter-input')?.focus();
+              }
+              break;
+            case 'r':
+              if (e.altKey) { e.preventDefault(); handleResetFilters(); }
+              break;
+            case 'v':
+              if (e.altKey) { e.preventDefault(); setViewMode(prev => prev === 'compact' ? 'expanded' : 'compact'); }
+              break;
+          }
+        };
+        window.addEventListener('keydown', handleKeyPress);
+        return () => window.removeEventListener('keydown', handleKeyPress);
+      }, []);
 
       const phases = [...new Set(tasks.map(t => t.phase))];
       const owners = [...new Set(tasks.map(t => t.owner))];
+      const weeks = [...new Set(tasks.map(t => t.w))].sort((a, b) => a - b);
 
       const handleStatusToggle = (taskId) => {
         setTasks(prevTasks => prevTasks.map(task => {
           if (task.id === taskId) {
             const statusCycle = ['Pendiente', 'En Progreso', 'Completado'];
-            const currentIndex = statusCycle.indexOf(task.status);
-            const nextIndex = (currentIndex + 1) % statusCycle.length;
+            const nextIndex = (statusCycle.indexOf(task.status) + 1) % statusCycle.length;
             return { ...task, status: statusCycle[nextIndex] };
           }
           return task;
         }));
       };
 
+      const handleResetFilters = () => {
+        setFilters({ phase: '', owner: '', search: '', status: '', week: '' });
+      };
+
       const filteredTasks = tasks.filter(task => {
         if (filters.phase && task.phase !== filters.phase) return false;
         if (filters.owner && task.owner !== filters.owner) return false;
         if (filters.status && task.status !== filters.status) return false;
+        if (filters.week && task.w !== parseInt(filters.week)) return false;
         if (filters.search) {
-          const searchLower = filters.search.toLowerCase();
-          return task.task.toLowerCase().includes(searchLower) || task.phase.toLowerCase().includes(searchLower) || task.owner.toLowerCase().includes(searchLower);
+          const s = filters.search.toLowerCase();
+          return task.task.toLowerCase().includes(s) || task.phase.toLowerCase().includes(s) || task.owner.toLowerCase().includes(s);
         }
         return true;
       });
 
+      const tasksByWeek = filteredTasks.reduce((acc, task) => {
+        if (!acc[task.w]) acc[task.w] = [];
+        acc[task.w].push(task);
+        return acc;
+      }, {});
+
       const totals = filteredTasks.reduce((acc, task) => {
         acc.total += task.h;
-        if (task.owner === 'Tech Lead') acc.fs += task.h;
-        if (task.owner === 'Backend Dev') acc.ja += task.h;
-        if (task.owner === 'Frontend Dev') acc.jb += task.h;
-        if (task.owner === 'UX/UI Design') acc.ux += task.h;
+        if (task.owner === 'Tech Lead') acc.lead += task.h;
+        if (task.owner === 'Backend Dev') acc.backend += task.h;
+        if (task.owner === 'Frontend Dev') acc.frontend += task.h;
+        if (task.owner === 'UX/UI Design') acc.design += task.h;
         if (task.owner === 'QA Engineer') acc.qa += task.h;
+        if (task.owner === 'Management') acc.mgmt += task.h;
         return acc;
-      }, { total: 0, fs: 0, ja: 0, jb: 0, ux: 0, qa: 0 });
+      }, { total: 0, lead: 0, backend: 0, frontend: 0, design: 0, qa: 0, mgmt: 0 });
 
       const completedTasks = tasks.filter(t => t.status === 'Completado').length;
+      const inProgressTasks = tasks.filter(t => t.status === 'En Progreso').length;
       const progressPercentage = Math.round((completedTasks / tasks.length) * 100);
 
       const getPhaseClass = (phase) => {
@@ -1017,89 +1182,125 @@
 
       return (
         <div className="execution-container animate-in">
-          <div className="execution-header">
+          <div className="execution-header sticky top-0 z-30 backdrop-blur-xl bg-slate-950/80">
             <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl font-bold text-white flex items-center gap-3" title="Gestión detallada de tareas, responsables y progreso del proyecto"><span className="text-3xl">📊</span>Plan de Ejecución • 90 Días</h2>
+              <div className="flex items-center gap-4">
+                <h2 className="text-xl font-bold text-white flex items-center gap-3">
+                  <span className="text-2xl">📊</span>
+                  Plan de Ejecución • 90 Días
+                </h2>
+                <span className="text-sm text-purple-300 bg-purple-900/20 px-3 py-1 rounded-full">
+                  {filteredTasks.length} de {tasks.length} tareas
+                </span>
               </div>
-              <div className="flex gap-3">
-                {/* export/print removed */}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setViewMode(prev => prev === 'compact' ? 'expanded' : 'compact')}
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-sm font-medium transition-all flex items-center gap-2"
+                  title="Alt+V"
+                >
+                  {viewMode === 'compact' ? '⬚' : '▦'} {viewMode === 'compact' ? 'Expandir' : 'Compactar'}
+                </button>
               </div>
             </div>
 
-            <div className="execution-filters items-center">
-              <select className="execution-filter-select" value={filters.phase} onChange={(e) => setFilters({ ...filters, phase: e.target.value })}>
+            <div className="execution-filters mt-4">
+              <select className="execution-filter-select" value={filters.week} onChange={(e) => setFilters({...filters, week: e.target.value})}>
+                <option value="">Todas las semanas</option>
+                {weeks.map(week => (<option key={week} value={week}>Semana {week}</option>))}
+              </select>
+
+              <select className="execution-filter-select" value={filters.phase} onChange={(e) => setFilters({...filters, phase: e.target.value})}>
                 <option value="">Todas las fases</option>
                 {phases.map(phase => (<option key={phase} value={phase}>{phase}</option>))}
               </select>
-              <select className="execution-filter-select" value={filters.owner} onChange={(e) => setFilters({ ...filters, owner: e.target.value })}>
+
+              <select className="execution-filter-select" value={filters.owner} onChange={(e) => setFilters({...filters, owner: e.target.value})}>
                 <option value="">Todos los responsables</option>
                 {owners.map(owner => (<option key={owner} value={owner}>{owner}</option>))}
               </select>
-              <select className="execution-filter-select" value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })}>
+
+              <select className="execution-filter-select" value={filters.status} onChange={(e) => setFilters({...filters, status: e.target.value})}>
                 <option value="">Todos los estados</option>
                 <option value="Pendiente">Pendiente</option>
                 <option value="En Progreso">En Progreso</option>
                 <option value="Completado">Completado</option>
               </select>
-              <input className="execution-filter-input flex-1" type="text" placeholder="Buscar..." value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })} />
-              <button onClick={() => setFilters({ phase: '', owner: '', search: '', status: '' })} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-semibold transition-all duration-300">↺ Reset</button>
-              {/* Dependencia toggle */}
-              <button onClick={() => setShowDeps(prev => !prev)} className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-sm">
-                {showDeps ? 'Ocultar Dependencia' : 'Mostrar Dependencia'}
-              </button>
-              {/* Results counter */}
-              <div className="text-slate-300 text-sm ml-auto">Mostrando {filteredTasks.length} de {tasks.length} tareas</div>
+
+              <input className="execution-filter-input flex-1" type="text" placeholder="🔍 Buscar... (Ctrl+F)" value={filters.search} onChange={(e) => setFilters({...filters, search: e.target.value})} />
+
+              <button onClick={handleResetFilters} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-semibold transition-all duration-300 flex items-center gap-2" title="Alt+R">↺ Reset</button>
+            </div>
+
+            <div className="flex gap-4 mt-2 text-xs text-slate-500">
+              <span>⌨️ Ctrl+F: Buscar</span>
+              <span>Alt+R: Reset filtros</span>
+              <span>Alt+V: Toggle vista</span>
             </div>
           </div>
 
-          <div className={`execution-grid ${!showDeps ? 'hide-deps' : ''}`} ref={gridRef} onScroll={handleGridScroll}>
-            {showScrollIndicator && (
-              <div className="scroll-indicator">
-                <span>← Desliza para ver más →</span>
-              </div>
-            )}
-            <table className="execution-table">
-              <thead>
-                <tr>
-                  <th style={{ width: '80px' }}>Semana</th>
-                  <th style={{ width: '200px' }}>Fase</th>
-                  <th>Tarea</th>
-                  <th style={{ width: '140px' }}>Responsable</th>
-                  <th style={{ width: '80px' }}>Horas</th>
-                  <th style={{ width: '150px' }}>Dependencia</th>
-                  <th style={{ width: '120px' }}>Estado</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredTasks.map(task => (
-                  <tr key={task.id}>
-                    <td><span className="execution-week-badge">W{task.w}</span></td>
-                    <td><span className={`execution-phase-pill ${getPhaseClass(task.phase)}`}>{task.phase}</span></td>
-                    <td className="font-medium">{task.task}</td>
-                    <td><span className={`execution-owner-badge ${getOwnerClass(task.owner)}`}>{task.owner}</span></td>
-                    <td className="execution-hours">{task.h}h</td>
-                    <td className="text-slate-400 text-sm">{task.dep || '-'}</td>
-                    <td>
-                      <button onClick={() => handleStatusToggle(task.id)} className={`execution-status ${getStatusClass(task.status)}`}>
-                        <span>{getStatusIcon(task.status)}</span>
-                        <span>{task.status}</span>
-                      </button>
-                    </td>
+          <div className="execution-grid relative">
+            <div className="execution-table-container" style={{ overflowX: 'auto', overflowY: 'auto' }}>
+              <table className={`execution-table ${viewMode === 'compact' ? 'compact-mode' : ''}`}>
+                <thead>
+                  <tr>
+                    <th style={{width: '80px'}}>Semana</th>
+                    <th style={{width: '200px'}}>Fase</th>
+                    <th>Tarea</th>
+                    <th style={{width: '140px'}}>Responsable</th>
+                    <th style={{width: '80px'}}>Horas</th>
+                    <th className="hide-mobile" style={{width: '150px'}}>Dependencia</th>
+                    <th style={{width: '120px'}}>Estado</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {Object.entries(tasksByWeek).map(([week, weekTasks]) => (
+                    <React.Fragment key={week}>
+                      <tr className="week-separator">
+                        <td colSpan="7" className="text-center py-2 bg-slate-900/50 text-purple-400 font-semibold">── Semana {week} ──</td>
+                      </tr>
+                      {weekTasks.map(task => (
+                        <tr key={task.id} className={viewMode === 'compact' ? 'compact-row' : ''}>
+                          <td><span className="execution-week-badge">W{task.w}</span></td>
+                          <td><span className={`execution-phase-pill ${getPhaseClass(task.phase)}`}>{viewMode === 'compact' ? task.phase.split('.')[0] : task.phase}</span></td>
+                          <td className="font-medium">{task.task}</td>
+                          <td><span className={`execution-owner-badge ${getOwnerClass(task.owner)}`}>{task.owner}</span></td>
+                          <td className="execution-hours">{task.h}h</td>
+                          <td className="text-slate-400 text-sm hide-mobile">{task.dep || '-'}</td>
+                          <td>
+                            <button onClick={() => handleStatusToggle(task.id)} className={`execution-status ${getStatusClass(task.status)}`}>
+                              <span>{getStatusIcon(task.status)}</span>
+                              <span>{viewMode === 'compact' ? '' : task.status}</span>
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </React.Fragment>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {showScrollHint && (
+              <div className="scroll-indicator"><span>← Desliza para ver más →</span></div>
+            )}
           </div>
 
           <div className="execution-totals">
             <div className="execution-total-card"><span className="execution-total-label">Total Horas</span><span className="execution-total-value">{totals.total}h</span></div>
-            <div className="execution-total-card"><span className="execution-total-label">Tech Lead</span><span className="execution-total-value">{totals.fs}h</span></div>
-            <div className="execution-total-card"><span className="execution-total-label">Backend</span><span className="execution-total-value">{totals.ja}h</span></div>
-            <div className="execution-total-card"><span className="execution-total-label">Frontend</span><span className="execution-total-value">{totals.jb}h</span></div>
-            <div className="execution-total-card"><span className="execution-total-label">Design</span><span className="execution-total-value">{totals.ux}h</span></div>
+            <div className="execution-total-card"><span className="execution-total-label">Tech Lead</span><span className="execution-total-value">{totals.lead}h</span></div>
+            <div className="execution-total-card"><span className="execution-total-label">Backend</span><span className="execution-total-value">{totals.backend}h</span></div>
+            <div className="execution-total-card"><span className="execution-total-label">Frontend</span><span className="execution-total-value">{totals.frontend}h</span></div>
+            <div className="execution-total-card"><span className="execution-total-label">Design</span><span className="execution-total-value">{totals.design}h</span></div>
             <div className="execution-total-card"><span className="execution-total-label">Testing</span><span className="execution-total-value">{totals.qa}h</span></div>
-            <div className="execution-progress-bar"><div className="execution-progress-fill" style={{ width: `${progressPercentage}%` }}>{completedTasks} de {tasks.length} tareas completadas</div></div>
+            <div className="flex-1 space-y-2">
+              <div className="flex justify-between text-xs text-slate-400"><span>{completedTasks} de {tasks.length} completadas</span><span>{inProgressTasks} en progreso</span></div>
+              <div className="execution-progress-bar">
+                <div className="execution-progress-fill bg-gradient-to-r from-emerald-500 to-teal-500" style={{ width: `${progressPercentage}%`, transition: 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+                  {progressPercentage > 5 && `${progressPercentage}%`}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       );
@@ -2043,30 +2244,30 @@
                    )}
                  </button>
 
-                 <button
-                   onClick={() => {
-                     setViewMode('execution');
-                     setShowTimeline(false);
-                   }}
-                   className={`px-4 py-3 rounded-xl flex items-center gap-3 transition-all duration-300 ${
-                     viewMode === 'execution' 
-                       ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-lg transform scale-105' 
-                       : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 hover:scale-102'
-                   }`}
-                 >
-                   <span className="text-2xl">📊</span>
-                   <div className="text-left">
-                     <div className="font-bold text-sm">Plan Ejecución</div>
-                     <div className="text-xs opacity-70">Gantt & Recursos</div>
-                   </div>
-                   {viewMode === 'execution' && (
-                     <span className="ml-auto">
-                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                       </svg>
-                     </span>
-                   )}
-                 </button>
+                                   <button
+                    onClick={() => {
+                      setViewMode('execution');
+                      setShowTimeline(false);
+                    }}
+                    className={`px-4 py-3 rounded-xl flex items-center gap-3 transition-all duration-300 ${
+                      viewMode === 'execution' 
+                        ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg transform scale-105' 
+                        : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 hover:scale-102'
+                    }`}
+                  >
+                    <span className="text-2xl">📊</span>
+                    <div className="text-left">
+                      <div className="font-bold text-sm">Plan Ejecución</div>
+                      <div className="text-xs opacity-70">Gestión & Tareas</div>
+                    </div>
+                    {viewMode === 'execution' && (
+                      <span className="ml-auto">
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </span>
+                    )}
+                  </button>
                </div>
                
                {/* Indicador de modo actual */}
