@@ -127,6 +127,7 @@
       border-bottom: 1px solid rgba(168, 85, 247, 0.3);
       padding: 24px;
       backdrop-filter: blur(10px);
+      position: sticky; top: 0; z-index: 20;
     }
 
     .execution-filters {
@@ -159,6 +160,8 @@
       height: calc(100% - 140px);
       overflow: auto;
       padding: 20px;
+      position: relative;
+      scroll-behavior: smooth;
     }
 
     .execution-table {
@@ -250,11 +253,12 @@
       font-weight: 600;
     }
 
-    .owner-fs { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
-    .owner-ja { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
-    .owner-jb { background: rgba(168, 85, 247, 0.15); color: #a78bfa; }
-    .owner-ux { background: rgba(236, 72, 153, 0.15); color: #f472b6; }
-    .owner-qa { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+    .owner-lead { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+    .owner-backend { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
+    .owner-frontend { background: rgba(139, 92, 246, 0.15); color: #8b5cf6; }
+    .owner-design { background: rgba(236, 72, 153, 0.15); color: #ec4899; }
+    .owner-qa { background: rgba(251, 191, 36, 0.15); color: #fbbf24; }
+    .owner-mgmt { background: rgba(156, 163, 175, 0.15); color: #9ca3af; }
 
     .execution-hours {
       font-variant-numeric: tabular-nums;
@@ -334,8 +338,8 @@
 
     .execution-progress-fill {
       height: 100%;
-      background: linear-gradient(90deg, #3b82f6 0%, #a78bfa 100%);
-      transition: width 0.5s ease;
+      background: linear-gradient(90deg, #10b981 0%, #14b8a6 100%);
+      transition: width 0.6s ease;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -361,6 +365,12 @@
     }
 
     /* Responsive */
+    @media (max-width: 1024px) {
+      /* Hide Dependencia column */
+      .execution-grid td:nth-child(6),
+      .execution-grid th:nth-child(6) { display: none; }
+    }
+
     @media (max-width: 768px) {
       .execution-filters {
         flex-direction: column;
@@ -374,16 +384,19 @@
       .execution-table {
         font-size: 12px;
       }
+      .execution-phase-pill { font-size: 10px; }
+      .execution-table th { padding: 8px; }
+      .execution-table td { padding: 8px; }
       
       .execution-totals {
         flex-direction: column;
         gap: 10px;
       }
-      
-      .execution-progress-bar {
-        width: 100%;
-      }
     }
+
+    /* Collapsible Dependencia column via class */
+    .hide-deps td:nth-child(6),
+    .hide-deps th:nth-child(6) { display: none; }
   </style>
 
 </head>
@@ -391,7 +404,7 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useMemo, useState, useEffect } = React;
+    const { useMemo, useState, useEffect, useRef } = React;
     // Icon placeholders (lucide-react no UMD en navegador)
     const PlaceholderIcon = ({ className }) => <span className={className} style={{ display: 'inline-block' }}>●</span>;
     const Layers = ({ className }) => <span className={className}>⬢</span>;
@@ -887,54 +900,69 @@
     // Componente de Vista de Ejecución
     const ExecutionPlanView = () => {
       const [filters, setFilters] = useState({ phase: '', owner: '', search: '', status: '' });
+      const [showDeps, setShowDeps] = useState(false);
+      const gridRef = useRef(null);
+      const [showScrollIndicator, setShowScrollIndicator] = useState(false);
+      const handleGridScroll = (e) => {
+        const { scrollLeft, scrollWidth, clientWidth } = e.currentTarget;
+        const isScrollable = scrollWidth > clientWidth;
+        const atEnd = scrollLeft + clientWidth >= scrollWidth - 4;
+        setShowScrollIndicator(isScrollable && !atEnd);
+      };
+      useEffect(() => {
+        const el = gridRef.current;
+        if (!el) return;
+        const isScrollable = el.scrollWidth > el.clientWidth;
+        setShowScrollIndicator(isScrollable);
+      }, [filteredTasks.length]);
       const [tasks, setTasks] = useState([
-        {id: 1, w:1, phase:'1. Arquitectura & Setup', task:'Definir arquitectura, repos y ramas', owner:'FS Senior', h:8, dep:'', status:'Pendiente'},
-        {id: 2, w:1, phase:'1. Arquitectura & Setup', task:'Pipelines CI/CD (build, test, deploy)', owner:'FS Senior', h:12, dep:'Arquitectura', status:'Pendiente'},
-        {id: 3, w:1, phase:'1. Arquitectura & Setup', task:'Provisionar DB, buckets y secretos', owner:'FS Senior', h:12, dep:'Arquitectura', status:'Pendiente'},
-        {id: 4, w:1, phase:'1. Arquitectura & Setup', task:'Base diseño UI (tokens, componentes)', owner:'UI/UX', h:20, dep:'', status:'Pendiente'},
-        {id: 5, w:1, phase:'1. Arquitectura & Setup', task:'Smoke tests y checklists', owner:'QA', h:10, dep:'CI/CD', status:'Pendiente'},
-        {id: 6, w:2, phase:'2. Core Transaccional', task:'Modelado DB (usuarios, vehículos, eventos)', owner:'FS Senior', h:16, dep:'Setup', status:'Pendiente'},
-        {id: 7, w:2, phase:'2. Core Transaccional', task:'CRUDs base y servicios', owner:'FS Senior', h:24, dep:'Modelado', status:'Pendiente'},
-        {id: 8, w:2, phase:'2. Core Transaccional', task:'UI básicas de administración', owner:'Junior A', h:20, dep:'CRUDs', status:'Pendiente'},
-        {id: 9, w:3, phase:'2. Core Transaccional', task:'Logs, auditoría y métricas', owner:'FS Senior', h:20, dep:'Servicios', status:'Pendiente'},
-        {id: 10, w:3, phase:'2. Core Transaccional', task:'Tests de integración', owner:'QA', h:20, dep:'Servicios', status:'Pendiente'},
-        {id: 11, w:3, phase:'3. Onboarding & Identidad', task:'Flujo de registro y autenticación', owner:'FS Senior', h:16, dep:'Core', status:'Pendiente'},
-        {id: 12, w:3, phase:'3. Onboarding & Identidad', task:'UI de formularios y validaciones', owner:'Junior B', h:20, dep:'Auth', status:'Pendiente'},
-        {id: 13, w:4, phase:'3. Onboarding & Identidad', task:'Integración identidad/KYC', owner:'FS Senior', h:30, dep:'UI', status:'Pendiente'},
-        {id: 14, w:4, phase:'3. Onboarding & Identidad', task:'QA de onboarding', owner:'QA', h:20, dep:'KYC', status:'Pendiente'},
-        {id: 15, w:4, phase:'4. Cobranza & Pagos', task:'Backend pagos y conciliación', owner:'FS Senior', h:24, dep:'Core', status:'Pendiente'},
-        {id: 16, w:5, phase:'4. Cobranza & Pagos', task:'UI referencias y estado de pagos', owner:'Junior A', h:18, dep:'Backend pagos', status:'Pendiente'},
-        {id: 17, w:5, phase:'4. Cobranza & Pagos', task:'Integración gateway de pagos', owner:'FS Senior', h:16, dep:'Backend pagos', status:'Pendiente'},
-        {id: 18, w:5, phase:'4. Cobranza & Pagos', task:'Pruebas fin a fin de cobranza', owner:'QA', h:20, dep:'Integración', status:'Pendiente'},
-        {id: 19, w:6, phase:'5. Postventa & Tickets', task:'Modelo y API de tickets', owner:'FS Senior', h:18, dep:'Core', status:'Pendiente'},
-        {id: 20, w:6, phase:'5. Postventa & Tickets', task:'UI gestor de tickets', owner:'Junior B', h:18, dep:'API', status:'Pendiente'},
-        {id: 21, w:6, phase:'5. Postventa & Tickets', task:'Automatizaciones básicas (reglas)', owner:'FS Senior', h:12, dep:'API', status:'Pendiente'},
-        {id: 22, w:6, phase:'5. Postventa & Tickets', task:'QA de tickets', owner:'QA', h:15, dep:'UI', status:'Pendiente'},
-        {id: 23, w:7, phase:'6. Notificaciones', task:'Servicio de notificaciones (plantillas)', owner:'FS Senior', h:12, dep:'Core', status:'Pendiente'},
-        {id: 24, w:7, phase:'6. Notificaciones', task:'Integración SMS/WhatsApp/email', owner:'FS Senior', h:20, dep:'Servicio notif', status:'Pendiente'},
-        {id: 25, w:7, phase:'6. Notificaciones', task:'UI centro de notificaciones', owner:'Junior A', h:20, dep:'Servicio notif', status:'Pendiente'},
-        {id: 26, w:7, phase:'6. Notificaciones', task:'QA de notificaciones', owner:'QA', h:10, dep:'UI', status:'Pendiente'},
-        {id: 27, w:8, phase:'7. Integraciones Externas', task:'Conector telemetría (webhooks + pull)', owner:'FS Senior', h:28, dep:'Core', status:'Pendiente'},
-        {id: 28, w:8, phase:'7. Integraciones Externas', task:'Normalizador y lago de datos', owner:'FS Senior', h:12, dep:'Conector', status:'Pendiente'},
-        {id: 29, w:8, phase:'7. Integraciones Externas', task:'UI tiempo real (mapa / eventos)', owner:'Junior B', h:20, dep:'Conector', status:'Pendiente'},
-        {id: 30, w:8, phase:'7. Integraciones Externas', task:'Pruebas de latencia y resiliencia', owner:'QA', h:20, dep:'Conector', status:'Pendiente'},
-        {id: 31, w:9, phase:'8. UI/UX Refinado', task:'Componentes y estados vacíos', owner:'UI/UX', h:24, dep:'Módulos previos', status:'Pendiente'},
-        {id: 32, w:9, phase:'8. UI/UX Refinado', task:'Accesibilidad y responsivo', owner:'UI/UX', h:20, dep:'Componentes', status:'Pendiente'},
-        {id: 33, w:9, phase:'8. UI/UX Refinado', task:'Microcopys y vaciado de contenido', owner:'Junior A', h:16, dep:'UI/UX', status:'Pendiente'},
-        {id: 34, w:9, phase:'8. UI/UX Refinado', task:'Refactor visual', owner:'FS Senior', h:20, dep:'UI/UX', status:'Pendiente'},
-        {id: 35, w:10, phase:'9. Seguridad & Roles', task:'RBAC, auditoría y hardening', owner:'FS Senior', h:28, dep:'Core', status:'Pendiente'},
-        {id: 36, w:10, phase:'9. Seguridad & Roles', task:'Flujos de recuperación MFA', owner:'FS Senior', h:12, dep:'RBAC', status:'Pendiente'},
-        {id: 37, w:10, phase:'9. Seguridad & Roles', task:'Pentest interno y fixes', owner:'QA', h:15, dep:'Hardening', status:'Pendiente'},
-        {id: 38, w:10, phase:'9. Seguridad & Roles', task:'Revisión compliance básico', owner:'FS Senior', h:20, dep:'RBAC', status:'Pendiente'},
-        {id: 39, w:11, phase:'10. QA & Performance', task:'Pruebas fin a fin y carga', owner:'QA', h:30, dep:'Todos', status:'Pendiente'},
-        {id: 40, w:11, phase:'10. QA & Performance', task:'Optimización de consultas y cachés', owner:'FS Senior', h:20, dep:'E2E', status:'Pendiente'},
-        {id: 41, w:11, phase:'10. QA & Performance', task:'Bug fixing y estabilidad', owner:'FS Senior', h:20, dep:'E2E', status:'Pendiente'},
-        {id: 42, w:11, phase:'10. QA & Performance', task:'Mejoras UX tras hallazgos', owner:'UI/UX', h:20, dep:'E2E', status:'Pendiente'},
-        {id: 43, w:11, phase:'10. QA & Performance', task:'Re-testing y cierre', owner:'QA', h:20, dep:'Fixes', status:'Pendiente'},
-        {id: 44, w:12, phase:'11. Gestión & Documentación', task:'Manual técnico (APIs, despliegue)', owner:'FS Senior', h:12, dep:'Cierre QA', status:'Pendiente'},
-        {id: 45, w:12, phase:'11. Gestión & Documentación', task:'Guía operativa (soporte / runbook)', owner:'Junior B', h:12, dep:'Cierre QA', status:'Pendiente'},
-        {id: 46, w:12, phase:'11. Gestión & Documentación', task:'Procesos y handover', owner:'FS Senior', h:16, dep:'Runbook', status:'Pendiente'},
-        {id: 47, w:12, phase:'11. Gestión & Documentación', task:'Minutas y retro de proyecto', owner:'CEO/CTO', h:10, dep:'Cierre', status:'Pendiente'},
+        {id: 1, w:1, phase:'1. Arquitectura & Setup', task:'Definir arquitectura, repos y ramas', owner:'Tech Lead', h:8, dep:'', status:'Pendiente'},
+        {id: 2, w:1, phase:'1. Arquitectura & Setup', task:'Pipelines CI/CD (build, test, deploy)', owner:'Tech Lead', h:12, dep:'Arquitectura', status:'Pendiente'},
+        {id: 3, w:1, phase:'1. Arquitectura & Setup', task:'Provisionar DB, buckets y secretos', owner:'Tech Lead', h:12, dep:'Arquitectura', status:'Pendiente'},
+        {id: 4, w:1, phase:'1. Arquitectura & Setup', task:'Base diseño UI (tokens, componentes)', owner:'UX/UI Design', h:20, dep:'', status:'Pendiente'},
+        {id: 5, w:1, phase:'1. Arquitectura & Setup', task:'Smoke tests y checklists', owner:'QA Engineer', h:10, dep:'CI/CD', status:'Pendiente'},
+        {id: 6, w:2, phase:'2. Core Transaccional', task:'Modelado DB (usuarios, vehículos, eventos)', owner:'Tech Lead', h:16, dep:'Setup', status:'Pendiente'},
+        {id: 7, w:2, phase:'2. Core Transaccional', task:'CRUDs base y servicios', owner:'Tech Lead', h:24, dep:'Modelado', status:'Pendiente'},
+        {id: 8, w:2, phase:'2. Core Transaccional', task:'UI básicas de administración', owner:'Backend Dev', h:20, dep:'CRUDs', status:'Pendiente'},
+        {id: 9, w:3, phase:'2. Core Transaccional', task:'Logs, auditoría y métricas', owner:'Tech Lead', h:20, dep:'Servicios', status:'Pendiente'},
+        {id: 10, w:3, phase:'2. Core Transaccional', task:'Tests de integración', owner:'QA Engineer', h:20, dep:'Servicios', status:'Pendiente'},
+        {id: 11, w:3, phase:'3. Onboarding & Identidad', task:'Flujo de registro y autenticación', owner:'Tech Lead', h:16, dep:'Core', status:'Pendiente'},
+        {id: 12, w:3, phase:'3. Onboarding & Identidad', task:'UI de formularios y validaciones', owner:'Frontend Dev', h:20, dep:'Auth', status:'Pendiente'},
+        {id: 13, w:4, phase:'3. Onboarding & Identidad', task:'Integración identidad/KYC', owner:'Tech Lead', h:30, dep:'UI', status:'Pendiente'},
+        {id: 14, w:4, phase:'3. Onboarding & Identidad', task:'QA de onboarding', owner:'QA Engineer', h:20, dep:'KYC', status:'Pendiente'},
+        {id: 15, w:4, phase:'4. Cobranza & Pagos', task:'Backend pagos y conciliación', owner:'Tech Lead', h:24, dep:'Core', status:'Pendiente'},
+        {id: 16, w:5, phase:'4. Cobranza & Pagos', task:'UI referencias y estado de pagos', owner:'Backend Dev', h:18, dep:'Backend pagos', status:'Pendiente'},
+        {id: 17, w:5, phase:'4. Cobranza & Pagos', task:'Integración gateway de pagos', owner:'Tech Lead', h:16, dep:'Backend pagos', status:'Pendiente'},
+        {id: 18, w:5, phase:'4. Cobranza & Pagos', task:'Pruebas fin a fin de cobranza', owner:'QA Engineer', h:20, dep:'Integración', status:'Pendiente'},
+        {id: 19, w:6, phase:'5. Postventa & Tickets', task:'Modelo y API de tickets', owner:'Tech Lead', h:18, dep:'Core', status:'Pendiente'},
+        {id: 20, w:6, phase:'5. Postventa & Tickets', task:'UI gestor de tickets', owner:'Frontend Dev', h:18, dep:'API', status:'Pendiente'},
+        {id: 21, w:6, phase:'5. Postventa & Tickets', task:'Automatizaciones básicas (reglas)', owner:'Tech Lead', h:12, dep:'API', status:'Pendiente'},
+        {id: 22, w:6, phase:'5. Postventa & Tickets', task:'QA de tickets', owner:'QA Engineer', h:15, dep:'UI', status:'Pendiente'},
+        {id: 23, w:7, phase:'6. Notificaciones', task:'Servicio de notificaciones (plantillas)', owner:'Tech Lead', h:12, dep:'Core', status:'Pendiente'},
+        {id: 24, w:7, phase:'6. Notificaciones', task:'Integración SMS/WhatsApp/email', owner:'Tech Lead', h:20, dep:'Servicio notif', status:'Pendiente'},
+        {id: 25, w:7, phase:'6. Notificaciones', task:'UI centro de notificaciones', owner:'Backend Dev', h:20, dep:'Servicio notif', status:'Pendiente'},
+        {id: 26, w:7, phase:'6. Notificaciones', task:'QA de notificaciones', owner:'QA Engineer', h:10, dep:'UI', status:'Pendiente'},
+        {id: 27, w:8, phase:'7. Integraciones Externas', task:'Conector telemetría (webhooks + pull)', owner:'Tech Lead', h:28, dep:'Core', status:'Pendiente'},
+        {id: 28, w:8, phase:'7. Integraciones Externas', task:'Normalizador y lago de datos', owner:'Tech Lead', h:12, dep:'Conector', status:'Pendiente'},
+        {id: 29, w:8, phase:'7. Integraciones Externas', task:'UI tiempo real (mapa / eventos)', owner:'Frontend Dev', h:20, dep:'Conector', status:'Pendiente'},
+        {id: 30, w:8, phase:'7. Integraciones Externas', task:'Pruebas de latencia y resiliencia', owner:'QA Engineer', h:20, dep:'Conector', status:'Pendiente'},
+        {id: 31, w:9, phase:'8. UI/UX Refinado', task:'Componentes y estados vacíos', owner:'UX/UI Design', h:24, dep:'Módulos previos', status:'Pendiente'},
+        {id: 32, w:9, phase:'8. UI/UX Refinado', task:'Accesibilidad y responsivo', owner:'UX/UI Design', h:20, dep:'Componentes', status:'Pendiente'},
+        {id: 33, w:9, phase:'8. UI/UX Refinado', task:'Microcopys y vaciado de contenido', owner:'Backend Dev', h:16, dep:'UX/UI Design', status:'Pendiente'},
+        {id: 34, w:9, phase:'8. UI/UX Refinado', task:'Refactor visual', owner:'Tech Lead', h:20, dep:'UX/UI Design', status:'Pendiente'},
+        {id: 35, w:10, phase:'9. Seguridad & Roles', task:'RBAC, auditoría y hardening', owner:'Tech Lead', h:28, dep:'Core', status:'Pendiente'},
+        {id: 36, w:10, phase:'9. Seguridad & Roles', task:'Flujos de recuperación MFA', owner:'Tech Lead', h:12, dep:'RBAC', status:'Pendiente'},
+        {id: 37, w:10, phase:'9. Seguridad & Roles', task:'Pentest interno y fixes', owner:'QA Engineer', h:15, dep:'Hardening', status:'Pendiente'},
+        {id: 38, w:10, phase:'9. Seguridad & Roles', task:'Revisión compliance básico', owner:'Tech Lead', h:20, dep:'RBAC', status:'Pendiente'},
+        {id: 39, w:11, phase:'10. QA & Performance', task:'Pruebas fin a fin y carga', owner:'QA Engineer', h:30, dep:'Todos', status:'Pendiente'},
+        {id: 40, w:11, phase:'10. QA & Performance', task:'Optimización de consultas y cachés', owner:'Tech Lead', h:20, dep:'E2E', status:'Pendiente'},
+        {id: 41, w:11, phase:'10. QA & Performance', task:'Bug fixing y estabilidad', owner:'Tech Lead', h:20, dep:'E2E', status:'Pendiente'},
+        {id: 42, w:11, phase:'10. QA & Performance', task:'Mejoras UX tras hallazgos', owner:'UX/UI Design', h:20, dep:'E2E', status:'Pendiente'},
+        {id: 43, w:11, phase:'10. QA & Performance', task:'Re-testing y cierre', owner:'QA Engineer', h:20, dep:'Fixes', status:'Pendiente'},
+        {id: 44, w:12, phase:'11. Gestión & Documentación', task:'Manual técnico (APIs, despliegue)', owner:'Tech Lead', h:12, dep:'Cierre QA', status:'Pendiente'},
+        {id: 45, w:12, phase:'11. Gestión & Documentación', task:'Guía operativa (soporte / runbook)', owner:'Frontend Dev', h:12, dep:'Cierre QA', status:'Pendiente'},
+        {id: 46, w:12, phase:'11. Gestión & Documentación', task:'Procesos y handover', owner:'Tech Lead', h:16, dep:'Runbook', status:'Pendiente'},
+        {id: 47, w:12, phase:'11. Gestión & Documentación', task:'Minutas y retro de proyecto', owner:'Management', h:10, dep:'Cierre', status:'Pendiente'},
       ]);
 
       const phases = [...new Set(tasks.map(t => t.phase))];
@@ -965,11 +993,11 @@
 
       const totals = filteredTasks.reduce((acc, task) => {
         acc.total += task.h;
-        if (task.owner === 'FS Senior') acc.fs += task.h;
-        if (task.owner === 'Junior A') acc.ja += task.h;
-        if (task.owner === 'Junior B') acc.jb += task.h;
-        if (task.owner === 'UI/UX') acc.ux += task.h;
-        if (task.owner === 'QA') acc.qa += task.h;
+        if (task.owner === 'Tech Lead') acc.fs += task.h;
+        if (task.owner === 'Backend Dev') acc.ja += task.h;
+        if (task.owner === 'Frontend Dev') acc.jb += task.h;
+        if (task.owner === 'UX/UI Design') acc.ux += task.h;
+        if (task.owner === 'QA Engineer') acc.qa += task.h;
         return acc;
       }, { total: 0, fs: 0, ja: 0, jb: 0, ux: 0, qa: 0 });
 
@@ -982,7 +1010,14 @@
       };
 
       const getOwnerClass = (owner) => {
-        const ownerMap = { 'FS Senior': 'owner-fs', 'Junior A': 'owner-ja', 'Junior B': 'owner-jb', 'UI/UX': 'owner-ux', 'QA': 'owner-qa', 'CEO/CTO': 'owner-fs' };
+        const ownerMap = {
+          'Tech Lead': 'owner-lead',
+          'Backend Dev': 'owner-backend',
+          'Frontend Dev': 'owner-frontend',
+          'UX/UI Design': 'owner-design',
+          'QA Engineer': 'owner-qa',
+          'Management': 'owner-mgmt'
+        };
         return ownerMap[owner] || '';
       };
 
@@ -996,32 +1031,19 @@
         return icons[status] || '○';
       };
 
-      const exportToCSV = () => {
-        const headers = ['Semana', 'Fase', 'Tarea', 'Responsable', 'Horas', 'Dependencia', 'Estado'];
-        const rows = filteredTasks.map(task => [`W${task.w}`, task.phase, task.task, task.owner, task.h, task.dep || '', task.status]);
-        const csv = [headers, ...rows].map(row => row.map(cell => typeof cell === 'string' && cell.includes(',') ? `"${cell}"` : cell).join(',')).join('\n');
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = 'plan_ejecucion_90_dias.csv';
-        link.click();
-      };
-
       return (
         <div className="execution-container animate-in">
           <div className="execution-header">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-2xl font-bold text-white flex items-center gap-3"><span className="text-3xl">📊</span>Plan de Ejecución - 90 Días</h2>
-                <p className="text-purple-200 text-sm mt-1">Gestión detallada de tareas, responsables y progreso del proyecto</p>
+                <h2 className="text-2xl font-bold text-white flex items-center gap-3" title="Gestión detallada de tareas, responsables y progreso del proyecto"><span className="text-3xl">📊</span>Plan de Ejecución • 90 Días</h2>
               </div>
               <div className="flex gap-3">
-                <button onClick={exportToCSV} className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all duration-300 hover:scale-105">📥 Exportar CSV</button>
-                <button onClick={() => window.print()} className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all duration-300 hover:scale-105">🖨️ Imprimir</button>
+                {/* export/print removed */}
               </div>
             </div>
 
-            <div className="execution-filters">
+            <div className="execution-filters items-center">
               <select className="execution-filter-select" value={filters.phase} onChange={(e) => setFilters({ ...filters, phase: e.target.value })}>
                 <option value="">Todas las fases</option>
                 {phases.map(phase => (<option key={phase} value={phase}>{phase}</option>))}
@@ -1036,12 +1058,23 @@
                 <option value="En Progreso">En Progreso</option>
                 <option value="Completado">Completado</option>
               </select>
-              <input className="execution-filter-input flex-1" type="text" placeholder="🔍 Buscar tarea..." value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })} />
-              <button onClick={() => setFilters({ phase: '', owner: '', search: '', status: '' })} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-semibold transition-all duration-300">Limpiar</button>
+              <input className="execution-filter-input flex-1" type="text" placeholder="Buscar..." value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })} />
+              <button onClick={() => setFilters({ phase: '', owner: '', search: '', status: '' })} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-semibold transition-all duration-300">↺ Reset</button>
+              {/* Dependencia toggle */}
+              <button onClick={() => setShowDeps(prev => !prev)} className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-sm">
+                {showDeps ? 'Ocultar Dependencia' : 'Mostrar Dependencia'}
+              </button>
+              {/* Results counter */}
+              <div className="text-slate-300 text-sm ml-auto">Mostrando {filteredTasks.length} de {tasks.length} tareas</div>
             </div>
           </div>
 
-          <div className="execution-grid">
+          <div className={`execution-grid ${!showDeps ? 'hide-deps' : ''}`} ref={gridRef} onScroll={handleGridScroll}>
+            {showScrollIndicator && (
+              <div className="scroll-indicator">
+                <span>← Desliza para ver más →</span>
+              </div>
+            )}
             <table className="execution-table">
               <thead>
                 <tr>
@@ -1077,12 +1110,12 @@
 
           <div className="execution-totals">
             <div className="execution-total-card"><span className="execution-total-label">Total Horas</span><span className="execution-total-value">{totals.total}h</span></div>
-            <div className="execution-total-card"><span className="execution-total-label">FS Senior</span><span className="execution-total-value">{totals.fs}h</span></div>
-            <div className="execution-total-card"><span className="execution-total-label">Junior A</span><span className="execution-total-value">{totals.ja}h</span></div>
-            <div className="execution-total-card"><span className="execution-total-label">Junior B</span><span className="execution-total-value">{totals.jb}h</span></div>
-            <div className="execution-total-card"><span className="execution-total-label">UI/UX</span><span className="execution-total-value">{totals.ux}h</span></div>
-            <div className="execution-total-card"><span className="execution-total-label">QA</span><span className="execution-total-value">{totals.qa}h</span></div>
-            <div className="execution-progress-bar"><div className="execution-progress-fill" style={{ width: `${progressPercentage}%` }}>{progressPercentage}% Completado</div></div>
+            <div className="execution-total-card"><span className="execution-total-label">Tech Lead</span><span className="execution-total-value">{totals.fs}h</span></div>
+            <div className="execution-total-card"><span className="execution-total-label">Backend</span><span className="execution-total-value">{totals.ja}h</span></div>
+            <div className="execution-total-card"><span className="execution-total-label">Frontend</span><span className="execution-total-value">{totals.jb}h</span></div>
+            <div className="execution-total-card"><span className="execution-total-label">Design</span><span className="execution-total-value">{totals.ux}h</span></div>
+            <div className="execution-total-card"><span className="execution-total-label">Testing</span><span className="execution-total-value">{totals.qa}h</span></div>
+            <div className="execution-progress-bar"><div className="execution-progress-fill" style={{ width: `${progressPercentage}%` }}>{completedTasks} de {tasks.length} tareas completadas</div></div>
           </div>
         </div>
       );
