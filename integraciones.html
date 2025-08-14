@@ -568,7 +568,7 @@ button:focus-visible {
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useMemo, useState, useEffect, useRef } = React;
+    const { useMemo, useState, useEffect, useRef, useCallback } = React;
     // Icon placeholders (lucide-react no UMD en navegador)
     const PlaceholderIcon = ({ className }) => <span className={className} style={{ display: 'inline-block' }}>●</span>;
     const Layers = ({ className }) => <span className={className}>⬢</span>;
@@ -633,7 +633,15 @@ button:focus-visible {
           proceso: "Canal digital (Web/App) de onboarding y postventa",
           costo: "N/A (propio)",
           justificacion: "Punto de entrada del cliente; integra KYC (Metamap), pagos (Conekta) y firma (Mifiel) vía iPaaS para cerrar el contrato sin fricción."
-        }
+        },
+        endpoints: [
+          "POST /api/odoo/prospectos",
+          "POST /api/metamap/start {callbackUrl}",
+          "POST /api/kiban/circulo-check",
+          "POST /api/hase/score",
+          "POST /api/mifiel/contracts",
+          "POST /api/conekta/referencia"
+        ]
       },
       {
         id: "whatsapp",
@@ -651,7 +659,11 @@ button:focus-visible {
           proceso: "Comunicaciones (CPaaS) & Desarrollo Low-Code de IA",
           costo: "~$0.005 USD / mensaje (Twilio) + Tarifa de Meta | Costo de Infraestructura + APIs LLM (Flowise)",
           justificacion: "Es la columna vertebral de nuestros agentes PIA y Asistente Digital. Usamos el canal nativo del operador (WhatsApp) y Flowise como la plataforma visual donde nuestro equipo construye, prueba y despliega rápidamente nuestros agentes conversacionales."
-        }
+        },
+        endpoints: [
+          "POST /wa/send",
+          "POST /wa/webhook"
+        ]
       },
       {
         id: "ipaas",
@@ -669,7 +681,10 @@ button:focus-visible {
           proceso: "Orquestación y Automatización (iPaaS)",
           costo: "$30k MXN / año (Presupuestado)",
           justificacion: "El 'Pegamento Digital'. Conecta todas nuestras APIs externas (Conekta, Samsara, Mifiel) con nuestros sistemas internos (Odoo, Agentes IA). Nos permite automatizar flujos en horas, no semanas."
-        }
+        },
+        endpoints: [
+          "N/A (escenarios)"
+        ]
       },
       {
         id: "metamap",
@@ -687,7 +702,11 @@ button:focus-visible {
           proceso: "Onboarding y Verificación (KYC)",
           costo: "$1 - $2.50 USD / verificación",
           justificacion: "Prevención de Fraude. Valida la identidad del operador (INE, biometría) antes de firmar. Es nuestro primer filtro de seguridad."
-        }
+        },
+        endpoints: [
+          "POST /metamap/sessions",
+          "POST /metamap/webhook"
+        ]
       },
       {
         id: "kiban",
@@ -705,7 +724,11 @@ button:focus-visible {
           proceso: "Acelerador de Crédito y Cumplimiento",
           costo: "~$30,000 - $40,000 MXN / mes",
           justificacion: "Eficiencia Regulatoria. Lo usamos como un 'plug-in' para dos tareas complejas: consultar el historial del Buró/Círculo de Crédito (como un input para HASE) y automatizar el reporte mensual de nuestra cartera, quitándonos una carga de cumplimiento masiva."
-        }
+        },
+        endpoints: [
+          "POST /kiban/circulo/consulta",
+          "POST /kiban/reporting/batch"
+        ]
       },
       {
         id: "mifiel",
@@ -723,7 +746,11 @@ button:focus-visible {
           proceso: "Firma Electrónica de Contratos",
           costo: "~$15 - $90 MXN / contrato",
           justificacion: "Certeza Jurídica. Para firmar el contrato de arrendamiento y la dación en pago con validez legal irrefutable en México (NOM-151 y e.firma). Es el pilar de nuestra cartera de activos."
-        }
+        },
+        endpoints: [
+          "POST /mifiel/contracts",
+          "GET /mifiel/contracts/:id"
+        ]
       },
       {
         id: "conekta",
@@ -741,7 +768,11 @@ button:focus-visible {
           proceso: "Procesamiento de Pagos",
           costo: "~3.4% + $3 MXN (tarjeta) | ~2.6% + $3 MXN (efectivo)",
           justificacion: "Flujo de Caja. Su red de pagos en efectivo es indispensable para nuestro mercado no bancarizado."
-        }
+        },
+        endpoints: [
+          "POST /conekta/charges",
+          "POST /conekta/webhook"
+        ]
       },
       {
         id: "gnv",
@@ -759,7 +790,11 @@ button:focus-visible {
           proceso: "Consumo de GNV y recaudo automático",
           costo: "Variable por estación (no consolidado)",
           justificacion: "Habilita el esquema 'se paga solo' aplicando recaudo automático del ahorro de combustible y alimenta PMA/BI con hábitos de carga."
-        }
+        },
+        endpoints: [
+          "GET /gnv/consumos?vehiculo=:id",
+          "POST /gnv/webhook"
+        ]
       },
       {
         id: "samsara",
@@ -781,7 +816,11 @@ button:focus-visible {
           proceso: "Telemática e IoT",
           costo: "$100-150 USD / hardware (único) | $20-40 USD / mes (incluye datos)",
           justificacion: "Generación de Datos. Es el 'sistema nervioso' de nuestras vagonetas. Nos provee los datos del OBD-II para alimentar a HASE y Super-PMA y la capacidad de paro de motor remoto nativa."
-        }
+        },
+        endpoints: [
+          "POST /samsara/webhooks",
+          "GET /samsara/vehicles/:id/stats"
+        ]
       },
       {
         id: "odoo",
@@ -807,7 +846,13 @@ button:focus-visible {
           proceso: "ERP y Core Operativo",
           costo: "~$274 MXN / usuario / mes (Plan Personalizado)",
           justificacion: "El Corazón de la Operación. Es nuestro 'sistema operativo central' con módulos nativos de Inventario, Servicios y CRM diseñados para la complejidad de nuestra postventa. Su API externa es indispensable para que nuestra IA se comunique con la operación."
-        }
+        },
+        endpoints: [
+          "POST /erp/prospectos",
+          "POST /erp/creditos",
+          "GET /erp/creditos/:id/saldo",
+          "POST /erp/os (orden de servicio)"
+        ]
       },
       {
         id: "airtable",
@@ -825,7 +870,11 @@ button:focus-visible {
           proceso: "Backoffice y coordinación operativa (Ops Board)",
           costo: "Depende de asientos/plan",
           justificacion: "Tablero táctico para colas, SLAs y control operativo; se integra vía iPaaS con Odoo y agentes para acelerar la operación sin desarrollar herramientas internas."
-        }
+        },
+        endpoints: [
+          "GET /air/meta",
+          "GET /air/tablas/:id"
+        ]
       },
       {
         id: "hase",
@@ -843,7 +892,11 @@ button:focus-visible {
           proceso: "Scoring hiper-adaptativo (IA propietaria)",
           costo: "N/A (propio)",
           justificacion: "Nuestro 'cerebro' para evaluar riesgo y proponer términos usando señales de Metamap, KIBAN y telemática; alimenta Odoo para ejecución."
-        }
+        },
+        endpoints: [
+          "POST /hase/score",
+          "GET /hase/explicabilidad/:id"
+        ]
       },
       {
         id: "pia",
@@ -861,7 +914,12 @@ button:focus-visible {
           proceso: "Cobranza empática (IA + CPaaS)",
           costo: "Variable CPaaS (Twilio/Meta) + Infra IA",
           justificacion: "Interviene proactivamente con planes flexibles y mensajes personalizados; se orquesta con Flowise y opera en WhatsApp (Twilio)."
-        }
+        },
+        endpoints: [
+          "POST /pia/notify",
+          "POST /pia/hooks/telematica",
+          "POST /pia/rag/query"
+        ]
       },
       {
         id: "pma",
@@ -879,7 +937,11 @@ button:focus-visible {
           proceso: "Mantenimiento Predictivo Asistido",
           costo: "N/A (propio) + Telemetría",
           justificacion: "Detecta anomalías y genera órdenes de servicio en Odoo a partir de DTCs/telemetría (Samsara) y hábitos de consumo GNV."
-        }
+        },
+        endpoints: [
+          "POST /pma/evaluate",
+          "POST /erp/os"
+        ]
       },
       {
         id: "assistant",
@@ -915,7 +977,10 @@ button:focus-visible {
           proceso: "Historificación y analítica (SSOT)",
           costo: "Depende de stack (almacenamiento/compute)",
           justificacion: "Fuente única de verdad para BI/XAI y pruebas de estrés; ingiere streams de telemática y datos operativos para modelado y reporting."
-        }
+        },
+        endpoints: [
+          "BQ tables / LS dashboards"
+        ]
       },
       {
         id: "bi",
@@ -933,7 +998,10 @@ button:focus-visible {
           proceso: "KPIs y reporting ejecutivo",
           costo: "Licenciamiento según herramienta (Looker/Power BI)",
           justificacion: "Tableros accionables sobre modelos semánticos del warehouse para operación, finanzas y calidad."
-        }
+        },
+        endpoints: [
+          "BQ tables / LS dashboards"
+        ]
       },
       {
         id: "twilio",
@@ -951,7 +1019,11 @@ button:focus-visible {
           proceso: "Comunicaciones transaccionales",
           costo: "~$0.005 USD / mensaje",
           justificacion: "Canal crítico de comunicación con operadores."
-        }
+        },
+        endpoints: [
+          "POST /twilio/otp/send",
+          "POST /twilio/wa/send"
+        ]
       },
       {
         id: "gateway",
@@ -969,7 +1041,13 @@ button:focus-visible {
           proceso: "Backend for Frontend",
           costo: "N/A (propio)",
           justificacion: "Punto único de entrada, maneja auth, rate limiting y normalización de respuestas."
-        }
+        },
+        endpoints: [
+          "POST /api/auth/otp (Twilio)",
+          "POST /api/onboarding/submit",
+          "GET /api/credito/:id",
+          "GET /api/pagos?cliente=:id"
+        ]
       },
       {
         id: "geotab",
@@ -987,7 +1065,11 @@ button:focus-visible {
           proceso: "Telemetría Enterprise",
           costo: "~$35-50 USD/mes por unidad",
           justificacion: "Upgrade futuro para flotas grandes con necesidades avanzadas de diagnóstico."
-        }
+        },
+        endpoints: [
+          "POST /geotab/hooks",
+          "GET /geotab/feed"
+        ]
       }
     ];
 
@@ -1114,6 +1196,139 @@ button:focus-visible {
         </div>
       );
     }
+
+    const MiniMap = ({ nodes, positions, scrollContainerRef, canvasWidth, canvasHeight }) => {
+        const miniMapRef = useRef(null);
+        const [viewport, setViewport] = useState({ x: 0, y: 0, width: 0, height: 0 });
+        const [isDragging, setIsDragging] = useState(false);
+
+        const miniMapColors = {
+          external: "bg-sky-500",
+          internal: "bg-emerald-500",
+          data: "bg-fuchsia-500",
+          orchestration: "bg-amber-500",
+          telematics: "bg-cyan-500",
+          front: "bg-teal-500",
+        };
+
+        const updateViewport = useCallback(() => {
+            const container = scrollContainerRef.current;
+            if (!container || !miniMapRef.current) return;
+
+            const miniMapDims = {
+                width: miniMapRef.current.clientWidth - 16, // account for padding
+                height: miniMapRef.current.clientHeight - 16,
+            };
+            if (!miniMapDims.width || !miniMapDims.height) return;
+
+            const scaleX = miniMapDims.width / canvasWidth;
+            const scaleY = miniMapDims.height / canvasHeight;
+
+            setViewport({
+                width: container.clientWidth * scaleX,
+                height: container.clientHeight * scaleY,
+                x: container.scrollLeft * scaleX,
+                y: container.scrollTop * scaleY,
+            });
+        }, [scrollContainerRef, canvasWidth, canvasHeight]);
+
+        useEffect(() => {
+            const container = scrollContainerRef.current;
+            if (!container) return;
+
+            const timer = setTimeout(updateViewport, 150);
+
+            container.addEventListener('scroll', updateViewport);
+            window.addEventListener('resize', updateViewport);
+
+            return () => {
+                clearTimeout(timer);
+                container.removeEventListener('scroll', updateViewport);
+                window.removeEventListener('resize', updateViewport);
+            };
+        }, [updateViewport]);
+
+        const handleMouseDown = (e) => {
+            e.preventDefault();
+            const container = scrollContainerRef.current;
+            if (!container || !miniMapRef.current) return;
+
+            setIsDragging(true);
+
+            const miniMapRect = miniMapRef.current.getBoundingClientRect();
+            const scaleX = (miniMapRect.width - 16) / canvasWidth;
+            const scaleY = (miniMapRect.height - 16) / canvasHeight;
+
+            const startScrollLeft = container.scrollLeft;
+            const startScrollTop = container.scrollTop;
+            const startX = e.clientX;
+            const startY = e.clientY;
+
+            const handleMouseMove = (moveEvent) => {
+                const dx = moveEvent.clientX - startX;
+                const dy = moveEvent.clientY - startY;
+                container.scrollLeft = startScrollLeft + dx / scaleX;
+                container.scrollTop = startScrollTop + dy / scaleY;
+            };
+
+            const handleMouseUp = () => {
+                setIsDragging(false);
+                document.removeEventListener('mousemove', handleMouseMove);
+                document.removeEventListener('mouseup', handleMouseUp);
+            };
+
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+        };
+
+        const getMiniMapDimensions = () => {
+            if (!miniMapRef.current) return { width: 0, height: 0 };
+            return {
+                width: miniMapRef.current.clientWidth - 16,
+                height: miniMapRef.current.clientHeight - 16,
+            };
+        };
+
+        const miniMapDims = getMiniMapDimensions();
+        const scaleX = miniMapDims.width > 0 ? miniMapDims.width / canvasWidth : 0;
+        const scaleY = miniMapDims.height > 0 ? miniMapDims.height / canvasHeight : 0;
+
+        return (
+            <div ref={miniMapRef} className="fixed bottom-6 right-6 z-50 bg-slate-950/80 backdrop-blur-sm border border-slate-700 rounded-xl shadow-2xl w-64 h-48 p-2 transition-opacity duration-300 hover:opacity-100 opacity-90 animate-fadeIn">
+                <div className="relative w-full h-full">
+                    {nodes.map(node => {
+                        const pos = positions[node.id];
+                        if (!pos || !scaleX || !scaleY) return null;
+                        const bgColor = miniMapColors[node.type] || 'bg-slate-500';
+
+                        return (
+                            <div
+                                key={`minimap-${node.id}`}
+                                style={{
+                                    left: pos.x * scaleX,
+                                    top: pos.y * scaleY,
+                                    width: Math.max(2, CARD_W * scaleX),
+                                    height: Math.max(2, CARD_H * scaleY)
+                                }}
+                                className={`absolute ${bgColor} opacity-60 rounded-sm`}
+                            />
+                        );
+                    })}
+                    <div
+                        onMouseDown={handleMouseDown}
+                        style={{
+                            left: viewport.x,
+                            top: viewport.y,
+                            width: viewport.width,
+                            height: viewport.height,
+                            cursor: isDragging ? 'grabbing' : 'grab'
+                        }}
+                        className="absolute border-2 border-teal-400 bg-teal-500/20 rounded"
+                    />
+                </div>
+            </div>
+        );
+    };
 
     // Componente de Vista de Ejecución
     const ExecutionPlanView = () => {
@@ -1261,6 +1476,15 @@ button:focus-visible {
         localStorage.setItem('executionTasks', JSON.stringify(tasks));
       }, [tasks]);
 
+      const phases = useMemo(() => [...new Set(tasks.map(t => t.phase))], [tasks]);
+      const [collapsedPhases, setCollapsedPhases] = useState(() =>
+        phases.reduce((acc, phase) => ({ ...acc, [phase]: true }), {})
+      );
+
+      const togglePhase = (phase) => {
+        setCollapsedPhases(prev => ({ ...prev, [phase]: !prev[phase] }));
+      };
+
       useEffect(() => {
         const checkScroll = () => {
           const table = document.querySelector('.execution-table-container');
@@ -1293,7 +1517,6 @@ button:focus-visible {
         return () => window.removeEventListener('keydown', handleKeyPress);
       }, []);
 
-      const phases = [...new Set(tasks.map(t => t.phase))];
       const owners = [...new Set(tasks.map(t => t.owner))];
       const weeks = [...new Set(tasks.map(t => t.w))].sort((a, b) => a - b);
 
@@ -1328,11 +1551,14 @@ button:focus-visible {
         return true;
       });
 
-      const tasksByWeek = filteredTasks.reduce((acc, task) => {
-        if (!acc[task.w]) acc[task.w] = [];
-        acc[task.w].push(task);
-        return acc;
-      }, {});
+      const tasksByPhase = useMemo(() => {
+        return filteredTasks.reduce((acc, task) => {
+            const phase = task.phase;
+            if (!acc[phase]) acc[phase] = [];
+            acc[phase].push(task);
+            return acc;
+        }, {});
+      }, [filteredTasks]);
 
       const totals = filteredTasks.reduce((acc, task) => {
         acc.total += task.h;
@@ -1465,15 +1691,17 @@ button:focus-visible {
                   </tr>
                 </thead>
                 <tbody>
-                  {Object.entries(tasksByWeek).map(([week, weekTasks]) => (
-                    <React.Fragment key={week}>
-                                              <tr className="week-separator">
-                          <td colSpan={showTechnicalColumns ? 9 : 7} className="text-center py-2 bg-slate-900/50 text-purple-400 font-semibold">
-                            ── Semana {week} ──
-                          </td>
+                  {phases.filter(phase => tasksByPhase[phase]?.length > 0).map(phase => (
+                    <React.Fragment key={phase}>
+                      <tr onClick={() => togglePhase(phase)} className="bg-slate-800/50 hover:bg-slate-700/80 cursor-pointer" title={`Click para ${collapsedPhases[phase] ? 'expandir' : 'colapsar'}`}>
+                        <td colSpan={showTechnicalColumns ? 9 : 7} className="font-bold text-purple-300 p-3 sticky top-0 z-10 bg-slate-800/50">
+                            <span className="inline-block w-6 transition-transform duration-200" style={{transform: collapsedPhases[phase] ? 'rotate(-90deg)' : 'rotate(0deg)'}}>▼</span>
+                            {phase}
+                            <span className="text-xs text-slate-400 ml-2 font-normal">({tasksByPhase[phase].length} tareas)</span>
+                        </td>
                       </tr>
-                      {weekTasks.map(task => (
-                                                 <tr key={task.id} className={viewMode === 'compact' ? 'compact-row' : ''}>
+                      {!collapsedPhases[phase] && tasksByPhase[phase].map(task => (
+                        <tr key={task.id} className={`${viewMode === 'compact' ? 'compact-row' : ''} animate-fadeIn`}>
                            <td><span className="execution-week-badge">W{task.w}</span></td>
                            <td><span className={`execution-phase-pill ${getPhaseClass(task.phase)}`}>{task.phase}</span></td>
                            <td className="font-medium">{task.task}</td>
@@ -1545,8 +1773,8 @@ button:focus-visible {
       const [currentWeek, setCurrentWeek] = useState(1);
       const [hoveredWeek, setHoveredWeek] = useState(null);
 
-      const [viewMode, setViewMode] = useState('timeline'); // 'timeline' | 'technical' | 'execution'
-      const [portalLoading, setPortalLoading] = useState(true);
+      const [viewMode, setViewMode] = useState('strategy'); // 'strategy' | 'technical' | 'execution'
+      const scrollContainerRef = useRef(null);
 
       const TIMELINE_PHASES = {
         "Mes 1: Ignición Inmediata": {
@@ -1776,597 +2004,9 @@ button:focus-visible {
       const maxRow = Math.max(...filteredNodes.map((n) => n.row));
       const height = Math.ceil(PADDING_Y + maxRow * ROW_HEIGHT + CARD_H + 16);
 
-      // Componente Portal Técnico embebido
-      const TechnicalPortalView = () => {
-        const portalHTML = `
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Arquitectura de Integraciones – Conductores</title>
-  <script src="https://cdn.tailwindcss.com"><\/script>
-  <style>
-    :root{
-      --mvp:#10b981;        /* emerald-500 */
-      --phase2:#0ea5e9;     /* sky-500 */
-      --future:#f59e0b;     /* amber-500 */
-      --infra:#94a3b8;      /* slate-400 */
-      --core:#0d9488;       /* teal-600 */
-    }
-    .node{cursor:pointer;}
-    .pill{border-radius:9999px;padding:.125rem .5rem;font-size:.75rem}
-    .badge{border:1px solid rgba(148,163,184,.35)}
-    .card{border:1px solid rgba(148,163,184,.35);border-radius:0.75rem}
-    .edge{stroke:#CBD5E1;stroke-width:2;opacity:.9}
-    .edge.arrow{marker-end:url(#arrow)}
-    .glow{filter: drop-shadow(0 1px 6px rgba(2,132,199,.25));}
-    .kbd{border:1px solid #cbd5e1;border-bottom-width:3px;border-radius:.375rem;padding:.1rem .35rem;background:#f8fafc}
-    .legend-dot{width:.75rem;height:.75rem;border-radius:9999px;display:inline-block;margin-right:.35rem}
-    .status-mvp{background:var(--mvp)}
-    .status-phase2{background:var(--phase2)}
-    .status-future{background:var(--future)}
-    .status-core{background:var(--core)}
-    .status-infra{background:var(--infra)}
-    /* Scroll container (dark themed) */
-    .diagram-scroll-container{width:100%;height:calc(100vh - 210px);overflow-x:scroll!important;overflow-y:auto;position:relative;scrollbar-width:thin;scrollbar-color:#475569 #1e293b;-webkit-overflow-scrolling:touch!important}
-    .diagram-scroll-container::-webkit-scrollbar{width:14px;height:14px}
-    .diagram-scroll-container::-webkit-scrollbar-track{background:#1e293b;border-radius:4px}
-    .diagram-scroll-container::-webkit-scrollbar-thumb{background:#475569;border-radius:4px;border:2px solid #1e293b}
-    .diagram-scroll-container::-webkit-scrollbar-corner{background:#1e293b}
-        .diagram-inner-canvas{min-width:2400px!important;width:max-content;padding-bottom:10px;position:relative;display:block}
-    @keyframes pulse{0%{transform:scale(1);opacity:1}50%{transform:scale(1.05);opacity:.8}100%{transform:scale(1);opacity:1}}
-    .using-tab button:focus, .using-tab a:focus { outline: 2px solid #14b8a6; outline-offset: 2px; }
-       </style>
-         <style>
-       /* Fullscreen for diagram section */
-       .fullscreen { position: fixed; inset: 0; z-index: 100; padding: 1rem; background: #0b1220; border-radius: 0 !important; width: 100vw; height: 100dvh; overflow: auto; }
-       /* Larger SVG text for readability */
-       #arch text { font-size: 20px !important; }
-       #arch .node text { font-size: 16px !important; font-weight: 700; }
-       /* Typographic scale */
-       :root { --font-base: clamp(16px, 1.1vw, 18px); }
-       body { font-size: var(--font-base); line-height: 1.55; }
-     </style>
-</head>
-<body class="bg-slate-950 text-slate-100">
-
-  <div class="sticky top-0 z-30 bg-slate-950/80 backdrop-blur border-b border-slate-800">
-    <div class="max-w-full xl:max-w-[1800px] 2xl:max-w-[2200px] mx-auto px-6 py-4 flex items-center gap-3">
-      <span class="w-5 h-5 text-teal-400">⚙</span>
-      <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight">Arquitectura de Integraciones — Conductores</h1>
-      <div class="ml-auto flex items-center gap-2 overflow-x-auto">
-        <button class="px-6 py-2 rounded-xl border-2 flex items-center gap-2 text-sm font-bold bg-gradient-to-r from-purple-900/50 to-blue-900/50 border-purple-500 text-purple-200 hover:shadow-lg hover:shadow-purple-500/20">
-          <span class="text-xl">🚀</span>
-          <span>Blueprint 90 Días</span>
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <main class="max-w-full xl:max-w-[1800px] 2xl:max-w-[2200px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 px-6 pb-8">
-
-    <!-- Diagram -->
-          <section id="diagramSection" class="lg:col-span-10 rounded-2xl border border-slate-800 bg-slate-900/40 p-4 relative overflow-hidden">
-      <div class="flex items-start justify-between mb-3">
-          <div>
-            <h2 class="font-extrabold text-slate-100 text-xl md:text-2xl tracking-tight">Mapa de Integraciones</h2>
-            <p class="mt-1 text-slate-300 text-sm max-w-3xl">Vista interactiva de cómo se conectan nuestras piezas: Portal (PWA), Odoo, Airtable, Metamap, Kiban, HASE, Mifiel, Conekta, Twilio, Samsara/Geotab, Make/Zapier, Flowise, APIs GNV y Agentes (PIA & Super-PMA).</p>
-          </div>
-                    <div class="flex items-center gap-3 text-xs sm:text-sm flex-wrap ml-4">
-            <div class="flex items-center gap-2">
-              <button id="btnFull" class="px-3 py-1.5 rounded-lg border border-slate-700 hover:bg-slate-800">Pantalla completa</button>
-              <button id="btnToggleDetails" class="px-3 py-1.5 rounded-lg border border-slate-700 hover:bg-slate-800">Ocultar detalles</button>
-              <button id="btnToggleFlows" class="px-3 py-1.5 rounded-lg border border-slate-700 hover:bg-slate-800">Ocultar flujos</button>
-            </div>
-            <span><span class="legend-dot status-core"></span>Núcleo (Core)</span>
-            <span><span class="legend-dot status-mvp"></span>MVP</span>
-            <span><span class="legend-dot status-phase2"></span>Fase 2</span>
-            <span><span class="legend-dot status-future"></span>Futuro</span>
-          </div>
-      </div>
-
-      <svg id="arch" viewBox="0 0 1320 760" class="w-full h-[720px] lg:h-[820px]">
-        <!-- defs -->
-        <defs>
-          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-            <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"></path>
-          </marker>
-        </defs>
-
-        <!-- Zones background -->
-        <rect x="10" y="10" width="1180" height="740" fill="#0f172a" stroke="#334155"/>
-                 <text x="24" y="42" fill="#94a3b8" font-size="22">Zona de Integraciones</text>
-
-        <!-- CORE cluster -->
-        <rect x="60" y="80" width="640" height="270" rx="16" fill="#0b1220" stroke="#334155"/>
-                 <text x="76" y="104" fill="#38bdf8" font-weight="bold" font-size="20">CORE Transaccional & Orquestación</text>
-
-        <!-- DATA/AI cluster -->
-        <rect x="60" y="380" width="1080" height="190" rx="16" fill="#0b1a13" stroke="#14532d"/>
-                 <text x="76" y="404" fill="#34d399" font-weight="bold" font-size="20">Datos, IA y Automatización</text>
-
-        <!-- TELEMATICS cluster -->
-        <rect x="740" y="80" width="400" height="270" rx="16" fill="#1c1917" stroke="#a16207"/>
-                 <text x="756" y="104" fill="#f59e0b" font-weight="bold" font-size="20">Telemática & Operación</text>
-
-        <!-- NODES -->
-        <!-- Portal PWA -->
-        <g id="n-portal" class="node" transform="translate(90,120)">
-          <rect width="180" height="60" rx="12" fill="#0b1220" stroke="#0d9488" stroke-width="2"/>
-          <text x="90" y="36" text-anchor="middle" fill="#e2e8f0" font-weight="bold">Portal Conductores (PWA)</text>
-          <circle cx="165" cy="20" r="6" fill="var(--mvp)"/>
-        </g>
-
-        <!-- Backend Gateway -->
-        <g id="n-gw" class="node" transform="translate(330,120)">
-          <rect width="180" height="60" rx="12" fill="#0b1220" stroke="#0d9488" stroke-width="2"/>
-          <text x="90" y="36" text-anchor="middle" fill="#e2e8f0" font-weight="bold">API Gateway (BFF)</text>
-          <circle cx="165" cy="20" r="6" fill="var(--mvp)"/>
-        </g>
-
-        <!-- Odoo -->
-        <g id="n-odoo" class="node" transform="translate(210,210)">
-          <rect width="200" height="60" rx="12" fill="#0b1220" stroke="#0d9488" stroke-width="2"/>
-          <text x="100" y="36" text-anchor="middle" fill="#e2e8f0" font-weight="bold">Odoo (ERP Core)</text>
-          <circle cx="185" cy="20" r="6" fill="var(--core)"/>
-        </g>
-
-        <!-- Airtable -->
-        <g id="n-airtable" class="node" transform="translate(90,210)">
-          <rect width="100" height="60" rx="12" fill="#0b1220" stroke="#0d9488" stroke-width="2"/>
-          <text x="50" y="36" text-anchor="middle" fill="#e2e8f0" font-weight="bold">Airtable</text>
-          <circle cx="85" cy="20" r="6" fill="var(--mvp)"/>
-        </g>
-
-        <!-- Metamap -->
-        <g id="n-metamap" class="node" transform="translate(450,210)">
-          <rect width="140" height="60" rx="12" fill="#0b1220" stroke="#0d9488" stroke-width="2"/>
-          <text x="70" y="36" text-anchor="middle" fill="#e2e8f0" font-weight="bold">Metamap</text>
-          <circle cx="125" cy="20" r="6" fill="var(--mvp)"/>
-        </g>
-
-        <!-- Kiban -->
-        <g id="n-kiban" class="node" transform="translate(610,210)">
-          <rect width="130" height="60" rx="12" fill="#0b1220" stroke="#0d9488" stroke-width="2"/>
-          <text x="65" y="36" text-anchor="middle" fill="#e2e8f0" font-weight="bold">Kiban</text>
-          <circle cx="115" cy="20" r="6" fill="var(--mvp)"/>
-        </g>
-
-        <!-- Mifiel -->
-        <g id="n-mifiel" class="node" transform="translate(90,300)">
-          <rect width="150" height="60" rx="12" fill="#0b1220" stroke="#0d9488" stroke-width="2"/>
-          <text x="75" y="36" text-anchor="middle" fill="#e2e8f0" font-weight="bold">Mifiel</text>
-          <circle cx="130" cy="20" r="6" fill="var(--mvp)"/>
-        </g>
-
-        <!-- Conekta -->
-        <g id="n-conekta" class="node" transform="translate(260,300)">
-          <rect width="150" height="60" rx="12" fill="#0b1220" stroke="#0d9488" stroke-width="2"/>
-          <text x="75" y="36" text-anchor="middle" fill="#e2e8f0" font-weight="bold">Conekta</text>
-          <circle cx="130" cy="20" r="6" fill="var(--mvp)"/>
-        </g>
-
-        <!-- Twilio -->
-        <g id="n-twilio" class="node" transform="translate(430,300)">
-          <rect width="120" height="60" rx="12" fill="#0b1220" stroke="#0d9488" stroke-width="2"/>
-          <text x="60" y="36" text-anchor="middle" fill="#e2e8f0" font-weight="bold">Twilio</text>
-          <circle cx="100" cy="20" r="6" fill="var(--phase2)"/>
-        </g>
-
-        <!-- Flowise -->
-        <g id="n-flowise" class="node" transform="translate(570,300)">
-          <rect width="170" height="60" rx="12" fill="#0b1220" stroke="#0d9488" stroke-width="2"/>
-          <text x="85" y="36" text-anchor="middle" fill="#e2e8f0" font-weight="bold">Flowise / PIA</text>
-          <circle cx="155" cy="20" r="6" fill="var(--phase2)"/>
-        </g>
-
-        <!-- Samsara -->
-        <g id="n-samsara" class="node" transform="translate(770,140)">
-          <rect width="180" height="60" rx="12" fill="#1c1917" stroke="#f59e0b" stroke-width="2"/>
-          <text x="90" y="36" text-anchor="middle" fill="#e2e8f0" font-weight="bold">Samsara</text>
-          <circle cx="165" cy="20" r="6" fill="var(--mvp)"/>
-        </g>
-
-        <!-- Geotab -->
-        <g id="n-geotab" class="node" transform="translate(970,140)">
-          <rect width="150" height="60" rx="12" fill="#1c1917" stroke="#f59e0b" stroke-width="2"/>
-          <text x="75" y="36" text-anchor="middle" fill="#e2e8f0" font-weight="bold">Geotab</text>
-          <circle cx="135" cy="20" r="6" fill="var(--future)"/>
-        </g>
-
-        <!-- Super-PMA -->
-        <g id="n-pma" class="node" transform="translate(770,230)">
-          <rect width="170" height="60" rx="12" fill="#1c1917" stroke="#f59e0b" stroke-width="2"/>
-          <text x="85" y="36" text-anchor="middle" fill="#e2e8f0" font-weight="bold">Super-PMA</text>
-          <circle cx="155" cy="20" r="6" fill="var(--phase2)"/>
-        </g>
-
-        <!-- APIs GNV -->
-        <g id="n-gnv" class="node" transform="translate(960,230)">
-          <rect width="160" height="60" rx="12" fill="#1c1917" stroke="#f59e0b" stroke-width="2"/>
-          <text x="80" y="36" text-anchor="middle" fill="#e2e8f0" font-weight="bold">APIs Estaciones GNV</text>
-          <circle cx="140" cy="20" r="6" fill="var(--phase2)"/>
-        </g>
-
-        <!-- Make/Zapier -->
-        <g id="n-make" class="node" transform="translate(90,470)">
-          <rect width="180" height="60" rx="12" fill="#052e1b" stroke="#22c55e" stroke-width="2"/>
-          <text x="90" y="36" text-anchor="middle" fill="#e2e8f0" font-weight="bold">Make / Zapier / n8n</text>
-          <circle cx="165" cy="20" r="6" fill="var(--mvp)"/>
-        </g>
-
-        <!-- HASE -->
-        <g id="n-hase" class="node" transform="translate(300,470)">
-          <rect width="160" height="60" rx="12" fill="#052e1b" stroke="#22c55e" stroke-width="2"/>
-          <text x="80" y="36" text-anchor="middle" fill="#e2e8f0" font-weight="bold">HASE (Scoring)</text>
-          <circle cx="140" cy="20" r="6" fill="var(--mvp)"/>
-        </g>
-
-        <!-- Data Lake / BI -->
-        <g id="n-bi" class="node" transform="translate(480,470)">
-          <rect width="210" height="60" rx="12" fill="#052e1b" stroke="#22c55e" stroke-width="2"/>
-          <text x="105" y="36" text-anchor="middle" fill="#e2e8f0" font-weight="bold">Data Lake + BI (BQ/LS)</text>
-          <circle cx="190" cy="20" r="6" fill="var(--phase2)"/>
-        </g>
-
-        <!-- WhatsApp -->
-        <g id="n-wa" class="node" transform="translate(710,470)">
-          <rect width="140" height="60" rx="12" fill="#052e1b" stroke="#22c55e" stroke-width="2"/>
-          <text x="70" y="36" text-anchor="middle" fill="#e2e8f0" font-weight="bold">WhatsApp API</text>
-          <circle cx="120" cy="20" r="6" fill="var(--phase2)"/>
-        </g>
-
-        <!-- Flow lines (edges) -->
-        <!-- Portal -> Gateway -->
-        <line class="edge arrow" x1="270" y1="150" x2="330" y2="150" />
-        <!-- Gateway -> Odoo -->
-        <line class="edge arrow" x1="420" y1="150" x2="310" y2="240" />
-        <!-- Gateway -> Metamap/Kiban -->
-        <line class="edge arrow" x1="420" y1="150" x2="520" y2="240" />
-        <line class="edge arrow" x1="420" y1="150" x2="645" y2="240" />
-        <!-- Odoo -> Mifiel/Conekta/Twilio/Flowise -->
-        <line class="edge arrow" x1="310" y1="240" x2="165" y2="330" />
-        <line class="edge arrow" x1="310" y1="240" x2="335" y2="330" />
-        <line class="edge arrow" x1="310" y1="240" x2="490" y2="330" />
-        <line class="edge arrow" x1="310" y1="240" x2="655" y2="330" />
-        <!-- Telematics -> PMA -> Flowise/PIA/Odoo -->
-        <line class="edge arrow" x1="860" y1="170" x2="855" y2="260" />
-        <line class="edge arrow" x1="855" y1="260" x2="655" y2="330" />
-        <line class="edge arrow" x1="855" y1="260" x2="310" y2="240" />
-        <!-- GNV -> PMA & BI -->
-        <line class="edge arrow" x1="1040" y1="260" x2="855" y2="260" />
-        <line class="edge arrow" x1="1040" y1="260" x2="585" y2="500" />
-        <!-- Orchestration/AI/Datalake edges -->
-        <line class="edge arrow" x1="180" y1="500" x2="300" y2="500" />
-        <line class="edge arrow" x1="380" y1="500" x2="585" y2="500" />
-        <line class="edge arrow" x1="585" y1="500" x2="780" y2="500" />
-        <line class="edge arrow" x1="655" y1="330" x2="780" y2="500" />
-
-      </svg>
-
-      <p class="text-xs text-slate-500 mt-3">Consejo: haz clic en cualquier bloque para ver detalles, APIs y estado (MVP / Fase 2 / Futuro).</p>
-    </section>
-
-    <!-- Details panel -->
-    <aside id="panel" class="lg:col-span-2 lg:row-span-2 rounded-2xl border border-slate-800 bg-slate-900/40 p-4 sticky top-4 max-h-[calc(100vh-120px)] overflow-auto resize-x">
-      <div id="empty" class="text-slate-300">
-        <h3 class="font-bold text-lg">Detalles</h3>
-        <p class="mt-1">Selecciona un bloque del diagrama para ver:</p>
-        <ul class="list-disc pl-5 mt-2 text-sm">
-          <li>Rol en la arquitectura</li>
-          <li>Principales datos que intercambia</li>
-          <li>EndPoints sugeridos</li>
-          <li>Estado: <span class="pill badge">MVP</span>, <span class="pill badge">Fase 2</span>, <span class="pill badge">Futuro</span></li>
-        </ul>
-      </div>
-      <div id="content" class="hidden"></div>
-    </aside>
-
-    <!-- Swimlanes / Flujos clave -->
-    <section id="flowsSection" class="lg:col-span-10 lg:row-start-2 rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
-      <h2 class="font-extrabold text-slate-100 text-xl md:text-2xl tracking-tight mb-2">Flujos Clave</h2>
-      <div class="grid md:grid-cols-3 gap-3 text-sm">
-        <div class="p-3 rounded-lg border border-slate-800 bg-slate-900/40">
-          <h3 class="font-extrabold mb-1">Onboarding (Asesor)</h3>
-          <ol class="list-decimal pl-5 space-y-1 font-semibold">
-            <li>Portal crea prospecto (Odoo)</li>
-            <li>Verificación Metamap</li>
-            <li>Consulta Círculo de Crédito (Kiban)</li>
-            <li>HASE (score cualitativo + aval)</li>
-            <li>Generación y firma (Mifiel)</li>
-            <li>Alta de crédito (Odoo)</li>
-          </ol>
-        </div>
-        <div class="p-3 rounded-lg border border-slate-800 bg-slate-900/40">
-          <h3 class="font-extrabold mb-1">Cobranza & Pagos</h3>
-          <ol class="list-decimal pl-5 space-y-1 font-semibold">
-            <li>PIA envía recordatorio (WA)</li>
-            <li>Generación referencia (Conekta)</li>
-            <li>Pago y conciliación → Odoo</li>
-            <li>Actualización de saldo y notificación</li>
-          </ol>
-        </div>
-        <div class="p-3 rounded-lg border border-slate-800 bg-slate-900/40">
-          <h3 class="font-extrabold mb-1">Postventa & PMA</h3>
-          <ol class="list-decimal pl-5 space-y-1 font-semibold">
-            <li>Telemática (Samsara) emite evento</li>
-            <li>Super‑PMA evalúa condición</li>
-            <li>Si aplica, crear OS en Odoo</li>
-            <li>Asistente notifica al operador/propietario</li>
-          </ol>
-        </div>
-      </div>
-    </section>
-
-  </main>
-
-        <script>
-        const panel = document.getElementById('panel');
-        const content = document.getElementById('content');
-        const empty = document.getElementById('empty');
-        // Focus-visible support for accessibility
-        document.addEventListener('keydown', (e)=>{
-          if(e.key==='Tab') document.documentElement.classList.add('using-tab');
-        });
-
-        // UI state management for layout controls
-        const diagramSection = document.querySelector('#diagramSection');
-        const flowsSection = document.querySelector('#flowsSection');
-        const detailsAside = document.querySelector('#panel');
-
-        function applyState(){
-          const hideDetails = localStorage.getItem('intg_hide_details') === '1';
-          const hideFlows = localStorage.getItem('intg_hide_flows') === '1';
-          if(detailsAside){ detailsAside.classList.toggle('hidden', hideDetails); }
-          if(diagramSection){
-            diagramSection.classList.toggle('lg:col-span-12', hideDetails);
-            diagramSection.classList.toggle('lg:col-span-10', !hideDetails);
-          }
-          if(flowsSection){
-            flowsSection.classList.toggle('hidden', hideFlows);
-            flowsSection.classList.toggle('lg:col-span-12', hideDetails && !hideFlows);
-            flowsSection.classList.toggle('lg:col-span-10', !hideDetails && !hideFlows);
-          }
-        }
-
-        function toggleFullscreen(){
-          if(!diagramSection) return;
-          const isFull = diagramSection.classList.toggle('fullscreen');
-          document.body.classList.toggle('overflow-hidden', isFull);
-          localStorage.setItem('intg_fullscreen', isFull ? '1' : '0');
-        }
-        function toggleDetails(){
-          const hide = !(localStorage.getItem('intg_hide_details') === '1');
-          localStorage.setItem('intg_hide_details', hide ? '1' : '0');
-          applyState();
-        }
-        function toggleFlows(){
-          const hide = !(localStorage.getItem('intg_hide_flows') === '1');
-          localStorage.setItem('intg_hide_flows', hide ? '1' : '0');
-          applyState();
-        }
-
-        document.addEventListener('DOMContentLoaded', ()=>{
-          const btnFull = document.getElementById('btnFull');
-          const btnToggleDetails = document.getElementById('btnToggleDetails');
-          const btnToggleFlows = document.getElementById('btnToggleFlows');
-          btnFull && btnFull.addEventListener('click', toggleFullscreen);
-          btnToggleDetails && btnToggleDetails.addEventListener('click', toggleDetails);
-          btnToggleFlows && btnToggleFlows.addEventListener('click', toggleFlows);
-          if(localStorage.getItem('intg_fullscreen') === '1'){
-            toggleFullscreen();
-          }
-          applyState();
-        });
-
-    const nodes = {
-      'n-portal': {
-        title: 'Portal Conductores (PWA)',
-        status: 'MVP',
-        role: 'Front web instalable (PWA) para Asesor y Operador. Orquesta onboarding y consulta post‑aprobación.',
-        data: ['Prospecto', 'INE + selfie (via Metamap)', 'Carta aval', 'Score HASE (resumen)', 'Contrato (link Mifiel)', 'Pagos y saldo (Odoo/Conekta)'],
-        endpoints: [
-          'POST /api/odoo/prospectos',
-          'POST /api/metamap/start {callbackUrl}',
-          'POST /api/kiban/circulo-check',
-          'POST /api/hase/score',
-          'POST /api/mifiel/contracts',
-          'POST /api/conekta/referencia'
-        ]
-      },
-      'n-gw': {
-        title: 'API Gateway (BFF – Backend for Frontend)',
-        status: 'MVP',
-        role: 'Capa de seguridad y orquestación. Firma, rate‑limit y normaliza respuestas de proveedores.',
-        data: ['Tokens OAuth/API keys', 'Logs auditoría', 'Normalización JSON'],
-        endpoints: [
-          'POST /api/auth/otp (Twilio)',
-          'POST /api/onboarding/submit',
-          'GET /api/credito/:id',
-          'GET /api/pagos?cliente=:id'
-        ]
-      },
-      'n-odoo': {
-        title: 'Odoo (ERP Core)',
-        status: 'CORE',
-        role: 'Fuente de verdad transaccional: clientes, contratos, amortización, pagos, OS de servicio.',
-        data: ['Clientes/Prospectos', 'Tabla amortización', 'Pagos', 'Inventario/OS', 'Documentos'],
-        endpoints: [
-          'POST /erp/prospectos',
-          'POST /erp/creditos',
-          'GET /erp/creditos/:id/saldo',
-          'POST /erp/os (orden de servicio)'
-        ]
-      },
-      'n-airtable': {
-        title: 'Airtable',
-        status: 'MVP',
-        role: 'Backoffice rápido para catálogos y tableros ligeros (no crítico).',
-        data: ['Catálogos', 'Checklist comité', 'Backups ligeros'],
-        endpoints: ['GET /air/meta', 'GET /air/tablas/:id']
-      },
-      'n-metamap': {
-        title: 'Metamap (KYC)',
-        status: 'MVP',
-        role: 'Verificación de identidad (INE, selfie, CURP) y señales antifraude.',
-        data: ['INE OCR', 'Biometría selfie', 'Resultado KYC'],
-        endpoints: ['POST /metamap/sessions', 'POST /metamap/webhook']
-      },
-      'n-kiban': {
-        title: 'Kiban (Círculo de Crédito vía API)',
-        status: 'MVP',
-        role: 'Consulta y (luego) reporte a SIC. Insumo tradicional para HASE.',
-        data: ['Reporte PF/PM', 'Score SIC', 'Alertas de fraude'],
-        endpoints: ['POST /kiban/circulo/consulta', 'POST /kiban/reporting/batch']
-      },
-      'n-mifiel': {
-        title: 'Mifiel (Contratos)',
-        status: 'MVP',
-        role: 'Generación, firma y resguardo de contratos con evidencia criptográfica.',
-        data: ['PDF contrato', 'Hash/folio', 'Evidencias de firma'],
-        endpoints: ['POST /mifiel/contracts', 'GET /mifiel/contracts/:id']
-      },
-      'n-conekta': {
-        title: 'Conekta (Pagos)',
-        status: 'MVP',
-        role: 'Referencias OXXO/efectivo y conciliación de pagos.',
-        data: ['Orden de pago', 'Webhook de pago', 'Comisiones'],
-        endpoints: ['POST /conekta/charges', 'POST /conekta/webhook']
-      },
-      'n-twilio': {
-        title: 'Twilio (OTP/Comms)',
-        status: 'Fase 2',
-        role: 'OTP para login y envío de SMS/WhatsApp transaccional.',
-        data: ['OTP', 'Plantillas WA'],
-        endpoints: ['POST /twilio/otp/send', 'POST /twilio/wa/send']
-      },
-      'n-flowise': {
-        title: 'Flowise / PIA (Asistente)',
-        status: 'Fase 2',
-        role: 'Motor conversacional con RAG (Pinecone) para soporte, recordatorios y postventa; conectado a Odoo, telemática y RAG.',
-        data: ['Mensajes', 'Consulta RAG', 'Instrucciones de pago', 'Alertas PMA'],
-        endpoints: ['POST /pia/notify', 'POST /pia/hooks/telematica', 'POST /pia/rag/query']
-      },
-      'n-samsara': {
-        title: 'Samsara (Telemática)',
-        status: 'MVP',
-        role: 'Datos de GPS, motor y eventos de conducción; webhooks/stream para alertas.',
-        data: ['GPS/velocidad', 'RPM/fallas OBD-II', 'Eventos harsh/idle'],
-        endpoints: ['POST /samsara/webhooks', 'GET /samsara/vehicles/:id/stats']
-      },
-      'n-geotab': {
-        title: 'Geotab (Telemática Avanzada)',
-        status: 'Futuro',
-        role: 'Mayor granularidad y ecosistema Marketplace para casos avanzados.',
-        data: ['Diagnóstico profundo', 'Extensiones IOX', 'Plugins'],
-        endpoints: ['POST /geotab/hooks', 'GET /geotab/feed']
-      },
-      'n-pma': {
-        title: 'Super‑PMA (Mantenimiento Predictivo)',
-        status: 'Fase 2',
-        role: 'Analítica de condiciones y creación automática de OS en Odoo.',
-        data: ['Señales OBD', 'Patrones de falla', 'Recomendaciones'],
-        endpoints: ['POST /pma/evaluate', 'POST /erp/os']
-      },
-      'n-gnv': {
-        title: 'APIs Estaciones GNV',
-        status: 'Fase 2',
-        role: 'Consumo de combustible y correlación con ingresos/operación.',
-        data: ['Litros', 'Ticket/estación', 'Timestamp'],
-        endpoints: ['GET /gnv/consumos?vehiculo=:id', 'POST /gnv/webhook']
-      },
-      'n-make': {
-        title: 'Make / Zapier / n8n',
-        status: 'MVP',
-        role: 'Automatizaciones low‑code para ganar velocidad en 90 días.',
-        data: ['Disparadores', 'Conectores', 'Transformaciones'],
-        endpoints: ['N/A (escenarios)']
-      },
-      'n-hase': {
-        title: 'HASE (Scoring Operativo/Cualitativo)',
-        status: 'MVP',
-        role: 'Score propietario con colateral social (aval), señales KYC y SIC.',
-        data: ['Inputs KYC/SIC', 'Aval/scorecard', 'Score final'],
-        endpoints: ['POST /hase/score', 'GET /hase/explicabilidad/:id']
-      },
-      'n-bi': {
-        title: 'Data Lake + BI (BigQuery / Looker Studio)',
-        status: 'Fase 2',
-        role: 'Repositorio para analítica, cohortes, stress test cartera y KPIs.',
-        data: ['Hechos pagos', 'Telemetría resumida', 'Consumos GNV'],
-        endpoints: ['BQ tables / LS dashboards']
-      },
-      'n-wa': {
-        title: 'WhatsApp Business API',
-        status: 'Fase 2',
-        role: 'Canal prioritario de comunicación con operador y propietario.',
-        data: ['Plantillas', 'Entregas', 'Respuestas'],
-        endpoints: ['POST /wa/send', 'POST /wa/webhook']
-      }
-    };
-
-    function renderDetails(k){
-      const n = nodes[k];
-      if(!n) return;
-      empty.classList.add('hidden');
-      content.classList.remove('hidden');
-      content.innerHTML = 
-        '<div>' +
-          '<div class="flex items-center justify-between">' +
-            '<h3 class="font-bold text-lg">' + n.title + '</h3>' +
-            '<span class="pill badge ' + (n.status==='MVP'?'text-emerald-700': n.status==='Fase 2'?'text-sky-700': n.status==='CORE'?'text-teal-700':'text-amber-700') + '">' + n.status + '</span>' +
-          '</div>' +
-          '<p class="mt-2 text-sm text-slate-300">' + n.role + '</p>' +
-          '<div class="mt-3">' +
-            '<h4 class="font-semibold text-sm">Datos principales</h4>' +
-            '<ul class="list-disc pl-5 text-sm space-y-1">' + n.data.map(function(d){return '<li>' + d + '</li>';}).join('') + '</ul>' +
-          '</div>' +
-          '<div class="mt-3">' +
-            '<h4 class="font-semibold text-sm">Endpoints sugeridos</h4>' +
-            '<div class="bg-slate-900/60 border border-slate-700 rounded p-2 text-xs font-mono overflow-x-auto">' + n.endpoints.map(function(e){return '<div>' + e + '</div>';}).join('') + '</div>' +
-          '</div>' +
-        '</div>';
-      panel.scrollIntoView({behavior:'smooth', block:'start'});
-    }
-
-    // wire events
-    Object.keys(nodes).forEach(id=>{
-      const el = document.getElementById(id);
-      if(el){ el.addEventListener('click', ()=>renderDetails(id)); }
-    });
-  <\/script>
-</body>
-</html>
-  `;
-        
-        return (
-          <div className="w-full h-full bg-slate-950 rounded-2xl overflow-hidden">
-            {portalLoading && <LoadingOverlay /> }
-            <iframe 
-              srcDoc={portalHTML}
-              className="w-full h-full border-0"
-              onLoad={() => setPortalLoading(false)}
-              title="Portal Técnico"
-            />
-          </div>
-        );
-      };
-
-      // Componente de carga elegante
-      const LoadingOverlay = () => (
-        <div className="absolute inset-0 bg-slate-950/90 backdrop-blur flex items-center justify-center z-50">
-          <div className="relative">
-            <div className="w-20 h-20 border-4 border-purple-500/20 rounded-full"></div>
-            <div className="w-20 h-20 border-4 border-transparent border-t-purple-500 rounded-full absolute inset-0 animate-spin"></div>
-            <div className="mt-4 text-purple-400 text-sm animate-pulse">Cargando vista...</div>
-          </div>
-        </div>
-      );
-
       return (
         <div className="min-h-screen bg-slate-950 text-slate-100">
-          {viewMode !== 'technical' && viewMode !== 'execution' && (
+          {viewMode === 'strategy' && (
             <div className="sticky top-0 z-30 bg-slate-950/80 backdrop-blur border-b border-slate-800">
               <div className="max-w-full xl:max-w-[1800px] 2xl:max-w-[2200px] mx-auto px-6 py-4 flex items-center gap-3">
                 <ServerCog className="w-5 h-5 text-teal-400" />
@@ -2416,96 +2056,61 @@ button:focus-visible {
             </div>
           )}
 
-                {/* Selector de Vista Flotante */}
-      <div className="fixed top-20 right-4 z-40 animate-slideIn">
-        {/* NUEVO BOTÓN DE TERCERA VISTA AGREGADO */}
-                         <div className="bg-slate-900/95 backdrop-blur-xl rounded-2xl p-2 border border-purple-500/30 shadow-2xl shadow-purple-500/10">
-               <div className="flex flex-col gap-2">
-                 <button
-                   onClick={() => {
-                     setViewMode('timeline');
-                     setShowTimeline(false);
-                   }}
-                   className={`px-4 py-3 rounded-xl flex items-center gap-3 transition-all duration-300 ${
-                     viewMode === 'timeline' 
-                       ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg transform scale-105' 
-                       : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 hover:scale-102'
-                   }`}
-                 >
-                   <span className="text-2xl">📅</span>
-                   <div className="text-left">
-                     <div className="font-bold text-sm">Timeline 90 Días</div>
-                     <div className="text-xs opacity-70">Vista estratégica</div>
-                   </div>
-                   {viewMode === 'timeline' && (
-                     <span className="ml-auto">
-                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                       </svg>
-                     </span>
-                   )}
-                 </button>
-                 
-                 <button
-                   onClick={() => {
-                     setViewMode('technical');
-                     setShowTimeline(false);
-                   }}
-                   className={`px-4 py-3 rounded-xl flex items-center gap-3 transition-all duration-300 ${
-                     viewMode === 'technical' 
-                       ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg transform scale-105' 
-                       : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 hover:scale-102'
-                   }`}
-                 >
-                   <span className="text-2xl">🔧</span>
-                   <div className="text-left">
-                     <div className="font-bold text-sm">Portal Técnico</div>
-                     <div className="text-xs opacity-70">APIs & Endpoints</div>
-                   </div>
-                   {viewMode === 'technical' && (
-                     <span className="ml-auto">
-                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                       </svg>
-                     </span>
-                   )}
-                 </button>
+          <div className="fixed top-20 right-4 z-40 animate-slideIn">
+            <div className="bg-slate-900/95 backdrop-blur-xl rounded-2xl p-2 border border-purple-500/30 shadow-2xl shadow-purple-500/10">
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={() => setViewMode('strategy')}
+                  className={`px-4 py-3 rounded-xl flex items-center gap-3 transition-all duration-300 ${
+                    viewMode === 'strategy'
+                      ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg transform scale-105'
+                      : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 hover:scale-102'
+                  }`}
+                >
+                  <span className="text-2xl">🗺️</span>
+                  <div className="text-left">
+                    <div className="font-bold text-sm">Estrategia</div>
+                    <div className="text-xs opacity-70">Mapa de Arquitectura</div>
+                  </div>
+                </button>
 
-                                   <button
-                    onClick={() => {
-                      setViewMode('execution');
-                      setShowTimeline(false);
-                    }}
-                    className={`px-4 py-3 rounded-xl flex items-center gap-3 transition-all duration-300 ${
-                      viewMode === 'execution' 
-                        ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg transform scale-105' 
-                        : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 hover:scale-102'
-                    }`}
-                  >
-                    <span className="text-2xl">📊</span>
-                    <div className="text-left">
-                      <div className="font-bold text-sm">Plan Ejecución</div>
-                      <div className="text-xs opacity-70">Gestión & Tareas</div>
-                    </div>
-                    {viewMode === 'execution' && (
-                      <span className="ml-auto">
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                      </span>
-                    )}
-                  </button>
-               </div>
-               
-               {/* Indicador de modo actual */}
-               <div className="mt-2 pt-2 border-t border-slate-700">
-                 <div className="text-center text-xs text-slate-400">
-                   Modo: <span className="text-purple-300 font-semibold">
-                     {viewMode === 'timeline' ? 'Negocio' : viewMode === 'technical' ? 'Desarrollo' : 'Gestión'}
-                   </span>
-                 </div>
-               </div>
-             </div>
+                <button
+                  onClick={() => setViewMode('technical')}
+                  className={`px-4 py-3 rounded-xl flex items-center gap-3 transition-all duration-300 ${
+                    viewMode === 'technical'
+                      ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg transform scale-105'
+                      : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 hover:scale-102'
+                  }`}
+                >
+                  <span className="text-2xl">🔧</span>
+                  <div className="text-left">
+                    <div className="font-bold text-sm">Técnica</div>
+                    <div className="text-xs opacity-70">APIs y Endpoints</div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => setViewMode('execution')}
+                  className={`px-4 py-3 rounded-xl flex items-center gap-3 transition-all duration-300 ${
+                    viewMode === 'execution'
+                      ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg transform scale-105'
+                      : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 hover:scale-102'
+                  }`}
+                >
+                  <span className="text-2xl">📊</span>
+                  <div className="text-left">
+                    <div className="font-bold text-sm">Ejecución</div>
+                    <div className="text-xs opacity-70">Plan de Tareas</div>
+                  </div>
+                </button>
+              </div>
+
+              <div className="mt-2 pt-2 border-t border-slate-700">
+                <div className="text-center text-xs text-slate-400">
+                  Vista Actual: <span className="font-bold text-purple-300 capitalize">{viewMode}</span>
+                </div>
+              </div>
+            </div>
           </div>
 
           {showTimeline && currentPhase && (
@@ -2554,8 +2159,8 @@ button:focus-visible {
             </div>
           )}
 
-                      <div className="max-w-full xl:max-w-[1800px] 2xl:max-w-[2200px] mx-auto px-6 py-6 grid grid-cols-12 gap-6">
-             {viewMode !== 'technical' && viewMode !== 'execution' && (
+          <div className="max-w-full xl:max-w-[1800px] 2xl:max-w-[2200px] mx-auto px-6 py-6 grid grid-cols-12 gap-6">
+            {viewMode === 'strategy' && (
              <aside className="col-span-12 lg:col-span-3 space-y-4">
                <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
                 <div className="flex items-center gap-2 mb-2">
@@ -2745,186 +2350,201 @@ button:focus-visible {
                   </div>
                 </div>
               )}
-                         </aside>
-             )}
+             </aside>
+            )}
  
-             <main className={`col-span-12 ${viewMode === 'technical' ? 'lg:col-span-12' : 'lg:col-span-9'} space-y-4`}>
-  {viewMode === 'execution' ? (
-    <>
-      <ExecutionPlanView />
-    </>
-  ) : viewMode === 'timeline' ? (
-    <>
-      <div
-        className={`diagram-scroll-container rounded-2xl border border-slate-800 bg-gradient-to-b from-slate-900 to-slate-950 ${showTimeline ? 'mt-10' : ''}`}
-        style={{ width: '100%', height: 'calc(100vh - 210px)', overflowX: 'scroll', overflowY: 'auto', position: 'relative' }}
-      >
-        <div className="diagram-inner-canvas relative" style={{ minWidth: '2400px', position: 'relative' }}>
-
-          <svg width={width} height={height} className="block">
-            {LANES.map((lane, idx) => {
-              const xPosition = PADDING_X + idx * (LANE_WIDTH + LANE_GAP) + (LANE_WIDTH / 2);
-              return visibleLanes[lane.id] && (
-                <g key={lane.id}>
-                  <rect
-                    x={xPosition - LANE_WIDTH/2}
-                    y={45}
-                    width={LANE_WIDTH}
-                    height={35}
-                    fill="rgba(30, 41, 59, 0.8)"
-                    stroke="rgba(100, 116, 139, 0.3)"
-                    strokeWidth="1"
-                    rx="8"
-                  />
-                  <text
-                    x={xPosition}
-                    y={67}
-                    textAnchor="middle"
-                    className="fill-slate-200"
-                    fontSize="18"
-                    fontWeight="800"
-                  >
-                    {lane.id === 'front' && '🎯 '}
-                    {lane.id === 'orchestration' && '⚙️ '}
-                    {lane.id === 'external' && '🔌 '}
-                    {lane.id === 'telematics' && '⚡ '}
-                    {lane.id === 'internal' && '👥 '}
-                    {lane.id === 'data' && '💾 '}
-                    {lane.title}
-                  </text>
-                </g>
-              );
-            })}
-            {Object.values(FLOWS).flat().map(([a, b], i) => (
-              <Edge
-                key={i}
-                from={a}
-                to={b}
-                positions={positions}
-                active={!!flow && FLOWS[flow].some(([x, y]) => x === a && y === b)}
-              />
-            ))}
-          </svg>
-
-          {showTimeline && (
-            <>
-              {showTimeline && currentPhase && filteredNodes.map(node => {
-                const phaseData = TIMELINE_PHASES[currentPhase];
-                const weekData = phaseData.detalles.find(d => d.semana === currentWeek);
-                const isActiveInWeek = weekData?.herramientas_ids?.includes(node.id);
-                const isActiveInPhase = phaseData.nodos_activos.includes(node.id);
-                if (!isActiveInWeek && !isActiveInPhase) return null;
-                return (
+            <main className={`col-span-12 ${viewMode === 'strategy' ? 'lg:col-span-9' : ''} space-y-4`}>
+              {viewMode === 'execution' && <ExecutionPlanView /> }
+              {(viewMode === 'strategy' || viewMode === 'technical') && (
+                <>
                   <div
-                    key={`highlight-${node.id}`}
-                    className="absolute pointer-events-none"
-                    style={{
-                      left: positions[node.id].x - 8,
-                      top: positions[node.id].y - 8,
-                      width: CARD_W + 16,
-                      height: CARD_H + 16,
-                      borderRadius: '24px',
-                      border: isActiveInWeek ? '4px solid rgba(168, 85, 247, 1)' : '2px solid rgba(168, 85, 247, 0.3)',
-                      background: isActiveInWeek 
-                        ? 'radial-gradient(circle, rgba(168, 85, 247, 0.4) 0%, transparent 70%)'
-                        : 'radial-gradient(circle, rgba(168, 85, 247, 0.1) 0%, transparent 70%)',
-                      boxShadow: isActiveInWeek 
-                        ? '0 0 40px rgba(168, 85, 247, 0.8), inset 0 0 30px rgba(168, 85, 247, 0.4)'
-                        : '0 0 10px rgba(168, 85, 247, 0.2)',
-                      animation: isActiveInWeek ? 'pulse 1.5s infinite' : 'none',
-                      zIndex: isActiveInWeek ? 10 : 5
-                    }}
+                    ref={scrollContainerRef}
+                    className={`diagram-scroll-container rounded-2xl border border-slate-800 bg-gradient-to-b from-slate-900 to-slate-950 ${showTimeline ? 'mt-10' : ''}`}
+                    style={{ width: '100%', height: 'calc(100vh - 210px)', overflowX: 'scroll', overflowY: 'auto', position: 'relative' }}
+                  >
+                    <div className="diagram-inner-canvas relative" style={{ minWidth: '2400px', position: 'relative' }}>
+
+                      <svg width={width} height={height} className="block">
+                        {LANES.map((lane, idx) => {
+                          const xPosition = PADDING_X + idx * (LANE_WIDTH + LANE_GAP) + (LANE_WIDTH / 2);
+                          return visibleLanes[lane.id] && (
+                            <g key={lane.id}>
+                              <rect
+                                x={xPosition - LANE_WIDTH/2}
+                                y={45}
+                                width={LANE_WIDTH}
+                                height={35}
+                                fill="rgba(30, 41, 59, 0.8)"
+                                stroke="rgba(100, 116, 139, 0.3)"
+                                strokeWidth="1"
+                                rx="8"
+                              />
+                              <text
+                                x={xPosition}
+                                y={67}
+                                textAnchor="middle"
+                                className="fill-slate-200"
+                                fontSize="18"
+                                fontWeight="800"
+                              >
+                                {lane.id === 'front' && '🎯 '}
+                                {lane.id === 'orchestration' && '⚙️ '}
+                                {lane.id === 'external' && '🔌 '}
+                                {lane.id === 'telematics' && '⚡ '}
+                                {lane.id === 'internal' && '👥 '}
+                                {lane.id === 'data' && '💾 '}
+                                {lane.title}
+                              </text>
+                            </g>
+                          );
+                        })}
+                        {Object.values(FLOWS).flat().map(([a, b], i) => (
+                          <Edge
+                            key={i}
+                            from={a}
+                            to={b}
+                            positions={positions}
+                            active={!!flow && FLOWS[flow].some(([x, y]) => x === a && y === b)}
+                          />
+                        ))}
+                      </svg>
+
+                      {showTimeline && (
+                        <>
+                          {showTimeline && currentPhase && filteredNodes.map(node => {
+                            const phaseData = TIMELINE_PHASES[currentPhase];
+                            const weekData = phaseData.detalles.find(d => d.semana === currentWeek);
+                            const isActiveInWeek = weekData?.herramientas_ids?.includes(node.id);
+                            const isActiveInPhase = phaseData.nodos_activos.includes(node.id);
+                            if (!isActiveInWeek && !isActiveInPhase) return null;
+                            return (
+                              <div
+                                key={`highlight-${node.id}`}
+                                className="absolute pointer-events-none"
+                                style={{
+                                  left: positions[node.id].x - 8,
+                                  top: positions[node.id].y - 8,
+                                  width: CARD_W + 16,
+                                  height: CARD_H + 16,
+                                  borderRadius: '24px',
+                                  border: isActiveInWeek ? '4px solid rgba(168, 85, 247, 1)' : '2px solid rgba(168, 85, 247, 0.3)',
+                                  background: isActiveInWeek
+                                    ? 'radial-gradient(circle, rgba(168, 85, 247, 0.4) 0%, transparent 70%)'
+                                    : 'radial-gradient(circle, rgba(168, 85, 247, 0.1) 0%, transparent 70%)',
+                                  boxShadow: isActiveInWeek
+                                    ? '0 0 40px rgba(168, 85, 247, 0.8), inset 0 0 30px rgba(168, 85, 247, 0.4)'
+                                    : '0 0 10px rgba(168, 85, 247, 0.2)',
+                                  animation: isActiveInWeek ? 'pulse 1.5s infinite' : 'none',
+                                  zIndex: isActiveInWeek ? 10 : 5
+                                }}
+                              />
+                            );
+                          })}
+                        </>
+                      )}
+
+                      {filteredNodes.map((n) => (
+                        <NodeCard
+                          key={n.id}
+                          node={n}
+                          pos={positions[n.id]}
+                          selected={selected?.id === n.id}
+                          onSelect={setSelected}
+                        />)
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid md:grid-cols-1 gap-4">
+                    <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
+                      <div className="flex items-center gap-2 mb-1">
+                        <ServerCog className="w-4 h-4 text-fuchsia-300" />
+                        <div className="font-semibold">Inspector de nodo</div>
+                      </div>
+                      {selected ? (
+                        <div>
+                          <div className="text-teal-200 font-semibold">{selected.title}</div>
+                          <div className="text-slate-300/80 text-sm mb-4">{selected.subtitle}</div>
+
+                          {viewMode === 'strategy' && selected.ficha && (
+                            <div className="space-y-3 text-sm">
+                              <div>
+                                <div className="uppercase tracking-wide text-[10px] text-slate-400">Proceso Involucrado</div>
+                                <div className="text-slate-200">{selected.ficha.proceso}</div>
+                              </div>
+                              <div>
+                                <div className="uppercase tracking-wide text-[10px] text-slate-400">Costo Estimado (Proxy)</div>
+                                <div className="text-slate-200">{selected.ficha.costo}</div>
+                              </div>
+                              <div>
+                                <div className="uppercase tracking-wide text-[10px] text-slate-400">Justificación</div>
+                                <div className="text-slate-300/90">{selected.ficha.justificacion}</div>
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-slate-800">
+                            <div>
+                              <div className="uppercase tracking-wide text-[10px] text-slate-400">Entradas</div>
+                              <ul className="mt-1 text-sm list-disc pl-4 space-y-1">
+                                {selected.io.in.map((t, i) => (
+                                  <li key={i}>{t}</li>
+                                ))}
+                              </ul>
+                            </div>
+                            <div>
+                              <div className="uppercase tracking-wide text-[10px] text-slate-400">Salidas</div>
+                              <ul className="mt-1 text-sm list-disc pl-4 space-y-1">
+                                {selected.io.out.map((t, i) => (
+                                  <li key={i}>{t}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          </div>
+
+                          {viewMode === 'technical' && selected.endpoints && (
+                            <div className="mt-4 pt-4 border-t border-slate-800">
+                                <div className="uppercase tracking-wide text-[10px] font-bold text-amber-300">Endpoints Sugeridos</div>
+                                <div className="mt-2 font-mono text-xs bg-slate-950/50 p-3 rounded-lg overflow-x-auto">
+                                    {selected.endpoints.map((ep, i) => <div key={i}>{ep}</div>)}
+                                </div>
+                            </div>
+                          )}
+
+                        </div>
+                      ) : (
+                        <div className="text-slate-400 text-sm">
+                          Selecciona un nodo en el mapa para ver detalles.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {viewMode === 'strategy' && (
+                    <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <AlertTriangle className="w-4 h-4 text-amber-300" />
+                        <div className="font-semibold">Notas de diseño y siguientes pasos</div>
+                      </div>
+                      <ul className="text-sm space-y-1 text-slate-300/90">
+                        <li>• <b>Contrato de datos</b> del flujo Onboarding: Portal ⇄ Metamap ⇄ KIBAN ⇄ HASE ⇄ Odoo. (Si quieres, te genero el JSON OpenAPI por endpoint.)</li>
+                        <li>• <b>Webhooks críticos</b>: Mifiel (firma), Conekta (pagos), Samsara (eventos/DT C), Asistente (mensajería).</li>
+                        <li>• <b>Historificación</b>: Telemetría y consumo GNV van a Warehouse para BI, XAI y pruebas de estrés.</li>
+                        <li>• <b>Seguridad</b>: OAuth/token por partner, aislamiento por rutas (tags) y colas idempotentes en iPaaS.</li>
+                        <li>• <b>Escala</b>: La misma arquitectura soporta 17 → 1000 unidades con colas y backfill a Warehouse.</li>
+                      </ul>
+                    </div>
+                  )}
+                  <MiniMap
+                    nodes={filteredNodes}
+                    positions={positions}
+                    scrollContainerRef={scrollContainerRef}
+                    canvasWidth={width}
+                    canvasHeight={height}
                   />
-                );
-              })}
-            </>
-          )}
-
-          {filteredNodes.map((n) => (
-            <NodeCard
-              key={n.id}
-              node={n}
-              pos={positions[n.id]}
-              selected={selected?.id === n.id}
-              onSelect={setSelected}
-            />)
-          )}
-        </div>
-      </div>
-
-      <div className="grid md:grid-cols-1 gap-4">
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <ServerCog className="w-4 h-4 text-fuchsia-300" />
-            <div className="font-semibold">Inspector de nodo</div>
-          </div>
-          {selected ? (
-            <div>
-              <div className="text-teal-200 font-semibold">{selected.title}</div>
-              <div className="text-slate-300/80 text-sm mb-4">{selected.subtitle}</div>
-              {selected.ficha && (
-                <div className="space-y-3 text-sm">
-                  <div>
-                    <div className="uppercase tracking-wide text-[10px] text-slate-400">Proceso Involucrado</div>
-                    <div className="text-slate-200">{selected.ficha.proceso}</div>
-                  </div>
-                  <div>
-                    <div className="uppercase tracking-wide text-[10px] text-slate-400">Costo Estimado (Proxy)</div>
-                    <div className="text-slate-200">{selected.ficha.costo}</div>
-                  </div>
-                  <div>
-                    <div className="uppercase tracking-wide text-[10px] text-slate-400">Justificación</div>
-                    <div className="text-slate-300/90">{selected.ficha.justificacion}</div>
-                  </div>
-                </div>
+                </>
               )}
-              <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-slate-800">
-                <div>
-                  <div className="uppercase tracking-wide text-[10px] text-slate-400">Entradas</div>
-                  <ul className="mt-1 text-sm list-disc pl-4 space-y-1">
-                    {selected.io.in.map((t, i) => (
-                      <li key={i}>{t}</li>
-                    ))}
-                  </ul>
-                </div>
-                <div>
-                  <div className="uppercase tracking-wide text-[10px] text-slate-400">Salidas</div>
-                  <ul className="mt-1 text-sm list-disc pl-4 space-y-1">
-                    {selected.io.out.map((t, i) => (
-                      <li key={i}>{t}</li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="text-slate-400 text-sm">
-              Selecciona un nodo en el mapa para ver detalles de entradas/salidas.
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
-        <div className="flex items-center gap-2 mb-2">
-          <AlertTriangle className="w-4 h-4 text-amber-300" />
-          <div className="font-semibold">Notas de diseño y siguientes pasos</div>
-        </div>
-        <ul className="text-sm space-y-1 text-slate-300/90">
-          <li>• <b>Contrato de datos</b> del flujo Onboarding: Portal ⇄ Metamap ⇄ KIBAN ⇄ HASE ⇄ Odoo. (Si quieres, te genero el JSON OpenAPI por endpoint.)</li>
-          <li>• <b>Webhooks críticos</b>: Mifiel (firma), Conekta (pagos), Samsara (eventos/DT C), Asistente (mensajería).</li>
-          <li>• <b>Historificación</b>: Telemetría y consumo GNV van a Warehouse para BI, XAI y pruebas de estrés.</li>
-          <li>• <b>Seguridad</b>: OAuth/token por partner, aislamiento por rutas (tags) y colas idempotentes en iPaaS.</li>
-          <li>• <b>Escala</b>: La misma arquitectura soporta 17 → 1000 unidades con colas y backfill a Warehouse.</li>
-        </ul>
-      </div>
-    </>
-  ) : (
-    <div className="h-[calc(100vh-160px)] rounded-2xl border border-purple-500/30 overflow-hidden shadow-2xl shadow-purple-500/10 view-transition">
-      <TechnicalPortalView />
-    </div>
-  )}
-</main>
+            </main>
           </div>
 
 
