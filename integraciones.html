@@ -1856,15 +1856,9 @@ button:focus-visible {
                     <div class="flex items-center gap-3 text-xs sm:text-sm flex-wrap ml-4">
             <div class="flex items-center gap-2">
               <button id="btnFull" class="px-3 py-1.5 rounded-lg border border-slate-700 hover:bg-slate-800">Pantalla completa</button>
-              <button id="btnToggleDetails" aria-pressed="true" class="px-3 py-1.5 rounded-lg border border-slate-700 hover:bg-slate-800">Ocultar detalles</button>
-              <button id="btnToggleFlows" aria-pressed="true" class="px-3 py-1.5 rounded-lg border border-slate-700 hover:bg-slate-800">Ocultar flujos</button>
+              <button id="btnToggleDetails" class="px-3 py-1.5 rounded-lg border border-slate-700 hover:bg-slate-800">Ocultar detalles</button>
+              <button id="btnToggleFlows" class="px-3 py-1.5 rounded-lg border border-slate-700 hover:bg-slate-800">Ocultar flujos</button>
             </div>
-            <div class="hidden lg:flex items-center gap-2">
-              <button id="zoomOutDesktop" class="px-2 py-1.5 rounded-lg border border-slate-700 hover:bg-slate-800" aria-label="Alejar">−</button>
-              <button id="zoomInDesktop" class="px-2 py-1.5 rounded-lg border border-slate-700 hover:bg-slate-800" aria-label="Acercar">+</button>
-            </div>
-            <input id="searchNode" placeholder="Buscar bloque…" class="px-3 py-1.5 rounded-lg bg-slate-900/60 border border-slate-700 text-xs sm:text-sm" />
-            <button id="openDetails" class="lg:hidden px-3 py-1.5 rounded-lg border border-slate-700">Detalles</button>
             <span><span class="legend-dot status-core"></span>Núcleo (Core)</span>
             <span><span class="legend-dot status-mvp"></span>MVP</span>
             <span><span class="legend-dot status-phase2"></span>Fase 2</span>
@@ -1872,13 +1866,8 @@ button:focus-visible {
           </div>
       </div>
 
-             <div class="relative">
-        <div class="absolute right-2 bottom-2 z-10 flex flex-col gap-2 lg:hidden">
-          <button id="zoomIn" class="w-10 h-10 rounded-full bg-slate-800/80 border border-slate-700">+</button>
-          <button id="zoomOut" class="w-10 h-10 rounded-full bg-slate-800/80 border border-slate-700">−</button>
-        </div>
-                          <svg id="arch" viewBox="0 0 1320 760" class="w-full h-[65dvh] lg:h-[820px] touch-none">
-         <!-- defs -->
+      <svg id="arch" viewBox="0 0 1320 760" class="w-full h-[720px] lg:h-[820px]">
+        <!-- defs -->
         <defs>
           <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
             <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"></path>
@@ -2054,24 +2043,13 @@ button:focus-visible {
         <line class="edge arrow" x1="585" y1="500" x2="780" y2="500" />
         <line class="edge arrow" x1="655" y1="330" x2="780" y2="500" />
 
-             </svg>
-       </div>
+      </svg>
 
-       <div class="flex items-center gap-2 mt-2 text-xs text-slate-400">
-         <span class="hidden sm:inline">Consejo: haz clic en cualquier bloque para ver detalles, APIs y estado.</span>
-         <div class="ml-auto hidden lg:flex items-center gap-2">
-           <button id="zoomOutDesktop" class="px-2 py-1.5 rounded-lg border border-slate-700 hover:bg-slate-800" aria-label="Alejar">−</button>
-           <button id="zoomInDesktop" class="px-2 py-1.5 rounded-lg border border-slate-700 hover:bg-slate-800" aria-label="Acercar">+</button>
-         </div>
-       </div>
+      <p class="text-xs text-slate-500 mt-3">Consejo: haz clic en cualquier bloque para ver detalles, APIs y estado (MVP / Fase 2 / Futuro).</p>
     </section>
 
     <!-- Details panel -->
-    <aside id="panel" class="lg:col-span-2 lg:row-span-2 rounded-2xl border border-slate-800 bg-slate-900/40 p-4 lg:sticky lg:top-4 max-h-[calc(100vh-120px)] overflow-auto resize-x fixed bottom-0 left-0 right-0 translate-y-full lg:translate-y-0 transition-transform duration-300">
-      <div class="flex items-center justify-between lg:hidden mb-2">
-        <span class="text-sm text-slate-400">Detalles</span>
-        <button id="closeDetails" class="px-3 py-1 rounded-lg border border-slate-700">Cerrar</button>
-      </div>
+    <aside id="panel" class="lg:col-span-2 lg:row-span-2 rounded-2xl border border-slate-800 bg-slate-900/40 p-4 sticky top-4 max-h-[calc(100vh-120px)] overflow-auto resize-x">
       <div id="empty" class="text-slate-300">
         <h3 class="font-bold text-lg">Detalles</h3>
         <p class="mt-1">Selecciona un bloque del diagrama para ver:</p>
@@ -2152,93 +2130,35 @@ button:focus-visible {
           }
         }
 
-                 function toggleFullscreen(){
-           if(!diagramSection) return;
-           const isFull = diagramSection.classList.toggle('fullscreen');
-           document.body.classList.toggle('overflow-hidden', isFull);
-           localStorage.setItem('intg_fullscreen', isFull ? '1' : '0');
-         }
-         function toggleDetails(){
-           const hide = !(localStorage.getItem('intg_hide_details') === '1');
-           localStorage.setItem('intg_hide_details', hide ? '1' : '0');
-           const b = document.getElementById('btnToggleDetails');
-           if(b){ b.setAttribute('aria-pressed', hide ? 'false' : 'true'); }
-           applyState();
-         }
-         function toggleFlows(){
-           const hide = !(localStorage.getItem('intg_hide_flows') === '1');
-           localStorage.setItem('intg_hide_flows', hide ? '1' : '0');
-           const b = document.getElementById('btnToggleFlows');
-           if(b){ b.setAttribute('aria-pressed', hide ? 'false' : 'true'); }
-           applyState();
-         }
+        function toggleFullscreen(){
+          if(!diagramSection) return;
+          const isFull = diagramSection.classList.toggle('fullscreen');
+          document.body.classList.toggle('overflow-hidden', isFull);
+          localStorage.setItem('intg_fullscreen', isFull ? '1' : '0');
+        }
+        function toggleDetails(){
+          const hide = !(localStorage.getItem('intg_hide_details') === '1');
+          localStorage.setItem('intg_hide_details', hide ? '1' : '0');
+          applyState();
+        }
+        function toggleFlows(){
+          const hide = !(localStorage.getItem('intg_hide_flows') === '1');
+          localStorage.setItem('intg_hide_flows', hide ? '1' : '0');
+          applyState();
+        }
 
-                 document.addEventListener('DOMContentLoaded', ()=>{
-           const btnFull = document.getElementById('btnFull');
-           const btnToggleDetails = document.getElementById('btnToggleDetails');
-           const btnToggleFlows = document.getElementById('btnToggleFlows');
-           const openDetails = document.getElementById('openDetails');
-           const closeDetails = document.getElementById('closeDetails');
-           const searchNode = document.getElementById('searchNode');
-           const svg = document.getElementById('arch');
-           const zoomIn = document.getElementById('zoomIn');
-           const zoomOut = document.getElementById('zoomOut');
-           const zoomInDesktop = document.getElementById('zoomInDesktop');
-           const zoomOutDesktop = document.getElementById('zoomOutDesktop');
-
-           btnFull && btnFull.addEventListener('click', toggleFullscreen);
-           btnToggleDetails && btnToggleDetails.addEventListener('click', toggleDetails);
-           btnToggleFlows && btnToggleFlows.addEventListener('click', toggleFlows);
-
-           // Drawer móvil
-           openDetails && openDetails.addEventListener('click', ()=>{
-             panel.classList.remove('translate-y-full');
-           });
-           closeDetails && closeDetails.addEventListener('click', ()=>{
-             panel.classList.add('translate-y-full');
-           });
-
-           // Persistencia de estado botones
-           const hideD = localStorage.getItem('intg_hide_details') === '1';
-           const hideF = localStorage.getItem('intg_hide_flows') === '1';
-           if(btnToggleDetails){ btnToggleDetails.setAttribute('aria-pressed', hideD ? 'false' : 'true'); }
-           if(btnToggleFlows){ btnToggleFlows.setAttribute('aria-pressed', hideF ? 'false' : 'true'); }
-
-           // Zoom simple alterando viewBox
-           let zoom = 1;
-           function setZoom(f){
-             zoom = Math.max(0.5, Math.min(2, zoom * f));
-             svg && svg.setAttribute('viewBox', '0 0 ' + (1320/zoom) + ' ' + (760/zoom));
-             localStorage.setItem('intg_zoom', String(zoom));
-           }
-           zoomIn && zoomIn.addEventListener('click', ()=>setZoom(1.2));
-           zoomOut && zoomOut.addEventListener('click', ()=>setZoom(1/1.2));
-           zoomInDesktop && zoomInDesktop.addEventListener('click', ()=>setZoom(1.2));
-           zoomOutDesktop && zoomOutDesktop.addEventListener('click', ()=>setZoom(1/1.2));
-           const savedZoom = parseFloat(localStorage.getItem('intg_zoom')||'1');
-           if(savedZoom && savedZoom !== 1){ zoom = savedZoom; setZoom(1); }
-
-           // Búsqueda de nodos
-           function highlight(term){
-             const t = (term||'').toLowerCase();
-             const groups = svg ? svg.querySelectorAll('g.node') : [];
-             groups.forEach(g=>{
-               const label = (g.textContent||'').toLowerCase();
-               const hit = t && label.includes(t);
-               g.style.outline = hit ? '2px solid #22d3ee' : '';
-               g.style.filter = hit ? 'drop-shadow(0 0 6px rgba(34,211,238,.4))' : '';
-               g.style.opacity = t ? (hit ? '1' : '.25') : '1';
-             });
-           }
-           searchNode && searchNode.addEventListener('input', (e)=>{
-             highlight(e.target.value);
-           });
-
-           if(localStorage.getItem('intg_fullscreen') === '1'){
-             toggleFullscreen();
-           }
-           applyState();
-         });
+        document.addEventListener('DOMContentLoaded', ()=>{
+          const btnFull = document.getElementById('btnFull');
+          const btnToggleDetails = document.getElementById('btnToggleDetails');
+          const btnToggleFlows = document.getElementById('btnToggleFlows');
+          btnFull && btnFull.addEventListener('click', toggleFullscreen);
+          btnToggleDetails && btnToggleDetails.addEventListener('click', toggleDetails);
+          btnToggleFlows && btnToggleFlows.addEventListener('click', toggleFlows);
+          if(localStorage.getItem('intg_fullscreen') === '1'){
+            toggleFullscreen();
+          }
+          applyState();
+        });
 
     const nodes = {
       'n-portal': {
@@ -2386,52 +2306,35 @@ button:focus-visible {
       }
     };
 
-         function renderDetails(k){
-       const n = nodes[k];
-       if(!n) return;
-       empty.classList.add('hidden');
-       content.classList.remove('hidden');
-       content.innerHTML = 
-         '<div>' +
-           '<div class="flex items-center justify-between">' +
-             '<h3 class="font-bold text-lg">' + n.title + '</h3>' +
-             '<span class="pill badge ' + (n.status==='MVP'?'text-emerald-700': n.status==='Fase 2'?'text-sky-700': n.status==='CORE'?'text-teal-700':'text-amber-700') + '">' + n.status + '</span>' +
-           '</div>' +
-           '<p class="mt-2 text-sm text-slate-300">' + n.role + '</p>' +
-           '<div class="mt-3">' +
-             '<h4 class="font-semibold text-sm">Datos principales</h4>' +
-             '<ul class="list-disc pl-5 text-sm space-y-1">' + n.data.map(function(d){return '<li>' + d + '</li>';}).join('') + '</ul>' +
-           '</div>' +
-           '<div class="mt-3">' +
-             '<h4 class="font-semibold text-sm">Endpoints sugeridos</h4>' +
-             '<div class="bg-slate-900/60 border border-slate-700 rounded p-2 text-xs font-mono overflow-x-auto">' + n.endpoints.map(function(e){return '<div class="flex items-center gap-2"><span>' + e + '</span><button data-copy="' + e + '" class="ml-auto px-2 py-0.5 rounded border border-slate-700">Copiar</button></div>';}).join('') + '</div>' +
-           '</div>' +
-         '</div>';
-       // abrir drawer móvil
-       panel.classList.remove('translate-y-full');
-       panel.scrollIntoView({behavior:'smooth', block:'start'});
-       // wire copy
-       content.querySelectorAll('button[data-copy]').forEach(function(b){
-         b.addEventListener('click', function(){
-           const t = b.getAttribute('data-copy');
-           navigator.clipboard && navigator.clipboard.writeText(t);
-           b.textContent = 'Copiado';
-           setTimeout(()=>{ b.textContent = 'Copiar'; }, 1200);
-         });
-       });
-     }
+    function renderDetails(k){
+      const n = nodes[k];
+      if(!n) return;
+      empty.classList.add('hidden');
+      content.classList.remove('hidden');
+      content.innerHTML = 
+        '<div>' +
+          '<div class="flex items-center justify-between">' +
+            '<h3 class="font-bold text-lg">' + n.title + '</h3>' +
+            '<span class="pill badge ' + (n.status==='MVP'?'text-emerald-700': n.status==='Fase 2'?'text-sky-700': n.status==='CORE'?'text-teal-700':'text-amber-700') + '">' + n.status + '</span>' +
+          '</div>' +
+          '<p class="mt-2 text-sm text-slate-300">' + n.role + '</p>' +
+          '<div class="mt-3">' +
+            '<h4 class="font-semibold text-sm">Datos principales</h4>' +
+            '<ul class="list-disc pl-5 text-sm space-y-1">' + n.data.map(function(d){return '<li>' + d + '</li>';}).join('') + '</ul>' +
+          '</div>' +
+          '<div class="mt-3">' +
+            '<h4 class="font-semibold text-sm">Endpoints sugeridos</h4>' +
+            '<div class="bg-slate-900/60 border border-slate-700 rounded p-2 text-xs font-mono overflow-x-auto">' + n.endpoints.map(function(e){return '<div>' + e + '</div>';}).join('') + '</div>' +
+          '</div>' +
+        '</div>';
+      panel.scrollIntoView({behavior:'smooth', block:'start'});
+    }
 
     // wire events
-         Object.keys(nodes).forEach(id=>{
-       const el = document.getElementById(id);
-       if(el){ 
-         el.setAttribute('role','button');
-         el.setAttribute('tabindex','0');
-         el.setAttribute('aria-label', nodes[id].title || id);
-         el.addEventListener('click', ()=>renderDetails(id));
-         el.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); renderDetails(id); }});
-       }
-     });
+    Object.keys(nodes).forEach(id=>{
+      const el = document.getElementById(id);
+      if(el){ el.addEventListener('click', ()=>renderDetails(id)); }
+    });
   <\/script>
 </body>
 </html>
