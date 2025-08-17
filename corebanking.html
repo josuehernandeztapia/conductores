@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Core Bancario Ligero – Odoo + Airtable (Diagrama paso a paso)</title>
+<style>
+  :root{
+    --bg:#0b1220;--panel:#121a2b;--ink:#e6ecff;--muted:#a8b3cf;--acc:#3aa6ff;--ok:#22c55e;--warn:#f59e0b;--bad:#ef4444;--line:#22314f
+  }
+  html,body{background:var(--bg);color:var(--ink);font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0}
+  .wrap{max-width:1200px;margin:0 auto;padding:20px}
+  .head{display:flex;gap:12px;align-items:center;justify-content:space-between}
+  h1{font-size:20px;margin:0}
+  .sub{color:var(--muted);margin:4px 0 0}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  button,select{background:var(--panel);color:var(--ink);border:1px solid #1f2937;border-radius:10px;padding:8px 10px;cursor:pointer}
+  button.primary{background:var(--acc);border-color:#1f87d6}
+  .grid{display:grid;grid-template-columns:320px 1fr;gap:14px;margin-top:16px}
+  .card{background:var(--panel);border:1px solid #1f2937;border-radius:14px;padding:12px}
+  .steps h2,.diagram h2{font-size:14px;margin:0 0 8px;color:#cbd5e1}
+  .steps ol{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px;max-height:70vh;overflow:auto}
+  .step{display:flex;gap:8px;align-items:flex-start;border:1px solid #1f2937;border-radius:12px;padding:8px}
+  .n{width:26px;height:26px;min-width:26px;border-radius:999px;background:#0f172a;border:1px solid #20304f;display:grid;place-items:center;font-weight:700}
+  .step.active{border-color:var(--acc);box-shadow:0 0 0 1px rgba(58,166,255,.3)}
+  .step .title{font-weight:600}
+  .muted{color:var(--muted)}
+  .legend{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .pill{border:1px solid #1f2937;background:#0f172a;padding:3px 8px;border-radius:999px;font-size:12px}
+  .pill.core{border-color:#334155}
+  .pill.odoo{border-color:#60a5fa;background:rgba(59,130,246,.1)}
+  .pill.air{border-color:#22d3ee;background:rgba(34,211,238,.08)}
+  .pill.pay{border-color:#f59e0b;background:rgba(245,158,11,.12)}
+  .pill.bank{border-color:#22c55e;background:rgba(34,197,94,.12)}
+  .pill.mid{border-color:#a78bfa;background:rgba(167,139,250,.12)}
+  .diagram{position:relative}
+  svg{width:100%;height:680px;display:block}
+  .box{fill:#0f172a;stroke:#1f2937;stroke-width:1}
+  .lane{fill:#10192d;stroke:#1e293b;stroke-width:1}
+  .t{fill:#e6ecff;font-size:12px;font-weight:600}
+  .s{fill:#a8b3cf;font-size:11px}
+  .tag{fill:#0f172a;stroke:#20304f;stroke-width:1}
+  .tagtext{fill:#cbd5e1;font-size:10px}
+  .edge{stroke:var(--line);stroke-width:2;marker-end:url(#arrow)}
+  .edge.active{stroke:var(--acc)}
+  .node-active{stroke:var(--acc);stroke-width:2}
+  .hint{font-size:12px;color:var(--muted)}
+  .toast{position:fixed;right:16px;bottom:16px;background:#0f172a;border:1px solid #1f2937;border-radius:12px;padding:10px 12px;color:#cbd5e1}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="head">
+      <div>
+        <h1>Core Bancario Ligero – Odoo + Airtable</h1>
+        <p class="sub">Diagrama "quirúrgico" paso a paso: cuentas virtuales, ledger, pagos de entrada/salida, conciliación y reporting. Sin core bancario tradicional, con endurecimiento progresivo.</p>
+      </div>
+      <div class="controls">
+        <select id="jump">
+          <option value="">Ir a paso…</option>
+          <option value="1">01 Onboarding (Cliente)</option>
+          <option value="2">02 Alta cuenta virtual</option>
+          <option value="3">03 Generar referencia</option>
+          <option value="4">04 Pago entrante (gateway)</option>
+          <option value="5">05 Webhook → Staging</option>
+          <option value="6">06 Validación antifraude</option>
+          <option value="7">07 Asiento en Odoo (ledger)</option>
+          <option value="8">08 Conciliación bancaria</option>
+          <option value="9">09 Notificación y recibo</option>
+          <option value="10">10 Dispersión/egreso</option>
+          <option value="11">11 Estados de cuenta</option>
+          <option value="12">12 Reportes & BI</option>
+          <option value="13">13 Excepciones/PLD</option>
+          <option value="14">14 Hardening & Retención</option>
+        </select>
+        <button class="primary" onclick="window.print()">Imprimir</button>
+      </div>
+    </div>
+
+    <div class="legend">
+      <span class="pill odoo">Odoo (ERP/Contabilidad)</span>
+      <span class="pill air">Airtable (Staging/Operaciones)</span>
+      <span class="pill pay">Pasarela de Pago</span>
+      <span class="pill bank">Banco / SPEI</span>
+      <span class="pill mid">Middleware (Make/Zapier/API)</span>
+      <span class="pill core">Servicios propios (API/Ledger)</span>
+    </div>
+
+    <div class="grid">
+      <div class="card steps">
+        <h2>Playbook paso a paso</h2>
+        <ol id="steps"></ol>
+        <p class="hint">Tip: haz clic en un paso para resaltar el flujo en el diagrama.</p>
+      </div>
+      <div class="card diagram">
+        <h2>Diagrama de Integración</h2>
+        <svg id="svg" viewBox="0 0 940 640" aria-label="Diagrama Core Bancario Ligero">
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#38517c"></path>
+            </marker>
+          </defs>
+          
+          <!-- Lanes -->
+          <rect x="10"  y="40" width="220" height="560" class="lane"></rect>
+          <text x="20" y="60" class="s">Cliente / Portal</text>
+
+          <rect x="240" y="40" width="210" height="560" class="lane"></rect>
+          <text x="250" y="60" class="s">Middleware (Make/Zapier/API)</text>
+
+          <rect x="460" y="40" width="210" height="560" class="lane"></rect>
+          <text x="470" y="60" class="s">Airtable (Staging / Ops)</text>
+
+          <rect x="680" y="40" width="250" height="560" class="lane"></rect>
+          <text x="690" y="60" class="s">Odoo (ERP/Contabilidad)</text>
+
+          <!-- Boxes -->
+          <!-- Cliente -->
+          <rect id="n1" x="20" y="90" width="200" height="70" rx="10" class="box"/>
+          <text x="30" y="115" class="t">01 Onboarding</text>
+          <text x="30" y="135" class="s">Alta cliente y KYC básico</text>
+          
+          <rect id="n3" x="20" y="180" width="200" height="70" rx="10" class="box"/>
+          <text x="30" y="205" class="t">03 Referencia de pago</text>
+          <text x="30" y="225" class="s">Generar SPEI/tienda</text>
+
+          <rect id="n9" x="20" y="270" width="200" height="70" rx="10" class="box"/>
+          <text x="30" y="295" class="t">09 Notificación</text>
+          <text x="30" y="315" class="s">Recibo / WhatsApp / email</text>
+
+          <rect id="n11" x="20" y="360" width="200" height="70" rx="10" class="box"/>
+          <text x="30" y="385" class="t">11 Estado de cuenta</text>
+          <text x="30" y="405" class="s">PDF + detalle movimientos</text>
+
+          <!-- Middleware -->
+          <rect id="n2" x="250" y="90" width="190" height="70" rx="10" class="box"/>
+          <text x="260" y="115" class="t">02 Alta cuenta virtual</text>
+          <text x="260" y="135" class="s">/core/accounts</text>
+
+          <rect id="n5" x="250" y="180" width="190" height="70" rx="10" class="box"/>
+          <text x="260" y="205" class="t">05 Webhook pagos</text>
+          <text x="260" y="225" class="s">/webhooks/payments</text>
+
+          <rect id="n6" x="250" y="270" width="190" height="70" rx="10" class="box"/>
+          <text x="260" y="295" class="t">06 Antifraude</text>
+          <text x="260" y="315" class="s">Reglas / listas / score</text>
+
+          <rect id="n10" x="250" y="360" width="190" height="70" rx="10" class="box"/>
+          <text x="260" y="385" class="t">10 Dispersión/Egreso</text>
+          <text x="260" y="405" class="s">SPEI / proveedor</text>
+
+          <!-- Airtable -->
+          <rect id="n4" x="470" y="90" width="190" height="70" rx="10" class="box"/>
+          <text x="480" y="115" class="t">04 Pago entrante</text>
+          <text x="480" y="135" class="s">Staging transacciones</text>
+
+          <rect id="n12" x="470" y="180" width="190" height="70" rx="10" class="box"/>
+          <text x="480" y="205" class="t">12 Reportes & BI</text>
+          <text x="480" y="225" class="s">Dashboards / auditoría</text>
+
+          <rect id="n13" x="470" y="270" width="190" height="70" rx="10" class="box"/>
+          <text x="480" y="295" class="t">13 Excepciones / PLD</text>
+          <text x="480" y="315" class="s">Alertas y revisión</text>
+
+          <rect id="n14" x="470" y="360" width="190" height="70" rx="10" class="box"/>
+          <text x="480" y="385" class="t">14 Retención & Logs</text>
+          <text x="480" y="405" class="s">S3/MinIO + TTL</text>
+
+          <!-- Odoo -->
+          <rect id="n7" x="690" y="90" width="230" height="70" rx="10" class="box"/>
+          <text x="700" y="115" class="t">07 Ledger / Asiento</text>
+          <text x="700" y="135" class="s">Odoo Contabilidad</text>
+
+          <rect id="n8" x="690" y="180" width="230" height="70" rx="10" class="box"/>
+          <text x="700" y="205" class="t">08 Conciliación bancaria</text>
+          <text x="700" y="225" class="s">Extractos vs ledger</text>
+
+          <rect id="n15" x="690" y="270" width="230" height="70" rx="10" class="box"/>
+          <text x="700" y="295" class="t">Mód. Cuentas Virtuales</text>
+          <text x="700" y="315" class="s">Saldos por cliente</text>
+
+          <!-- Edges -->
+          <path id="e1"  class="edge" d="M220 125 L250 125" />
+          <path id="e2"  class="edge" d="M440 125 L470 125" />
+          <path id="e3"  class="edge" d="M660 125 L690 125" />
+          <path id="e4"  class="edge" d="M700 250 L480 250" />
+          <path id="e5"  class="edge" d="M440 215 L690 215" />
+          <path id="e6"  class="edge" d="M220 215 L250 215" />
+          <path id="e7"  class="edge" d="M220 305 L250 305" />
+          <path id="e8"  class="edge" d="M440 305 L690 305" />
+          <path id="e9"  class="edge" d="M870 160 L870 180 L700 180" />
+          <path id="e10" class="edge" d="M690 395 L250 395" />
+          <path id="e11" class="edge" d="M250 305 L470 305" />
+          <path id="e12" class="edge" d="M20 235 L690 235" />
+          <path id="e13" class="edge" d="M20 325 L690 325" />
+          <path id="e14" class="edge" d="M20 415 L690 415" />
+        </svg>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <h2>Especificación operativa por paso (quirúrgico)</h2>
+      <div id="spec"></div>
+    </div>
+
+    <div id="toast" class="toast" style="display:none"></div>
+  </div>
+
+<script>
+(function(){
+  var steps = [
+    { id:1,  node:'n1',  edges:['e1'],  title:'Onboarding (Cliente)',
+      detail:`Formulario (portal/PWA) → valida datos mínimos y consentimiento. Si KYC externo, se deja token de sesión para continuar. Resultado: prospecto creado.` },
+    { id:2,  node:'n2',  edges:['e2'],  title:'Alta cuenta virtual',
+      detail:`Servicio propio /core/accounts crea cuenta virtual (customer_id, account_ref). Se refleja en Odoo (contacto + cuenta analítica) y espejo en Airtable.` },
+    { id:3,  node:'n3',  edges:['e12'], title:'Generar referencia de pago',
+      detail:`Se genera referencia SPEI/Conekta (order_id, amount, expires_at). Se muestra al cliente y se envía por email/WhatsApp.` },
+    { id:4,  node:'n4',  edges:['e5'],  title:'Pago entrante (staging)',
+      detail:`Webhook de gateway aterriza en /webhooks/payments → persiste en Airtable (tabla staging) con raw_payload y estatus inicial.` },
+    { id:5,  node:'n5',  edges:['e6','e11'], title:'Webhook → Normalización',
+      detail:`Se construye transacción normalizada (tx_id, account_ref, amount, method, timestamp). Reglas de idempotencia por tx_id + firma.` },
+    { id:6,  node:'n6',  edges:['e7'],  title:'Antifraude / Validaciones',
+      detail:`Chequeos: IP allowlist, HMAC, montos, listas internas, límite diario, desviaciones. Si falla → excepciones/PLD.` },
+    { id:7,  node:'n7',  edges:['e3'],  title:'Asiento en Odoo (ledger)',
+      detail:`Creación de journal entry: cuenta virtual (crédito) vs cuenta de clearing (débito). Actualiza saldo de cliente. Adjunta comprobante.` },
+    { id:8,  node:'n8',  edges:['e9'],  title:'Conciliación bancaria',
+      detail:`Import de extractos (OFX/CSV/API) → conciliación con journal y staging. Reglas por monto, fecha, referencia. Diferencias → excepción.` },
+    { id:9,  node:'n9',  edges:['e13'], title:'Notificación / Recibo',
+      detail:`Confirmación al cliente (PDF/HTML). Notificación a operaciones. Registra evento de comunicación.` },
+    { id:10, node:'n10', edges:['e10'], title:'Dispersión/Egreso',
+      detail:`Solicitud de retiro o pago a proveedor. Flujo: autorización → SPEI → asiento contable → recibo. Idempotencia por request_id.` },
+    { id:11, node:'n11', edges:['e14'], title:'Estados de cuenta',
+      detail:`Generación PDF programada (cron). Incluye saldo inicial, movimientos, comisiones, impuestos. Envío seguro por email.` },
+    { id:12, node:'n12', edges:[],    title:'Reportes & BI',
+      detail:`Dashboards operativos (Airtable/BI) y financieros (Odoo). Export a S3/MinIO (Parquet) para historizar y analítica.` },
+    { id:13, node:'n13', edges:[],    title:'Excepciones / PLD',
+      detail:`Bandeja de alertas: transacciones fuera de patrón, duplicados, listas internas. Flujos de remediación y bitácora de auditoría.` },
+    { id:14, node:'n14', edges:[],    title:'Hardening & Retención',
+      detail:`Logs firmados, cifrado en reposo, políticas de retención (90/180/360 días), backups, BCP/DR.` }
+  ];
+
+  var specMap = {
+    1:`Entradas: datos personales, consentimiento. Salidas: customer_id. Integraciones: KYC (opcional). Auditoría: timestamp, IP, hash del consentimiento.`,
+    2:`Modelo cuenta virtual: {customer_id, account_ref, status, opened_at}. También crea contacto en Odoo y espejo en Airtable para operaciones.`,
+    3:`Parámetros: amount, currency, expires_at. Se guarda order_id y se muestra QR/CLABE. Se programa job de expiración.`,
+    4:`Airtable guarda payload íntegro (raw), firma, headers y tx_id del proveedor. Evita pérdida de información para auditoría.`,
+    5:`Normalización: mapea campos a esquema interno; calcula fingerprints anti-duplicados y prepara asiento contable.`,
+    6:`Límites por cliente/día/mes, checks por lista interna y score básico. Resultado: aprobado, revisar o rechazado.`,
+    7:`Journal entry en Odoo: define cuentas contables, diarios y etiquetas. Adjunta comprobante del gateway.`,
+    8:`Proceso diario: importa extracto bancario; concilia con staging y ledger; marca coincidencias y diferencias.`,
+    9:`Emite recibo y lo envía; registra evento en historial del cliente.`,
+    10:`Para egresos: autorización dos pares de ojos, validación de CLABE y SPEI, registro en ledger y notificación.`,
+    11:`PDF firmado, disponible en portal; retención de documentos.`,
+    12:`KPI: saldo total, entradas/salidas, morosidad, aging. Export Parquet diario.`,
+    13:`Cola de excepciones: SLA de atención, clasificación por riesgo, evidencias.`,
+    14:`Cifrado (at-rest, in-transit), rotación de claves, backups y pruebas de restauración.`
+  };
+
+  var ol=document.getElementById('steps');
+  steps.forEach(function(s){
+    var li=document.createElement('li');
+    li.className='step';
+    li.setAttribute('data-id',s.id);
+    li.innerHTML='<div class="n">'+String(s.id).padStart(2,'0')+'</div>'+
+                 '<div><div class="title">'+s.title+'</div><div class="muted">'+s.detail+'</div></div>';
+    li.addEventListener('click',function(){ selectStep(s.id,true); });
+    ol.appendChild(li);
+  });
+
+  function clearActive(){
+    document.querySelectorAll('.step').forEach(function(x){x.classList.remove('active');});
+    document.querySelectorAll('rect.box').forEach(function(x){x.classList.remove('node-active');});
+    document.querySelectorAll('path.edge').forEach(function(x){x.classList.remove('active');});
+  }
+  function toast(msg){ var t=document.getElementById('toast'); t.textContent=msg; t.style.display='block'; setTimeout(function(){t.style.display='none';},1600); }
+
+  function selectStep(id,scroll){
+    clearActive();
+    var s=steps.find(function(z){return z.id===id});
+    if(!s) return;
+    document.querySelector('.step[data-id="'+id+'"]').classList.add('active');
+    var node=document.getElementById(s.node);
+    if(node) node.classList.add('node-active');
+    (s.edges||[]).forEach(function(eid){ var e=document.getElementById(eid); if(e) e.classList.add('active');});
+    var spec=document.getElementById('spec');
+    spec.innerHTML='<div class="step"><div class="n">'+String(id).padStart(2,'0')+'</div><div><div class="title">'+s.title+'</div><div class="muted">'+(specMap[id]||'')+'</div></div></div>';
+    if(scroll){ document.getElementById('svg').scrollIntoView({behavior:'smooth',block:'center'}); }
+  }
+
+  // Jump select
+  var jump=document.getElementById('jump');
+  jump.addEventListener('change',function(){ var v=parseInt(jump.value||'0',10); if(v){ selectStep(v,true); toast('Navegaste al paso '+String(v).padStart(2,'0')); } });
+
+  // Selección inicial
+  selectStep(1,false);
+})();
+</script>
+</body>
+</html>
