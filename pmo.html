@@ -329,6 +329,24 @@
             transform: rotate(180deg);
         }
 
+        /* Accessible accordions and responsive adjustments */
+        .accordion-content[hidden] { display: none; }
+
+        .detail-toggle:focus-visible {
+            outline: 2px solid #fff;
+            outline-offset: 2px;
+            box-shadow: 0 0 0 3px rgba(58,166,255,.5);
+        }
+
+        @media (max-width: 1024px) {
+            .main-container { grid-template-columns: 1fr; }
+            .sidebar, .content { height: auto; }
+        }
+
+        @media (max-width: 640px) {
+            .stats-grid { grid-template-columns: 1fr; }
+        }
+
         /* TECHNICAL DETAILS - HIDDEN BY DEFAULT */
         .technical-details {
             display: none;
@@ -1592,6 +1610,7 @@ DEBUG=true</div>
                 container.innerHTML = guideContent;
                 container.style.opacity = '1';
                 container.scrollTop = 0; // Scroll to top of new content
+                initializeAccordions(container);
             }, 150);
             
             console.log('Guide loaded for tool:', tool);
@@ -1600,20 +1619,57 @@ DEBUG=true</div>
         // TOGGLE TECHNICAL DETAILS ON DEMAND
         function toggleTechnicalDetails(buttonId) {
             const button = document.getElementById(buttonId);
+            if (!button) return;
             const detailsId = buttonId.replace('btn-', 'details-');
             const details = document.getElementById(detailsId);
-            const icon = button.querySelector('.toggle-icon');
-            
-            if (details.classList.contains('visible')) {
-                details.classList.remove('visible');
-                button.classList.remove('expanded');
-                button.innerHTML = `<span class="toggle-icon">▼</span> Ver implementación técnica`;
-            } else {
+            if (!details) return;
+
+            // Ensure ARIA wiring
+            button.setAttribute('aria-controls', detailsId);
+            const isExpanded = button.getAttribute('aria-expanded') === 'true';
+            const willExpand = !isExpanded;
+            button.setAttribute('aria-expanded', String(willExpand));
+
+            if (willExpand) {
                 details.classList.add('visible');
+                details.hidden = false;
                 button.classList.add('expanded');
                 button.innerHTML = `<span class="toggle-icon">▲</span> Ocultar detalles técnicos`;
+            } else {
+                details.classList.remove('visible');
+                details.hidden = true;
+                button.classList.remove('expanded');
+                button.innerHTML = `<span class="toggle-icon">▼</span> Ver implementación técnica`;
             }
         }
+
+        // Initialize accordions (collapse by default, add ARIA)
+        function initializeAccordions(root) {
+            const scope = root instanceof Element ? root : document;
+            const buttons = scope.querySelectorAll('.detail-toggle');
+            buttons.forEach((btn) => {
+                // Add semantic class for potential delegation
+                if (!btn.classList.contains('accordion-toggle')) {
+                    btn.classList.add('accordion-toggle');
+                }
+                const id = btn.id || '';
+                const detailsId = id.startsWith('btn-') ? id.replace('btn-', 'details-') : (btn.dataset && btn.dataset.target);
+                if (detailsId) {
+                    btn.setAttribute('aria-controls', detailsId);
+                    btn.setAttribute('aria-expanded', 'false');
+                    const panel = (scope.getElementById ? scope.getElementById(detailsId) : document.getElementById(detailsId));
+                    if (panel) {
+                        panel.hidden = true;
+                        panel.classList.remove('visible');
+                    }
+                }
+            });
+        }
+
+        // Run on initial load
+        document.addEventListener('DOMContentLoaded', function () {
+            initializeAccordions(document);
+        });
 
         function generateFastAPIGuide() {
             return `
