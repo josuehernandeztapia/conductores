@@ -63,6 +63,10 @@
             height: calc(100vh - 100px);
         }
 
+        #guide-container {
+            transition: opacity 0.15s ease-in-out;
+        }
+
         /* 360° FILTROS QUIRÚRGICOS */
         .filter-controls {
             background: var(--panel);
@@ -159,6 +163,14 @@
         .tool-item:hover {
             border-color: var(--acc);
             transform: translateY(-1px);
+        }
+
+        .tool-item.selected {
+            background: var(--acc);
+            border-color: var(--acc);
+            color: white;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(58, 166, 255, 0.3);
         }
 
         .guide-indicator {
@@ -1470,6 +1482,16 @@ DEBUG=true</div>
 
         // CARGAR GUÍAS ULTRA-DETALLADAS
         function showGuide(tool) {
+            // Remover selección previa
+            const allToolItems = document.querySelectorAll('.tool-item');
+            allToolItems.forEach(item => item.classList.remove('selected'));
+            
+            // Agregar selección al elemento actual
+            const currentTool = document.querySelector(`[onclick="showGuide('${tool}')"]`);
+            if (currentTool) {
+                currentTool.classList.add('selected');
+            }
+
             const guides = {
                 'fastapi': generateFastAPIGuide(),
                 'odoo': generateOdooGuide(), 
@@ -1486,7 +1508,17 @@ DEBUG=true</div>
             };
 
             const container = document.getElementById('guide-container');
-            container.innerHTML = guides[tool] || generateDefaultGuide(tool);
+            const guideContent = guides[tool] || generateDefaultGuide(tool);
+            
+            // Animated content update
+            container.style.opacity = '0.5';
+            setTimeout(() => {
+                container.innerHTML = guideContent;
+                container.style.opacity = '1';
+                container.scrollTop = 0; // Scroll to top of new content
+            }, 150);
+            
+            console.log('Guide loaded for tool:', tool);
         }
 
         function generateFastAPIGuide() {
@@ -2298,20 +2330,83 @@ class AirtableBankingEngine:
         // Funciones de filtrado
         function filterView() {
             const view = document.getElementById('pmoView').value;
-            // Implementar lógica de filtrado por vista
+            const hierarchyItems = document.querySelectorAll('.hierarchy-level');
+            
             console.log('Filtering by view:', view);
+            
+            hierarchyItems.forEach(item => {
+                const productType = item.querySelector('.hierarchy-header').textContent.toLowerCase();
+                
+                if (view === 'all') {
+                    item.style.display = 'block';
+                } else if (view === 'operational' && 
+                          (productType.includes('rental') || productType.includes('banking'))) {
+                    item.style.display = 'block';
+                } else if (view === 'technical' && 
+                          (productType.includes('leads') || productType.includes('automation'))) {
+                    item.style.display = 'block';
+                } else if (view === 'financial' && 
+                          productType.includes('payments')) {
+                    item.style.display = 'block';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
         }
 
         function filterProduct() {
             const product = document.getElementById('productFilter').value;
-            // Implementar lógica de filtrado por producto
+            const hierarchyItems = document.querySelectorAll('.hierarchy-level');
+            
             console.log('Filtering by product:', product);
+            
+            hierarchyItems.forEach(item => {
+                const headerText = item.querySelector('.hierarchy-header').textContent.toLowerCase();
+                
+                if (product === 'all') {
+                    item.style.display = 'block';
+                } else if (product === 'customer-acquisition' && headerText.includes('leads')) {
+                    item.style.display = 'block';
+                } else if (product === 'vehicle-rental' && headerText.includes('rental')) {
+                    item.style.display = 'block';
+                } else if (product === 'payment-processing' && headerText.includes('payments')) {
+                    item.style.display = 'block';
+                } else if (product === 'core-banking' && headerText.includes('banking')) {
+                    item.style.display = 'block';
+                } else if (product === 'process-automation' && headerText.includes('automation')) {
+                    item.style.display = 'block';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
         }
 
         function filterStatus() {
             const status = document.getElementById('statusFilter').value;
-            // Implementar lógica de filtrado por status
+            const toolItems = document.querySelectorAll('.tool-item');
+            
             console.log('Filtering by status:', status);
+            
+            toolItems.forEach(item => {
+                const itemStatus = item.getAttribute('data-status');
+                const parentHierarchy = item.closest('.hierarchy-level');
+                
+                if (status === 'all') {
+                    item.style.display = 'block';
+                    if (parentHierarchy) parentHierarchy.style.display = 'block';
+                } else if (status === 'blocked' && itemStatus === 'blocked') {
+                    item.style.display = 'block';
+                    if (parentHierarchy) parentHierarchy.style.display = 'block';
+                } else if (status === 'progress' && itemStatus === 'progress') {
+                    item.style.display = 'block';
+                    if (parentHierarchy) parentHierarchy.style.display = 'block';
+                } else if (status === 'functional' && itemStatus === 'functional') {
+                    item.style.display = 'block';
+                    if (parentHierarchy) parentHierarchy.style.display = 'block';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
         }
 
         // Funciones para generar guías adicionales ULTRA-DETALLADAS
@@ -3902,99 +3997,4 @@ class RevenueAnalyticsEngine:
             logger.error(f"Dashboard update error: {str(e)}")
             return {'success': False, 'error': str(e)}
     
-    async def get_dashboard_data(self, user_filters: dict = None) -> dict:
-        """Get dashboard data with user filters"""
-        try:
-            # Check cache first
-            cache_key = f"dashboard_data:{hash(str(user_filters))}"
-            cached = self.redis_client.get(cache_key)
-            
-            if cached:
-                return json.loads(cached)
-            
-            # Generate dashboard data
-            dashboard_data = {
-                'summary_cards': await self._generate_summary_cards(user_filters),
-                'revenue_chart': await self._generate_revenue_chart(user_filters),
-                'customer_acquisition': await self._generate_acquisition_chart(user_filters),
-                'operational_metrics': await self._generate_operational_charts(user_filters),
-                'forecasts': await self._generate_forecast_charts(user_filters),
-                'alerts': await self._get_active_alerts(),
-                'last_updated': datetime.utcnow().isoformat()
-            }
-            
-            # Cache for 2 minutes
-            self.redis_client.setex(cache_key, 120, json.dumps(dashboard_data))
-            
-            return dashboard_data
-            
-        except Exception as e:
-            return {'error': str(e)}
-    
-    async def _generate_summary_cards(self, filters: dict) -> list:
-        """Generate summary cards for dashboard"""
-        return [
-            {
-                'title': 'Revenue Today',
-                'value': await self._get_today_revenue(),
-                'change': await self._get_revenue_change_today(),
-                'trend': 'up',
-                'color': 'green'
-            },
-            {
-                'title': 'Active Contracts',
-                'value': await self._get_active_contracts_count(),
-                'change': await self._get_contracts_change(),
-                'trend': 'up',
-                'color': 'blue'
-            },
-            {
-                'title': 'Conversion Rate',
-                'value': f"{await self._get_current_conversion_rate():.1f}%",
-                'change': await self._get_conversion_change(),
-                'trend': 'up',
-                'color': 'purple'
-            },
-            {
-                'title': 'Vehicle Utilization',
-                'value': f"{await self._get_vehicle_utilization():.1f}%",
-                'change': await self._get_utilization_change(),
-                'trend': 'stable',
-                'color': 'orange'
-            }
-        ]</div>
-                            </div>
-                        </div>
-
-                        <div class="impact-box success">
-                            <strong>✅ ANALYTICS READY:</strong> ML engine completo con forecasting, KPIs ejecutivos, real-time dashboard, y alerting. Solo requiere data pipeline activo para funcionar.
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-
-        function generateDefaultGuide(tool) {
-            return `
-                <div class="guide-detail">
-                    <div class="guide-header">
-                        🔧 ${tool.toUpperCase()} - Guía Ultra-detallada
-                    </div>
-                    <div class="guide-content">
-                        <p>Guía quirúrgica completa para ${tool} disponible. Click en la herramienta específica para ver implementación ultra-detallada.</p>
-                    </div>
-                </div>
-            `;
-        }
-
-        // Inicialización
-        window.addEventListener('load', function() {
-            // Auto-expandir sistema de leads (contiene bloqueador crítico)
-            toggleHierarchy('leads');
-            
-            // FastAPI guide ya está cargada por defecto
-            console.log('🎯 Dashboard 360° Ultra-Detallado Cargado');
-        });
-    </script>
-</body>
-</html>
+    asy
