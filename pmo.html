@@ -269,8 +269,84 @@
             background: var(--ok);
         }
 
+        /* EXECUTIVE SUMMARY - ALWAYS VISIBLE */
+        .executive-summary {
+            padding: 15px 20px;
+            background: var(--bg);
+            border-bottom: 1px solid var(--line);
+        }
+
+        .exec-status {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-badge.blocked { background: var(--error); color: white; }
+        .status-badge.progress { background: var(--warn); color: white; }
+        .status-badge.complete { background: var(--ok); color: white; }
+
+        /* TOGGLE BUTTONS FOR TECHNICAL DETAILS */
+        .detail-toggle {
+            background: var(--acc);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            margin: 15px 0;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .detail-toggle:hover {
+            background: #2d8ae6;
+            transform: translateY(-1px);
+        }
+
+        .detail-toggle.expanded {
+            background: var(--warn);
+        }
+
+        .toggle-icon {
+            transition: transform 0.2s;
+        }
+
+        .detail-toggle.expanded .toggle-icon {
+            transform: rotate(180deg);
+        }
+
+        /* TECHNICAL DETAILS - HIDDEN BY DEFAULT */
+        .technical-details {
+            display: none;
+            padding: 0 20px 20px 20px;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        .technical-details.visible {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
         .guide-content {
-            padding: 20px;
+            padding: 0;
         }
 
         .code-block {
@@ -1521,18 +1597,253 @@ DEBUG=true</div>
             console.log('Guide loaded for tool:', tool);
         }
 
+        // TOGGLE TECHNICAL DETAILS ON DEMAND
+        function toggleTechnicalDetails(buttonId) {
+            const button = document.getElementById(buttonId);
+            const detailsId = buttonId.replace('btn-', 'details-');
+            const details = document.getElementById(detailsId);
+            const icon = button.querySelector('.toggle-icon');
+            
+            if (details.classList.contains('visible')) {
+                details.classList.remove('visible');
+                button.classList.remove('expanded');
+                button.innerHTML = `<span class="toggle-icon">▼</span> Ver implementación técnica`;
+            } else {
+                details.classList.add('visible');
+                button.classList.add('expanded');
+                button.innerHTML = `<span class="toggle-icon">▲</span> Ocultar detalles técnicos`;
+            }
+        }
+
         function generateFastAPIGuide() {
-            // Ya está cargada por defecto - es el bloqueador crítico
-            return document.getElementById('guide-container').innerHTML;
+            return `
+                <div class="guide-detail">
+                    <div class="guide-header blocker">
+                        🚫 FastAPI Backend - Bloqueador Crítico (0%)
+                    </div>
+                    
+                    <div class="executive-summary">
+                        <div class="exec-status">
+                            <span><strong>Impacto:</strong> Bloquea 7 sistemas críticos</span>
+                            <span class="status-badge blocked">BLOQUEADO</span>
+                        </div>
+                        <p><strong>Problema:</strong> Sin FastAPI, no funcionan leads, pagos, PWA, webhooks, ni automatización.</p>
+                        <p><strong>Prioridad:</strong> Máxima - Requiere implementación inmediata</p>
+                        <p><strong>Tiempo estimado:</strong> 3-5 días desarrollo + despliegue</p>
+                    </div>
+
+                    <button class="detail-toggle" id="btn-fastapi" onclick="toggleTechnicalDetails('btn-fastapi')">
+                        <span class="toggle-icon">▼</span> Ver implementación técnica
+                    </button>
+
+                    <div class="technical-details" id="details-fastapi">
+                        <div class="guide-section">
+                            <h4>🏗️ Arquitectura FastAPI Backend</h4>
+                            
+                            <div class="task-section">
+                                <div class="task-title">PASO 1: Estructura de Proyecto</div>
+                                <div class="code-block">conductores_backend/
+├── app/
+│   ├── __init__.py
+│   ├── main.py              # FastAPI app principal
+│   ├── core/
+│   │   ├── config.py        # Configuraciones
+│   │   ├── database.py      # PostgreSQL connection
+│   │   ├── security.py      # JWT & Auth
+│   │   └── middleware.py    # CORS, logging
+│   ├── api/
+│   │   ├── __init__.py
+│   │   ├── leads.py         # Endpoints de leads
+│   │   ├── payments.py      # Endpoints de pagos
+│   │   ├── webhooks.py      # Webhook receivers
+│   │   └── auth.py          # Autenticación
+│   ├── models/
+│   │   ├── __init__.py
+│   │   ├── lead.py          # SQLAlchemy models
+│   │   ├── payment.py       # Payment models
+│   │   └── user.py          # User models
+│   ├── services/
+│   │   ├── __init__.py
+│   │   ├── odoo_service.py  # Integración Odoo
+│   │   ├── conekta_service.py # Pagos
+│   │   ├── make_service.py  # Make.com triggers
+│   │   └── whatsapp_service.py # WhatsApp API
+│   └── utils/
+│       ├── __init__.py
+│       └── helpers.py
+├── requirements.txt
+├── Dockerfile
+├── docker-compose.yml
+└── .env</div>
+                            </div>
+
+                            <div class="task-section">
+                                <div class="task-title">PASO 2: FastAPI Main App (app/main.py)</div>
+                                <div class="code-block">from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+import uvicorn
+import logging
+from contextlib import asynccontextmanager
+
+from app.core.database import init_db
+from app.core.middleware import setup_middleware
+from app.api import leads, payments, webhooks, auth
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    logger.info("🚀 Starting Conductores FastAPI Backend")
+    await init_db()
+    logger.info("✅ Database initialized")
+    yield
+    # Shutdown
+    logger.info("🔄 Shutting down Conductores Backend")
+
+# FastAPI App
+app = FastAPI(
+    title="Conductores 360° API",
+    description="Backend completo para Conductores del Mundo",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+# CORS configuration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://conductores.lat",
+        "https://app.conductores.lat", 
+        "http://localhost:3000",  # React dev
+        "http://localhost:5173"   # Vite dev
+    ],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
+    allow_headers=["*"],
+)
+
+# Setup custom middleware
+setup_middleware(app)
+
+# Include API routes
+app.include_router(leads.router, prefix="/api/v1/leads", tags=["leads"])
+app.include_router(payments.router, prefix="/api/v1/payments", tags=["payments"])  
+app.include_router(webhooks.router, prefix="/api/v1/webhooks", tags=["webhooks"])
+app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
+
+@app.get("/")
+async def root():
+    return {
+        "message": "🚗 Conductores 360° API",
+        "status": "online",
+        "version": "1.0.0"
+    }
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "service": "conductores-api"}
+
+# Global exception handler
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Global error: {str(exc)}")
+    return {"error": "Internal server error", "detail": str(exc)}
+
+if __name__ == "__main__":
+    uvicorn.run(
+        app, 
+        host="0.0.0.0", 
+        port=8000,
+        reload=True,
+        log_level="info"
+    )</div>
+                            </div>
+
+                            <div class="task-section">
+                                <div class="task-title">PASO 3: Database Configuration (app/core/database.py)</div>
+                                <div class="code-block">from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.pool import StaticPool
+import os
+from typing import Generator
+
+# Database URL from environment
+DATABASE_URL = os.getenv(
+    "DATABASE_URL", 
+    "postgresql://conductores:conductores123@localhost/conductores_db"
+)
+
+# SQLAlchemy engine
+engine = create_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,
+    pool_recycle=300,
+    echo=False  # Set True for SQL debugging
+)
+
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+async def init_db():
+    """Initialize database tables"""
+    Base.metadata.create_all(bind=engine)
+
+def get_db() -> Generator[Session, None, None]:
+    """Dependency to get database session"""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()</div>
+                            </div>
+
+                        </div>
+                        
+                        <div class="impact-box warning">
+                            <strong>⚠️ DEPENDENCIA TOTAL:</strong> 7 sistemas esperan FastAPI:
+                            <br>• PWA Frontend (crear leads, autenticación)
+                            <br>• Sistema de Pagos (webhooks Conekta)
+                            <br>• WhatsApp API (triggers de mensajes)
+                            <br>• Odoo Integration (sincronización)
+                            <br>• Make.com Automation (webhooks)
+                            <br>• Metamap KYC (verificación callbacks)
+                            <br>• Analytics Dashboard (data endpoints)
+                        </div>
+                    </div>
+                </div>
+            `;
         }
 
         function generateOdooGuide() {
             return `
                 <div class="guide-detail">
                     <div class="guide-header complete">
-                        ✅ Odoo ERP - CONFIRMADO FUNCIONAL (75% - Status Real)
+                        ✅ Odoo ERP - CONFIRMADO FUNCIONAL (75%)
                     </div>
-                    <div class="guide-content">
+                    
+                    <div class="executive-summary">
+                        <div class="exec-status">
+                            <span><strong>Estado:</strong> 74 apps funcionando (Auditoría Agosto 2025)</span>
+                            <span class="status-badge complete">FUNCIONAL</span>
+                        </div>
+                        <p><strong>Fortalezas:</strong> Fiscalización México completa, contabilidad, CRM operativo</p>
+                        <p><strong>Dependencias:</strong> Necesita FastAPI para sincronización completa</p>
+                        <p><strong>Prioridad:</strong> Media - Optimizar server actions existentes</p>
+                    </div>
+
+                    <button class="detail-toggle" id="btn-odoo" onclick="toggleTechnicalDetails('btn-odoo')">
+                        <span class="toggle-icon">▼</span> Ver server actions y configuración técnica
+                    </button>
+
+                    <div class="technical-details" id="details-odoo">
                         <div class="impact-box success">
                             <strong>✅ CONFIRMADO POR AUDITORÍA AGOSTO 2025:</strong><br>
                             • 74 aplicaciones disponibles en instancia<br>
@@ -1641,9 +1952,24 @@ def create_rental_contract():
             return `
                 <div class="guide-detail">
                     <div class="guide-header blocker">
-                        🚫 Make.com Scenarios - CORRECCIÓN: 0% (No 60%)
+                        🚫 Make.com Automation - Scenarios No Creados (0%)
                     </div>
-                    <div class="guide-content">
+                    
+                    <div class="executive-summary">
+                        <div class="exec-status">
+                            <span><strong>Problema:</strong> Solo planificación, sin implementación real</span>
+                            <span class="status-badge blocked">BLOQUEADO</span>
+                        </div>
+                        <p><strong>Dependencias:</strong> Requiere FastAPI funcionando para webhooks</p>
+                        <p><strong>Impacto:</strong> Sin automatización WhatsApp, Odoo sync, ni workflows</p>
+                        <p><strong>Prioridad:</strong> Alta - Después de FastAPI</p>
+                    </div>
+
+                    <button class="detail-toggle" id="btn-make" onclick="toggleTechnicalDetails('btn-make')">
+                        <span class="toggle-icon">▼</span> Ver scenarios planeados y configuración
+                    </button>
+
+                    <div class="technical-details" id="details-make">
                         <div class="impact-box">
                             <strong>🚨 ERROR DETECTADO EN AUDITORÍA:</strong><br>
                             Dashboard anterior mostraba 60% - INCORRECTO<br>
@@ -1773,7 +2099,22 @@ def create_rental_contract():
                     <div class="guide-header progress">
                         💳 Conekta Payment Gateway - Código Listo (85%)
                     </div>
-                    <div class="guide-content">
+                    
+                    <div class="executive-summary">
+                        <div class="exec-status">
+                            <span><strong>Estado:</strong> Código completo, falta verificación API keys</span>
+                            <span class="status-badge progress">EN PROGRESO</span>
+                        </div>
+                        <p><strong>Fortalezas:</strong> Webhooks listos, compliance México, modelos creados</p>
+                        <p><strong>Pendiente:</strong> Verificar cuenta Conekta activa y testing end-to-end</p>
+                        <p><strong>Dependencias:</strong> Requiere FastAPI funcionando para endpoints</p>
+                    </div>
+
+                    <button class="detail-toggle" id="btn-conekta" onclick="toggleTechnicalDetails('btn-conekta')">
+                        <span class="toggle-icon">▼</span> Ver implementación completa de pagos
+                    </button>
+
+                    <div class="technical-details" id="details-conekta">
                         <div class="impact-box warning">
                             <strong>⚠️ STATUS:</strong> Código implementación completo, requiere verificar cuenta y API keys activas.
                         </div>
@@ -1999,7 +2340,22 @@ async def create_flexible_order(payment_data: dict, method: str):
                     <div class="guide-header progress">
                         🏦 Airtable Core Banking - ML Engine Completo (95%)
                     </div>
-                    <div class="guide-content">
+                    
+                    <div class="executive-summary">
+                        <div class="exec-status">
+                            <span><strong>Estado:</strong> ML engine completo, falta sync en tiempo real</span>
+                            <span class="status-badge progress">CASI LISTO</span>
+                        </div>
+                        <p><strong>Fortalezas:</strong> Forecasting ML, analytics avanzados, dashboards ejecutivos</p>
+                        <p><strong>Pendiente:</strong> Data pipeline en tiempo real desde FastAPI</p>
+                        <p><strong>Prioridad:</strong> Media - Sistema bancario funcional standalone</p>
+                    </div>
+
+                    <button class="detail-toggle" id="btn-airtable" onclick="toggleTechnicalDetails('btn-airtable')">
+                        <span class="toggle-icon">▼</span> Ver ML engine y analytics completos
+                    </button>
+
+                    <div class="technical-details" id="details-airtable">
                         <div class="impact-box success">
                             <strong>✅ IMPLEMENTACIÓN AVANZADA:</strong><br>
                             Machine Learning revenue projections, analytics engine, y core banking completos. Solo requiere verificar workspace activo.
@@ -2416,7 +2772,22 @@ class AirtableBankingEngine:
                     <div class="guide-header progress">
                         📱 WhatsApp Business - Manual + Automatización (80%)
                     </div>
-                    <div class="guide-content">
+                    
+                    <div class="executive-summary">
+                        <div class="exec-status">
+                            <span><strong>Estado:</strong> Manual funcional, automatización bloqueada</span>
+                            <span class="status-badge progress">PARCIAL</span>
+                        </div>
+                        <p><strong>Fortalezas:</strong> WhatsApp Business configurado, templates creados</p>
+                        <p><strong>Bloqueador:</strong> Automatización requiere FastAPI para triggers</p>
+                        <p><strong>Prioridad:</strong> Media - Funciona manual mientras tanto</p>
+                    </div>
+
+                    <button class="detail-toggle" id="btn-whatsapp" onclick="toggleTechnicalDetails('btn-whatsapp')">
+                        <span class="toggle-icon">▼</span> Ver configuración y automatización
+                    </button>
+
+                    <div class="technical-details" id="details-whatsapp">
                         <div class="impact-box warning">
                             <strong>⚠️ STATUS:</strong> Funciona manual, automatización bloqueada por FastAPI
                         </div>
@@ -2631,7 +3002,22 @@ class WhatsAppService:
                     <div class="guide-header progress">
                         🔐 Metamap KYC - Identity Verification México (90%)
                     </div>
-                    <div class="guide-content">
+                    
+                    <div class="executive-summary">
+                        <div class="exec-status">
+                            <span><strong>Estado:</strong> Funcional independiente, cuenta activa pendiente</span>
+                            <span class="status-badge complete">INDEPENDIENTE</span>
+                        </div>
+                        <p><strong>Fortalezas:</strong> SDK implementado, compliance México, workflow KYC completo</p>
+                        <p><strong>Pendiente:</strong> Verificar cuenta developer activa y testing</p>
+                        <p><strong>Prioridad:</strong> Baja - Funciona standalone</p>
+                    </div>
+
+                    <button class="detail-toggle" id="btn-metamap" onclick="toggleTechnicalDetails('btn-metamap')">
+                        <span class="toggle-icon">▼</span> Ver KYC implementation completa
+                    </button>
+
+                    <div class="technical-details" id="details-metamap">
                         <div class="impact-box success">
                             <strong>✅ INDEPENDIENTE:</strong> Metamap funciona sin FastAPI. Solo requiere verificar cuenta developer activa.
                         </div>
@@ -2860,7 +3246,22 @@ async def trigger_kyc_verification(lead_id: int):
                     <div class="guide-header blocker">
                         📱 PWA Frontend - BLOQUEADO por FastAPI (0%)
                     </div>
-                    <div class="guide-content">
+                    
+                    <div class="executive-summary">
+                        <div class="exec-status">
+                            <span><strong>Problema:</strong> Dependencia total de FastAPI backend</span>
+                            <span class="status-badge blocked">BLOQUEADO</span>
+                        </div>
+                        <p><strong>Impacto:</strong> Sin PWA no hay app móvil ni captura de leads digital</p>
+                        <p><strong>Dependencias:</strong> 100% bloqueado por FastAPI endpoints</p>
+                        <p><strong>Prioridad:</strong> Alta - Después de FastAPI</p>
+                    </div>
+
+                    <button class="detail-toggle" id="btn-pwa" onclick="toggleTechnicalDetails('btn-pwa')">
+                        <span class="toggle-icon">▼</span> Ver arquitectura PWA completa
+                    </button>
+
+                    <div class="technical-details" id="details-pwa">
                         <div class="impact-box">
                             <strong>🚫 BLOQUEADOR:</strong> PWA no puede funcionar sin FastAPI backend. Depende 100% de endpoints API.
                         </div>
@@ -3116,7 +3517,22 @@ export const updateLeadStatus = async (leadId: number, status: string): Promise&
                     <div class="guide-header blocker">
                         🔗 Webhooks System - Código Listo, Sin Endpoints (0%)
                     </div>
-                    <div class="guide-content">
+                    
+                    <div class="executive-summary">
+                        <div class="exec-status">
+                            <span><strong>Problema:</strong> Código listo pero sin servidor para recibir</span>
+                            <span class="status-badge blocked">BLOQUEADO</span>
+                        </div>
+                        <p><strong>Fortalezas:</strong> Todos los webhooks implementados con security</p>
+                        <p><strong>Bloqueador:</strong> Requiere FastAPI activo para endpoints</p>
+                        <p><strong>Prioridad:</strong> Alta - Crítico para automatización</p>
+                    </div>
+
+                    <button class="detail-toggle" id="btn-webhooks" onclick="toggleTechnicalDetails('btn-webhooks')">
+                        <span class="toggle-icon">▼</span> Ver webhooks implementados
+                    </button>
+
+                    <div class="technical-details" id="details-webhooks">
                         <div class="impact-box">
                             <strong>🚫 PROBLEMA:</strong> Todos los webhooks implementados pero no hay servidor FastAPI para recibir las llamadas.
                         </div>
@@ -3277,6 +3693,22 @@ async def handle_metamap_webhook(request: Request, background_tasks: BackgroundT
                     <div class="guide-header blocker">
                         ⚡ Background Tasks - Celery + Redis Architecture (0%)
                     </div>
+                    
+                    <div class="executive-summary">
+                        <div class="exec-status">
+                            <span><strong>Problema:</strong> Arquitectura diseñada pero no implementada</span>
+                            <span class="status-badge blocked">BLOQUEADO</span>
+                        </div>
+                        <p><strong>Dependencias:</strong> Requiere FastAPI funcionando primero</p>
+                        <p><strong>Impacto:</strong> Sin background tasks no hay escalabilidad</p>
+                        <p><strong>Prioridad:</strong> Media - Después de FastAPI básico</p>
+                    </div>
+
+                    <button class="detail-toggle" id="btn-background-tasks" onclick="toggleTechnicalDetails('btn-background-tasks')">
+                        <span class="toggle-icon">▼</span> Ver arquitectura Celery + Redis
+                    </button>
+
+                    <div class="technical-details" id="details-background-tasks">
                     <div class="guide-content">
                         <div class="impact-box">
                             <strong>🚫 SIN SERVIDOR:</strong> Sistema de tareas asíncronas completo, pero requiere FastAPI + Redis corriendo.
@@ -3566,6 +3998,22 @@ celery_app.conf.beat_schedule = {
                     <div class="guide-header complete">
                         🧾 Cumplimiento Fiscal México - CONFIRMADO FUNCIONAL (90%)
                     </div>
+                    
+                    <div class="executive-summary">
+                        <div class="exec-status">
+                            <span><strong>Estado:</strong> Funcional en Odoo, listo para integración</span>
+                            <span class="status-badge complete">FUNCIONAL</span>
+                        </div>
+                        <p><strong>Fortalezas:</strong> SAT integrado, CFDI generación, IVA 16% configurado</p>
+                        <p><strong>Pendiente:</strong> Sincronización automática con FastAPI</p>
+                        <p><strong>Prioridad:</strong> Baja - Ya funciona manual en Odoo</p>
+                    </div>
+
+                    <button class="detail-toggle" id="btn-tax-compliance" onclick="toggleTechnicalDetails('btn-tax-compliance')">
+                        <span class="toggle-icon">▼</span> Ver cumplimiento fiscal completo
+                    </button>
+
+                    <div class="technical-details" id="details-tax-compliance">
                     <div class="guide-content">
                         <div class="impact-box success">
                             <strong>✅ CONFIRMADO EN ODOO:</strong> Configuración fiscal México completamente operativa según auditoría agosto 2025.
@@ -3719,6 +4167,22 @@ GASTOS:
                     <div class="guide-header progress">
                         📊 Revenue Analytics - ML Engine + KPIs (90%)
                     </div>
+                    
+                    <div class="executive-summary">
+                        <div class="exec-status">
+                            <span><strong>Estado:</strong> ML engine completo, falta data pipeline real-time</span>
+                            <span class="status-badge progress">CASI LISTO</span>
+                        </div>
+                        <p><strong>Fortalezas:</strong> Forecasting ML, KPIs ejecutivos, alerting system</p>
+                        <p><strong>Pendiente:</strong> Conexión real-time con FastAPI data</p>
+                        <p><strong>Prioridad:</strong> Media - Analytics funcionan standalone</p>
+                    </div>
+
+                    <button class="detail-toggle" id="btn-analytics" onclick="toggleTechnicalDetails('btn-analytics')">
+                        <span class="toggle-icon">▼</span> Ver ML engine y forecasting
+                    </button>
+
+                    <div class="technical-details" id="details-analytics">
                     <div class="guide-content">
                         <div class="impact-box success">
                             <strong>✅ ML ENGINE COMPLETO:</strong> Machine learning revenue projections, KPIs ejecutivos, y analytics en tiempo real implementados. Solo requiere data flow.
@@ -3997,4 +4461,129 @@ class RevenueAnalyticsEngine:
             logger.error(f"Dashboard update error: {str(e)}")
             return {'success': False, 'error': str(e)}
     
-    asy
+    async def get_dashboard_data(self, user_filters: dict = None) -> dict:
+        """Get dashboard data with user filters"""
+        try:
+            # Check cache first
+            cache_key = f"dashboard_data:{hash(str(user_filters))}"
+            cached = self.redis_client.get(cache_key)
+            
+            if cached:
+                return json.loads(cached)
+            
+            # Generate dashboard data
+            dashboard_data = {
+                'summary_cards': await self._generate_summary_cards(user_filters),
+                'revenue_chart': await self._generate_revenue_chart(user_filters),
+                'customer_acquisition': await self._generate_acquisition_chart(user_filters),
+                'operational_metrics': await self._generate_operational_charts(user_filters),
+                'forecasts': await self._generate_forecast_charts(user_filters),
+                'alerts': await self._get_active_alerts(),
+                'last_updated': datetime.utcnow().isoformat()
+            }
+            
+            # Cache for 2 minutes
+            self.redis_client.setex(cache_key, 120, json.dumps(dashboard_data))
+            
+            return dashboard_data
+            
+        except Exception as e:
+            return {'error': str(e)}
+    
+    async def _generate_summary_cards(self, filters: dict) -> list:
+        """Generate summary cards for dashboard"""
+        return [
+            {
+                'title': 'Revenue Today',
+                'value': await self._get_today_revenue(),
+                'change': await self._get_revenue_change_today(),
+                'trend': 'up',
+                'color': 'green'
+            },
+            {
+                'title': 'Active Contracts',
+                'value': await self._get_active_contracts_count(),
+                'change': await self._get_contracts_change(),
+                'trend': 'up',
+                'color': 'blue'
+            },
+            {
+                'title': 'Conversion Rate',
+                'value': f"{await self._get_current_conversion_rate():.1f}%",
+                'change': await self._get_conversion_change(),
+                'trend': 'up',
+                'color': 'purple'
+            },
+            {
+                'title': 'Vehicle Utilization',
+                'value': f"{await self._get_vehicle_utilization():.1f}%",
+                'change': await self._get_utilization_change(),
+                'trend': 'stable',
+                'color': 'orange'
+            }
+        ]</div>
+                            </div>
+                        </div>
+
+                        <div class="impact-box success">
+                            <strong>✅ ANALYTICS READY:</strong> ML engine completo con forecasting, KPIs ejecutivos, real-time dashboard, y alerting. Solo requiere data pipeline activo para funcionar.
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function generateDefaultGuide(tool) {
+            return `
+                <div class="guide-detail">
+                    <div class="guide-header">
+                        🔧 ${tool.toUpperCase()} - Guía Ultra-detallada
+                    </div>
+                    <div class="guide-content">
+                        <p>Guía quirúrgica completa para ${tool} disponible. Click en la herramienta específica para ver implementación ultra-detallada.</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Inicialización
+        window.addEventListener('load', function() {
+            // Auto-expandir sistema de leads (contiene bloqueador crítico)
+            toggleHierarchy('leads');
+            
+            // Marcar FastAPI como seleccionado por defecto (es el bloqueador crítico)
+            const fastApiTool = document.querySelector(`[onclick="showGuide('fastapi')"]`);
+            if (fastApiTool) {
+                fastApiTool.classList.add('selected');
+            }
+            
+            // Agregar listeners de teclado para navegación rápida
+            document.addEventListener('keydown', function(e) {
+                if (e.ctrlKey || e.metaKey) {
+                    switch(e.key) {
+                        case '1':
+                            e.preventDefault();
+                            showGuide('fastapi');
+                            break;
+                        case '2':
+                            e.preventDefault();
+                            showGuide('odoo');
+                            break;
+                        case '3':
+                            e.preventDefault();
+                            showGuide('conekta');
+                            break;
+                        case 'f':
+                            e.preventDefault();
+                            document.getElementById('statusFilter').focus();
+                            break;
+                    }
+                }
+            });
+            
+            console.log('🎯 Dashboard 360° Ultra-Detallado Cargado - Interactive Mode');
+            console.log('⌨️ Shortcuts: Ctrl+1 (FastAPI), Ctrl+2 (Odoo), Ctrl+3 (Conekta), Ctrl+F (Filter)');
+        });
+    </script>
+</body>
+</html>
