@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tablero PMO – Conductores (tipo Airtable)</title>
+<style>
+  :root{
+    --bg:#0b1220;--ink:#e8edff;--muted:#a8b3cf;--card:#0f172a;--line:#1f2937;--acc:#3aa6ff;
+    --todo:#64748b;--doing:#f59e0b;--blocked:#ef4444;--done:#22c55e
+  }
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+  a{color:#93c5fd}
+  .wrap{max-width:1300px;margin:0 auto;padding:16px}
+  .top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .brand{display:flex;align-items:center;gap:10px}
+  .c{width:28px;height:28px;border:3px solid #00b0ff;border-right-color:transparent;border-radius:999px}
+  .badge{font-size:12px;border:1px solid #1f2a44;background:#0f172a;padding:2px 8px;border-radius:999px;color:#a8c7ff}
+  .bar{display:flex;flex-wrap:wrap;gap:8px}
+  .btn{background:#15223a;border:1px solid #25324d;color:var(--ink);padding:8px 12px;border-radius:10px;cursor:pointer}
+  .btn.primary{background:var(--acc);border-color:#1f87d6}
+  .btn.warn{background:#f59e0b;border-color:#b8870a}
+  .btn.ok{background:#22c55e;border-color:#15803d}
+  .btn.bad{background:#ef4444;border-color:#b91c1c}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin-top:12px}
+  .grid{display:grid;gap:10px}
+  @media(min-width:980px){.grid-cols-2{grid-template-columns:1fr 1fr}.grid-cols-3{grid-template-columns:1fr 1fr 1fr}}
+  input,select,textarea{background:#0f172a;border:1px solid #26334f;color:var(--ink);padding:8px;border-radius:10px}
+  table{width:100%;border-collapse:separate;border-spacing:0}
+  th,td{padding:8px;border-top:1px solid var(--line);text-align:left;vertical-align:top;font-size:14px}
+  thead th{position:sticky;top:0;background:#0f172a;z-index:1}
+  .pill{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid #25324d;background:#0f172a;color:#cbd5e1;font-size:12px}
+  .status-todo{background:#0f172a;border-color:#334155;color:#cbd5e1}
+  .status-doing{background:#291f0f;border-color:#b8870a;color:#facc15}
+  .status-blocked{background:#2a0f10;border-color:#7f1d1d;color:#fca5a5}
+  .status-done{background:#0f1f10;border-color:#14532d;color:#86efac}
+  .kanban{display:grid;gap:10px}
+  @media(min-width:980px){.kanban{grid-template-columns:repeat(4,1fr)}}
+  .col{background:var(--card);border:1px solid var(--line);border-radius:14px;min-height:200px;padding:10px}
+  .col h3{margin:0 0 8px;font-size:14px;color:#cbd5e1}
+  .cardT{background:#101826;border:1px solid #203047;border-radius:12px;padding:8px;margin-bottom:8px;cursor:grab}
+  .muted{color:var(--muted);font-size:12px}
+  .tag{border:1px solid #31405a;background:#0f172a;color:#a8c7ff;border-radius:999px;padding:2px 6px;font-size:11px;margin-right:4px}
+  .row{display:grid;gap:8px}
+  @media(min-width:720px){.row.two{grid-template-columns:1fr 1fr}.row.three{grid-template-columns:1fr 1fr 1fr}}
+  .warn{color:#facc15}
+  .ok{color:#86efac}
+  .bad{color:#fca5a5}
+  .small{font-size:12px;color:#a8b3cf}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="brand"><div class="c"></div><strong>Conductores – Tablero PMO</strong><span class="badge">Estilo Airtable · Ultra Detallado</span></div>
+    <div class="bar">
+      <button class="btn" onclick="window.print()">Imprimir</button>
+      <button class="btn" onclick="exportCSV()">Exportar CSV</button>
+      <label class="btn"><input type="file" id="csvFile" accept=".csv" style="display:none" onchange="importCSV(event)">Importar CSV</label>
+      <button class="btn" onclick="runTests()">Pruebas</button>
+      <span id="testStatus" class="pill">Sin ejecutar</span>
+    </div>
+  </div>
+
+  <!-- Controles de filtros -->
+  <div class="panel">
+    <div class="grid grid-cols-3">
+      <div class="row two">
+        <select id="fTool"><option value="">Filtrar por Herramienta</option></select>
+        <select id="fArea"><option value="">Filtrar por Área</option></select>
+        <select id="fStatus"><option value="">Estado</option><option>ToDo</option><option>In-Progress</option><option>Blocked</option><option>Done</option></select>
+        <select id="fOwner"><option value="">Responsable</option><option>PMO</option><option>FS Senior</option><option>Junior A</option><option>Junior B</option><option>Odoo Dev</option><option>QA</option><option>UX</option><option>Ops</option></select>
+      </div>
+      <div class="row two">
+        <select id="fPriority"><option value="">Prioridad</option><option>P0</option><option>P1</option><option>P2</option></select>
+        <input id="fWeek" placeholder="Semana (W1..W12)" />
+        <input id="fSearch" placeholder="Buscar (texto libre)" />
+        <button class="btn" onclick="resetFilters()">Limpiar</button>
+      </div>
+      <div class="row two">
+        <button class="btn primary" onclick="openNewTask()">+ Nueva tarea</button>
+        <label class="small">Vistas: </label>
+        <div class="bar">
+          <button class="btn" onclick="setView('grid')">Tabla</button>
+          <button class="btn" onclick="setView('kanban')">Kanban</button>
+          <button class="btn" onclick="setView('deps')">Dependencias</button>
+        </div>
+      </div>
+    </div>
+    <div class="small" style="margin-top:6px">MAPA_URL: <code id="mapaUrlSpan"></code> · PLAN_URL: <code id="planUrlSpan"></code></div>
+  </div>
+
+  <!-- Vista Tabla -->
+  <div id="view-grid" class="panel" style="display:block">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th><th>Herramienta</th><th>Área</th><th>Tarea</th><th>Estado</th><th>Prioridad</th><th>Owner</th><th>Semana</th><th>Dependencias</th><th>Links</th><th>Notas</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <!-- Vista Kanban -->
+  <div id="view-kanban" class="kanban" style="display:none">
+    <div class="col" data-col="ToDo"><h3>ToDo</h3><div class="drop" id="col-todo"></div></div>
+    <div class="col" data-col="In-Progress"><h3>In-Progress</h3><div class="drop" id="col-doing"></div></div>
+    <div class="col" data-col="Blocked"><h3>Blocked</h3><div class="drop" id="col-blocked"></div></div>
+    <div class="col" data-col="Done"><h3>Done</h3><div class="drop" id="col-done"></div></div>
+  </div>
+
+  <!-- Vista Dependencias -->
+  <div id="view-deps" class="panel" style="display:none">
+    <h3 style="margin:0 0 8px">Mapa de Dependencias</h3>
+    <div id="deps"></div>
+  </div>
+
+</div>
+
+<!-- Modal Nueva/Editar Tarea -->
+<div id="modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);">
+  <div style="max-width:860px;margin:40px auto;background:#0f172a;border:1px solid #1f2937;border-radius:14px;padding:14px">
+    <h3 id="modalTitle" style="margin:0 0 10px">Nueva tarea</h3>
+    <div class="row three">
+      <div>
+        <label class="small">Herramienta</label>
+        <select id="mTool"></select>
+      </div>
+      <div>
+        <label class="small">Área</label>
+        <select id="mArea"></select>
+      </div>
+      <div>
+        <label class="small">Estado</label>
+        <select id="mStatus"><option>ToDo</option><option>In-Progress</option><option>Blocked</option><option>Done</option></select>
+      </div>
+    </div>
+    <div class="row three" style="margin-top:8px">
+      <div>
+        <label class="small">Prioridad</label>
+        <select id="mPriority"><option>P0</option><option>P1</option><option>P2</option></select>
+      </div>
+      <div>
+        <label class="small">Owner</label>
+        <select id="mOwner"><option>PMO</option><option>FS Senior</option><option>Junior A</option><option>Junior B</option><option>Odoo Dev</option><option>QA</option><option>UX</option><option>Ops</option></select>
+      </div>
+      <div>
+        <label class="small">Semana</label>
+        <input id="mWeek" placeholder="W1..W12"/>
+      </div>
+    </div>
+    <div class="row two" style="margin-top:8px">
+      <div>
+        <label class="small">Tarea</label>
+        <input id="mTask" />
+      </div>
+      <div>
+        <label class="small">Dependencias (IDs coma)</label>
+        <input id="mDeps" placeholder="e.g. 1,4,7"/>
+      </div>
+    </div>
+    <div class="row two" style="margin-top:8px">
+      <div>
+        <label class="small">Links (coma)</label>
+        <input id="mLinks" placeholder="MAPA:#node, PLAN:#task, URL https://..."/>
+      </div>
+      <div>
+        <label class="small">Notas</label>
+        <input id="mNotes" />
+      </div>
+    </div>
+    <div class="bar" style="margin-top:10px;justify-content:flex-end">
+      <button class="btn" onclick="closeModal()">Cancelar</button>
+      <button class="btn ok" onclick="saveTask()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ========== Config ==========
+var MAPA_URL = 'mapa_integraciones.html';
+var PLAN_URL = 'plan_con_horas.html';
+
+// ========== Catálogos ==========
+var tools=['PWA','BFF','Odoo','Airtable','Make','Metamap','KIBAN','Mifiel','Conekta','Twilio','Geotab','GNV','Security','Ops'];
+var areas=['Onboarding','CRM/Expedientes','Pagos','Firma','Automatización','Telemetría','GNV/Consumo','Comunicación','PWA/UX','Backend/API','Seguridad/PLD','Operaciones'];
+
+// ========== Datos (seed) ==========
+var storeKey='pmotasks_v1';
+var rows = JSON.parse(localStorage.getItem(storeKey) || 'null') || [
+  {id:1, tool:'Odoo', area:'CRM/Expedientes', task:'Endpoints clientes/expedientes (middleware)', status:'ToDo', priority:'P0', owner:'FS Senior', week:'W1', deps:'', links:'PLAN:#odoo-endpoints', notes:'Necesario para webhooks', risk:''},
+  {id:2, tool:'Make', area:'Automatización', task:'Escenarios webhooks (lead, doc, firma, pago)', status:'ToDo', priority:'P0', owner:'PMO', week:'W1', deps:'1', links:'', notes:'Conectar con Airtable', risk:''},
+  {id:3, tool:'Airtable', area:'CRM/Expedientes', task:'Tableros: leads, docs, pagos, firmas', status:'In-Progress', priority:'P1', owner:'PMO', week:'W1', deps:'2', links:'', notes:'Vistas y permisos', risk:''},
+  {id:4, tool:'Mifiel', area:'Firma', task:'Webhook /evento-firma → Odoo', status:'ToDo', priority:'P0', owner:'FS Senior', week:'W2', deps:'1', links:'MIFIEL:setup', notes:'Actualizar expediente', risk:''},
+  {id:5, tool:'Conekta', area:'Pagos', task:'Webhook pago → Odoo (factura pagada)', status:'ToDo', priority:'P0', owner:'FS Senior', week:'W2', deps:'1', links:'CONEKTA:setup', notes:'Orden OXXO/SPEI/Tarjeta', risk:''},
+  {id:6, tool:'PWA', area:'PWA/UX', task:'Templates críticos (sidebar, bottom-nav, doc-capture, signature, payment)', status:'In-Progress', priority:'P1', owner:'UX', week:'W1', deps:'', links:'', notes:'15 HTML/SCSS restantes', risk:''},
+  {id:7, tool:'Geotab', area:'Telemetría', task:'Piloto 5 equipos: API connector + dashboard básico', status:'ToDo', priority:'P0', owner:'FS Senior', week:'W2', deps:'', links:'MAPA:#telematics', notes:'Campos: lat,lon,odo,alerts', risk:''},
+  {id:8, tool:'GNV', area:'GNV/Consumo', task:'/gnv/ingest + conciliación con telemetría', status:'ToDo', priority:'P1', owner:'FS Senior', week:'W3', deps:'7', links:'MAPA:#gnv-apis', notes:'Modelo gnv_transactions', risk:''},
+  {id:9, tool:'Metamap', area:'Onboarding', task:'Init KYC + webhook → estado expediente', status:'Done', priority:'P1', owner:'FS Senior', week:'W0', deps:'', links:'', notes:'Demo OK', risk:''},
+  {id:10, tool:'KIBAN', area:'Onboarding', task:'Consulta buró + score HASE', status:'In-Progress', priority:'P1', owner:'FS Senior', week:'W2', deps:'1', links:'', notes:'Mock listo', risk:''},
+  {id:11, tool:'Security', area:'Seguridad/PLD', task:'JWT cliente expirable + idempotencia webhooks', status:'ToDo', priority:'P0', owner:'FS Senior', week:'W4', deps:'1,4,5', links:'', notes:'TIR protegida', risk:''},
+  {id:12, tool:'Twilio', area:'Comunicación', task:'Templates WhatsApp (recordatorios, pago, firma)', status:'ToDo', priority:'P2', owner:'PMO', week:'W3', deps:'2,5', links:'', notes:'Alta WABA', risk:''},
+  {id:13, tool:'PWA', area:'PWA/UX', task:'Módulo Protección (simulador diferir/recalendario/step-down)', status:'ToDo', priority:'P1', owner:'FS Senior', week:'W5', deps:'11', links:'', notes:'UI 4 tarjetas + tabla', risk:''}
+];
+
+// ========== Utilidades ==========
+function save(){ localStorage.setItem(storeKey, JSON.stringify(rows)); }
+function $(id){ return document.getElementById(id); }
+function esc(s){ s=(s==null?'':String(s)); s=s.replace(/&/g,'&amp;'); s=s.replace(/</g,'&lt;'); s=s.replace(/\"/g,'&quot;'); s=s.replace(/"/g,'&quot;'); return s; }
+
+// ========== Filtros ==========
+function resetFilters(){ $('fTool').value=''; $('fArea').value=''; $('fStatus').value=''; $('fOwner').value=''; $('fPriority').value=''; $('fWeek').value=''; $('fSearch').value=''; render(); }
+function applyFilters(list){
+  var t=$('fTool').value,a=$('fArea').value,s=$('fStatus').value,o=$('fOwner').value,p=$('fPriority').value,w=$('fWeek').value.toLowerCase(),q=$('fSearch').value.toLowerCase();
+  return list.filter(function(r){
+    if(t && r.tool!==t) return false;
+    if(a && r.area!==a) return false;
+    if(s && r.status!==s) return false;
+    if(o && r.owner!==o) return false;
+    if(p && r.priority!==p) return false;
+    if(w && String(r.week||'').toLowerCase().indexOf(w)===-1) return false;
+    if(q && (r.task+' '+r.notes+' '+r.links).toLowerCase().indexOf(q)===-1) return false;
+    return true;
+  });
+}
+
+// ========== Render Tabla ==========
+function renderTable(){
+  var body=$('tbody'); body.innerHTML='';
+  var list=applyFilters(rows);
+  list.sort(function(a,b){ return (a.priority||'').localeCompare(b.priority||'') || (a.status||'').localeCompare(b.status||'') });
+  list.forEach(function(r){
+    var tr=document.createElement('tr');
+    var statClass=r.status==='Done'?'status-done':(r.status==='Blocked'?'status-blocked':(r.status==='In-Progress'?'status-doing':'status-todo'));
+    var depsHtml = esc(r.deps||'');
+    var linksHtml = formatLinks(r.links||'');
+    tr.innerHTML = '<td>'+r.id+'</td>'+
+      '<td>'+esc(r.tool)+'</td>'+
+      '<td>'+esc(r.area)+'</td>'+
+      '<td contenteditable onblur="editCell('+r.id+',\'task\',this.innerText)">'+esc(r.task)+'</td>'+
+      '<td><span class="pill '+statClass+'">'+esc(r.status)+'</span></td>'+
+      '<td>'+esc(r.priority)+'</td>'+
+      '<td>'+esc(r.owner)+'</td>'+
+      '<td>'+esc(r.week||'')+'</td>'+
+      '<td>'+depsHtml+'</td>'+
+      '<td>'+linksHtml+'</td>'+
+      '<td contenteditable onblur="editCell('+r.id+',\'notes\',this.innerText)">'+esc(r.notes||'')+'</td>';
+    body.appendChild(tr);
+  });
+}
+
+function formatLinks(s){
+  s=String(s||'');
+  var parts=s.split(',');
+  var out=[];
+  for(var i=0;i<parts.length;i++){
+    var p=parts[i].trim(); if(!p) continue;
+    if(p.indexOf('MAPA:#')===0){ out.push('<a href="'+MAPA_URL+p.substr(5)+'" target="_blank">Mapa</a>'); continue; }
+    if(p.indexOf('PLAN:#')===0){ out.push('<a href="'+PLAN_URL+p.substr(5)+'" target="_blank">Plan</a>'); continue; }
+    if(p.indexOf('http')===0){ out.push('<a href="'+p+'" target="_blank">Link</a>'); continue; }
+    out.push(esc(p));
+  }
+  return out.join(' | ');
+}
+
+function editCell(id, key, value){
+  for(var i=0;i<rows.length;i++){ if(rows[i].id===id){ rows[i][key]=value; rows[i].updatedAt=new Date().toISOString(); break; } }
+  save();
+}
+
+// ========== Render Kanban ==========
+function renderKanban(){
+  var list=applyFilters(rows);
+  var cols={ 'ToDo':$('col-todo'), 'In-Progress':$('col-doing'), 'Blocked':$('col-blocked'), 'Done':$('col-done') };
+  for(var k in cols){ cols[k].innerHTML=''; }
+  list.forEach(function(r){
+    var div=document.createElement('div'); div.className='cardT'; div.draggable=true; div.setAttribute('data-id',r.id);
+    div.innerHTML='<div style="display:flex;justify-content:space-between;gap:6px"><strong>'+esc(r.task)+'</strong><span class="tag">'+esc(r.tool)+'</span></div>'+
+                  '<div class="small">Owner: '+esc(r.owner)+' · '+esc(r.week||'')+'</div>'+
+                  '<div class="small">'+esc(r.area)+'</div>'+
+                  '<div class="small">Deps: '+esc(r.deps||'-')+'</div>';
+    div.addEventListener('dragstart',onDragStart);
+    cols[r.status].appendChild(div);
+  });
+}
+function onDragStart(e){ e.dataTransfer.setData('text/plain', e.target.getAttribute('data-id')); }
+['col-todo','col-doing','col-blocked','col-done'].forEach(function(id){
+  var el=$(id);
+  el.addEventListener('dragover',function(ev){ ev.preventDefault(); });
+  el.addEventListener('drop',function(ev){ ev.preventDefault(); var idt=parseInt(ev.dataTransfer.getData('text/plain')); moveToColumn(idt, id); });
+});
+function moveToColumn(taskId, colId){
+  var status = colId==='col-todo'?'ToDo':(colId==='col-doing'?'In-Progress':(colId==='col-blocked'?'Blocked':'Done'));
+  for(var i=0;i<rows.length;i++){ if(rows[i].id===taskId){ rows[i].status=status; rows[i].updatedAt=new Date().toISOString(); break; } }
+  save(); render();
+}
+
+// ========== Render Dependencias ==========
+function renderDeps(){
+  var list=applyFilters(rows);
+  var map={}; list.forEach(function(r){ map[r.id]=r; });
+  var html='';
+  list.forEach(function(r){
+    var dep=(r.deps||'').split(','); var bad=[];
+    for(var i=0;i<dep.length;i++){
+      var d=parseInt(dep[i]||'0'); if(!d) continue; var dr=map[d];
+      if(!dr) bad.push(''+d+' (no existe)'); else if(dr.status!=='Done') bad.push('#'+d+' → '+dr.status);
+    }
+    var cls= bad.length? 'bad':'ok';
+    html += '<div style="margin:6px 0;padding:8px;border:1px solid '+(bad.length?'#7f1d1d':'#14532d')+';border-radius:10px">'+
+      '<strong>#'+r.id+'</strong> '+esc(r.task)+' <span class="small">['+esc(r.tool)+' · '+esc(r.area)+']</span><br/>'+ 
+      '<span class="'+cls+'">Deps: '+esc(r.deps||'-')+' '+(bad.length?('— Problemas: '+esc(bad.join('; '))):'')+'</span></div>';
+  });
+  $('deps').innerHTML=html;
+}
+
+// ========== Vistas ==========
+function setView(v){ $('view-grid').style.display = (v==='grid')?'block':'none'; $('view-kanban').style.display = (v==='kanban')?'grid':'none'; $('view-deps').style.display=(v==='deps')?'block':'none'; render(); }
+
+// ========== Nueva/Editar ==========
+var editingId=null;
+function openNewTask(){ editingId=null; $('modalTitle').textContent='Nueva tarea'; fillModal({tool:'',area:'',status:'ToDo',priority:'P1',owner:'PMO',week:'',task:'',deps:'',links:'',notes:''}); $('modal').style.display='block'; }
+function fillModal(data){ $('mTool').value=data.tool||''; $('mArea').value=data.area||''; $('mStatus').value=data.status||'ToDo'; $('mPriority').value=data.priority||'P1'; $('mOwner').value=data.owner||'PMO'; $('mWeek').value=data.week||''; $('mTask').value=data.task||''; $('mDeps').value=data.deps||''; $('mLinks').value=data.links||''; $('mNotes').value=data.notes||''; }
+function closeModal(){ $('modal').style.display='none'; }
+function saveTask(){
+  var obj={ tool:$('mTool').value, area:$('mArea').value, status:$('mStatus').value, priority:$('mPriority').value, owner:$('mOwner').value, week:$('mWeek').value, task:$('mTask').value, deps:$('mDeps').value, links:$('mLinks').value, notes:$('mNotes').value };
+  if(!obj.tool||!obj.area||!obj.task){ alert('Herramienta, Área y Tarea son obligatorias'); return; }
+  if(editingId==null){ obj.id = nextId(); rows.push(obj); }
+  else { obj.id=editingId; for(var i=0;i<rows.length;i++){ if(rows[i].id===editingId){ rows[i]=obj; break; } } }
+  save(); closeModal(); render();
+}
+function nextId(){ var mx=0; for(var i=0;i<rows.length;i++){ if(rows[i].id>mx) mx=rows[i].id; } return mx+1; }
+
+// ========== CSV ==========
+function exportCSV(){
+  var headers=['id','tool','area','task','status','priority','owner','week','deps','links','notes'];
+  var list=applyFilters(rows);
+  var lines=[headers.join(',')];
+  for(var i=0;i<list.length;i++){
+    var r=list[i];
+    var escCsv=function(x){ x=String(x==null?'':x); return '"'+x.replace(/"/g,'""')+'"'; };
+    lines.push([r.id,r.tool,r.area,escCsv(r.task),r.status,r.priority,r.owner,r.week||'',escCsv(r.deps||''),escCsv(r.links||''),escCsv(r.notes||'')].join(','));
+  }
+  var blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});
+  var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='tablero_pmo.csv'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+function importCSV(ev){
+  var file=ev.target.files[0]; if(!file) return;
+  var reader=new FileReader(); reader.onload=function(){
+    var text=reader.result||''; var lines=String(text).split(/\r?\n/);
+    if(lines.length<2) return alert('CSV vacío');
+    var head=lines[0].split(',');
+    var idx=function(name){ return head.indexOf(name); };
+    var out=[];
+    for(var i=1;i<lines.length;i++){
+      var L=lines[i]; if(!L.trim()) continue;
+      var cols=parseCsvLine(L);
+      out.push({
+        id: parseInt(cols[idx('id')]||'' )|| nextId(),
+        tool: cols[idx('tool')]||'', area: cols[idx('area')]||'', task: cols[idx('task')]||'',
+        status: cols[idx('status')]||'ToDo', priority: cols[idx('priority')]||'P2', owner: cols[idx('owner')]||'PMO',
+        week: cols[idx('week')]||'', deps: cols[idx('deps')]||'', links: cols[idx('links')]||'', notes: cols[idx('notes')]||''
+      });
+    }
+    rows = out; save(); render();
+  }; reader.readAsText(file);
+}
+function parseCsvLine(line){
+  var res=[], cur='', inQ=false; for(var i=0;i<line.length;i++){
+    var ch=line[i];
+    if(inQ){ if(ch==='"'){ if(line[i+1]==='"'){ cur+='"'; i++; } else { inQ=false; } } else { cur+=ch; } }
+    else { if(ch===','){ res.push(cur); cur=''; } else if(ch==='"'){ inQ=true; } else { cur+=ch; } }
+  }
+  res.push(cur); return res;
+}
+
+// ========== Tests ==========
+function runTests(){
+  var s=$('testStatus');
+  try{
+    // T1: filtros y render
+    resetFilters(); renderTable(); if($('tbody').children.length===0) throw new Error('Tabla vacía');
+    // T2: kanban moves
+    setView('kanban'); renderKanban(); var any=rows[0]; var prev=any.status; any.status='In-Progress'; save(); renderKanban(); if(any.status!=='In-Progress') throw new Error('Kanban no actualizó'); any.status=prev; save();
+    // T3: CSV roundtrip (export->parseCsvLine)
+    var line='"10","PWA","PWA/UX","Texto, con coma","ToDo","P2","PMO","W1","1,2","MAPA:#nodo","Nota"';
+    var cols=parseCsvLine(line); if(cols.length<11) throw new Error('CSV parse falló');
+    s.textContent='OK'; s.className='pill'; s.style.borderColor='#14532d'; s.style.color='#86efac';
+  }catch(e){ s.textContent='Fallo: '+e.message; s.className='pill'; s.style.borderColor='#7c2d12'; s.style.color='#fca5a5'; console.error(e); }
+}
+
+// ========== Init ==========
+function fillSelect(id, arr){ var el=$(id); el.innerHTML='<option value="">—</option>'+arr.map(function(x){return '<option>'+x+'</option>'}).join(''); }
+function render(){ $('mapaUrlSpan').textContent=MAPA_URL; $('planUrlSpan').textContent=PLAN_URL; if(currentView==='grid'){ renderTable(); } else if(currentView==='kanban'){ renderKanban(); } else { renderDeps(); } }
+var currentView='grid';
+function init(){ fillSelect('fTool',tools); fillSelect('fArea',areas); fillSelect('mTool',tools); fillSelect('mArea',areas); $('mOwner').value='PMO'; render(); }
+window.onload=init;
+</script>
+</body>
+</html>
