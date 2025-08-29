@@ -10,7 +10,7 @@
   --ok:#22c55e;--warn:#f59e0b;--bad:#ef4444
 }
 *{box-sizing:border-box}
-html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;scroll-behavior:smooth}
 a{color:#93c5fd;text-decoration:none}
 .layout{display:grid;grid-template-columns:280px 1fr;gap:0}
 @media(max-width:980px){.layout{grid-template-columns:1fr}}
@@ -52,6 +52,17 @@ code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",mo
 .btn{background:#15223a;border:1px solid #25324d;color:#e6ecff;border-radius:10px;padding:8px 10px;cursor:pointer}
 .filterbar{display:flex;gap:10px;flex-wrap:wrap}
 select{background:#0f172a;border:1px solid #26334f;color:#e6ecff;border-radius:10px;padding:6px 8px}
+
+/* TABS & SEARCH */
+.tabbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.tab{background:#15223a;border:1px solid #25324d;color:#e6ecff;border-radius:999px;padding:6px 10px;cursor:pointer;font-size:14px}
+.tab[aria-selected="true"]{background:#1f2a44;border-color:#3aa6ff;color:#cfe5ff}
+input[type="search"]{background:#0f172a;border:1px solid #26334f;color:#e6ecff;border-radius:10px;padding:6px 8px}
+
+/* TARGET HIGHLIGHT & SEARCH HITS */
+.panel:target{outline:2px solid var(--acc);box-shadow:0 0 0 4px rgba(58,166,255,.15);scroll-margin-top:12px}
+.hit{outline:1px dashed #3aa6ff}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 </style>
 </head>
 <body>
@@ -83,9 +94,13 @@ select{background:#0f172a;border:1px solid #26334f;color:#e6ecff;border-radius:1
   <!-- MAIN -->
   <main class="main">
     <div class="topbar">
-      <div class="filterbar">
-        <label><input type="checkbox" id="onlyCoder"> Mostrar solo Coder</label>
-        <label><input type="checkbox" id="onlyNoCoder"> Mostrar solo No-coder</label>
+      <div class="tabbar" role="tablist" aria-label="Vistas">
+        <button class="tab" role="tab" aria-selected="true" tabindex="0" data-view="all" id="tab-all">Ver todo</button>
+        <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-view="exec" id="tab-exec">Solo Ejecutivo</button>
+        <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-view="coder" id="tab-coder">Solo Técnico</button>
+        <button class="tab" role="tab" aria-selected="false" tabindex="-1" data-view="nocoder" id="tab-nocoder">Solo No-coder</button>
+        <input type="search" id="search" placeholder="Buscar en el playbook" aria-label="Buscar" />
+        <button class="btn" id="btn-search" aria-label="Ejecutar búsqueda">Buscar</button>
         <button class="btn" onclick="window.print()">Imprimir / PDF</button>
       </div>
     </div>
@@ -447,20 +462,130 @@ function copyCode(btn){
   });
 }
 
-/* filter by role */
-function applyRoleFilters(){
-  const onlyC = document.getElementById('onlyCoder').checked;
-  const onlyN = document.getElementById('onlyNoCoder').checked;
-  document.querySelectorAll('[data-role]').forEach(sec=>{
-    const r = sec.getAttribute('data-role');
+/* collapse all accordions by default */
+function collapseAccordions(){
+  document.querySelectorAll('details[open]').forEach(d=>d.removeAttribute('open'));
+}
+
+/* view tabs: all | exec | coder | nocoder */
+function setView(view){
+  const sections = Array.from(document.querySelectorAll('[data-role], section.panel'));
+  sections.forEach(sec=>{
+    const role = sec.getAttribute('data-role');
     let show = true;
-    if(onlyC && r!=='Coder') show=false;
-    if(onlyN && r!=='No-coder') show=false;
-    sec.style.display = show? 'block':'none';
+    if(view==='coder') show = role === 'Coder';
+    if(view==='nocoder') show = role === 'No-coder';
+    if(view==='exec')    show = role !== 'Coder';
+    sec.style.display = show ? 'block' : 'none';
   });
 }
-document.getElementById('onlyCoder').addEventListener('change',applyRoleFilters);
-document.getElementById('onlyNoCoder').addEventListener('change',applyRoleFilters);
+
+function initTabs(){
+  const tabs = Array.from(document.querySelectorAll('.tabbar .tab'));
+  function activate(tab){
+    tabs.forEach(t=>{
+      const isSel = t===tab;
+      t.setAttribute('aria-selected', String(isSel));
+      t.tabIndex = isSel ? 0 : -1;
+    });
+    setView(tab.dataset.view);
+  }
+  tabs.forEach(tab=>{
+    tab.addEventListener('click',()=>activate(tab));
+    tab.addEventListener('keydown',e=>{
+      const i = tabs.indexOf(tab);
+      if(e.key==='ArrowRight'){ e.preventDefault(); const n=tabs[(i+1)%tabs.length]; n.focus(); activate(n); }
+      if(e.key==='ArrowLeft'){ e.preventDefault(); const p=tabs[(i-1+tabs.length)%tabs.length]; p.focus(); activate(p); }
+      if(e.key==='Enter' || e.key===' '){ e.preventDefault(); activate(tab); }
+    });
+  });
+}
+
+/* per-section actions */
+function injectSectionActions(){
+  const panels = Array.from(document.querySelectorAll('main .panel'));
+  panels.forEach((sec, idx)=>{
+    const actions = document.createElement('div');
+    actions.className = 'actions';
+
+    const btnNext = document.createElement('button');
+    btnNext.className = 'btn';
+    btnNext.textContent = 'Ir al siguiente';
+    btnNext.addEventListener('click',()=>{
+      const next = panels[idx+1];
+      if(next){ location.hash = '#' + (next.id || ''); next.scrollIntoView({behavior:'smooth',block:'start'}); }
+    });
+
+    const btnPrint = document.createElement('button');
+    btnPrint.className = 'btn';
+    btnPrint.textContent = 'Imprimir sección';
+    btnPrint.addEventListener('click',()=>{
+      const w = window.open('', '_blank');
+      if(!w) return;
+      w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Imprimir</title></head><body>'+sec.outerHTML+'</body></html>');
+      w.document.close();
+      w.focus();
+      w.print();
+    });
+
+    const btnDownload = document.createElement('button');
+    btnDownload.className = 'btn';
+    btnDownload.textContent = 'Descargar sección';
+    btnDownload.addEventListener('click',()=>{
+      const blob = new Blob([sec.outerHTML], {type:'text/html'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = (sec.id || 'seccion') + '.html';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    });
+
+    actions.appendChild(btnNext);
+    actions.appendChild(btnPrint);
+    actions.appendChild(btnDownload);
+    sec.appendChild(actions);
+  });
+}
+
+/* lightweight search */
+function clearHits(){
+  document.querySelectorAll('.hit').forEach(el=>el.classList.remove('hit'));
+}
+function runSearch(){
+  clearHits();
+  const q = (document.getElementById('search').value||'').trim();
+  if(!q){ return; }
+  const qlc = q.toLowerCase();
+  const panels = Array.from(document.querySelectorAll('main .panel'));
+  let firstMatch = null;
+  panels.forEach(sec=>{
+    const hay = sec.textContent.toLowerCase().includes(qlc);
+    if(hay){
+      sec.classList.add('hit');
+      // open inner accordions containing the term
+      sec.querySelectorAll('details').forEach(d=>{
+        if(d.textContent.toLowerCase().includes(qlc)) d.open = true;
+      });
+      if(!firstMatch) firstMatch = sec;
+    }
+  });
+  if(firstMatch){ firstMatch.scrollIntoView({behavior:'smooth',block:'start'}); }
+}
+
+/* init */
+document.addEventListener('DOMContentLoaded',()=>{
+  collapseAccordions();
+  initTabs();
+  setView('all');
+  injectSectionActions();
+  const btnSearch = document.getElementById('btn-search');
+  const inp = document.getElementById('search');
+  if(btnSearch) btnSearch.addEventListener('click', runSearch);
+  if(inp) inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); runSearch(); } });
+});
 </script>
 </body>
 </html>
