@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Playbook 360° Quirúrgico · Conductores</title>
+<style>
+:root{
+  --bg:#0b1220;--card:#101826;--ink:#e6ecff;--muted:#a8b3cf;--line:#1f2937;--acc:#3aa6ff;
+  --ok:#22c55e;--warn:#f59e0b;--bad:#ef4444;--link:#93c5fd
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+a{color:var(--link);text-decoration:none}
+.layout{display:grid;grid-template-columns:280px 1fr}
+@media(max-width:1000px){.layout{grid-template-columns:1fr}}
+/* Sidebar */
+.side{background:#0f172a;border-right:1px solid var(--line);padding:14px;position:sticky;top:0;height:100vh;overflow:auto}
+.side h1{font-size:18px;margin:0 0 8px}
+.side .muted{color:var(--muted);font-size:12px;margin-bottom:10px}
+.side ul{list-style:none;margin:0;padding:0}
+.side li{margin:6px 0}
+.side .sec{margin-top:12px;font-weight:700;color:#cbd5e1}
+.badge{font-size:11px;border:1px solid #1f2a44;background:#0f172a;padding:2px 6px;border-radius:999px;color:#a8c7ff;margin-left:6px}
+/* Main */
+.main{padding:18px}
+.topbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.btn{background:#15223a;border:1px solid #25324d;color:#e6ecff;border-radius:10px;padding:8px 10px;cursor:pointer}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:14px}
+h2{font-size:20px;margin:0 0 10px}
+h3{font-size:16px;margin:12px 0 6px}
+summary{cursor:pointer;font-weight:700}
+details{background:#0f172a;border:1px solid var(--line);border-radius:12px;padding:10px;margin:10px 0}
+ul{margin:6px 0 6px 18px} ol{margin:6px 0 6px 18px}
+.kv{display:flex;gap:8px;flex-wrap:wrap}
+.tag{display:inline-block;border:1px solid #31405a;background:#0f172a;color:#a8c7ff;border-radius:999px;padding:2px 6px;font-size:11px;margin-right:4px}
+.small{color:#a8b3cf;font-size:12px}
+.tbl{width:100%;border-collapse:separate;border-spacing:0}
+.tbl th,.tbl td{padding:8px;border-top:1px solid var(--line);text-align:left;vertical-align:top;font-size:14px}
+.tbl thead th{position:sticky;top:0;background:#0f172a;z-index:1}
+/* Code blocks */
+pre{position:relative;background:#0f172a;border:1px solid #26334f;border-radius:10px;padding:10px;overflow:auto;margin:8px 0}
+code{font-family:ui-monospace,Menlo,Consolas,monospace;color:#cde3ff;white-space:pre}
+.copy{position:absolute;top:6px;right:6px;background:#15223a;border:1px solid #25324d;color:#e6ecff;border-radius:8px;padding:4px 8px;font-size:12px;cursor:pointer}
+/* Print */
+@media print{
+  .side,.topbar{display:none}
+  .panel{page-break-inside:avoid}
+}
+</style>
+
+<!-- Config opcional de URLs (edita si quieres botones “Abrir …”) -->
+<script>
+window.PLAYBOOK_CFG = {
+  BFF_BASE_URL:        "https://bff.dev.conductores.mx",
+  ODOO_URL:            "https://odoo.dev.conductores.mx",
+  NEON_API_URL:        "https://api.neon.dev.conductores.mx",
+  AIRTABLE_BASE_URL:   "https://airtable.com/appXXXXXXXXXXXX",
+  MAKE_SCENARIOS: {
+    lead_created:      "https://eu1.make.com/scenario/lead-created",
+    kyc_completed:     "https://eu1.make.com/scenario/kyc-completed",
+    signature_done:    "https://eu1.make.com/scenario/signature-completed",
+    payment_paid:      "https://eu1.make.com/scenario/payment-paid",
+    review_required:   "https://eu1.make.com/scenario/review-required"
+  },
+  TWILIO_CONSOLE:      "https://console.twilio.com/",
+  MIFIEL_CONSOLE:      "https://sandbox.mifiel.com/",
+  CONEKTA_CONSOLE:     "https://panel.conekta.com/",
+  POSTMAN_COLLECTION:  "https://www.postman.com/collections/XXXXXXXX"
+};
+function cfg(path){return path.split('.').reduce((o,p)=>o&&o[p],window.PLAYBOOK_CFG)||'#'}
+function copyCode(b){const t=b.nextElementSibling.innerText;navigator.clipboard.writeText(t).then(()=>{b.textContent='Copiado ✓';setTimeout(()=>b.textContent='Copiar',1200)})}
+function applyRoleFilters(){
+  const onlyC=document.getElementById('onlyCoder').checked;
+  const onlyN=document.getElementById('onlyNoCoder').checked;
+  document.querySelectorAll('[data-role]').forEach(s=>{
+    const r=s.getAttribute('data-role');
+    let show=true;
+    if(onlyC && r!=='Coder') show=false;
+    if(onlyN && r!=='No-coder') show=false;
+    s.style.display=show?'block':'none';
+  });
+}
+</script>
+</head>
+<body>
+<div class="layout">
+  <!-- SIDEBAR -->
+  <aside class="side">
+    <h1>Playbook 360° Quirúrgico</h1>
+    <div class="muted">Manual vivo (MVP 90D) — Productos + Herramientas + SOP</div>
+    <div class="sec">Índice</div>
+    <ul>
+      <li><a href="#resumen">0. Resumen ejecutivo</a></li>
+      <li><a href="#productos">1. Productos / Flujos</a></li>
+      <li><a href="#corebanking">1.2 Core Banking (Odoo + NEON)</a></li>
+      <li><a href="#herramientas">2. Herramientas (SOP)</a></li>
+      <li><a href="#odoo">2.1 Odoo (Core Banking/ERP)</a></li>
+      <li><a href="#airtable">2.2 Airtable (Torre de control)</a></li>
+      <li><a href="#make">2.3 Make (Automatización P0)</a></li>
+      <li><a href="#bff">2.4 BFF/NestJS</a></li>
+      <li><a href="#neon">2.5 NEON (DB foundation)</a></li>
+      <li><a href="#metamap">2.6 Metamap (KYC)</a></li>
+      <li><a href="#mifiel">2.7 Mifiel (Firma)</a></li>
+      <li><a href="#conekta">2.8 Conekta (Pagos)</a></li>
+      <li><a href="#twilio">2.9 Twilio (WA)</a></li>
+      <li><a href="#geotab">2.10 Geotab</a> — <a href="#gnv">2.11 GNV</a> — <a href="#pwa">2.12 PWA</a> — <a href="#security">2.13 Security</a></li>
+      <li><a href="#sops">3. SOPs resumidas</a></li>
+      <li><a href="#payloads">4. Payloads de referencia</a></li>
+      <li><a href="#integraciones">5. Integraciones críticas</a></li>
+      <li><a href="#checkpoints">6. Checkpoints verificación</a></li>
+      <li><a href="#roles">7. Roles & delegación</a></li>
+      <li><a href="#ruta">8. Ruta de acción (2–3 semanas)</a></li>
+    </ul>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="topbar">
+      <label><input type="checkbox" id="onlyCoder" onchange="applyRoleFilters()"> Solo Coder</label>
+      <label><input type="checkbox" id="onlyNoCoder" onchange="applyRoleFilters()"> Solo No-coder</label>
+      <button class="btn" onclick="window.print()">Imprimir / PDF</button>
+      <a class="btn" href="javascript:void(0)" onclick="location.href=cfg('POSTMAN_COLLECTION')">Abrir Postman</a>
+      <a class="btn" href="javascript:void(0)" onclick="location.href=cfg('BFF_BASE_URL')">Abrir BFF</a>
+      <a class="btn" href="javascript:void(0)" onclick="location.href=cfg('ODOO_URL')">Abrir Odoo</a>
+      <a class="btn" href="javascript:void(0)" onclick="location.href=cfg('AIRTABLE_BASE_URL')">Abrir Airtable</a>
+    </div>
+
+    <!-- 0. Resumen -->
+    <section id="resumen" class="panel">
+      <h2>0. Resumen ejecutivo</h2>
+      <ul>
+        <li><strong>Objetivos 90D:</strong> Onboarding completo (KYC→Contrato→Pago), <strong>Core Banking</strong> operativo (Odoo+NEON), <strong>Protección</strong>, <strong>Tanda</strong> (what-if + adjudicaciones), <strong>Telemetría+GNV</strong> productivo.</li>
+        <li><strong>Tracción inmediata:</strong> Venta contado (Odoo factura), Ahorro Colectivo (simulador + registro grupo), notificaciones WhatsApp.</li>
+        <li><strong>Ruta crítica 2–3 semanas:</strong> BFF+webhooks (Metamap/Mifiel/Conekta) → Make P0 (5 flujos idempotentes) → Odoo (diarios/acciones/plantillas) → NEON (inserts) → Telemetría/GNV (ingestas + conciliación).</li>
+      </ul>
+    </section>
+
+    <!-- 1. Productos -->
+    <section id="productos" class="panel">
+      <h2>1. Productos / Flujos (deep dive)</h2>
+
+      <details open>
+        <summary>1.1 Onboarding (KYC → Contrato → Pago)</summary>
+        <p><strong>Objetivo:</strong> llevar un lead a <em>Activo</em> con contrato firmado y enganche pagado.</p>
+        <p><strong>Estatus:</strong> KYC embebible (demo); falta orquestación BFF + Make + webhooks.</p>
+        <p><strong>Faltantes:</strong> <code>/v1/kyc/session</code> + <code>/webhooks/metamap</code>, <code>/v1/contracts/create</code> + <code>/webhooks/mifiel</code>, <code>/v1/payments/order</code> + <code>/webhooks/conekta</code>.</p>
+        <p><strong>Dependencias:</strong> Odoo (diarios/acciones), NEON (transactions), Make (rutas P0).</p>
+        <p><strong>DoD:</strong> lead “Activo”; factura Odoo <em>Pagada</em>; transacción registrada en NEON.</p>
+      </details>
+
+      <details open id="corebanking">
+        <summary>1.2 Core Banking (Odoo + NEON) — <span class="tag">producto crítico</span></summary>
+        <p><strong>Objetivo:</strong> reflejar realidad financiera: facturas/diarios en <strong>Odoo</strong> + <strong>transactions/events</strong> en <strong>NEON</strong>.</p>
+        <p><strong>Estatus:</strong> Odoo parcial; NEON DDL listo.</p>
+        <ul>
+          <li><strong>Odoo P0:</strong> Diario CNK; campos Studio (metamap_id, kiban_id, hase_score, mifiel_contract_id, conekta_order_id); acciones servidor (SO→Factura; Etapa→Webhook); QWeb.</li>
+          <li><strong>NEON P0:</strong> Inserts automáticos desde Make/BFF; OpenAPI mínimo.</li>
+        </ul>
+        <p><strong>DoD:</strong> pago Conekta marca Factura <em>Pagada</em>; `transactions` insertado; endpoint `GET /contracts/{leadId}` OK.</p>
+      </details>
+
+      <details>
+        <summary>1.3 Protección (diferir / step-down / recalendarizar)</summary>
+        <p>Modelo financiero con anualidad y control de IRR. Ver fórmulas en §3.4 y payloads en §4.6.</p>
+      </details>
+
+      <details>
+        <summary>1.4 Tanda / Ahorro Colectivo</summary>
+        <p>SimulatorModule determinista (seed) + comparador de escenarios; PWA “what-if”.</p>
+      </details>
+
+      <details>
+        <summary>1.5 Telemetría + GNV</summary>
+        <p>BFF <code>/v1/telematics/events</code> y <code>/v1/gnv/ingest</code> + conciliación (ventana tiempo, geocerca, odómetro vs ticket).</p>
+      </details>
+    </section>
+
+    <!-- 2. Herramientas -->
+    <section id="herramientas" class="panel">
+      <h2>2. Herramientas (quirúrgico por bloque)</h2>
+
+      <!-- Odoo -->
+      <section id="odoo" class="panel" data-role="Mixed">
+        <h3>2.1 Odoo (Core Banking / ERP) <span class="badge">Mixto</span></h3>
+        <p><strong>Rol:</strong> contabilidad/CRM/factura/adendas.</p>
+        <p><strong>Estatus:</strong> ⏳ In-progress.</p>
+        <p><strong>Faltantes P0/P1:</strong></p>
+        <ul>
+          <li>P0 (No-coder): Diario CNK, campos Studio en <code>crm.lead</code>, acción “SO→Factura”, acción “Etapa=Aprobado → Call URL”.</li>
+          <li>P1 (Coder): Cuentas virtuales/ledger; QWeb branding.</li>
+        </ul>
+
+        <details open>
+          <summary>SOP (paso a paso)</summary>
+          <ol>
+            <li><strong>Diario CNK</strong>: Contabilidad → Config → Diarios → <em>Nuevo</em> (tipo Banco) → cuenta puente (clearing).</li>
+            <li><strong>Campos Studio</strong> (<em>CRM > Oportunidades</em>): Texto: <code>metamap_id</code>, <code>kiban_id</code>, <code>hase_score</code>, <code>mifiel_contract_id</code>, <code>conekta_order_id</code>.</li>
+            <li><strong>SO→Factura</strong>: Acción servidor en <code>sale.order</code> que genere invoice al confirmar SO.</li>
+            <li><strong>Etapa→Webhook</strong>: Acción en <code>crm.lead</code> (Call URL) → <code>POST</code> <code>/events/odoo/lead-stage</code>:
+              <pre><button class="copy" onclick="copyCode(this)">Copiar</button><code>{
+  "leadId": "${record.id}",
+  "stage":  "${record.stage_id.name}"
+}</code></pre>
+            </li>
+          </ol>
+        </details>
+        <details>
+          <summary>Dependencias & DoD</summary>
+          <ul>
+            <li><strong>Dep:</strong> BFF recibiendo eventos; Make/Airtable para evidencias.</li>
+            <li><strong>DoD:</strong> Confirmar SO crea factura; webhook pago marca <em>Pagada</em>; lead pasa a <em>Activo</em>.</li>
+          </ul>
+        </details>
+        <div class="kv">
+          <a class="btn" href="javascript:void(0)" onclick="location.href=cfg('ODOO_URL')">Abrir Odoo</a>
+        </div>
+      </section>
+
+      <!-- Airtable -->
+      <section id="airtable" class="panel" data-role="No-coder">
+        <h3>2.2 Airtable (Torre de control) <span class="badge">No-coder</span></h3>
+        <p><strong>Rol:</strong> panel operativo/evidencias (no es fuente de verdad).</p>
+        <p><strong>Estatus:</strong> ✅ base creada.</p>
+        <details open>
+          <summary>Esquema mínimo + SOP</summary>
+          <ul>
+            <li><strong>Leads</strong>(leadId*, nombre, tel, asesor, etapa, metamap_id, kiban_id, hase_score, mifiel_contract_id, conekta_order_id, updatedAt)</li>
+            <li><strong>Docs</strong>(docId*, leadId→Leads, tipo, url, firmadoAt)</li>
+            <li><strong>Pagos</strong>(payId*, leadId→Leads, orderId, monto, status, paidAt)</li>
+            <li><strong>Firmas</strong>(signId*, leadId→Leads, contractId, status, signedAt)</li>
+            <li><strong>TareasPMO</strong>(taskId*, tool, owner, prioridad, semana, status, deps, evidencia)</li>
+            <li><strong>Checkpoints</strong>(id*, bloque, subBloque, validador, linkPrueba, fecha)</li>
+          </ul>
+          <p class="small">Crear vistas Kanban por etapa, filtro “Hoy”, vista por asesor; permisos por rol.</p>
+        </details>
+        <div class="kv">
+          <a class="btn" href="javascript:void(0)" onclick="location.href=cfg('AIRTABLE_BASE_URL')">Abrir Airtable</a>
+        </div>
+      </section>
+
+      <!-- Make -->
+      <section id="make" class="panel" data-role="No-coder">
+        <h3>2.3 Make (Automatización P0) <span class="badge">No-coder</span></h3>
+        <p><strong>Rol:</strong> orquestador low-code (webhooks → Odoo/Airtable/NEON/Twilio).</p>
+        <p><strong>Flujos P0:</strong> <code>lead.created</code> ✅, <code>kyc.completed</code>, <code>signature.completed</code>, <code>payment.paid</code>, <code>review_required</code>.</p>
+
+        <details open>
+          <summary>SOP universal (idempotencia incluida)</summary>
+          <ol>
+            <li>Crear <em>Custom Webhook</em> (copiar URL).</li>
+            <li>Router: si <code>{{2.headers["X-Request-Id"]}}</code> existe en <em>Data Store</em> <code>requests_seen</code> → terminar; si no → continuar y guardar.</li>
+            <li>Airtable Create/Update.</li>
+            <li>HTTP <code>PATCH</code> Odoo (middleware) / o <code>POST</code> al BFF si aplica.</li>
+            <li>(Opc) Twilio <em>Send WhatsApp</em>.</li>
+            <li><em>Run once</em> con payload; guardar evidencia (capturas + links).</li>
+          </ol>
+        </details>
+        <div class="kv">
+          <a class="btn" href="javascript:void(0)" onclick="location.href=cfg('MAKE_SCENARIOS.lead_created')">Abrir lead.created</a>
+          <a class="btn" href="javascript:void(0)" onclick="location.href=cfg('MAKE_SCENARIOS.kyc_completed')">Abrir kyc.completed</a>
+          <a class="btn" href="javascript:void(0)" onclick="location.href=cfg('MAKE_SCENARIOS.signature_done')">Abrir signature.completed</a>
+          <a class="btn" href="javascript:void(0)" onclick="location.href=cfg('MAKE_SCENARIOS.payment_paid')">Abrir payment.paid</a>
+          <a class="btn" href="javascript:void(0)" onclick="location.href=cfg('MAKE_SCENARIOS.review_required')">Abrir review.required</a>
+        </div>
+      </section>
+
+      <!-- BFF -->
+      <section id="bff" class="panel" data-role="Coder">
+        <h3>2.4 BFF / NestJS <span class="badge">Coder</span></h3>
+        <p><strong>Rol:</strong> única puerta de la PWA; firma webhooks; persiste en NEON; actualiza Odoo.</p>
+        <details open>
+          <summary>Endpoints P0</summary>
+          <pre><button class="copy" onclick="copyCode(this)">Copiar</button><code>POST /v1/kyc/session
+POST /webhooks/metamap          // HMAC + idempotencia
+POST /v1/contracts/create       // genera sign_url (Mifiel)
+POST /webhooks/mifiel           // firma completada
+POST /v1/payments/order         // crea orden (Conekta)
+POST /webhooks/conekta          // pago completado</code></pre>
+        </details>
+        <details>
+          <summary>Buenas prácticas</summary>
+          <ul>
+            <li>Middlewares: <code>verifyHmac</code>, <code>idempotency</code>, <code>rateLimit</code>.</li>
+            <li>Colas para procesar asíncrono (responder 200 rápido).</li>
+          </ul>
+        </details>
+        <div class="kv">
+          <a class="btn" href="javascript:void(0)" onclick="location.href=cfg('BFF_BASE_URL')">Abrir BFF</a>
+          <a class="btn" href="javascript:void(0)" onclick="location.href=cfg('POSTMAN_COLLECTION')">Abrir Postman</a>
+        </div>
+      </section>
+
+      <!-- NEON -->
+      <section id="neon" class="panel" data-role="Coder">
+        <h3>2.5 NEON (Database foundation) <span class="badge">Coder</span></h3>
+        <p><strong>Rol:</strong> transacciones/eventos; telemetría; GNV.</p>
+        <details open>
+          <summary>DDL base</summary>
+          <pre><button class="copy" onclick="copyCode(this)">Copiar</button><code>CREATE TABLE customers (...);
+CREATE TABLE contracts (...);
+CREATE TABLE transactions (...);
+CREATE TABLE telematics_events (...);
+CREATE TABLE gnv_transactions (...);
+CREATE INDEX ON transactions (lead_id, type, created_at desc);
+CREATE INDEX ON telematics_events (unit_id, ts desc);
+CREATE INDEX ON gnv_transactions (unit_id, ts desc);</code></pre>
+        </details>
+        <details>
+          <summary>Inserts desde BFF/Make</summary>
+          <pre><button class="copy" onclick="copyCode(this)">Copiar</button><code>POST /api/transactions
+{"lead_id":"L-123","type":"payment","status":"paid","amount":15000,"external_id":"cnk_abc","raw_json":{...}}</code></pre>
+        </details>
+        <details>
+          <summary>OpenAPI mínimo</summary>
+          <pre><button class="copy" onclick="copyCode(this)">Copiar</button><code>GET /contracts/{leadId}
+GET /vehicles/{id}/events?from&to
+GET /vehicles/{id}/gnv?from&to</code></pre>
+        </details>
+        <div class="kv">
+          <a class="btn" href="javascript:void(0)" onclick="location.href=cfg('NEON_API_URL')">Abrir NEON API</a>
+        </div>
+      </section>
+
+      <!-- Metamap -->
+      <section id="metamap" class="panel" data-role="Coder">
+        <h3>2.6 Metamap (KYC) <span class="badge">Coder</span></h3>
+        <p><strong>DoD:</strong> etapa Odoo “KYC Approved”; fila Airtable actualizada; idempotencia correcta.</p>
+      </section>
+
+      <!-- Mifiel -->
+      <section id="mifiel" class="panel" data-role="Coder">
+        <h3>2.7 Mifiel (Firma) <span class="badge">Coder</span></h3>
+        <p><strong>DoD:</strong> PDF firmado adjunto en Odoo; fila Airtable/Docs creada; orden de pago disparada (Conekta).</p>
+        <div class="kv"><a class="btn" href="javascript:void(0)" onclick="location.href=cfg('MIFIEL_CONSOLE')">Abrir Mifiel</a></div>
+      </section>
+
+      <!-- Conekta -->
+      <section id="conekta" class="panel" data-role="Coder">
+        <h3>2.8 Conekta (Pagos) <span class="badge">Coder</span></h3>
+        <p><strong>DoD:</strong> webhook “paid” → Factura Pagada en Odoo; transacción en NEON; notificación Make/Twilio.</p>
+        <div class="kv"><a class="btn" href="javascript:void(0)" onclick="location.href=cfg('CONEKTA_CONSOLE')">Abrir Conekta</a></div>
+      </section>
+
+      <!-- Twilio -->
+      <section id="twilio" class="panel" data-role="No-coder">
+        <h3>2.9 Twilio (WhatsApp) <span class="badge">No-coder</span></h3>
+        <p>Plantillas: <code>recordatorio_pago</code>, <code>firma_contrato</code>, <code>kyc_link</code>. Aprobar y usar en Make.</p>
+        <div class="kv"><a class="btn" href="javascript:void(0)" onclick="location.href=cfg('TWILIO_CONSOLE')">Abrir Twilio Console</a></div>
+      </section>
+
+      <!-- Geotab -->
+      <section id="geotab" class="panel" data-role="Coder">
+        <h3>2.10 Geotab (Telemetría) <span class="badge">Coder</span></h3>
+        <details open>
+          <summary>Payload ingest</summary>
+          <pre><button class="copy" onclick="copyCode(this)">Copiar</button><code>POST /v1/telematics/events
+{"unit_id":"AGU-001","lat":21.8818,"lon":-102.2916,"odometer_km":23345.2,"dtc":null,"ts":"2025-08-26T16:45:00Z"}</code></pre>
+        </details>
+        <p><strong>DoD:</strong> 5 demos reportando; odómetro coherente; panel PWA básico.</p>
+      </section>
+
+      <!-- GNV -->
+      <section id="gnv" class="panel" data-role="Coder">
+        <h3>2.11 GNV (Consumo) <span class="badge">Coder</span></h3>
+        <details open>
+          <summary>Payload ingest</summary>
+          <pre><button class="copy" onclick="copyCode(this)">Copiar</button><code>POST /v1/gnv/ingest
+{"unit_id":"AGU-001","station_id":"ST-12","volume_m3":34.2,"price":15.2,"amount":520.0,"ticket_id":"TKT-88992","ts":"2025-08-26T11:03:00Z"}</code></pre>
+        </details>
+        <p><strong>DoD:</strong> 95% de cargas registradas; alerta de anomalías activas.</p>
+      </section>
+
+      <!-- PWA -->
+      <section id="pwa" class="panel" data-role="Coder">
+        <h3>2.12 PWA (Angular) <span class="badge">Coder</span></h3>
+        <ul>
+          <li>Templates críticos (sidebar, bottom-nav, captura docs, firma, pago).</li>
+          <li>Módulo Protección (4 tarjetas + tabla amortización).</li>
+          <li>Módulo Tanda (what-if + timeline + comparador).</li>
+          <li>PDF export (cotizador/tanda).</li>
+        </ul>
+      </section>
+
+      <!-- Security -->
+      <section id="security" class="panel" data-role="Coder">
+        <h3>2.13 Security / PLD <span class="badge">Coder</span></h3>
+        <ul>
+          <li>JWT link cliente (expirable).</li>
+          <li>Idempotencia webhooks.</li>
+          <li>Rate-limit y trazabilidad <code>traceId</code>.</li>
+        </ul>
+      </section>
+    </section>
+
+    <!-- 3. SOPs resumidas -->
+    <section id="sops" class="panel">
+      <h2>3. SOPs resumidas y quirúrgicas</h2>
+
+      <details open>
+        <summary>3.1 Make — patrón universal (No-coder)</summary>
+        <ol>
+          <li>Custom Webhook (copiar URL).</li>
+          <li>Router + Data Store <em>requests_seen</em> para <strong>idempotencia</strong>.</li>
+          <li>Airtable Create/Update según evento.</li>
+          <li>HTTP PATCH Odoo (o POST BFF).</li>
+          <li>(Opc) Twilio Send WhatsApp (plantilla).</li>
+          <li>Run once con payload y guardar evidencia en Airtable/Checkpoints.</li>
+        </ol>
+      </details>
+
+      <details open>
+        <summary>3.2 Odoo (Studio + Acciones)</summary>
+        <ul>
+          <li>Diario CNK (banco) + cuenta puente.</li>
+          <li>Campos Studio en <code>crm.lead</code>.</li>
+          <li>Acción <em>SO→Factura</em>; Acción <em>Etapa=Aprobado → Call URL</em>.</li>
+          <li>QWeb PDF (branding) — Coder.</li>
+        </ul>
+      </details>
+
+      <details open>
+        <summary>3.3 BFF/NestJS (webhooks firmados)</summary>
+        <ul>
+          <li>Middlewares: <code>verifyHmac</code>, <code>idempotency</code>, <code>rateLimit</code>.</li>
+          <li>Responder 200 rápido, procesar en cola; escribir NEON, actualizar Odoo.</li>
+        </ul>
+      </details>
+
+      <details open>
+        <summary>3.4 Protección — fórmulas</summary>
+        <pre><button class="copy" onclick="copyCode(this)">Copiar</button><code>// Anualidad
+M = P * r * (1+r)^n / ((1+r)^n - 1)
+
+// Diferir d meses (capitalización opcional)
+B'(k+d) = B(k)*(1+r)^d [+ I_cap];  recalcular M' con n'
+
+// Recalendario Δn
+n' = n - k + Δn;  M' = annuity(B(k), r, n')
+
+// Step-down α por m meses
+Mtmp = (1-α)M; true-up: balloon o redistribución
+
+// Condición: IRR >= IRR_min; M' >= M_min</code></pre>
+      </details>
+
+      <details open>
+        <summary>3.5 NEON — DDL base</summary>
+        <pre><button class="copy" onclick="copyCode(this)">Copiar</button><code>CREATE TABLE customers (...);
+CREATE TABLE contracts (...);
+CREATE TABLE transactions (...);
+CREATE TABLE telematics_events (...);
+CREATE TABLE gnv_transactions (...);
+CREATE INDEX ON transactions (lead_id, type, created_at desc);
+CREATE INDEX ON telematics_events (unit_id, ts desc);
+CREATE INDEX ON gnv_transactions (unit_id, ts desc);</code></pre>
+      </details>
+    </section>
+
+    <!-- 4. Payloads -->
+    <section id="payloads" class="panel">
+      <h2>4. Payloads de referencia</h2>
+      <details open>
+        <summary>4.1 Metamap → BFF (KYC)</summary>
+        <pre><button class="copy" onclick="copyCode(this)">Copiar</button><code>{ "leadId":"L-123", "metamapId":"MM-987", "status":"approved" }</code></pre>
+      </details>
+      <details open>
+        <summary>4.2 Conekta → BFF (paid)</summary>
+        <pre><button class="copy" onclick="copyCode(this)">Copiar</button><code>{ "type":"charge.paid", "data":{ "object":{ "order_id":"ord_abc","amount":1500000,"metadata":{"leadId":"L-123"} } } }</code></pre>
+      </details>
+      <details open>
+        <summary>4.3 Mifiel → BFF (signature.completed)</summary>
+        <pre><button class="copy" onclick="copyCode(this)">Copiar</button><code>{ "contract_id":"mif_456", "status":"signed", "metadata":{"leadId":"L-123"}, "file_url":"https://..." }</code></pre>
+      </details>
+      <details open>
+        <summary>4.4 Telemetría (ingest)</summary>
+        <pre><button class="copy" onclick="copyCode(this)">Copiar</button><code>{ "unit_id":"AGU-001", "lat":21.8818, "lon":-102.2916, "odometer_km":23345.2, "dtc":null, "ts":"2025-08-26T16:45:00Z" }</code></pre>
+      </details>
+      <details open>
+        <summary>4.5 GNV (ingest)</summary>
+        <pre><button class="copy" onclick="copyCode(this)">Copiar</button><code>{ "unit_id":"AGU-001","station_id":"ST-12","volume_m3":34.2,"price":15.2,"amount":520.0,"ticket_id":"TKT-88992","ts":"2025-08-26T11:03:00Z" }</code></pre>
+      </details>
+      <details open>
+        <summary>4.6 Protección (simulate request)</summary>
+        <pre><button class="copy" onclick="copyCode(this)">Copiar</button><code>{
+  "contractId":"C-123","monthK":12,
+  "options":{
+    "defer":{"d":2,"capitalizeInterest":true},
+    "recalendar":{"delta":6},
+    "stepDown":{"months":3,"alpha":0.25}
+  }
+}</code></pre>
+      </details>
+    </section>
+
+    <!-- 5. Integraciones críticas -->
+    <section id="integraciones" class="panel">
+      <h2>5. Integraciones críticas (Make/BFF)</h2>
+      <table class="tbl">
+        <thead><tr><th>Evento</th><th>Origen → Destino</th><th>Acciones</th><th>DoD</th></tr></thead>
+        <tbody>
+          <tr><td><code>lead.created</code></td><td>PWA/BFF → Make/Airtable</td><td>Crear fila y notificar WA</td><td>✅</td></tr>
+          <tr><td><code>kyc.completed</code></td><td>Metamap→BFF→Make→Odoo/Airtable</td><td>Etapa Odoo = KYC Approved + fila Airtable</td><td>⏳</td></tr>
+          <tr><td><code>signature.completed</code></td><td>Mifiel→BFF→Make→Odoo</td><td>Factura generada + PDF adjunto</td><td>⏳</td></tr>
+          <tr><td><code>payment.paid</code></td><td>Conekta→BFF→Make→Odoo</td><td>Factura Pagada + lead Activo</td><td>⏳</td></tr>
+          <tr><td><code>review_required</code></td><td>BFF→Make→Airtable</td><td>Tarea alta prioridad</td><td>⏳</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 6. Checkpoints -->
+    <section id="checkpoints" class="panel">
+      <h2>6. Checkpoints de verificación (PMO)</h2>
+      <table class="tbl">
+        <thead><tr><th>Bloque</th><th>Sub-bloque</th><th>Estatus</th><th>Evidencia/Link</th><th>Fecha</th><th>Validador</th></tr></thead>
+        <tbody>
+          <tr><td>Odoo</td><td>Diario CNK</td><td>✅</td><td>captura/ID diario</td><td>hoy</td><td>PMO</td></tr>
+          <tr><td>Odoo</td><td>Acciones servidor</td><td>⏳</td><td>payload + screenshot</td><td>—</td><td>PMO/Dev</td></tr>
+          <tr><td>Make</td><td>kyc.completed</td><td>⏳</td><td>escenario + DataStore</td><td>—</td><td>PMO</td></tr>
+          <tr><td>NEON</td><td>transactions insert</td><td>⏳</td><td>SELECT * LIMIT 1</td><td>—</td><td>Dev</td></tr>
+          <tr><td>Telemetría</td><td>/telematics/events</td><td>⏳</td><td>fila en telematics_events</td><td>—</td><td>Dev</td></tr>
+          <tr><td>GNV</td><td>/gnv/ingest</td><td>⏳</td><td>fila en gnv_transactions</td><td>—</td><td>Dev</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 7. Roles -->
+    <section id="roles" class="panel">
+      <h2>7. Roles & delegación</h2>
+      <ul>
+        <li><strong>No-coder:</strong> Make (escenarios + idempotencia), Airtable (tablas/vistas), Odoo Studio (campos/acciones), Twilio templates, Runbooks.</li>
+        <li><strong>Coder:</strong> BFF/Nest (endpoints/webhooks firmados), NEON (DDL + API), Odoo Python/QWeb, Angular (PWA), seguridad.</li>
+      </ul>
+    </section>
+
+    <!-- 8. Ruta acción -->
+    <section id="ruta" class="panel">
+      <h2>8. Ruta de acción (2–3 semanas)</h2>
+      <ol>
+        <li><strong>BFF + Webhooks P0</strong> (Metamap/Mifiel/Conekta) — Postman verde.</li>
+        <li><strong>Make P0</strong> (5 flujos) con <strong>idempotencia</strong> + evidencias en Airtable.</li>
+        <li><strong>Odoo</strong>: diarios/acciones/plantillas/roles + prueba E2E (KYC→Firma→Pago→Factura Pagada).</li>
+        <li><strong>NEON</strong>: inserts automáticos + OpenAPI mínimo.</li>
+        <li><strong>Telemetría + GNV</strong>: ingestas listas + primera alerta anómala.</li>
+      </ol>
+    </section>
+  </main>
+</div>
+</body>
+</html>
