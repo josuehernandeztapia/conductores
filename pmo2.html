@@ -1666,6 +1666,8 @@ DEBUG=true</div>
                 details.classList.add('visible');
                 button.classList.add('expanded');
                 button.innerHTML = `<span class="toggle-icon">▲</span> Ocultar detalles técnicos`;
+                // Ensure accordions are enhanced even if initial load hook failed
+                try { enhanceUltraDetailsAccordions(document); } catch (e) { console.warn('Accordion enhance on toggle failed:', e); }
             }
         }
 
@@ -1720,9 +1722,26 @@ DEBUG=true</div>
             });
         }
 
-        // Enhance initial content on load
+        // Enhance initial content on load and observe dynamic injections
         document.addEventListener('DOMContentLoaded', () => {
-            enhanceUltraDetailsAccordions(document);
+            try { enhanceUltraDetailsAccordions(document); } catch (e) { console.warn('Initial accordion enhance failed:', e); }
+
+            const guideContainer = document.getElementById('guide-container');
+            if (guideContainer && 'MutationObserver' in window) {
+                const observer = new MutationObserver((mutations) => {
+                    let shouldEnhance = false;
+                    for (const mutation of mutations) {
+                        if (mutation.type === 'childList' && mutation.addedNodes && mutation.addedNodes.length > 0) {
+                            shouldEnhance = true;
+                            break;
+                        }
+                    }
+                    if (shouldEnhance) {
+                        try { enhanceUltraDetailsAccordions(guideContainer); } catch (e) { console.warn('Accordion enhance on mutation failed:', e); }
+                    }
+                });
+                observer.observe(guideContainer, { childList: true, subtree: true });
+            }
         });
 
         function generateFastAPIGuide() {
