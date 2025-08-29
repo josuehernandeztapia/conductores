@@ -345,6 +345,43 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
+        /* ACCESSIBLE ACCORDION (details/summary) FOR ULTRA-DETAIL BLOCKS */
+        details.accordion {
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            background: var(--bg);
+            margin: 10px 0;
+        }
+        details.accordion[open] {
+            border-color: var(--acc);
+            box-shadow: 0 2px 8px rgba(58, 166, 255, 0.15);
+        }
+        details.accordion > summary.accordion-summary {
+            list-style: none;
+            cursor: pointer;
+            padding: 12px 14px;
+            font-weight: 600;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(255,255,255,0.02);
+            border-radius: 6px;
+        }
+        details.accordion > summary.accordion-summary::-webkit-details-marker { display: none; }
+        .accordion-caret {
+            transition: transform 0.2s ease;
+            margin-left: 8px;
+            color: var(--light-gray);
+        }
+        details.accordion[open] .accordion-caret {
+            transform: rotate(180deg);
+            color: var(--acc);
+        }
+        .accordion-content {
+            padding: 12px 14px 16px 14px;
+            border-top: 1px solid var(--line);
+        }
         .guide-content {
             padding: 0;
         }
@@ -1607,6 +1644,8 @@ DEBUG=true</div>
                 container.innerHTML = guideContent;
                 container.style.opacity = '1';
                 container.scrollTop = 0; // Scroll to top of new content
+                // Rebuild accordions for newly injected content
+                enhanceUltraDetailsAccordions(container);
             }, 150);
             
             console.log('Guide loaded for tool:', tool);
@@ -1629,6 +1668,62 @@ DEBUG=true</div>
                 button.innerHTML = `<span class="toggle-icon">▲</span> Ocultar detalles técnicos`;
             }
         }
+
+        // BUILD ACCESSIBLE ACCORDIONS FOR ULTRA-DETAIL SECTIONS
+        function enhanceUltraDetailsAccordions(root=document) {
+            const detailContainers = root.querySelectorAll('.technical-details');
+            detailContainers.forEach(container => {
+                // Avoid double-enhancement
+                if (container.dataset.accordionEnhanced === 'true') return;
+                container.dataset.accordionEnhanced = 'true';
+
+                const blocks = container.querySelectorAll('.guide-section, .task-section');
+                blocks.forEach((block, index) => {
+                    // Find title
+                    const heading = block.querySelector('h4, .task-title');
+                    const titleText = heading ? heading.textContent.trim() : `Detalle ${index+1}`;
+
+                    // Create details/summary wrapper
+                    const detailsEl = document.createElement('details');
+                    detailsEl.className = 'accordion';
+                    // All accordions closed by default
+                    detailsEl.open = false;
+
+                    const summaryEl = document.createElement('summary');
+                    summaryEl.className = 'accordion-summary';
+                    summaryEl.setAttribute('role', 'button');
+                    summaryEl.setAttribute('aria-expanded', 'false');
+                    summaryEl.innerHTML = `<span>${titleText}</span><span class="accordion-caret">▼</span>`;
+
+                    const contentEl = document.createElement('div');
+                    contentEl.className = 'accordion-content';
+
+                    // Move original content into accordion content
+                    if (heading) heading.remove();
+                    while (block.firstChild) {
+                        contentEl.appendChild(block.firstChild);
+                    }
+
+                    // Assemble
+                    detailsEl.appendChild(summaryEl);
+                    detailsEl.appendChild(contentEl);
+
+                    // Replace block with accordion
+                    block.replaceWith(detailsEl);
+
+                    // Accessibility state sync
+                    detailsEl.addEventListener('toggle', () => {
+                        const expanded = detailsEl.open ? 'true' : 'false';
+                        summaryEl.setAttribute('aria-expanded', expanded);
+                    });
+                });
+            });
+        }
+
+        // Enhance initial content on load
+        document.addEventListener('DOMContentLoaded', () => {
+            enhanceUltraDetailsAccordions(document);
+        });
 
         function generateFastAPIGuide() {
             return `
