@@ -1939,45 +1939,72 @@ function calculateInvestorScore() {
 const dscrFinal = calculateFinalDSCR() || 0;
 const totalCapexForCoverage = calculateTotalCapex();
 const totalFundingCF = totalFundingFromCF();
-const coverage = totalCapexForCoverage > 0 ? Math.min((totalFundingCF / totalCapexForCoverage) * 100, 105) : 0;
+// Use true coverage without clamping to allow >110% detection
+const coverage = totalCapexForCoverage > 0 ? ((totalFundingCF / totalCapexForCoverage) * 100) : 0;
 const year5BS = (financialResults.bs && financialResults.bs[4]) ? financialResults.bs[4] : {};
 const leverage = (year5BS && year5BS.equity) ? ((year5BS.debt || 0) / (year5BS.equity || 1)) : 0;
 const year5CF = financialResults.cf && financialResults.cf[4] ? financialResults.cf[4] : {};
 const cashAfterFin = (typeof year5CF.cashAfterFinancing === 'number') ? year5CF.cashAfterFinancing : ((year5CF.netCash != null) ? year5CF.netCash : ((year5CF.operatingCash || 0) + (year5CF.investingCash || 0) + (year5CF.financingCash || 0)));
 const normalizedCFAF = typeof financialResults.normalizedCFAF_Y5 === 'number' ? financialResults.normalizedCFAF_Y5 : 0;
 
-// Growth Mode Score
+// Growth and Steady-State Scores (start at 10)
 let scoreGrowth = 10;
-if (dscrFinal < 1.5) scoreGrowth -= 2;
-if (coverage < 95 || coverage > 105) scoreGrowth -= 1;
-if (leverage > 2.0) scoreGrowth -= 1;
-if (cashAfterFin < 0) scoreGrowth -= 1;
-
-// Steady-State Score
 let scoreSteady = 10;
-if (dscrFinal < 1.5) scoreSteady -= 1;
-if (coverage < 95 || coverage > 105) scoreSteady -= 0.5;
-if (leverage > 2.0) scoreSteady -= 1;
-if (normalizedCFAF < 0) scoreSteady -= 0.5;
 
-financialResults.investorScoreGrowth = Math.max(scoreGrowth, 0);
-financialResults.investorScoreSteady = Math.max(scoreSteady, 0);
-log(`💹 Investor Scores => Growth: ${financialResults.investorScoreGrowth}/10 | Steady: ${financialResults.investorScoreSteady}/10`);
-
-// Build issues from dual metrics
+// Build issues with refined gating/thresholds
 let issues = [];
-if (dscrFinal < 1.2) issues.push('🚨 DSCR crítico (<1.2x)');
-else if (dscrFinal < 1.5) issues.push('⚠️ DSCR bajo (<1.5x)');
-if (coverage < 95) issues.push('⚠️ Cobertura de CAPEX por CF insuficiente (<95%)');
-if (coverage > 105) issues.push('⚠️ Exceso de cobertura por CF (>105%)');
-if (leverage > 2.0) issues.push('📊 Leverage alto (Debt/Equity >2x)');
-if (cashAfterFin < 0) issues.push('💸 Cash after financing negativo (Y5)');
-if (normalizedCFAF < 0) issues.push('💵 Cash flow after financing normalizado (Y5) negativo');
 
-// Gating: remove DSCR issues when finalDSCR >= 1.5x
+// --- DSCR gating ---
 if (dscrFinal >= 1.5) {
-    issues = issues.filter(msg => !/DSCR/i.test(msg));
+  issues = issues.filter(i => !i.includes("DSCR"));
+} else if (dscrFinal < 1.2) {
+  scoreGrowth -= 2;
+  scoreSteady -= 1.5;
+  issues.push('🚨 DSCR crítico (<1.2x)');
+} else if (dscrFinal < 1.5) {
+  scoreGrowth -= 1;
+  scoreSteady -= 0.5;
+  issues.push('⚠️ DSCR moderado (<1.5x)');
 }
+
+// --- Coverage band adjustment ---
+if (coverage < 95) {
+  scoreGrowth -= 1;
+  scoreSteady -= 0.5;
+  issues.push('⚠️ Cobertura de capital baja (<95%)');
+} else if (coverage > 110) {
+  scoreGrowth -= 0.5;
+  scoreSteady -= 0.25;
+  issues.push('⚠️ Cobertura de capital alta (>110%)');
+}
+
+// --- Leverage logic refined ---
+if (leverage > 2.5) {
+  scoreGrowth -= 1;
+  scoreSteady -= 0.75;
+  issues.push('📊 Leverage alto (>2.5x)');
+} else if (leverage > 2.0) {
+  scoreGrowth -= 0.5;
+  scoreSteady -= 0.25;
+  issues.push('⚠️ Leverage moderado (>2.0x)');
+}
+
+// --- Cash flow impact adjusted ---
+if (cashAfterFin < 0 && Math.abs(cashAfterFin) > 0.3 * totalCapexForCoverage) {
+  scoreGrowth -= 1;
+  issues.push('💸 Cash Flow negativo por expansión agresiva');
+}
+
+// Keep steady-state normalized cash flow consideration
+if (normalizedCFAF < 0) {
+  scoreSteady -= 0.5;
+  issues.push('💵 Cash flow after financing normalizado (Y5) negativo');
+}
+
+// Normalize and log
+financialResults.investorScoreGrowth = Math.max(0, scoreGrowth);
+financialResults.investorScoreSteady = Math.max(0, scoreSteady);
+log(`💹 Investor Scores => Growth: ${financialResults.investorScoreGrowth}/10 | Steady: ${financialResults.investorScoreSteady}/10`);
 
 const score = Math.max(0, financialResults.investorScoreGrowth);
 const grade = score >= 8.5 ? 'A' : score >= 7 ? 'B' : score >= 5 ? 'C' : 'D';
@@ -2591,8 +2618,8 @@ totalLiabilitiesEquity = totalLiabilities + endOfYearEquity;
 }
 
 financialResults.pl.push({ ...niif15Results, interestRevenue: annualInterestReceived, totalRevenue, ebitda, ebit, netIncome, interestExpense, depreciation: annualDepreciation, provisions, impairment, totalCOGS: sparePartsCOGS, grossProfit: totalRevenue - sparePartsCOGS, opex, earningsBeforeTax, incomeTaxExpense, addedUnits });
-// Derive cashAfterFinancing (operating minus financing outflows) and store balloonPayment detail
-const cashAfterFinancing = (operatingCash || 0) - (financingOutflows || 0);
+// Derive cashAfterFinancing as operating + financing cash (net of all financing activities)
+const cashAfterFinancing = (operatingCash || 0) + (financingCash || 0);
 financialResults.cf.push({ operatingCash, investingCash, financingCash, netCash, deltaProvisions, deltaContractLiabilities, incomeTaxPaid: incomeTaxExpense, clientPrincipalPaymentsReceived: annualPrincipalReceived, clientInterestPaymentsReceived: annualInterestReceived, currentYearVentureDebtDraw: finalNewVentureDebt, additionalFundingRaised: finalNewCommercialDebt, sinosureDrawn: sinosureDrawdowns, debtPrincipalRepayment: totalDebtPrincipalRepayment, techInvestmentThisYear, financingOutflows, balloonPayment: balloonPrincipalThisYear, cashAfterFinancing });
 log(`💵 Cash After Financing Y${currentYear}: ${formatCurrency(cashAfterFinancing)}`);
 financialResults.bs.push({ cash, receivables: currentYearEndReceivables, receivablesNet: currentYearEndReceivables - currentProvisionsBalance, fixedAssets: fixedAssetsNet, assetsHeldForSale: assetsHeldForSaleNet, totalAssets: totalAssets, debt: totalDebt, equity: endOfYearEquity, totalLiabilitiesEquity: totalLiabilitiesEquity, provisions: currentProvisionsBalance, contractLiabilities: niif15Results.contractLiabilitiesBalance });
@@ -3179,9 +3206,9 @@ break;
 }
 }
 }
-// Apply current mode visibility after values update (run once after loop)
-updateFinancialModeUI();
+// After computing the autosufficiency year, apply current mode visibility
 document.getElementById('autosuficiency-year').textContent = actualAutosufficiencyYear > 0 ? `Año ${actualAutosufficiencyYear}` : 'No alcanzado';
+updateFinancialModeUI();
 }
 
 updateTables();
@@ -4916,8 +4943,12 @@ const gradeColor = {
 'D': 'bg-red-900 border-red-600 text-red-200'
 }[investorScore.grade];
 
-scoreContainer.className = `mt-4 p-4 rounded-lg border ${gradeColor}`;
-scoreContainer.innerHTML = `
+    // Determine dynamic issues section title
+    const onlyLeverageIssues = investorScore.issues && investorScore.issues.length > 0 && investorScore.issues.every(issue => /Leverage/i.test(issue));
+    const issuesSectionTitle = onlyLeverageIssues ? '⚠️ Leverage alto (>2x)' : 'Key Issues:';
+
+    scoreContainer.className = `mt-4 p-4 rounded-lg border ${gradeColor}`;
+    scoreContainer.innerHTML = `
 <div class="flex items-center justify-between">
   <span class="text-sm">Investor Score</span>
   <div class="text-right">
@@ -4933,7 +4964,7 @@ scoreContainer.innerHTML = `
 </div>
 ${investorScore.issues.length > 0 ? `
 <div class="mt-3 pt-3 border-t border-white border-opacity-20">
-<p class="text-sm font-medium mb-2">Key Issues:</p>
+<p class="text-sm font-medium mb-2">${issuesSectionTitle}</p>
 <ul class="text-xs space-y-1">
 ${investorScore.issues.map(issue => `<li>${issue}</li>`).join('')}
 </ul>
