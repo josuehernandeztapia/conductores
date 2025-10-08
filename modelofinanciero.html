@@ -1996,6 +1996,49 @@ score -= 0.5;
 issues.push('📊 Leverage alto (Debt/Equity >2x)');
 }
 
+// --- Dual Investor Score (Growth vs Steady-State) from main ---
+const dscrFinal = calculateFinalDSCR() || 0;
+const totalFunding = calculateTotalFunding();
+const totalCapex = calculateTotalCapex();
+const coverage = totalCapex > 0 ? Math.min((totalFunding / totalCapex) * 100, 105) : 0;
+const year5BS = financialResults.bs && financialResults.bs[4] ? financialResults.bs[4] : {};
+const leverage = year5BS && year5BS.equity ? (year5BS.debt || 0) / (year5BS.equity || 1) : 0;
+const year5CF = financialResults.cf && financialResults.cf[4] ? financialResults.cf[4] : {};
+const cashAfterFin = (year5CF.netCash != null ? year5CF.netCash : ((year5CF.operatingCash || 0) + (year5CF.investingCash || 0) + (year5CF.financingCash || 0))) || 0;
+
+// Normalized Steady-State proxies (average of Y4 and Y5 where available)
+const year4CF = financialResults.cf && financialResults.cf[3] ? financialResults.cf[3] : {};
+const normalizedCFO = [year4CF.operatingCash, year5CF.operatingCash].filter(v => typeof v === 'number').length > 0
+    ? ([year4CF.operatingCash, year5CF.operatingCash].filter(v => typeof v === 'number').reduce((a,b)=>a+b,0) / [year4CF.operatingCash, year5CF.operatingCash].filter(v => typeof v === 'number').length)
+    : 0;
+const netCashY4 = (typeof year4CF.netCash === 'number') ? year4CF.netCash : ((year4CF.operatingCash || 0) + (year4CF.investingCash || 0) + (year4CF.financingCash || 0));
+const netCashY5 = (typeof year5CF.netCash === 'number') ? year5CF.netCash : ((year5CF.operatingCash || 0) + (year5CF.investingCash || 0) + (year5CF.financingCash || 0));
+const normalizedCFAF = [netCashY4, netCashY5].filter(v => typeof v === 'number').length > 0
+    ? ([netCashY4, netCashY5].filter(v => typeof v === 'number').reduce((a,b)=>a+b,0) / [netCashY4, netCashY5].filter(v => typeof v === 'number').length)
+    : 0;
+
+// Persist normalized metrics for reuse/inspection
+financialResults.normalizedCFO_Y5 = normalizedCFO;
+financialResults.normalizedCFAF_Y5 = normalizedCFAF;
+
+// Growth Mode Score
+let scoreGrowth = 10;
+if (dscrFinal < 1.5) scoreGrowth -= 2;
+if (coverage < 95 || coverage > 105) scoreGrowth -= 1;
+if (leverage > 2.0) scoreGrowth -= 1;
+if (cashAfterFin < 0) scoreGrowth -= 1;
+
+// Steady-State Score
+let scoreSteady = 10;
+if (dscrFinal < 1.5) scoreSteady -= 1;
+if (coverage < 95 || coverage > 105) scoreSteady -= 0.5;
+if (leverage > 2.0) scoreSteady -= 1;
+if (normalizedCFAF < 0) scoreSteady -= 0.5;
+
+financialResults.investorScoreGrowth = Math.max(scoreGrowth, 0);
+financialResults.investorScoreSteady = Math.max(scoreSteady, 0);
+log(`💹 Investor Scores => Growth: ${financialResults.investorScoreGrowth}/10 | Steady: ${financialResults.investorScoreSteady}/10`);
+
 // Gate DSCR-related issues if final DSCR is healthy
 if (debtMetrics.finalDSCR >= 1.5) {
     issues = issues.filter(msg => !msg.includes('DSCR'));
