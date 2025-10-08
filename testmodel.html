@@ -3313,6 +3313,19 @@ for (let i = 1; i <= 5; i++) {
 total += (modelData[`ventureDebtYear${i}`] || 0);
 total += (modelData[`commercialDebtYear${i}`] || 0);
 }
+// Sync with CF real draws
+if (financialResults && Array.isArray(financialResults.cf)) {
+  let cfDebt = 0;
+  financialResults.cf.forEach(cf => {
+    cfDebt += Math.max(
+      0,
+      (cf.currentYearVentureDebtDraw || 0) +
+      (cf.additionalFundingRaised || 0) +
+      (cf.sinosureDrawn || 0)
+    );
+  });
+  total = Math.max(total, cfDebt);
+}
 return total;
 }
 /**
@@ -3324,6 +3337,24 @@ let total = modelData.seriesA;
 for (let i = 1; i <= 5; i++) {
 total += (modelData[`partnerCapitalizationYear${i}`] || 0) +
 (modelData[`seriesB_newInvestors_year${i}`] || 0);
+}
+// Sync with CF real equity injections (fallback to model if CF not present)
+if (financialResults && Array.isArray(financialResults.cf)) {
+  let cfEquity = 0;
+  financialResults.cf.forEach((cf, index) => {
+    const year = index + 1;
+    const equityFromCF = Math.max(
+      0,
+      (cf.partnerCapitalization || 0) + (cf.seriesBNewInvestors || 0)
+    );
+    const equityFromModel = Math.max(
+      0,
+      (modelData[`partnerCapitalizationYear${year}`] || 0) +
+      (modelData[`seriesB_newInvestors_year${year}`] || 0)
+    );
+    cfEquity += equityFromCF > 0 ? equityFromCF : equityFromModel;
+  });
+  total = Math.max(total, cfEquity);
 }
 return total;
 }
@@ -4656,8 +4687,18 @@ document.getElementById('aum-value').textContent = formatCurrency(year5BS.totalA
 const totalVansFinanced = financialResults.pl.reduce((a, b) => a + (b.addedUnits || 0), 0);
 document.getElementById('total-vans-financed').textContent = totalVansFinanced.toLocaleString();
 // Row 2: La Maquinaria de Crecimiento
-document.getElementById('equity-raised').textContent = formatCurrency(calculateTotalEquityRaised());
-document.getElementById('total-debt-raised').textContent = formatCurrency(calculateTotalDebtRaised());
+// Use CF-based aggregates instead of static modelData
+const cfAgg = (financialResults.cf || []).reduce(
+  (acc, cf) => {
+    acc.equity += Math.max(0, (cf.partnerCapitalization || 0) + (cf.seriesBNewInvestors || 0));
+    acc.debt += Math.max(0, (cf.currentYearVentureDebtDraw || 0) + (cf.additionalFundingRaised || 0) + (cf.sinosureDrawn || 0));
+    return acc;
+  },
+  { equity: 0, debt: 0 }
+);
+document.getElementById('equity-raised').textContent = formatCurrency(cfAgg.equity);
+document.getElementById('total-debt-raised').textContent = formatCurrency(cfAgg.debt);
+log(`🔍 CF Aggregates → Equity: ${formatCurrency(cfAgg.equity)} | Debt: ${formatCurrency(cfAgg.debt)}`);
 const seriesAMetrics = calculateSeriesAMetrics();
 document.getElementById('funding-efficiency').textContent = seriesAMetrics.fundingEfficiency ? seriesAMetrics.fundingEfficiency.toFixed(1) + 'x' : '0.0x';
 document.getElementById('capital-per-unit').textContent = seriesAMetrics.capitalPerUnit ? '$' + seriesAMetrics.capitalPerUnit.toFixed(0) + 'K' : '$0K';
