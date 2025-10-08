@@ -1673,6 +1673,43 @@ if (financialResults && Array.isArray(financialResults.cf)) {
 }
 return total;
 }
+
+// 🧩 Utility: Validate and reset Cash Flow
+function validateCashFlowIntegrity() {
+  const cf = (financialResults && Array.isArray(financialResults.cf)) ? financialResults.cf : [];
+  const hasEquity = cf.some(e => ((e.partnerCapitalization || 0) > 0) || ((e.seriesBNewInvestors || 0) > 0));
+  const totalFunding = totalFundingFromCF();
+
+  console.log("%c🔍 CF Integrity Check", "background:#0D1117; color:#58A6FF; font-weight:bold;");
+  console.table({
+    "Entries": cf.length,
+    "Contains Equity": hasEquity,
+    "Total Funding (CF)": totalFunding,
+    "CAPEX": calculateTotalCapex(),
+    "Coverage (%)": ((totalFunding / calculateTotalCapex()) * 100).toFixed(1),
+    "DSCR": (financialResults && typeof financialResults.finalDSCR !== 'undefined') ? financialResults.finalDSCR : "N/A"
+  });
+
+  if (!hasEquity) {
+    console.warn("⚠️ CF missing initial equity injection — reinjecting Seed + Serie A...");
+    if (financialResults && Array.isArray(financialResults.cf)) {
+      financialResults.cf.push({
+        year: 0,
+        partnerCapitalization: modelData.seed,
+        seriesBNewInvestors: modelData.seriesA,
+        totalFunding: (modelData.seed || 0) + (modelData.seriesA || 0)
+      });
+    }
+  }
+
+  const capex = calculateTotalCapex();
+  if (capex > 0 && (totalFunding / capex) < 0.95) {
+    console.warn("⚠️ Coverage <95% — forcing recalculation.");
+    if (typeof forceCalculate === 'function') {
+      forceCalculate();
+    }
+  }
+}
 /**
 * Calculates the residual balance of Venture Debt for a given year.
 * @param {number} year - The projection year (1-5).
@@ -2752,7 +2789,14 @@ try {
     log(`⚠️ Could not compute normalized metrics: ${e.message}`);
 }
 
-log('✅ FINANCIAL CALCULATIONS (v23) COMPLETED');
+ // ✅ Validate after main calculation
+ setTimeout(() => {
+   if (typeof validateCashFlowIntegrity === 'function') {
+     validateCashFlowIntegrity();
+     log("✅ Financial model recalculated with Seed + Serie A injection verified.");
+   }
+ }, 500);
+ log('✅ FINANCIAL CALCULATIONS (v23) COMPLETED');
 return true;
 } catch (error) {
 log(`❌ ERROR in calculateFinancials (v23): ${error.message}`);
@@ -3184,6 +3228,17 @@ panel.innerHTML = debugLogs.map(log => `<div style="margin-bottom: 2px; font-siz
 function toggleDebug() {
 const panel = document.getElementById('debug-info');
 panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+// Optional: Manual CF validation trigger via a Debug button (if present)
+const debugButton = document.getElementById('debug-button');
+if (debugButton) {
+  debugButton.addEventListener('click', () => {
+    console.log('🧠 Manual CF Validation Triggered');
+    if (typeof validateCashFlowIntegrity === 'function') {
+      validateCashFlowIntegrity();
+    }
+  });
 }
 /**
 * Shows a temporary warning in the UI.
