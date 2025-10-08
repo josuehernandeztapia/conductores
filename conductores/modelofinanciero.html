@@ -445,6 +445,11 @@ min-height: 280px;
 <div class="text-2xl font-bold" id="ebitda-year5">$0M</div>
 <div class="text-xs text-emerald-400">Rentabilidad Operativa</div>
 </div>
+<div class="metric-card" data-tooltip="Flujo de caja operativo menos salidas de financiamiento (balloon). Clarifica sostenibilidad después de servicio de deuda.">
+  <div class="text-sm">Cash Flow After Financing (Y5)</div>
+  <div class="text-2xl font-bold" id="cash-after-financing-display">$0</div>
+  <div class="text-xs text-cyan-400">Operativo - Balloon Financiero</div>
+  </div>
 <div class="metric-card" data-tooltip="Calculada sobre los flujos de efectivo para el accionista (después de deuda) y un valor terminal conservador (Múltiplo P/B de 1.8x). Es el retorno real y magnificado de su inversión gracias al apalancamiento.">
 <div class="text-sm">TIR Equity</div>
 <div class="text-2xl font-bold" id="tir-equity">0%</div>
@@ -2333,6 +2338,8 @@ const opex = totalRevenue * (modelData.opexRates[year] / 100);
         const balloon = (modelData.commercialBalloonPercent || 0) / 100;
         const monthlyRateCommercial = (modelData.commercialDebtRate / 12) / 100;
 
+        // Track balloon principal separately for financing classification
+        let balloonPrincipalThisYear = 0;
         commercialDebtCohorts.forEach(cohort => {
             if (currentYear >= cohort.yearOriginated) {
                 if (cohort.paymentsMadeMonths === undefined) cohort.paymentsMadeMonths = 0;
@@ -2356,6 +2363,7 @@ const opex = totalRevenue * (modelData.opexRates[year] / 100);
                     } else if (monthIndex === term) {
                         const balloonPayment = cohort.remainingPrincipal;
                         scheduledCommercialPrincipalThisYear += balloonPayment;
+                        balloonPrincipalThisYear += balloonPayment; // capture balloon as financing outflow later
                         cohort.remainingPrincipal = 0;
                     }
 
@@ -2467,7 +2475,9 @@ if (finalNewCommercialDebt > 0) commercialDebtCohorts.push({ yearOriginated: cur
             }
         });
         
-        const financingCash = finalNewEquityInjections + finalNewVentureDebt + finalNewCommercialDebt + sinosureDrawdowns - totalDebtPrincipalRepayment;
+        // Classify balloon principal as financing outflow (do not alter NIIF/logic, only classification)
+        const financingOutflows = Math.max(0, balloonPrincipalThisYear);
+        const financingCash = finalNewEquityInjections + finalNewVentureDebt + finalNewCommercialDebt + sinosureDrawdowns - totalDebtPrincipalRepayment - financingOutflows;
 
 const netCash = operatingCash + investingCash + financingCash;
 cash += netCash;
@@ -2492,7 +2502,10 @@ totalLiabilitiesEquity = totalLiabilities + endOfYearEquity;
 }
 
 financialResults.pl.push({ ...niif15Results, interestRevenue: annualInterestReceived, totalRevenue, ebitda, ebit, netIncome, interestExpense, depreciation: annualDepreciation, provisions, impairment, totalCOGS: sparePartsCOGS, grossProfit: totalRevenue - sparePartsCOGS, opex, earningsBeforeTax, incomeTaxExpense, addedUnits });
-financialResults.cf.push({ operatingCash, investingCash, financingCash, netCash, deltaProvisions, deltaContractLiabilities, incomeTaxPaid: incomeTaxExpense, clientPrincipalPaymentsReceived: annualPrincipalReceived, clientInterestPaymentsReceived: annualInterestReceived, currentYearVentureDebtDraw: finalNewVentureDebt, additionalFundingRaised: finalNewCommercialDebt, sinosureDrawn: sinosureDrawdowns, debtPrincipalRepayment: totalDebtPrincipalRepayment, techInvestmentThisYear });
+// Derive cashAfterFinancing (operating minus financing outflows) and store balloonPayment detail
+const cashAfterFinancing = (operatingCash || 0) - (financingOutflows || 0);
+financialResults.cf.push({ operatingCash, investingCash, financingCash, netCash, deltaProvisions, deltaContractLiabilities, incomeTaxPaid: incomeTaxExpense, clientPrincipalPaymentsReceived: annualPrincipalReceived, clientInterestPaymentsReceived: annualInterestReceived, currentYearVentureDebtDraw: finalNewVentureDebt, additionalFundingRaised: finalNewCommercialDebt, sinosureDrawn: sinosureDrawdowns, debtPrincipalRepayment: totalDebtPrincipalRepayment, techInvestmentThisYear, financingOutflows, balloonPayment: balloonPrincipalThisYear, cashAfterFinancing });
+log(`💵 Cash After Financing Y${currentYear}: ${formatCurrency(cashAfterFinancing)}`);
 financialResults.bs.push({ cash, receivables: currentYearEndReceivables, receivablesNet: currentYearEndReceivables - currentProvisionsBalance, fixedAssets: fixedAssetsNet, assetsHeldForSale: assetsHeldForSaleNet, totalAssets: totalAssets, debt: totalDebt, equity: endOfYearEquity, totalLiabilitiesEquity: totalLiabilitiesEquity, provisions: currentProvisionsBalance, contractLiabilities: niif15Results.contractLiabilitiesBalance });
 financialResults.niifDetails.push({ niif15: niif15Results, niif5: niif5Results.niif5Details, niif9: {...niif9Results, pdStage1: modelData.pdStage1, pdStage2: modelData.pdStage2, pdStage3: modelData.pdStage3, lgd: modelData.lgd, economicAdjustmentFactor: modelData.economicAdjustmentFactor, proteccionRodandoActiva: modelData.proteccionRodando, provisionesConProteccion: provisions, reduccionPorProteccion: niif9Results.totalECLBeforeAdjustment - provisions, saldoProvisionesAcumulado: currentProvisionsBalance } });
 
@@ -3038,6 +3051,10 @@ const debtMetrics = calculateDebtMetricsBreakdown();
 document.getElementById('dscr-final').textContent = debtMetrics.finalDSCR === 999 ? '∞' : debtMetrics.finalDSCR.toFixed(1) + 'x';
 document.getElementById('dscr-final').className = 'text-2xl font-bold ' + (debtMetrics.isHealthyDSCR ? 'text-emerald-400' : 'text-amber-400');
 document.getElementById('nim-y5').textContent = seriesAMetrics.netInterestMargin ? seriesAMetrics.netInterestMargin.toFixed(1) + '%' : '0.0%';
+        // Update Cash Flow After Financing (Y5)
+        const cashAfterFinancing = financialResults.cf?.[4]?.cashAfterFinancing || 0;
+        const cafEl = document.getElementById('cash-after-financing-display');
+        if (cafEl) cafEl.textContent = formatCurrency(cashAfterFinancing);
 let actualAutosufficiencyYear = 0;
 if(financialResults.pl){
 for(let i = 0; i < financialResults.pl.length; i++) {
