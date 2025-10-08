@@ -1434,6 +1434,12 @@ totalFunding += (plannedFinancingData[`partnerCapitalizationYear${i}`] || 0) +
 (plannedFinancingData[`commercialDebtYear${i}`] || 0) +
 (plannedFinancingData[`seriesB_newInvestors_year${i}`] || 0);
 }
+// Include SINOSURE cohorts created during financial calculation
+if (typeof sinosureCohorts !== 'undefined' && Array.isArray(sinosureCohorts) && sinosureCohorts.length > 0) {
+    sinosureCohorts.forEach(cohort => {
+        totalFunding += (cohort.originalAmount || 0);
+    });
+}
 return totalFunding;
 }
 /**
@@ -4044,6 +4050,14 @@ function forceCalculate() {
         log('❌ Manual recalculation failed.');
     } else {
         updateUI();
+        // Validation logs to confirm funding ≈ capex after cohorts are created
+        try {
+            const capexCheck = calculateTotalCapex();
+            const fundingCheck = calculateTotalFunding();
+            console.log('CAPEX:', capexCheck);
+            console.log('FUNDING:', fundingCheck);
+            console.log('Coverage (%):', capexCheck > 0 ? (fundingCheck / capexCheck) * 100 : 0);
+        } catch (e) { /* ignore validation log errors */ }
         runGlobalChecks(); // Run global checks after manual recalculation
         
         // ===== STEP 5: INTEGRATE CONSTRAINT SYSTEM SAFELY =====
@@ -4713,7 +4727,8 @@ function updateFundingCoverageCard() {
 const totalFunding = calculateTotalFunding();
 const totalCapex = calculateTotalCapex();
 const surplus = totalFunding - totalCapex;
-const coverageRatio = totalCapex > 0 ? (totalFunding / totalCapex) * 100 : 0;
+// Coverage computed from updated totals after cohorts exist
+const coverage = totalCapex > 0 ? (totalFunding / totalCapex) * 100 : 0;
 // The visual part will be added in the next step.
 }
 
