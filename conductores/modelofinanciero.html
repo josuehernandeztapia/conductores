@@ -829,7 +829,7 @@ function calculateDynamicConstraints() {
 
 function analyzeCapitalHealth() {
     const totalCapex = modelData.unitsPerYear.reduce((sum, units) => sum + (units * getTotalPackageCost()), 0);
-    const totalFunding = calculateTotalFunding();
+    const totalFunding = totalFundingFromCF();
     const coverage = totalFunding > 0 ? (totalFunding / totalCapex) * 100 : 0;
     
     return {
@@ -1443,6 +1443,30 @@ if (typeof sinosureCohorts !== "undefined" && sinosureCohorts.length > 0) {
 return totalFunding;
 }
 /**
+* SSOT: Calculates total funding received from CF (real, positive draws only).
+* Sums equity (from CF if available, otherwise from modelData per year), venture debt, commercial debt, and SINOSURE drawn.
+* Ignores negative amounts (repayments/amortizations).
+* @returns {number} Total funding actually received.
+*/
+function totalFundingFromCF() {
+    if (!financialResults || !Array.isArray(financialResults.cf)) return 0;
+    let total = 0;
+    financialResults.cf.forEach((cf, index) => {
+        const year = index + 1;
+        const equityFromCF = Math.max(0, (cf.partnerCapitalization || 0) + (cf.seriesBNewInvestors || 0));
+        const equityFromModel = Math.max(0,
+            (modelData[`partnerCapitalizationYear${year}`] || 0) +
+            (modelData[`seriesB_newInvestors_year${year}`] || 0)
+        );
+        const equity = equityFromCF > 0 ? equityFromCF : equityFromModel;
+        const vd = Math.max(0, cf.currentYearVentureDebtDraw || 0);
+        const cd = Math.max(0, cf.additionalFundingRaised || 0);
+        const ex = Math.max(0, cf.sinosureDrawn || 0);
+        total += equity + vd + cd + ex;
+    });
+    return total;
+}
+/**
 * Calculates SINOSURE balance for a given year.
 * @param {number} year - The year to calculate balance for.
 * @param {Array} sinosureCohorts - Array of SINOSURE cohorts.
@@ -1719,7 +1743,7 @@ const commercialInterest = totalCommercialDebt * (modelData.commercialDebtRate /
 const totalDebtService = ventureInterest + commercialInterest;
 
 // Conservative EBITDA estimate based on funding and margins
-const estimatedRevenue = calculateTotalFunding() * 0.8; // 80% capital efficiency
+const estimatedRevenue = totalFundingFromCF() * 0.8; // 80% capital efficiency
 const estimatedEBITDA = estimatedRevenue * 0.25; // 25% EBITDA margin target
 
 const dscr = totalDebtService > 0 ? estimatedEBITDA / totalDebtService : 999;
@@ -1778,7 +1802,7 @@ function calculateSeriesAMetrics() {
     const activePortfolioValue = financialResults.bs[year5Index]?.receivables || 0;
 
     const cumulativeRevenue = financialResults.pl.reduce((sum, pl) => sum + (pl.totalRevenue || 0), 0);
-    const totalFunding = calculateTotalFunding();
+    const totalFunding = totalFundingFromCF();
     const fundingEfficiency = totalFunding > 0 ? cumulativeRevenue / totalFunding : 0;
 
     const currentCash = financialResults.bs[year5Index]?.cash || 0;
@@ -2863,13 +2887,7 @@ for (let i = 0; i < financialResults.pl.length; i++) {
 totalCapex += (financialResults.pl[i].addedUnits || 0) * getTotalPackageCost();
 }
 
-let totalFunding = modelData.seriesA;
-for (let i = 1; i <= 5; i++) {
-totalFunding += (modelData[`partnerCapitalizationYear${i}`] || 0) +
-(modelData[`ventureDebtYear${i}`] || 0) +
-(modelData[`commercialDebtYear${i}`] || 0) +
-(modelData[`seriesB_newInvestors_year${i}`] || 0);
-}
+let totalFunding = totalFundingFromCF();
 if (totalFunding < totalCapex) {
 validations.errors.push(`🔴 Validación Financiamiento: El financiamiento total (${formatCurrency(totalFunding)}) es INSUFICIENTE para cubrir el CAPEX total (${formatCurrency(totalCapex)}).`);
 } else {
@@ -3975,7 +3993,7 @@ function updateScenarioButtons(activeScenario) {
 
 function updateCapitalStatus(capitalPlan) {
     const { allocation, deficit, totalCapex } = capitalPlan;
-    const totalFunding = Object.values(allocation).reduce((sum, val) => sum + val, 0);
+    const totalFunding = totalFundingFromCF();
     const coverage = totalCapex > 0 ? (totalFunding / totalCapex) * 100 : 0;
     
     // Update "Análisis de Estructura de Capital" section
@@ -4000,7 +4018,7 @@ function updateCapitalStatus(capitalPlan) {
                 
                 <div class="border-t border-slate-700 pt-2 mt-2">
                     <div class="flex justify-between font-semibold"><span>Total CAPEX Needed:</span> <strong class="text-white">$${(totalCapex/1000000).toFixed(0)}M</strong></div>
-                    <div class="flex justify-between font-semibold"><span>Total Funding:</span> <strong class="text-sky-400">$${(totalFunding/1000000).toFixed(0)}M</strong></div>
+                    <div class="flex justify-between font-semibold"><span>Total Funding (CF):</span> <strong class="text-sky-400">$${(totalFunding/1000000).toFixed(0)}M</strong></div>
                     ${deficit > 0 ? `<div class="flex justify-between text-red-400 font-semibold"><span>• Funding Gap:</span> <strong>$${(deficit/1000000).toFixed(0)}M ⚠️</strong></div>` : '<div class="text-emerald-400 font-semibold">✅ Fully Funded</div>'}
                 </div>
             </div>
@@ -4529,19 +4547,8 @@ statusContainer.appendChild(statusElement);
 const vdRate = modelData.ventureDebtRate;
 const commRate = modelData.commercialDebtRate;
 
-let totalCapex = 0;
-for (let i = 0; i < modelData.unitsPerYear.length; i++) {
-totalCapex += modelData.unitsPerYear[i] * getTotalPackageCost();
-}
-
-let totalFunding = modelData.seriesA;
-for (let i = 1; i <= 5; i++) {
-totalFunding += (modelData[`partnerCapitalizationYear${i}`] || 0) +
-(modelData[`ventureDebtYear${i}`] || 0) +
-(modelData[`commercialDebtYear${i}`] || 0) +
-(modelData[`seriesB_newInvestors_year${i}`] || 0);
-}
-
+let totalCapex = calculateTotalCapex();
+let totalFunding = totalFundingFromCF();
 const fundingRatio = totalCapex > 0 ? totalFunding / totalCapex : 0;
 
 statusElement.innerHTML = `
