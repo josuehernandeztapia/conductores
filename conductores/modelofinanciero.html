@@ -750,6 +750,9 @@ ventureDebtLineAvailable: 100000000,
 commercialDebtLineAvailable: 300000000, 
 ventureDebtRate: 18.0,
 commercialDebtRate: 14.0,
+commercialGraceMonths: 12,
+commercialLoanTermMonths: 60,
+commercialBalloonPercent: 20,
 // Planned Drawdowns
 ventureDebtYear1: 50000000,
 ventureDebtYear2: 50000000,
@@ -2246,6 +2249,7 @@ log(`Initial Series A capital: ${formatCurrency(modelData.seriesA)}`);
 for (let year = 0; year < 5; year++) {
 const currentYear = year + 1;
 log(`\n--- Calculating Year ${currentYear} ---`);
+log(`💰 Comercial Params: Grace ${modelData.commercialGraceMonths}m | Term ${modelData.commercialLoanTermMonths}m | Balloon ${modelData.commercialBalloonPercent}%`);
 
 const startOfYearCash = cash;
 const startOfYearEquity = endOfYearEquity;
@@ -2321,7 +2325,44 @@ const totalRevenue = annualInterestReceived + niif15Results.recognizedOriginatio
 const opex = totalRevenue * (modelData.opexRates[year] / 100);
 
         const ventureDebtInterest = startOfYearVentureDebt * (modelData.ventureDebtRate / 100);
-        const commercialDebtInterest = startOfYearCommercialDebt * (modelData.commercialDebtRate / 100);
+        // --- Comercial Debt Schedule (paramétrico) ---
+        let commercialDebtInterest = 0;
+        let scheduledCommercialPrincipalThisYear = 0;
+        const grace = modelData.commercialGraceMonths || 0;
+        const term = modelData.commercialLoanTermMonths || 60;
+        const balloon = (modelData.commercialBalloonPercent || 0) / 100;
+        const monthlyRateCommercial = (modelData.commercialDebtRate / 12) / 100;
+
+        commercialDebtCohorts.forEach(cohort => {
+            if (currentYear >= cohort.yearOriginated) {
+                if (cohort.paymentsMadeMonths === undefined) cohort.paymentsMadeMonths = 0;
+                if (cohort.remainingPrincipal === undefined) cohort.remainingPrincipal = cohort.originalAmount;
+
+                const amortizationMonths = Math.max(0, term - grace - 1);
+                const principalPerMonth = amortizationMonths > 0 ? cohort.originalAmount * (1 - balloon) / amortizationMonths : 0;
+
+                for (let m = 1; m <= 12; m++) {
+                    const monthIndex = cohort.paymentsMadeMonths + 1;
+                    if (monthIndex > term) break;
+
+                    // Interest for this month
+                    commercialDebtInterest += cohort.remainingPrincipal * monthlyRateCommercial;
+
+                    // Principal logic
+                    if (monthIndex > grace && monthIndex < term) {
+                        const principalPayment = Math.min(principalPerMonth, cohort.remainingPrincipal);
+                        scheduledCommercialPrincipalThisYear += principalPayment;
+                        cohort.remainingPrincipal -= principalPayment;
+                    } else if (monthIndex === term) {
+                        const balloonPayment = cohort.remainingPrincipal;
+                        scheduledCommercialPrincipalThisYear += balloonPayment;
+                        cohort.remainingPrincipal = 0;
+                    }
+
+                    cohort.paymentsMadeMonths++;
+                }
+            }
+        });
         
         // SINOSURE interest expense
         let sinosureInterest = 0;
@@ -2347,12 +2388,7 @@ if (currentYear >= cohort.yearOriginated) {
 ventureDebtPrincipalRepayment += cohort.originalAmount / modelData.periodoAmortizacionDeuda;
 }
 });
-        let commercialDebtPrincipalRepayment = 0;
-        commercialDebtCohorts.forEach(cohort => {
-            if (currentYear >= cohort.yearOriginated) {
-                commercialDebtPrincipalRepayment += cohort.originalAmount / modelData.periodoAmortizacionDeuda;
-            }
-        });
+        let commercialDebtPrincipalRepayment = scheduledCommercialPrincipalThisYear;
         
         // SINOSURE principal repayment
         let sinosurePrincipalRepayment = 0;
@@ -4451,6 +4487,12 @@ function setupFinancingMatrix() {
     ratesDiv.className = 'mt-4 space-y-4';
     createSliderControl({ id: 'ventureDebtRate', label: 'Tasa Venture Debt', min: 12, max: 20, step: 0.5, type: 'range', format: val => val.toFixed(1) + '%', tooltip: 'Tasa de interés anual del Venture Debt.' }, ratesDiv);
     createSliderControl({ id: 'commercialDebtRate', label: 'Tasa Deuda Comercial', min: 10, max: 18, step: 0.5, type: 'range', format: val => val.toFixed(1) + '%', tooltip: 'Tasa de interés anual de la deuda comercial.' }, ratesDiv);
+
+    // Parametrización de Deuda Comercial
+    createNumberControl({ id: 'commercialGraceMonths', label: 'Meses de gracia (solo intereses)', min: 0, max: 24, step: 1, type: 'number' }, ratesDiv);
+    createNumberControl({ id: 'commercialLoanTermMonths', label: 'Plazo total (meses)', min: 36, max: 84, step: 6, type: 'number' }, ratesDiv);
+    createNumberControl({ id: 'commercialBalloonPercent', label: 'Balloon Payment (%)', min: 0, max: 40, step: 5, type: 'number' }, ratesDiv);
+
     container.appendChild(ratesDiv);
 }
 
