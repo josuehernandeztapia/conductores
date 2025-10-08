@@ -445,10 +445,20 @@ min-height: 280px;
 <div class="text-2xl font-bold" id="ebitda-year5">$0M</div>
 <div class="text-xs text-emerald-400">Rentabilidad Operativa</div>
 </div>
-<div class="metric-card" data-tooltip="Flujo de caja operativo menos salidas de financiamiento (balloon). Clarifica sostenibilidad después de servicio de deuda.">
+<div class="metric-card growth-metric" data-tooltip="Flujo de caja operativo menos salidas de financiamiento (balloon). Clarifica sostenibilidad después de servicio de deuda.">
   <div class="text-sm">Cash Flow After Financing (Y5)</div>
   <div class="text-2xl font-bold" id="cash-after-financing-display">$0</div>
   <div class="text-xs text-cyan-400">Operativo - Balloon Financiero</div>
+  </div>
+  <div class="metric-card steady-metric" style="display:none;">
+    <span class="text-sm">Normalized CFO (Y5)</span>
+    <span class="text-2xl font-bold" id="normalized-cfo-y5">$0</span>
+    <div class="text-xs text-slate-400">CFO + ΔCxC (steady-state)</div>
+  </div>
+  <div class="metric-card steady-metric" style="display:none;">
+    <span class="text-sm">Normalized Cash After Financing (Y5)</span>
+    <span class="text-2xl font-bold" id="normalized-cfaf-y5">$0</span>
+    <div class="text-xs text-slate-400">Steady-state (sin expansión de cartera)</div>
   </div>
 <div class="metric-card" data-tooltip="Calculada sobre los flujos de efectivo para el accionista (después de deuda) y un valor terminal conservador (Múltiplo P/B de 1.8x). Es el retorno real y magnificado de su inversión gracias al apalancamiento.">
 <div class="text-sm">TIR Equity</div>
@@ -1015,6 +1025,10 @@ function createConstraintDashboard() {
                 🛡️ Financial Health Monitor
                 <span id="overall-status" class="ml-2 px-2 py-1 text-xs rounded bg-emerald-900 text-emerald-300">✅ Healthy</span>
             </h3>
+            <div class="flex items-center gap-2 mt-2">
+                <label class="text-sm text-slate-400">Modo:</label>
+                <button id="toggle-mode-btn" class="px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-white text-sm">Growth Mode</button>
+            </div>
             
             <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
                 <div id="capital-status" class="p-2 bg-slate-800 rounded border-l-2 border-blue-500">
@@ -1126,6 +1140,25 @@ function updateConstraintDashboard() {
     }
 }
 
+// ===== MODE TOGGLE (Growth vs Steady-State)
+let currentMode = "growth";
+function toggleMode() {
+    currentMode = currentMode === "growth" ? "steady" : "growth";
+    const btn = document.getElementById('toggle-mode-btn');
+    if (btn) btn.textContent = currentMode === "growth" ? "Growth Mode" : "Steady-State Mode";
+    updateFinancialModeUI();
+}
+function updateFinancialModeUI() {
+    const growthCards = document.querySelectorAll('.growth-metric');
+    const steadyCards = document.querySelectorAll('.steady-metric');
+    if (currentMode === 'growth') {
+        growthCards.forEach(c => c.style.display = 'block');
+        steadyCards.forEach(c => c.style.display = 'none');
+    } else {
+        growthCards.forEach(c => c.style.display = 'none');
+        steadyCards.forEach(c => c.style.display = 'block');
+    }
+}
 // ===================================================================
 // ===== STEP 3: SMART UNIT CONSTRAINTS (PROTECT INPUTS) ===========
 // ===================================================================
@@ -2601,6 +2634,20 @@ if (modelData.sinosureAvailable) {
     log(`  • SINOSURE Active: Should see HIGHER TIR due to lower interest costs`);
 }
 
+// Compute normalized metrics for Y5 (steady-state view)
+try {
+    const cfY5 = financialResults.cf[4] || {};
+    const bsY5 = financialResults.bs[4] || {};
+    const bsY4 = financialResults.bs[3] || {};
+    const deltaAR_Y5 = (bsY5.receivables || 0) - (bsY4.receivables || 0);
+    financialResults.normalizedCFO_Y5 = (cfY5.operatingCash || 0) + (deltaAR_Y5 || 0);
+    const financingOutflows_Y5 = (cfY5.financingOutflows || 0);
+    financialResults.normalizedCFAF_Y5 = (financialResults.normalizedCFO_Y5 || 0) - financingOutflows_Y5;
+    log(`🧮 Normalized CFO Y5: ${formatCurrency(financialResults.normalizedCFO_Y5)}, Normalized CFAF Y5: ${formatCurrency(financialResults.normalizedCFAF_Y5)}`);
+} catch (e) {
+    log(`⚠️ Could not compute normalized metrics: ${e.message}`);
+}
+
 log('✅ FINANCIAL CALCULATIONS (v23) COMPLETED');
 return true;
 } catch (error) {
@@ -3110,6 +3157,11 @@ document.getElementById('nim-y5').textContent = seriesAMetrics.netInterestMargin
         const cashAfterFinancing = financialResults.cf?.[4]?.cashAfterFinancing || 0;
         const cafEl = document.getElementById('cash-after-financing-display');
         if (cafEl) cafEl.textContent = formatCurrency(cashAfterFinancing);
+        // Update steady-state normalized metrics
+        const normCFOEl = document.getElementById('normalized-cfo-y5');
+        const normCFAFEl = document.getElementById('normalized-cfaf-y5');
+        if (normCFOEl) normCFOEl.textContent = formatCurrency(financialResults.normalizedCFO_Y5 || 0);
+        if (normCFAFEl) normCFAFEl.textContent = formatCurrency(financialResults.normalizedCFAF_Y5 || 0);
 let actualAutosufficiencyYear = 0;
 if(financialResults.pl){
 for(let i = 0; i < financialResults.pl.length; i++) {
@@ -3117,6 +3169,8 @@ const plYear = financialResults.pl[i];
 if (plYear.totalRevenue > (plYear.opex + plYear.provisions + plYear.impairment)) {
 actualAutosufficiencyYear = i + 1;
 break;
+        // Apply current mode visibility after values update
+        updateFinancialModeUI();
 }
 }
 }
@@ -4885,6 +4939,11 @@ setTimeout(() => {
     try {
         createConstraintDashboard();
         log('✅ Constraint dashboard created');
+        // Bind toggle after dashboard is added
+        const btn = document.getElementById('toggle-mode-btn');
+        if (btn) {
+            btn.addEventListener('click', toggleMode);
+        }
     } catch (error) {
         log(`⚠️ Constraint dashboard creation failed: ${error.message}`);
     }
