@@ -1971,6 +1971,36 @@ score -= 0.5;
 issues.push('📊 Leverage alto (Debt/Equity >2x)');
 }
 
+// --- Dual Investor Score: Growth vs Steady-State ---
+// Inputs for both modes
+const dscrFinal = calculateFinalDSCR() || 0;
+const totalCapexForCoverage = calculateTotalCapex();
+const totalFundingCF = totalFundingFromCF();
+const coverage = totalCapexForCoverage > 0 ? Math.min((totalFundingCF / totalCapexForCoverage) * 100, 105) : 0;
+const year5BS = (financialResults.bs && financialResults.bs[4]) ? financialResults.bs[4] : {};
+const leverage = (year5BS && year5BS.equity) ? ((year5BS.debt || 0) / (year5BS.equity || 1)) : 0;
+const year5CF = financialResults.cf && financialResults.cf[4] ? financialResults.cf[4] : {};
+const cashAfterFin = (typeof year5CF.cashAfterFinancing === 'number') ? year5CF.cashAfterFinancing : ((year5CF.netCash != null) ? year5CF.netCash : ((year5CF.operatingCash || 0) + (year5CF.investingCash || 0) + (year5CF.financingCash || 0)));
+const normalizedCFAF = typeof financialResults.normalizedCFAF_Y5 === 'number' ? financialResults.normalizedCFAF_Y5 : 0;
+
+// Growth Mode Score
+let scoreGrowth = 10;
+if (dscrFinal < 1.5) scoreGrowth -= 2;
+if (coverage < 95 || coverage > 105) scoreGrowth -= 1;
+if (leverage > 2.0) scoreGrowth -= 1;
+if (cashAfterFin < 0) scoreGrowth -= 1;
+
+// Steady-State Score
+let scoreSteady = 10;
+if (dscrFinal < 1.5) scoreSteady -= 1;
+if (coverage < 95 || coverage > 105) scoreSteady -= 0.5;
+if (leverage > 2.0) scoreSteady -= 1;
+if (normalizedCFAF < 0) scoreSteady -= 0.5;
+
+financialResults.investorScoreGrowth = Math.max(scoreGrowth, 0);
+financialResults.investorScoreSteady = Math.max(scoreSteady, 0);
+log(`💹 Investor Scores => Growth: ${financialResults.investorScoreGrowth}/10 | Steady: ${financialResults.investorScoreSteady}/10`);
+
 return {
 score: Math.max(0, score),
 grade: score >= 8.5 ? 'A' : score >= 7 ? 'B' : score >= 5 ? 'C' : 'D',
@@ -4900,16 +4930,18 @@ const gradeColor = {
 
 scoreContainer.className = `mt-4 p-4 rounded-lg border ${gradeColor}`;
 scoreContainer.innerHTML = `
-<div class="flex justify-between items-center">
-<div>
-<h3 class="font-semibold">📊 Investor Health Score</h3>
-<p class="text-sm opacity-80">Serie A Investment Readiness</p>
+<div class="flex items-center justify-between">
+  <span class="text-sm">Investor Score</span>
+  <div class="text-right">
+    <div class="text-xs text-slate-400">Growth Mode</div>
+    <div class="text-lg font-semibold text-white" id="investor-score-growth">0.0</div>
+    <div class="text-xs text-slate-400">Steady-State</div>
+    <div class="text-lg font-semibold text-teal-400" id="investor-score-steady">0.0</div>
+  </div>
 </div>
-<div class="text-right">
-<div class="text-2xl font-bold">${investorScore.score.toFixed(1)}/10</div>
-<div class="text-lg font-semibold">Grade ${investorScore.grade}</div>
-<div class="text-xs">${investorScore.isInvestable ? '✅ Investable' : '❌ Needs Work'}</div>
-</div>
+<div class="mt-2 text-right">
+  <div class="text-sm">Grade ${investorScore.grade}</div>
+  <div class="text-xs">${investorScore.isInvestable ? '✅ Investable' : '❌ Needs Work'}</div>
 </div>
 ${investorScore.issues.length > 0 ? `
 <div class="mt-3 pt-3 border-t border-white border-opacity-20">
@@ -4920,6 +4952,18 @@ ${investorScore.issues.map(issue => `<li>${issue}</li>`).join('')}
 </div>
 ` : '<div class="mt-2 text-sm">🎉 All key metrics look strong for Serie A!</div>'}
 `;
+
+// Update the dual score values and apply optional dynamic color for steady-state
+const growthScoreEl = document.getElementById('investor-score-growth');
+const steadyScoreEl = document.getElementById('investor-score-steady');
+if (growthScoreEl) {
+    growthScoreEl.textContent = (financialResults.investorScoreGrowth || 0).toFixed(1);
+}
+if (steadyScoreEl) {
+    const steady = financialResults.investorScoreSteady || 0;
+    steadyScoreEl.textContent = steady.toFixed(1);
+    steadyScoreEl.style.color = steady >= 8 ? "#10B981" : steady >= 6 ? "#FBBF24" : "#EF4444";
+}
 }
 // ===== APPLICATION READY AND RUNNING =====
 /**
