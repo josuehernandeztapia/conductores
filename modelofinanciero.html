@@ -1430,14 +1430,19 @@ function calculateTotalFunding() {
 let totalFunding = modelData.seriesA;
 for (let i = 1; i <= 5; i++) {
 totalFunding += (plannedFinancingData[`partnerCapitalizationYear${i}`] || 0) +
-(plannedFinancingData[`ventureDebtYear${i}`] || 0) +
-(plannedFinancingData[`commercialDebtYear${i}`] || 0) +
 (plannedFinancingData[`seriesB_newInvestors_year${i}`] || 0);
+
+// Use final debt drawdowns (post-substitution) to avoid double counting
+totalFunding += (modelData[`ventureDebtYear${i}`] || 0) +
+(modelData[`commercialDebtYear${i}`] || 0);
 }
-// Include SINOSURE cohorts created during financial calculation
+// Add only actual SINOSURE substitutions (not double-counting planned debt)
 if (typeof sinosureCohorts !== 'undefined' && Array.isArray(sinosureCohorts) && sinosureCohorts.length > 0) {
     sinosureCohorts.forEach(cohort => {
-        totalFunding += (cohort.originalAmount || 0);
+        const replacedAmount = (cohort.ventureDebtReplaced || 0) + (cohort.commercialDebtReplaced || 0);
+        if (replacedAmount > 0) {
+            totalFunding += replacedAmount;
+        }
     });
 }
 return totalFunding;
