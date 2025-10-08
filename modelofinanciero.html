@@ -670,7 +670,7 @@ min-height: 280px;
 <!-- Tab Content: Charts -->
 <div id="content-graficos" class="content-section">
 <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-<!-- Row 1: Core Differentiation -->
+<!-- Core Home Graphs: DSCR trend, Cash waterfall, Capital mix -->
 <div class="xl:col-span-2 card">
 <h4 class="text-lg font-semibold mb-3 text-white">🛡️ Protección Rodando™ Impact</h4>
 <div style="height: 320px;"><canvas id="proteccionImpactChart"></canvas></div>
@@ -967,8 +967,8 @@ function calculateAvailableCapitalForYear(year) {
 function generateSmartRecommendations(constraints) {
     const recommendations = [];
     
-    // Capital recommendations
-    if (constraints.capitalHealth.status === 'insufficient') {
+    // Capital recommendations (gated): only if coverage is clearly off-band
+    if (constraints.capitalHealth.coverage < 95 || constraints.capitalHealth.coverage > 105) {
         recommendations.push({
             type: 'capital',
             priority: 'high',
@@ -1025,6 +1025,17 @@ function createConstraintDashboard() {
                 🛡️ Financial Health Monitor
                 <span id="overall-status" class="ml-2 px-2 py-1 text-xs rounded bg-emerald-900 text-emerald-300">✅ Healthy</span>
             </h3>
+            <div class="flex flex-wrap gap-2 items-center">
+                <div class="px-3 py-1 rounded-full bg-emerald-900/40 text-emerald-300 text-sm" title="DSCR basado en EBITDA Y5 y servicio de deuda.">
+                    🟢 Solvencia · DSCR <span id="chip-dscr">--</span>x
+                </div>
+                <div class="px-3 py-1 rounded-full bg-amber-900/40 text-amber-300 text-sm" title="En growth el efectivo se reinvierte en cartera (Δ CxC). En steady, flujo ≈ 0/+">
+                    🟡 Liquidez · <span id="chip-cash">Cash (modo)</span> <span id="chip-cash-val">$--</span>
+                </div>
+                <div class="px-3 py-1 rounded-full bg-sky-900/40 text-sky-300 text-sm" title="Cobertura total de CAPEX con draws reales de CF.">
+                    🔵 Cobertura · <span id="chip-cov">--</span>%
+                </div>
+            </div>
             <div class="flex items-center gap-2 mt-2">
                 <label class="text-sm text-slate-400">Modo:</label>
                 <button id="toggle-mode-btn" class="px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-white text-sm">Growth Mode</button>
@@ -1067,6 +1078,20 @@ function updateConstraintDashboard() {
     const constraints = calculateDynamicConstraints();
     const recommendations = constraints.recommendations;
     
+    // Update chips (DSCR, Cash, Coverage)
+    const dscrChip = document.getElementById('chip-dscr');
+    if (dscrChip) dscrChip.textContent = (constraints.dscrStatus.current || 0).toFixed(1);
+    const covChip = document.getElementById('chip-cov');
+    if (covChip) covChip.textContent = (constraints.capitalHealth.coverage || 0).toFixed(1);
+    const cashModeEl = document.getElementById('chip-cash');
+    const cashValEl = document.getElementById('chip-cash-val');
+    if (cashModeEl && cashValEl) {
+        const isGrowth = currentMode === 'growth';
+        cashModeEl.textContent = isGrowth ? 'Cash (Growth)' : 'Cash (Steady)';
+        const cashVal = isGrowth ? (financialResults.cf?.[4]?.cashAfterFinancing || 0) : (financialResults.normalizedCFAF_Y5 || 0);
+        cashValEl.textContent = formatCurrency(cashVal);
+    }
+
     // Update capital status
     const capitalElement = document.getElementById('capital-value');
     if (capitalElement) {
@@ -1295,7 +1320,7 @@ function updateProtectedCapitalMotor() {
                     <div class="flex justify-between text-xs">
                         <span>DSCR Impact:</span> <strong class="${constraints.dscrStatus.current >= 1.5 ? 'text-emerald-400' : 'text-red-400'}">${constraints.dscrStatus.current.toFixed(1)}x</strong>
                     </div>
-                    ${constraints.capitalHealth.gap > 0 ? `<div class="flex justify-between text-xs text-red-400"><span>Funding Gap:</span> <strong>${formatCurrency(constraints.capitalHealth.gap)}</strong></div>` : ''}
+                    ${(constraints.capitalHealth.coverage < 95 && constraints.capitalHealth.gap > 0) ? `<div class="flex justify-between text-xs text-red-400"><span>Funding Gap:</span> <strong>${formatCurrency(constraints.capitalHealth.gap)}</strong></div>` : ''}
                 </div>
                 
                 <div class="text-xs p-2 bg-slate-700/30 rounded border border-slate-600">
@@ -1946,7 +1971,7 @@ let issues = [];
 if (unitEcon.marginPercent < 10) { score -= 4; issues.push('🚨 Unit economics críticos (<10%)'); }
 else if (unitEcon.marginPercent < 15) { score -= 2; issues.push('⚠️ Unit economics bajos (<15%)'); }
 
-// Debt service (30% weight)
+// Debt service (30% weight) with gating to avoid false alarms
 if (debtService.dscr < 1.2) { score -= 3; issues.push('🚨 DSCR crítico (<1.2x)'); }
 else if (debtService.dscr < 1.5) { score -= 1.5; issues.push('⚠️ DSCR bajo (<1.5x)'); }
 
@@ -1963,12 +1988,17 @@ issues.push('🚀 OPEX alto (>18% en algún año)');
 // Enhanced debt structure analysis (10% weight)
 const debtMetrics = calculateDebtMetricsBreakdown();
 if (debtMetrics.finalDSCR < 1.5) {
-score -= 1;
-issues.push('🏦 DSCR final bajo (<1.5x)');
+    score -= 1;
+    issues.push('🏦 DSCR final bajo (<1.5x)');
 }
 if (financialResults.bs.length > 4 && financialResults.bs[4].equity > 0 && financialResults.bs[4].debt > financialResults.bs[4].equity * 2) {
 score -= 0.5;
 issues.push('📊 Leverage alto (Debt/Equity >2x)');
+}
+
+// Gate DSCR-related issues if final DSCR is healthy
+if (debtMetrics.finalDSCR >= 1.5) {
+    issues = issues.filter(msg => !msg.includes('DSCR'));
 }
 
 return {
@@ -3188,6 +3218,9 @@ updateOptimizationStatus();
 updateInvestorScore();
 updateFundingCoverageCard();
 
+        // Refresh the constraint dashboard to keep chips in sync
+        try { updateConstraintDashboard(); } catch(e) { log('⚠️ updateConstraintDashboard failed: ' + e.message); }
+
 log(`✅ UI Update sequence completed.`);
 } catch (error) {
 log(`❌ Error in updateUI: ${error.message}`);
@@ -3876,29 +3909,34 @@ y: { ticks: { color: '#94a3b8' }, max: 10, beginAtZero: true }
 }
 });
 }
-// Capital Efficiency Chart
+// Capital Mix Donut (Capital-light) based on actual CF draws aggregated 5Y
 const ctx7 = document.getElementById('capitalEfficiencyChart');
 if (ctx7) {
-charts.capitalEfficiencyChart = new Chart(ctx7, {
-type: 'doughnut',
-data: {
-labels: ['RAG Actual', 'Target Serie A', 'Industria Promedio'],
-datasets: [{
-data: [750, 750, 900],
-backgroundColor: ['#10b981', '#3b82f6', '#94a3b8']
-}]
-},
-options: {
-responsive: true,
-maintainAspectRatio: false,
-plugins: {
-legend: {
-position: 'bottom',
-labels: { color: '#94a3b8', font: { size: 10 } }
-}
-}
-}
-});
+    const capMix = (() => {
+        let eq = 0, ex = 0, cd = 0, vd = 0;
+        for (let i = 0; i < (financialResults.cf?.length || 0); i++) {
+            const cf = financialResults.cf[i] || {};
+            const equityFromCF = (cf.partnerCapitalization || 0) + (cf.seriesBNewInvestors || 0);
+            const equityFromModel = (modelData[`partnerCapitalizationYear${i+1}`] || 0) + (modelData[`seriesB_newInvestors_year${i+1}`] || 0);
+            eq += Math.max(0, equityFromCF > 0 ? equityFromCF : equityFromModel);
+            ex += Math.max(0, cf.sinosureDrawn || 0);
+            cd += Math.max(0, cf.additionalFundingRaised || 0);
+            vd += Math.max(0, cf.currentYearVentureDebtDraw || 0);
+        }
+        return { eq, ex, cd, vd };
+    })();
+    const donutData = [capMix.eq, capMix.ex, capMix.cd, capMix.vd];
+    charts.capitalEfficiencyChart = new Chart(ctx7, {
+        type: 'doughnut',
+        data: {
+            labels: ['Equity', 'Sinosure', 'Comercial', 'Venture'],
+            datasets: [{
+                data: donutData,
+                backgroundColor: ['#60a5fa', '#f59e0b', '#22d3ee', '#f43f5e']
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 10 } } } } }
+    });
 }
 log('✅ New Rodando charts initialized');
 } catch (error) {
@@ -3913,16 +3951,20 @@ function updateCharts() {
 try {
 if (!financialResults.pl.length) return;
 // Future functions to update new charts will be called here
-// Update Capital Efficiency Chart
+// Update Capital Mix Donut with fresh CF aggregates
 if (charts.capitalEfficiencyChart) {
-const totalUnits = financialResults.pl.reduce((sum, pl) => sum + (pl.addedUnits || 0), 0);
-const totalCapex = totalUnits * getTotalPackageCost();
-const capexPerUnit = totalUnits > 0 ? totalCapex / totalUnits / 1000 : 0;
-charts.capitalEfficiencyChart.data.labels = ['RAG Actual', 'Target A', 'Industria'];
-charts.capitalEfficiencyChart.data.datasets = [{
-data: [capexPerUnit, 750, 900],
-backgroundColor: ['#10b981', '#3b82f6', '#94a3b8']
-}];
+let eq = 0, ex = 0, cd = 0, vd = 0;
+for (let i = 0; i < (financialResults.cf?.length || 0); i++) {
+const cf = financialResults.cf[i] || {};
+const equityFromCF = (cf.partnerCapitalization || 0) + (cf.seriesBNewInvestors || 0);
+const equityFromModel = (modelData[`partnerCapitalizationYear${i+1}`] || 0) + (modelData[`seriesB_newInvestors_year${i+1}`] || 0);
+eq += Math.max(0, equityFromCF > 0 ? equityFromCF : equityFromModel);
+ex += Math.max(0, cf.sinosureDrawn || 0);
+cd += Math.max(0, cf.additionalFundingRaised || 0);
+vd += Math.max(0, cf.currentYearVentureDebtDraw || 0);
+}
+charts.capitalEfficiencyChart.data.labels = ['Equity', 'Sinosure', 'Comercial', 'Venture'];
+charts.capitalEfficiencyChart.data.datasets = [{ data: [eq, ex, cd, vd], backgroundColor: ['#60a5fa', '#f59e0b', '#22d3ee', '#f43f5e'] }];
 charts.capitalEfficiencyChart.update();
 }
 // Update Cash Flow Resilience Chart
@@ -4900,26 +4942,33 @@ const gradeColor = {
 
 scoreContainer.className = `mt-4 p-4 rounded-lg border ${gradeColor}`;
 scoreContainer.innerHTML = `
-<div class="flex justify-between items-center">
-<div>
-<h3 class="font-semibold">📊 Investor Health Score</h3>
-<p class="text-sm opacity-80">Serie A Investment Readiness</p>
+<div class="flex items-center justify-between">
+  <div>
+    <div class="text-xs text-slate-400">Growth</div>
+    <div class="text-2xl font-semibold text-white" id="investor-score-growth">${(financialResults.investorScoreGrowth||0).toFixed(1)}</div>
+  </div>
+  <div class="text-right">
+    <div class="text-xs text-slate-400">Steady-State</div>
+    <div class="text-2xl font-semibold" id="investor-score-steady">${(financialResults.investorScoreSteady||0).toFixed(1)}</div>
+  </div>
 </div>
-<div class="text-right">
-<div class="text-2xl font-bold">${investorScore.score.toFixed(1)}/10</div>
-<div class="text-lg font-semibold">Grade ${investorScore.grade}</div>
-<div class="text-xs">${investorScore.isInvestable ? '✅ Investable' : '❌ Needs Work'}</div>
-</div>
-</div>
+<div class="mt-2 text-xs opacity-80">Grade ${investorScore.grade} • ${investorScore.isInvestable ? '✅ Investable' : '❌ Needs Work'}</div>
 ${investorScore.issues.length > 0 ? `
 <div class="mt-3 pt-3 border-t border-white border-opacity-20">
-<p class="text-sm font-medium mb-2">Key Issues:</p>
+<p class="text-sm font-medium mb-2">Key Issues (Growth):</p>
 <ul class="text-xs space-y-1">
 ${investorScore.issues.map(issue => `<li>${issue}</li>`).join('')}
 </ul>
 </div>
 ` : '<div class="mt-2 text-sm">🎉 All key metrics look strong for Serie A!</div>'}
 `;
+
+// Colorize steady-state score per thresholds
+const steadyScoreEl = document.getElementById('investor-score-steady');
+if (steadyScoreEl) {
+    const steady = financialResults.investorScoreSteady || 0;
+    steadyScoreEl.style.color = steady >= 8 ? '#10B981' : (steady >= 6 ? '#F59E0B' : '#EF4444');
+}
 }
 // ===== APPLICATION READY AND RUNNING =====
 /**
