@@ -833,7 +833,7 @@ function calculateDynamicConstraints() {
 function analyzeCapitalHealth() {
     const totalCapex = modelData.unitsPerYear.reduce((sum, units) => sum + (units * getTotalPackageCost()), 0);
     const totalFunding = totalFundingFromCF();
-    const coverage = totalFunding > 0 ? (totalFunding / totalCapex) * 100 : 0;
+    const coverage = totalFunding > 0 ? Math.min((totalFunding / totalCapex) * 100, 105) : 0;
     
     return {
         totalCapex,
@@ -1710,6 +1710,60 @@ function calculateYearlyFinancingNeeds(year, capexThisYear, operatingCashFlow, s
 }
 
 /**
+* Allocates capital for a given year based on priority: Equity → Sinosure → Commercial → Venture.
+* Enforces DSCR gating for commercial debt and throttles units if coverage is insufficient.
+* @param {number} year - Calendar year (1-5)
+* @param {number} remainingCapex - CAPEX to fund for the year
+* @returns {{equity:number,sinosure:number,commercial:number,venture:number}}
+*/
+function allocateCapital(year, remainingCapex) {
+    const draws = { equity: 0, sinosure: 0, commercial: 0, venture: 0 };
+    let remaining = remainingCapex;
+
+    // 1) Planned Equity for the year (Partner + New Investors)
+    const eqAvail = (plannedFinancingData[`partnerCapitalizationYear${year}`] || 0)
+                  + (plannedFinancingData[`seriesB_newInvestors_year${year}`] || 0);
+    draws.equity = Math.min(eqAvail, remaining);
+    remaining -= draws.equity;
+
+    // 2) Sinosure (only if available and Year >= 2)
+    if (modelData.sinosureAvailable && year >= 2 && remaining > 0) {
+        const limit = modelData.unitsPerYear[year - 1] * (sinosureConfig.productionCostUSD * sinosureConfig.exchangeRate);
+        const sinosureDraw = Math.min(limit, remaining);
+        draws.sinosure = sinosureDraw;
+        remaining -= sinosureDraw;
+    }
+
+    // 3) Commercial Debt (only if DSCR forecast >= 1.6x and Sinosure not active)
+    if (remaining > 0 && !modelData.sinosureAvailable) {
+        let dscrForecast = 999;
+        try { dscrForecast = calculateFinalDSCR() || 0; } catch (e) { dscrForecast = 0; }
+        if (dscrForecast >= 1.6) {
+            const commercialAvail = Math.min(modelData.commercialDebtLineAvailable, remaining);
+            draws.commercial = commercialAvail;
+            remaining -= commercialAvail;
+        }
+    }
+
+    // 4) Venture Debt (only Y0–Y1 i.e., year <= 1)
+    if (remaining > 0 && year <= 1) {
+        const ventureAvail = Math.min(modelData.ventureDebtLineAvailable, remaining);
+        draws.venture = ventureAvail;
+        remaining -= ventureAvail;
+    }
+
+    // 5) Throttle units if still short to maintain coverage ≤ 105%
+    if (remaining > 0) {
+        const unitsReduction = Math.ceil(remaining / getTotalPackageCost());
+        modelData.unitsPerYear[year - 1] = Math.max(0, modelData.unitsPerYear[year - 1] - unitsReduction);
+        log(`⚙️ Throttled ${unitsReduction} units in year ${year} to maintain coverage ≤105%.`);
+        remaining = 0;
+    }
+
+    return draws;
+}
+
+/**
 * Calculates the final Debt Service Coverage Ratio.
 * @returns {number} DSCR based on Year 5 EBITDA and total debt service.
 */
@@ -2421,67 +2475,23 @@ const deltaProvisions = currentProvisionsBalance - ((financialResults.bs[year-1]
 const deltaContractLiabilities = niif15Results.contractLiabilitiesBalance - ((financialResults.bs[year-1]?.contractLiabilities) || 0);
 const operatingCash = netIncome + annualDepreciation + impairment + deltaProvisions + deltaContractLiabilities - deltaReceivables;
 
-        // --- NEW: CAPITAL CASCADING LOGIC ---
-        const sourcingPlan = calculateYearlyFinancingNeeds(year, capexThisYear, operatingCash, cash, { venture: ventureDebtCohorts, commercial: commercialDebtCohorts });
-        log(`💰 Sourcing Plan Year ${currentYear}: Equity=${formatCurrency(sourcingPlan.newEquity)}, VD=${formatCurrency(sourcingPlan.newVentureDebt)}, CD=${formatCurrency(sourcingPlan.newCommercialDebt)}`);
+        // --- NEW: Auto-Allocation Cascade ---
+        const draws = allocateCapital(currentYear, capexThisYear);
+        log(`💰 Allocation Y${currentYear}: Eq ${formatCurrency(draws.equity)}, Exim ${formatCurrency(draws.sinosure)}, Com ${formatCurrency(draws.commercial)}, Vent ${formatCurrency(draws.venture)}`);
 
-        // --- SINOSURE INTEGRATION ---
-        let finalNewVentureDebt = sourcingPlan.newVentureDebt;
-        let finalNewCommercialDebt = sourcingPlan.newCommercialDebt;
-        
-        if (modelData.sinosureAvailable && currentYear >= 2 && addedUnits > 0) {
-            // SINOSURE is deterministic - when enabled, always works
-            const productionCostPerUnit = sinosureConfig.productionCostUSD * sinosureConfig.exchangeRate;
-            const maxSinosureThisYear = addedUnits * productionCostPerUnit;
-            
-            // SMART SUBSTITUTION: Replace most expensive debt first
-            let remainingSinosure = maxSinosureThisYear;
-            let ventureDebtReplaced = 0;
-            let commercialDebtReplaced = 0;
-            
-            // Replace Venture Debt (18%) first - highest savings
-            if (remainingSinosure > 0 && sourcingPlan.newVentureDebt > 0) {
-                ventureDebtReplaced = Math.min(remainingSinosure, sourcingPlan.newVentureDebt);
-                finalNewVentureDebt -= ventureDebtReplaced;
-                remainingSinosure -= ventureDebtReplaced;
-            }
-            
-            // Replace Commercial Debt (14%) second
-            if (remainingSinosure > 0 && sourcingPlan.newCommercialDebt > 0) {
-                commercialDebtReplaced = Math.min(remainingSinosure, sourcingPlan.newCommercialDebt);
-                finalNewCommercialDebt -= commercialDebtReplaced;
-                remainingSinosure -= commercialDebtReplaced;
-            }
-            
-            const totalSinosureAmount = ventureDebtReplaced + commercialDebtReplaced;
-            
-            if (totalSinosureAmount > 0) {
-                // Create SINOSURE cohort at 6% rate
-                sinosureCohorts.push({
-                    yearOriginated: currentYear,
-                    originalAmount: totalSinosureAmount,
-                    rate: sinosureConfig.rate, // 6.0%
-                    ventureDebtReplaced: ventureDebtReplaced,
-                    commercialDebtReplaced: commercialDebtReplaced
-                });
-                
-                // Track for financing cash flow (will be included in sinosureDrawdowns calculation)
-                
-                // Calculate annual interest savings
-                const ventureDebtSavings = ventureDebtReplaced * (modelData.ventureDebtRate - sinosureConfig.rate) / 100;
-                const commercialDebtSavings = commercialDebtReplaced * (modelData.commercialDebtRate - sinosureConfig.rate) / 100;
-                const totalAnnualSavings = ventureDebtSavings + commercialDebtSavings;
-                
-                log(`🇨🇳 SINOSURE ENABLED Year ${currentYear}:`);
-                log(`  • Amount: ${formatCurrency(totalSinosureAmount)} at 6.0%`);
-                log(`  • Replaced VD: ${formatCurrency(ventureDebtReplaced)} (18% → 6% = ${(modelData.ventureDebtRate - sinosureConfig.rate).toFixed(1)}pp savings)`);
-                log(`  • Replaced CD: ${formatCurrency(commercialDebtReplaced)} (14% → 6% = ${(modelData.commercialDebtRate - sinosureConfig.rate).toFixed(1)}pp savings)`);
-                log(`  • Annual interest savings: ${formatCurrency(totalAnnualSavings)}`);
-            }
+        // Map draws to financing flows
+        const finalNewEquityInjections = draws.equity;
+        let finalNewVentureDebt = draws.venture;
+        let finalNewCommercialDebt = draws.commercial;
+
+        // SINOSURE cohort creation based on allocation
+        if (draws.sinosure > 0) {
+            sinosureCohorts.push({
+                yearOriginated: currentYear,
+                originalAmount: draws.sinosure,
+                rate: sinosureConfig.rate
+            });
         }
-
-        // Usar valores de cascada para el flujo
-        const finalNewEquityInjections = sourcingPlan.newEquity;
 
 // Actualizar modelData con los valores optimizados/totales
 modelData[`ventureDebtYear${currentYear}`] = finalNewVentureDebt;
