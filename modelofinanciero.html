@@ -1721,8 +1721,12 @@ function allocateCapital(year, remainingCapex) {
     let remaining = remainingCapex;
 
     // 1) Planned Equity for the year (Partner + New Investors)
-    const eqAvail = (plannedFinancingData[`partnerCapitalizationYear${year}`] || 0)
-                  + (plannedFinancingData[`seriesB_newInvestors_year${year}`] || 0);
+    const eqLimit = remainingCapex * 0.25;
+    const plannedPartner = (plannedFinancingData[`partnerCapitalizationYear${year}`] || 0);
+    const plannedSeriesA = (plannedFinancingData[`seriesA_year${year}`] || 0);
+    const plannedSeriesB = (plannedFinancingData[`seriesB_newInvestors_year${year}`] || 0);
+    const eqPlannedTotal = plannedPartner + plannedSeriesA + plannedSeriesB;
+    const eqAvail = Math.min(eqLimit, eqPlannedTotal);
     draws.equity = Math.min(eqAvail, remaining);
     remaining -= draws.equity;
 
@@ -1734,15 +1738,11 @@ function allocateCapital(year, remainingCapex) {
         remaining -= sinosureDraw;
     }
 
-    // 3) Commercial Debt (only if DSCR forecast >= 1.6x and Sinosure not active)
-    if (remaining > 0 && !modelData.sinosureAvailable) {
-        let dscrForecast = 999;
-        try { dscrForecast = calculateFinalDSCR() || 0; } catch (e) { dscrForecast = 0; }
-        if (dscrForecast >= 1.6) {
-            const commercialAvail = Math.min(modelData.commercialDebtLineAvailable, remaining);
-            draws.commercial = commercialAvail;
-            remaining -= commercialAvail;
-        }
+    // 3) Commercial Debt (allowed alongside Sinosure; fill remaining up to available line)
+    if (remaining > 0) {
+        const commercialAvail = Math.min(modelData.commercialDebtLineAvailable, remaining);
+        draws.commercial = commercialAvail;
+        remaining -= commercialAvail;
     }
 
     // 4) Venture Debt (only Y0–Y1 i.e., year <= 1)
@@ -1752,11 +1752,12 @@ function allocateCapital(year, remainingCapex) {
         remaining -= ventureAvail;
     }
 
-    // 5) Throttle units if still short to maintain coverage ≤ 105%
+    // 5) Throttle units if still short with 50% dampening to avoid over-cutting
     if (remaining > 0) {
-        const unitsReduction = Math.ceil(remaining / getTotalPackageCost());
+        const unitCost = getTotalPackageCost();
+        const unitsReduction = Math.ceil((remaining / unitCost) * 0.5);
         modelData.unitsPerYear[year - 1] = Math.max(0, modelData.unitsPerYear[year - 1] - unitsReduction);
-        log(`⚙️ Throttled ${unitsReduction} units in year ${year} to maintain coverage ≤105%.`);
+        log(`⚙️ Throttled ${unitsReduction} units in year ${year} (50% dampening).`);
         remaining = 0;
     }
 
@@ -2478,6 +2479,7 @@ const operatingCash = netIncome + annualDepreciation + impairment + deltaProvisi
         // --- NEW: Auto-Allocation Cascade ---
         const draws = allocateCapital(currentYear, capexThisYear);
         log(`💰 Allocation Y${currentYear}: Eq ${formatCurrency(draws.equity)}, Exim ${formatCurrency(draws.sinosure)}, Com ${formatCurrency(draws.commercial)}, Vent ${formatCurrency(draws.venture)}`);
+        log(`🧩 Funding mix Y${currentYear}: Eq ${draws.equity}, Com ${draws.commercial}, Exim ${draws.sinosure}, Vent ${draws.venture}`);
 
         // Map draws to financing flows
         const finalNewEquityInjections = draws.equity;
