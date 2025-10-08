@@ -1499,6 +1499,12 @@ return totalFunding;
 * @returns {number} Total funding actually received.
 */
 function totalFundingFromCF() {
+    // Handle case where CF is empty — fallback to Seed + Serie A equity
+    if (!financialResults || !Array.isArray(financialResults.cf) || financialResults.cf.length === 0) {
+        log("⚠️ CF empty — using Seed + Serie A as fallback funding source.");
+        return (modelData.seed || 0) + (modelData.seriesA || 0);
+    }
+    
     if (!financialResults || !Array.isArray(financialResults.cf)) return 0;
     let total = 0;
     financialResults.cf.forEach((cf, index) => {
@@ -2392,6 +2398,14 @@ let cash = modelData.seed + modelData.seriesA;
 let currentProvisionsBalance = 0;
 let endOfYearEquity = modelData.seed + modelData.seriesA;
 
+// ✅ Inject initial equity (Seed + Serie A) validation and coverage recompute
+financialResults.cf = financialResults.cf || [];
+log(`💡 Initial Equity Injection recorded: ${formatCurrency(modelData.seed + modelData.seriesA)} (Seed + Serie A)`);
+// Ensure coverage recalculates correctly after injection (uses CF fallback if empty)
+log("🧾 Recomputing coverage after initial equity injection...");
+const coverageCheck = ((totalFundingFromCF() / calculateTotalCapex()) * 100).toFixed(1);
+log(`✅ Coverage now at ${coverageCheck}%`);
+
 // --- Cohort tracking ---
 let loanCohorts = [];
 let fixedAssetsCohorts = [];
@@ -2655,7 +2669,28 @@ totalLiabilitiesEquity = totalLiabilities + endOfYearEquity;
 financialResults.pl.push({ ...niif15Results, interestRevenue: annualInterestReceived, totalRevenue, ebitda, ebit, netIncome, interestExpense, depreciation: annualDepreciation, provisions, impairment, totalCOGS: sparePartsCOGS, grossProfit: totalRevenue - sparePartsCOGS, opex, earningsBeforeTax, incomeTaxExpense, addedUnits });
 // Corrected: include financing inflows but avoid double balloon deduction
 const cashAfterFinancing = (operatingCash || 0) + (financingCash || 0) + (financingOutflows || 0);
-financialResults.cf.push({ operatingCash, investingCash, financingCash, netCash, deltaProvisions, deltaContractLiabilities, incomeTaxPaid: incomeTaxExpense, clientPrincipalPaymentsReceived: annualPrincipalReceived, clientInterestPaymentsReceived: annualInterestReceived, currentYearVentureDebtDraw: finalNewVentureDebt, additionalFundingRaised: finalNewCommercialDebt, sinosureDrawn: sinosureDrawdowns, debtPrincipalRepayment: totalDebtPrincipalRepayment, techInvestmentThisYear, financingOutflows, balloonPayment: balloonPrincipalThisYear, cashAfterFinancing });
+financialResults.cf.push({
+    operatingCash,
+    investingCash,
+    financingCash,
+    netCash,
+    deltaProvisions,
+    deltaContractLiabilities,
+    incomeTaxPaid: incomeTaxExpense,
+    clientPrincipalPaymentsReceived: annualPrincipalReceived,
+    clientInterestPaymentsReceived: annualInterestReceived,
+    // ✅ Record equity injections in CF for accurate coverage/cards (only in Year 1)
+    partnerCapitalization: currentYear === 1 ? (modelData.seed || 0) : 0,
+    seriesBNewInvestors: currentYear === 1 ? (modelData.seriesA || 0) : 0,
+    currentYearVentureDebtDraw: finalNewVentureDebt,
+    additionalFundingRaised: finalNewCommercialDebt,
+    sinosureDrawn: sinosureDrawdowns,
+    debtPrincipalRepayment: totalDebtPrincipalRepayment,
+    techInvestmentThisYear,
+    financingOutflows,
+    balloonPayment: balloonPrincipalThisYear,
+    cashAfterFinancing
+});
 log(`💵 Cash After Financing Y${currentYear}: ${formatCurrency(cashAfterFinancing)}`);
 financialResults.bs.push({ cash, receivables: currentYearEndReceivables, receivablesNet: currentYearEndReceivables - currentProvisionsBalance, fixedAssets: fixedAssetsNet, assetsHeldForSale: assetsHeldForSaleNet, totalAssets: totalAssets, debt: totalDebt, equity: endOfYearEquity, totalLiabilitiesEquity: totalLiabilitiesEquity, provisions: currentProvisionsBalance, contractLiabilities: niif15Results.contractLiabilitiesBalance });
 financialResults.niifDetails.push({ niif15: niif15Results, niif5: niif5Results.niif5Details, niif9: {...niif9Results, pdStage1: modelData.pdStage1, pdStage2: modelData.pdStage2, pdStage3: modelData.pdStage3, lgd: modelData.lgd, economicAdjustmentFactor: modelData.economicAdjustmentFactor, proteccionRodandoActiva: modelData.proteccionRodando, provisionesConProteccion: provisions, reduccionPorProteccion: niif9Results.totalECLBeforeAdjustment - provisions, saldoProvisionesAcumulado: currentProvisionsBalance } });
@@ -3272,6 +3307,17 @@ updateValidationPanel(validations);
 updateOptimizationStatus();
 updateInvestorScore();
 updateFundingCoverageCard();
+
+// UI validation snapshot
+try {
+  console.table({
+    "💰 Seed (MXN)": modelData.seed,
+    "💰 Serie A (MXN)": modelData.seriesA,
+    "🏦 Total Equity": (modelData.seed || 0) + (modelData.seriesA || 0),
+    "📊 Coverage %": ((totalFundingFromCF() / calculateTotalCapex()) * 100).toFixed(1),
+    "⚙️ DSCR": (typeof calculateFinalDSCR === 'function' ? (calculateFinalDSCR() || 'N/A') : (financialResults.finalDSCR || 'N/A')),
+  });
+} catch (e) { /* best-effort logging */ }
 
 log(`✅ UI Update sequence completed.`);
 } catch (error) {
