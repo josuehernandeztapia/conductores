@@ -1932,47 +1932,10 @@ function calculateSeriesAMetrics() {
     };
 }
 /**
-* Calculates general investor score.
-* @returns {Object} Investor health score.
+* Calculates investor score (Dual: Growth vs Steady-State).
+* @returns {Object} { score, grade, issues, isInvestable }
 */
 function calculateInvestorScore() {
-const unitEcon = evaluateUnitEconomics();
-const debtService = calculateDebtServiceCoverage();
-
-let score = 10;
-let issues = [];
-
-// Unit economics (40% weight)
-if (unitEcon.marginPercent < 10) { score -= 4; issues.push('🚨 Unit economics críticos (<10%)'); }
-else if (unitEcon.marginPercent < 15) { score -= 2; issues.push('⚠️ Unit economics bajos (<15%)'); }
-
-// Debt service (30% weight)
-if (debtService.dscr < 1.2) { score -= 3; issues.push('🚨 DSCR crítico (<1.2x)'); }
-else if (debtService.dscr < 1.5) { score -= 1.5; issues.push('⚠️ DSCR bajo (<1.5x)'); }
-
-// Risk assumptions (20% weight)
-if (modelData.pdStage1 < 0.003) { score -= 1; issues.push('📊 PD Stage 1 optimista'); }
-if (modelData.tasaInteres < 22) { score -= 1; issues.push('💰 Tasa cliente insostenible'); }
-
-// Operational efficiency (10% weight)
-if (modelData.opexRates.some(rate => rate > 18)) {
-score -= 1;
-issues.push('🚀 OPEX alto (>18% en algún año)');
-}
-
-// Enhanced debt structure analysis (10% weight)
-const debtMetrics = calculateDebtMetricsBreakdown();
-if (debtMetrics.finalDSCR < 1.5) {
-score -= 1;
-issues.push('🏦 DSCR final bajo (<1.5x)');
-}
-if (financialResults.bs.length > 4 && financialResults.bs[4].equity > 0 && financialResults.bs[4].debt > financialResults.bs[4].equity * 2) {
-score -= 0.5;
-issues.push('📊 Leverage alto (Debt/Equity >2x)');
-}
-
-// --- Dual Investor Score: Growth vs Steady-State ---
-// Inputs for both modes
 const dscrFinal = calculateFinalDSCR() || 0;
 const totalCapexForCoverage = calculateTotalCapex();
 const totalFundingCF = totalFundingFromCF();
@@ -2001,12 +1964,26 @@ financialResults.investorScoreGrowth = Math.max(scoreGrowth, 0);
 financialResults.investorScoreSteady = Math.max(scoreSteady, 0);
 log(`💹 Investor Scores => Growth: ${financialResults.investorScoreGrowth}/10 | Steady: ${financialResults.investorScoreSteady}/10`);
 
-return {
-score: Math.max(0, score),
-grade: score >= 8.5 ? 'A' : score >= 7 ? 'B' : score >= 5 ? 'C' : 'D',
-issues,
-isInvestable: score >= 6.5
-};
+// Build issues from dual metrics
+let issues = [];
+if (dscrFinal < 1.2) issues.push('🚨 DSCR crítico (<1.2x)');
+else if (dscrFinal < 1.5) issues.push('⚠️ DSCR bajo (<1.5x)');
+if (coverage < 95) issues.push('⚠️ Cobertura de CAPEX por CF insuficiente (<95%)');
+if (coverage > 105) issues.push('⚠️ Exceso de cobertura por CF (>105%)');
+if (leverage > 2.0) issues.push('📊 Leverage alto (Debt/Equity >2x)');
+if (cashAfterFin < 0) issues.push('💸 Cash after financing negativo (Y5)');
+if (normalizedCFAF < 0) issues.push('💵 Cash flow after financing normalizado (Y5) negativo');
+
+// Gating: remove DSCR issues when finalDSCR >= 1.5x
+if (dscrFinal >= 1.5) {
+    issues = issues.filter(msg => !/DSCR/i.test(msg));
+}
+
+const score = Math.max(0, financialResults.investorScoreGrowth);
+const grade = score >= 8.5 ? 'A' : score >= 7 ? 'B' : score >= 5 ? 'C' : 'D';
+const isInvestable = score >= 6.5;
+
+return { score, grade, issues, isInvestable };
 }
 // ===== IFRS CALCULATION MODULES =====
 /**
@@ -3199,11 +3176,11 @@ const plYear = financialResults.pl[i];
 if (plYear.totalRevenue > (plYear.opex + plYear.provisions + plYear.impairment)) {
 actualAutosufficiencyYear = i + 1;
 break;
-        // Apply current mode visibility after values update
-        updateFinancialModeUI();
 }
 }
 }
+// Apply current mode visibility after values update (run once after loop)
+updateFinancialModeUI();
 document.getElementById('autosuficiency-year').textContent = actualAutosufficiencyYear > 0 ? `Año ${actualAutosufficiencyYear}` : 'No alcanzado';
 }
 
@@ -4899,10 +4876,21 @@ container.appendChild(summaryDiv);
 function updateFundingCoverageCard() {
 const totalFunding = totalFundingFromCF();
 const totalCapex = calculateTotalCapex();
-const surplus = totalFunding - totalCapex;
-// Coverage computed from updated totals after cohorts exist
 const coverage = totalCapex > 0 ? (totalFunding / totalCapex) * 100 : 0;
-// The visual part will be added in the next step.
+const container = document.getElementById('funding-coverage-card-container');
+if (!container) return;
+let card = document.getElementById('funding-coverage-card');
+if (!card) {
+card = document.createElement('div');
+card.id = 'funding-coverage-card';
+card.className = 'p-3 rounded-lg border border-slate-700 bg-slate-800 flex items-center justify-between';
+container.appendChild(card);
+}
+const coverageText = `${coverage.toFixed(0)}%`;
+card.innerHTML = `
+  <span class="text-sm text-slate-300">Funding Coverage (CF / CAPEX)</span>
+  <span class="text-lg font-semibold text-white">${coverageText}</span>
+`;
 }
 
 /**
