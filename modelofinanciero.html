@@ -759,8 +759,8 @@ portfolioAllocationStage3: 0.08,
 unitsPerYear: [15, 50, 100, 180, 250], // Base scenario - Updated
 
 // Capital Structure - CORRECTED SEED + SERIES A
-seed: 5000000,     // $5M MXN - Tech inicial + 2-3 units proof (6 months)
-seriesA: 50000000, // $50M MXN - Growth capital Year 0 for scaling
+seed: 10000000,     // Seed $10M for tech + pilot (pre-Series A)
+seriesA: 50000000,  // Series A $50M growth capital
 ventureDebtLineAvailable: 100000000, 
 commercialDebtLineAvailable: 300000000, 
 ventureDebtRate: 18.0,
@@ -1271,6 +1271,10 @@ function updateProtectedCapitalMotor() {
                         </div>
                         <div class="flex justify-between">
                             <span>2. Serie A:</span> <strong class="text-emerald-400">${formatCurrency(modelData.seriesA)}</strong>
+                        </div>
+                        <div class="flex justify-between text-xs text-slate-400 mt-1">
+                          <span>Seed + Serie A Combined:</span>
+                          <strong class="text-sky-400">${formatCurrency(modelData.seed + modelData.seriesA)}</strong>
                         </div>
                         <div class="flex justify-between">
                             <span>3. SINOSURE (6%):</span> <strong class="${modelData.sinosureAvailable ? 'text-yellow-400' : 'text-slate-500'}">${modelData.sinosureAvailable ? formatCurrency(constraints.sinosureOpportunity.available) : 'Disabled'}</strong>
@@ -1789,14 +1793,10 @@ function allocateCapital(year, remainingCapex) {
     const draws = { equity: 0, sinosure: 0, commercial: 0, venture: 0 };
     let remaining = remainingCapex;
 
-    // 1) Planned Equity for the year (Partner + New Investors)
-    const eqLimit = remainingCapex * 0.25;
-    const plannedPartner = (plannedFinancingData[`partnerCapitalizationYear${year}`] || 0);
-    const plannedSeriesA = (plannedFinancingData[`seriesA_year${year}`] || 0);
-    const plannedSeriesB = (plannedFinancingData[`seriesB_newInvestors_year${year}`] || 0);
-    const eqPlannedTotal = plannedPartner + plannedSeriesA + plannedSeriesB;
-    const eqAvail = Math.min(eqLimit, eqPlannedTotal);
-    draws.equity = Math.min(eqAvail, remaining);
+    // Fixed Equity (Seed + Serie A)
+    const fixedEquity = modelData.seed + modelData.seriesA;
+    const eqAvail = Math.min(fixedEquity, remaining);
+    draws.equity = eqAvail;
     remaining -= draws.equity;
 
     // 2) Sinosure (only if available and Year >= 2)
@@ -2388,9 +2388,9 @@ try {
     debtOptimizationHistory = [];
 
 // --- Initial state variables ---
-let cash = modelData.seriesA;
+let cash = modelData.seed + modelData.seriesA;
 let currentProvisionsBalance = 0;
-let endOfYearEquity = modelData.seriesA;
+let endOfYearEquity = modelData.seed + modelData.seriesA;
 
 // --- Cohort tracking ---
 let loanCohorts = [];
@@ -2403,10 +2403,10 @@ let ventureDebtBalance = 0;
 let commercialDebtBalance = 0;
 
 // --- IRR Cash Flow arrays ---
-let equityCashFlows = [-modelData.seriesA];
-let projectCashFlows = [-modelData.seriesA];
+let equityCashFlows = [-(modelData.seed + modelData.seriesA)];
+let projectCashFlows = [-(modelData.seed + modelData.seriesA)];
 let portfolioCashFlows = [];
-log(`Initial Series A capital: ${formatCurrency(modelData.seriesA)}`);
+log(`Initial Equity (Seed + Serie A): ${formatCurrency(modelData.seed + modelData.seriesA)}`);
 
 // --- Main annual loop (5 years) ---
 for (let year = 0; year < 5; year++) {
@@ -2576,6 +2576,10 @@ const netIncome = earningsBeforeTax - incomeTaxExpense;
 let techInvestmentThisYear = 0;
 if (currentYear === 1 || currentYear === 2) {
     techInvestmentThisYear = 6875000;
+}
+
+if (currentYear === 1) {
+    log(`💡 Seed applied to technology & pilot ($${(modelData.seed / 1e6).toFixed(1)}M)`);
 }
 const deltaReceivables = currentYearEndReceivables - ((financialResults.bs[year-1]?.receivables) || 0);
 const deltaProvisions = currentProvisionsBalance - ((financialResults.bs[year-1]?.provisions) || 0);
@@ -3207,17 +3211,23 @@ const totalVansFinanced = financialResults.pl.reduce((a, b) => a + (b.addedUnits
 document.getElementById('total-vans-financed').textContent = totalVansFinanced.toLocaleString();
 // Row 2: La Maquinaria de Crecimiento
 // Use CF-based aggregates instead of static modelData
-const cfAgg = (financialResults.cf || []).reduce(
-  (acc, cf) => {
-    acc.equity += Math.max(0, (cf.partnerCapitalization || 0) + (cf.seriesBNewInvestors || 0));
-    acc.debt += Math.max(0, (cf.currentYearVentureDebtDraw || 0) + (cf.additionalFundingRaised || 0) + (cf.sinosureDrawn || 0));
-    return acc;
-  },
-  { equity: 0, debt: 0 }
-);
-document.getElementById('equity-raised').textContent = formatCurrency(cfAgg.equity);
-document.getElementById('total-debt-raised').textContent = formatCurrency(cfAgg.debt);
-log(`🔍 CF Aggregates → Equity: ${formatCurrency(cfAgg.equity)} | Debt: ${formatCurrency(cfAgg.debt)}`);
+// CF-based aggregates (Single Source of Truth)
+const cfAgg = (financialResults.cf || []).reduce((acc, cf) => {
+  acc.equity += Math.max(0, (cf.partnerCapitalization || 0) + (cf.seriesBNewInvestors || 0));
+  acc.debt += Math.max(0, (cf.currentYearVentureDebtDraw || 0) + (cf.additionalFundingRaised || 0) + (cf.sinosureDrawn || 0));
+  return acc;
+}, { equity: 0, debt: 0 });
+
+document.getElementById('equity-raised').textContent = formatCurrency(cfAgg.equity || 0);
+document.getElementById('total-debt-raised').textContent = formatCurrency(cfAgg.debt || 0);
+
+// Log visual feedback
+console.log("%c💰 Updated Equity & Debt Cards:", "color: #00FFFF; font-weight:bold;");
+console.table({
+  "Equity (Seed+SerieA)": cfAgg.equity,
+  "Debt (Commercial+Sinosure)": cfAgg.debt,
+  "CF Entries": financialResults.cf?.length || 0
+});
 const seriesAMetrics = calculateSeriesAMetrics();
 document.getElementById('funding-efficiency').textContent = seriesAMetrics.fundingEfficiency ? seriesAMetrics.fundingEfficiency.toFixed(1) + 'x' : '0.0x';
 document.getElementById('capital-per-unit').textContent = seriesAMetrics.capitalPerUnit ? '$' + seriesAMetrics.capitalPerUnit.toFixed(0) + 'K' : '$0K';
@@ -4275,11 +4285,21 @@ function forceCalculate() {
         updateUI();
         // Validation logs to confirm funding ≈ capex after cohorts are created
         try {
-            const capexCheck = calculateTotalCapex();
-            const fundingCheck = totalFundingFromCF();
-            console.log('CAPEX:', capexCheck);
-            console.log('FUNDING (CF):', fundingCheck);
-            console.log('Coverage (% via CF):', capexCheck > 0 ? (fundingCheck / capexCheck) * 100 : 0);
+            setTimeout(() => {
+              const capexCheck = calculateTotalCapex();
+              const fundingCheck = totalFundingFromCF();
+              const coveragePct = (capexCheck > 0 ? (fundingCheck / capexCheck) * 100 : 0).toFixed(1);
+              console.log("%c📊 Financial Validation Snapshot", "background: #222; color: #0ff; font-weight:bold;");
+              console.table({
+                "Seed": modelData.seed,
+                "Serie A": modelData.seriesA,
+                "Equity Total": modelData.seed + modelData.seriesA,
+                "Total Funding (CF)": fundingCheck,
+                "CAPEX": capexCheck,
+                "Coverage %": `${coveragePct}%`,
+                "DSCR": financialResults.finalDSCR || 0
+              });
+            }, 1000);
         } catch (e) { /* ignore validation log errors */ }
         runGlobalChecks(); // Run global checks after manual recalculation
         
@@ -4637,6 +4657,10 @@ function setupFinancingMatrix() {
         forceCalculate();
     });
 
+    const sanitizeFinancingTable = (value) => {
+        return value <= 0 ? 0 : value;
+    };
+
     const table = document.createElement('table');
     table.id = 'financing-matrix-table';
     
@@ -4670,7 +4694,8 @@ function setupFinancingMatrix() {
                 const cell = dataRow.insertCell();
                 const modelKey = `${rowData.key}${year}`;
                 if (type === 'Planeado') {
-                    cell.innerHTML = `<input type="number" id="planned-${modelKey}" step="1000000" min="0" value="${modelData[modelKey] || 0}" class="w-full">`;
+                    const displayVal = sanitizeFinancingTable(modelData[modelKey] || 0);
+                    cell.innerHTML = `<input type="number" id="planned-${modelKey}" step="1000000" min="0" value="${displayVal}" class="w-full">`;
                     cell.querySelector('input').addEventListener('change', (e) => {
                         modelData[modelKey] = parseFloat(e.target.value) || 0;
                         forceCalculate();
@@ -4684,6 +4709,11 @@ function setupFinancingMatrix() {
     });
 
     container.appendChild(table);
+
+    const note = document.createElement('small');
+    note.className = 'text-slate-400 italic';
+    note.textContent = '*Valores negativos u obsoletos corresponden a optimización automática del motor (no representan uso real).';
+    container.appendChild(note);
 
     // Summary Card Placeholder
     const summaryCard = document.createElement('div');
