@@ -403,9 +403,14 @@ min-height: 280px;
 <h1 class="text-4xl lg:text-5xl font-black text-white leading-tight tracking-tighter mb-2">Modelo Financiero - Rodando a <span class="highlight-text">Gas</span></h1>
 <p class="text-xl text-slate-400 mt-2">NIIF-Compliant | Series A Due Diligence</p>
 <p class="text-sm text-amber-400 mt-1">⚠️ Modelo en desarrollo - Validación continua</p>
-<button onclick="toggleDebug()" class="mt-4 bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 rounded-lg font-medium transition duration-300 inline-flex items-center gap-2">
+<div class="mt-4 flex justify-center gap-2">
+<button onclick="toggleDebug()" class="bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 rounded-lg font-medium transition duration-300 inline-flex items-center gap-2">
 <i data-lucide="bug" class="w-5 h-5"></i> Debug
 </button>
+<button onclick="testSinosureTIR()" class="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg font-medium transition duration-300 inline-flex items-center gap-2">
+<i data-lucide="activity" class="w-5 h-5"></i> Test SINOSURE TIR
+</button>
+</div>
 <div class="mt-4 flex justify-center gap-2">
 <button class="px-3 py-1 bg-slate-800 text-white rounded border border-slate-600 text-sm">Base Case</button>
 <button class="px-3 py-1 bg-slate-700 text-slate-300 rounded border border-slate-600 text-sm">Conservative</button>
@@ -2948,6 +2953,39 @@ panel.innerHTML = debugLogs.map(log => `<div style="margin-bottom: 2px; font-siz
 function toggleDebug() {
 const panel = document.getElementById('debug-info');
 panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+/**
+* Runs an A/B test comparing Equity TIR with and without SINOSURE using current inputs.
+*/
+function testSinosureTIR() {
+try {
+log('🧪 Running SINOSURE A/B TIR test...');
+
+const originalFlag = modelData.sinosureAvailable;
+
+// Case A: SINOSURE OFF
+modelData.sinosureAvailable = false;
+calculateFinancials();
+const tirOff = financialResults.tirEquity;
+
+// Case B: SINOSURE ON
+modelData.sinosureAvailable = true;
+calculateFinancials();
+const tirOn = financialResults.tirEquity;
+
+// Restore original flag and recalc to sync UI
+modelData.sinosureAvailable = originalFlag;
+calculateFinancials();
+updateUI();
+
+log(`🔎 Equity IRR without SINOSURE: ${tirOff.toFixed(1)}%`);
+log(`🔎 Equity IRR with SINOSURE: ${tirOn.toFixed(1)}%`);
+const delta = (tirOn - tirOff).toFixed(1);
+log(`${tirOn >= tirOff ? '✅' : '❌'} SINOSURE impact on Equity IRR: ${delta} pp`);
+} catch (error) {
+log(`❌ Error in testSinosureTIR: ${error.message}`);
+}
 }
 /**
 * Shows a temporary warning in the UI.
