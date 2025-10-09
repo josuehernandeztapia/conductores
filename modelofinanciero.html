@@ -5076,5 +5076,39 @@ console.log('Emergency rollback available: emergencyRollback()');
 });
 
 </script>
+<script>
+// === 🩺 FASE 0 – FIX DE ARRANQUE ===
+
+// 🔧 1. Inicialización segura de modelData
+try {
+  if (!window.modelData) window.modelData = {};
+  if (!Array.isArray(modelData.unitsPerYear) || modelData.unitsPerYear.length === 0) {
+    // Escenario base por defecto (v58)
+    modelData.unitsPerYear = [15, 50, 100, 180, 250];
+    console.log("✅ modelData.unitsPerYear inicializado:", modelData.unitsPerYear);
+  }
+} catch (e) {
+  console.error("⚠️ Error inicializando modelData:", e.message);
+}
+
+// 🔧 2. Ejecutar el cálculo principal al cargar
+document.addEventListener("DOMContentLoaded", () => {
+  try {
+    console.log("🚀 Modelo Financiero - Inicializando cálculo base...");
+    if (typeof calculateFinancials === "function") {
+      calculateFinancials();
+    } else {
+      console.error("❌ calculateFinancials() no está definido.");
+    }
+    if (typeof updateConstraintDashboard === "function") {
+      updateConstraintDashboard();
+    }
+    console.log("✅ Cálculo base ejecutado correctamente.");
+  } catch (err) {
+    console.error("⚠️ Error al inicializar modelo financiero:", err);
+  }
+});
+</script>
+
 </body>
 </html>
