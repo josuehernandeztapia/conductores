@@ -591,6 +591,12 @@ min-height: 280px;
 <button onclick="forceCalculate()" class="mt-6 bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-3 rounded-lg font-medium transition duration-300 inline-flex items-center gap-2">
 <i data-lucide="refresh-cw" class="w-5 h-5"></i> Recalcular Modelo
 </button>
+<button
+  onclick="runSensitivityAnalysis()"
+  class="mt-6 bg-emerald-700 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium transition duration-300 inline-flex items-center gap-2 ml-2 text-sm"
+>
+  🔍 Analizar Sweet Spot
+</button>
 </div>
 </div>
 <!-- Tab Content: Financials -->
@@ -2454,17 +2460,12 @@ try {
     debtOptimizationHistory = [];
 
 // --- Initial state variables ---
-let cash = modelData.seed + modelData.seriesA;
+let cash = 0; // Equity injection handled via allocation engine & CF only
 let currentProvisionsBalance = 0;
-let endOfYearEquity = modelData.seed + modelData.seriesA;
+let endOfYearEquity = 0; // Equity tracked via CF and allocation engine
 
-// ✅ Inject initial equity (Seed + Serie A) validation and coverage recompute
+// CF will be rebuilt during calculation; equity contributions flow via allocateCapital
 financialResults.cf = financialResults.cf || [];
-log(`💡 Initial Equity Injection recorded: ${formatCurrency(modelData.seed + modelData.seriesA)} (Seed + Serie A)`);
-// Ensure coverage recalculates correctly after injection (uses CF fallback if empty)
-log("🧾 Recomputing coverage after initial equity injection...");
-const coverageCheck = ((totalFundingFromCF() / calculateTotalCapex()) * 100).toFixed(1);
-log(`✅ Coverage now at ${coverageCheck}%`);
 
 // --- Cohort tracking ---
 let loanCohorts = [];
@@ -2477,10 +2478,10 @@ let ventureDebtBalance = 0;
 let commercialDebtBalance = 0;
 
 // --- IRR Cash Flow arrays ---
-let equityCashFlows = [-(modelData.seed + modelData.seriesA)];
-let projectCashFlows = [-(modelData.seed + modelData.seriesA)];
+let equityCashFlows = [0];
+let projectCashFlows = [0];
 let portfolioCashFlows = [];
-log(`Initial Equity (Seed + Serie A): ${formatCurrency(modelData.seed + modelData.seriesA)}`);
+// Initial equity is considered in CF via allocation; no direct injection here
 
 // --- Main annual loop (5 years) ---
 for (let year = 0; year < 5; year++) {
@@ -5464,6 +5465,138 @@ console.log('Emergency rollback available: emergencyRollback()');
 }
 });
 
+</script>
+
+<!-- Sensitivity Analysis Script -->
+<script>
+// === Sensitivity Analysis: TIR vs Units ===
+async function runSensitivityAnalysis() {
+  try {
+    const scenarios = [250, 400, 500, 600, 750, 900, 1000];
+    const results = [];
+
+    log("📊 Running sensitivity analysis across unit scenarios...");
+
+    const prevUnits = modelData.units;
+    const prevUnitsPerYear = Array.isArray(modelData.unitsPerYear) ? [...modelData.unitsPerYear] : null;
+
+    for (const units of scenarios) {
+      // Apply scenario baseline
+      applyGrowthScenario(units);
+
+      // Recalculate core financials
+      const ok = calculateFinancials();
+      if (ok) {
+        const irr = (financialResults.tirEquity || 0).toFixed(1);
+        const dscr = (financialResults.finalDSCR || 0).toFixed(1);
+        const cfaf = (financialResults.cf?.[4]?.cashAfterFinancing || 0) / 1e6;
+
+        results.push({
+          units,
+          irr: parseFloat(irr),
+          dscr: parseFloat(dscr),
+          cfaf: parseFloat(cfaf.toFixed(1)),
+        });
+      }
+    }
+
+    // Restore previous state
+    if (typeof prevUnits === 'number') modelData.units = prevUnits;
+    if (prevUnitsPerYear) modelData.unitsPerYear = prevUnitsPerYear;
+    calculateFinancials();
+    updateUI();
+
+    log("✅ Sensitivity data generated:", results);
+
+    // Draw chart
+    const ctxId = "tirSensitivityChart";
+    let canvas = document.getElementById(ctxId);
+    if (!canvas) {
+      const chartContainer = document.createElement("div");
+      chartContainer.innerHTML = `
+        <div class="mt-6 bg-slate-900 rounded-2xl shadow-md p-4">
+          <h3 class="text-slate-200 text-sm mb-2">📈 Sweet Spot: TIR, DSCR & CashFlow by Units</h3>
+          <canvas id="${ctxId}" height="130"></canvas>
+        </div>`;
+      document.body.appendChild(chartContainer);
+      canvas = document.getElementById(ctxId);
+    }
+
+    const ctx = canvas.getContext("2d");
+    if (window.sweetSpotChart) window.sweetSpotChart.destroy();
+
+    window.sweetSpotChart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: results.map(r => `${r.units}`),
+        datasets: [
+          {
+            label: "TIR Equity (%)",
+            data: results.map(r => r.irr),
+            borderColor: "#10B981",
+            backgroundColor: "rgba(16,185,129,0.3)",
+            yAxisID: "y",
+          },
+          {
+            label: "DSCR (x)",
+            data: results.map(r => r.dscr),
+            borderColor: "#3B82F6",
+            backgroundColor: "rgba(59,130,246,0.3)",
+            yAxisID: "y1",
+          },
+          {
+            label: "Cash Flow After Financing (Y5, M MXN)",
+            data: results.map(r => r.cfaf),
+            borderColor: "#F59E0B",
+            backgroundColor: "rgba(245,158,11,0.3)",
+            yAxisID: "y2",
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        interaction: { mode: "index", intersect: false },
+        stacked: false,
+        plugins: {
+          legend: { labels: { color: "#CBD5E1" } },
+          tooltip: {
+            callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y}` },
+          },
+        },
+        scales: {
+          x: {
+            title: { display: true, text: "Unidades", color: "#94A3B8" },
+            ticks: { color: "#CBD5E1" },
+            grid: { color: "#1E293B" },
+          },
+          y: {
+            type: "linear",
+            position: "left",
+            title: { display: true, text: "TIR (%)", color: "#10B981" },
+            ticks: { color: "#10B981" },
+          },
+          y1: {
+            type: "linear",
+            position: "right",
+            grid: { drawOnChartArea: false },
+            title: { display: true, text: "DSCR (x)", color: "#3B82F6" },
+            ticks: { color: "#3B82F6" },
+          },
+          y2: {
+            type: "linear",
+            position: "right",
+            grid: { drawOnChartArea: false },
+            title: { display: true, text: "Cash Flow (M MXN)", color: "#F59E0B" },
+            ticks: { color: "#F59E0B" },
+          },
+        },
+      },
+    });
+  } catch (error) {
+    console.error("❌ Error running sensitivity chart:", error);
+  }
+}
+</script>
 </script>
 </body>
 </html>
