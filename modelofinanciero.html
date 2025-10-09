@@ -2867,62 +2867,48 @@ return false;
 
 // ========= Escenarios de Crecimiento Optimizados (250 / 500 / 750 / 1000) =========
 /**
- * Aplica un escenario de crecimiento parametrizado con lógica de ramp-up,
- * cobertura, DSCR y CFO positivo.
- * @param {number} targetUnits - Total de unidades objetivo (250, 500, 750, 1000)
+ * Aplica escenario de crecimiento, global y con motor completo.
+ * Asegura SINOSURE ON, persiste selección y valida cobertura.
+ * @param {number} units - 250 | 500 | 750 | 1000
  */
 function applyGrowthScenario(units) {
   try {
-    // 1) Update scenario base data and yearly pattern
+    // 1) Map units per scenario
     let pattern = [];
-    switch (true) {
-      case (units <= 300): pattern = [10, 40, 60, 65, 75]; break;      // ~250
-      case (units <= 600): pattern = [15, 70, 120, 150, 145]; break;   // ~500
-      case (units <= 800): pattern = [20, 100, 200, 220, 210]; break;  // ~750
-      default:              pattern = [25, 150, 250, 300, 275];         // ~1000
-    }
+    if (units === 250)       pattern = [10, 40, 60, 65, 75];
+    else if (units === 500)  pattern = [15, 70, 120, 150, 145];
+    else if (units === 750)  pattern = [20, 100, 200, 220, 210];
+    else if (units === 1000) pattern = [25, 150, 250, 300, 275];
+    else                     pattern = [15, 50, 120, 190, 220];
+
+    // 2) Apply pattern and ensure SINOSURE ON
     modelData.unitsPerYear = [...pattern];
-    const totalUnits = pattern.reduce((a, b) => a + b, 0);
-    modelData.units = units || totalUnits;
-    modelData.totalCapex = totalUnits * getTotalPackageCost();
+    modelData.sinosureAvailable = true;
 
-    // 2) Scenario label
-    const scenarioName =
-      (units <= 300) ? 'Pesimista' :
-      (units <= 600) ? 'Base' :
-      (units <= 800) ? 'Optimista' : 'Stress';
-    log(`🧩 Escenario aplicado: ${scenarioName} (${units} unidades)`);
+    // 3) Persist selection
+    const scenarioName = (units===250?'Pesimista':units===500?'Base':units===750?'Optimista':'Stress');
+    try { localStorage.setItem('selectedScenario', JSON.stringify({ units, scenarioName })); } catch (_) {}
+    log(`🧩 Escenario aplicado: ${scenarioName} (${units}u) → ${pattern.join('-')}`);
 
-    // 3) Reset CF/results before full recalculation
-    try {
-      financialResults.cf = [];
-      financialResults.totalCapex = 0;
-      financialResults.coverage = 0;
-    } catch (_) { /* best effort reset */ }
-
-    // 4) Re-run core calculations and UI
-    const ok = calculateFinancials();
-    if (ok) {
-      updateUI();
-      // 5) Log validation snapshot
-      try {
-        log(`💰 Equity: ${formatCurrency(calculateTotalEquityRaised())} | Debt: ${formatCurrency(calculateTotalDebtRaised())} | Coverage: ${financialResults.coverage?.toFixed(1)}%`);
-      } catch (_) { /* ignore */ }
+    // 4) Full engine recalculation
+    if (typeof forceCalculate === 'function') {
+      forceCalculate();
+    } else {
+      // Fallback to core if forceCalculate missing
+      if (calculateFinancials()) updateUI();
     }
 
-    // 6) Persist scenario
-    try {
-      localStorage.setItem('selectedScenario', JSON.stringify({ units, scenarioName }));
-    } catch (_) { /* ignore */ }
-
-    // UI helpers
-    try { if (typeof updateScenarioButtons === 'function') updateScenarioButtons((units<=300?'pesimista':units<=600?'base':units<=800?'optimista':'stress')); } catch (_) {}
-    try { if (typeof updateUnitInputs === 'function') updateUnitInputs(pattern); } catch (_) {}
-
-    log(`✅ Escenario ${scenarioName} aplicado y recalculado correctamente.`);
+    // 5) Post-calc validation snapshot
+    setTimeout(() => {
+      try {
+        const covPct = ((totalFundingFromCF() / calculateTotalCapex()) * 100).toFixed(1);
+        const dscr = (financialResults?.finalDSCR || 0).toFixed(2);
+        log(`✅ Post-escenario: Coverage=${covPct}% | DSCR=${dscr}x`);
+      } catch (_) {}
+    }, 250);
   } catch (error) {
-    console.error("❌ Error en applyGrowthScenario:", error);
-    alert("Error aplicando escenario: " + error.message);
+    console.error('❌ Error en applyGrowthScenario:', error);
+    alert('Error aplicando escenario: ' + error.message);
   }
 }
 
@@ -2998,6 +2984,23 @@ function loadScenarioConfig() {
 // Reaplicar al cargar la página
 try {
   window.addEventListener('load', () => loadScenarioConfig());
+} catch (e) { /* ignore */ }
+
+// Restore minimal selectedScenario on DOMContentLoaded (redundant-safe)
+try {
+  window.addEventListener('DOMContentLoaded', () => {
+    try {
+      const saved = localStorage.getItem('selectedScenario');
+      if (!saved) return;
+      const { units, scenarioName } = JSON.parse(saved);
+      if (units) {
+        log(`💾 Restaurando escenario: ${scenarioName} (${units}u)`);
+        setTimeout(() => window.applyGrowthScenario(units), 200);
+      }
+    } catch (e) {
+      log('⚠️ Restore scenario error: ' + e.message);
+    }
+  }, { once: true });
 } catch (e) { /* ignore */ }
 
 // Reaplicar tras “Recalcular Modelo” si existe el botón
@@ -5193,18 +5196,31 @@ statusElement.innerHTML = `
 // SCENARIO EVENT LISTENERS SETUP
 function setupScenarioListeners() {
   try {
-    const pesBtn = document.getElementById('scenario-pesimista');
-    const baseBtn = document.getElementById('scenario-base');
-    const optBtn = document.getElementById('scenario-optimista');
-    const stressBtn = document.getElementById('scenario-stress');
+    const wire = () => {
+      const pes = document.getElementById('scenario-pesimista');
+      const base = document.getElementById('scenario-base');
+      const opt  = document.getElementById('scenario-optimista');
+      const str  = document.getElementById('scenario-stress');
 
-    // Bind new parametric scenarios
-    pesBtn?.addEventListener('click', () => applyGrowthScenario(250));
-    baseBtn?.addEventListener('click', () => applyGrowthScenario(500));
-    optBtn?.addEventListener('click', () => applyGrowthScenario(750));
-    stressBtn?.addEventListener('click', () => applyGrowthScenario(1000));
+      // Remove possible inline onclick to avoid double-binding
+      pes?.removeAttribute('onclick');
+      base?.removeAttribute('onclick');
+      opt?.removeAttribute('onclick');
+      str?.removeAttribute('onclick');
 
-    log('✅ Scenario listeners bound successfully');
+      pes?.addEventListener('click', () => window.applyGrowthScenario(250));
+      base?.addEventListener('click', () => window.applyGrowthScenario(500));
+      opt?.addEventListener('click', () => window.applyGrowthScenario(750));
+      str?.addEventListener('click', () => window.applyGrowthScenario(1000));
+
+      log('✅ Scenario listeners bound successfully');
+    };
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', wire, { once: true });
+    } else {
+      wire();
+    }
   } catch (error) {
     log(`⚠️ Error in setupScenarioListeners: ${error.message}`);
   }
