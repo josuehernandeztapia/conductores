@@ -2794,6 +2794,19 @@ try {
    if (typeof validateCashFlowIntegrity === 'function') {
      validateCashFlowIntegrity();
      log("✅ Financial model recalculated with Seed + Serie A injection verified.");
+     // 💹 Post-Validation snapshot for DSCR, Cash After Financing Y5, and Coverage
+     try {
+       const dscr = (typeof calculateFinalDSCR === 'function') ? (calculateFinalDSCR() || 0) : (financialResults.finalDSCR || 0);
+       const cafY5 = (financialResults && financialResults.cf && financialResults.cf[4] && typeof financialResults.cf[4].cashAfterFinancing !== 'undefined')
+         ? financialResults.cf[4].cashAfterFinancing : 0;
+       const capexCheck = calculateTotalCapex();
+       const fundingCheck = totalFundingFromCF();
+       const coveragePct = capexCheck > 0 ? (fundingCheck / capexCheck) * 100 : 0;
+       // Store for downstream UI logs
+       financialResults.finalDSCR = dscr;
+       financialResults.coverage = Number(coveragePct.toFixed(1));
+       log(`💹 Post-Validation: DSCR=${(dscr && dscr !== 999) ? dscr.toFixed(2) : 'N/A'} | CashAfterFin Y5=${formatCurrency(cafY5)} | Coverage=${Number(coveragePct.toFixed(1))}%`);
+     } catch (e) { /* best-effort logging */ }
    }
  }, 500);
  log('✅ FINANCIAL CALCULATIONS (v23) COMPLETED');
@@ -2803,6 +2816,142 @@ log(`❌ ERROR in calculateFinancials (v23): ${error.message}`);
 document.getElementById('balance-validation').innerHTML = `<span class="text-red-600">❌ ${error.message}</span>`;
 return false;
 }
+
+// ========= Escenarios de Crecimiento Optimizados (250 / 500 / 750 / 1000) =========
+/**
+ * Aplica un escenario de crecimiento parametrizado con lógica de ramp-up,
+ * cobertura, DSCR y CFO positivo.
+ * @param {number} targetUnits - Total de unidades objetivo (250, 500, 750, 1000)
+ */
+function applyGrowthScenario(targetUnits) {
+  try {
+    let pattern = [];
+    switch (targetUnits) {
+      case 250:
+        pattern = [10, 40, 60, 65, 75];
+        break;
+      case 500:
+        pattern = [15, 70, 120, 150, 145];
+        break;
+      case 750:
+        pattern = [20, 100, 200, 220, 210];
+        break;
+      case 1000:
+        pattern = [25, 150, 250, 300, 275];
+        break;
+      default:
+        pattern = [15, 50, 120, 190, 220];
+    }
+
+    // Aplicar patrón
+    modelData.unitsPerYear = [...pattern];
+    log(`📈 Escenario aplicado: ${targetUnits} unidades totales → ${pattern.join('-')}`);
+
+    // Recalcular CAPEX y cobertura con funciones existentes
+    const totalUnits = pattern.reduce((a, b) => a + b, 0);
+    const newCapex = totalUnits * getTotalPackageCost();
+    const fundingNow = totalFundingFromCF();
+    const coverageNow = newCapex > 0 ? (fundingNow / newCapex) * 100 : 0;
+    financialResults.totalCapex = newCapex;
+    financialResults.coverage = Number(coverageNow.toFixed(1));
+
+    // Reglas automáticas de oro
+    if (financialResults.coverage > 105) {
+      log(`⚠️ Cobertura >105% → reduciendo 5% unidades Y5`);
+      modelData.unitsPerYear[4] = Math.round(modelData.unitsPerYear[4] * 0.95);
+    }
+
+    const dscrSnapshot = (typeof calculateFinalDSCR === 'function') ? (calculateFinalDSCR() || 0) : (financialResults.finalDSCR || 0);
+    if (dscrSnapshot > 0 && dscrSnapshot < 1.6) {
+      log(`⚠️ DSCR <1.6 → extendiendo plazo comercial a 72m`);
+      modelData.commercialLoanTermMonths = 72;
+    }
+
+    const cafY5Pre = (financialResults && financialResults.cf && financialResults.cf[4] && typeof financialResults.cf[4].cashAfterFinancing !== 'undefined')
+      ? financialResults.cf[4].cashAfterFinancing : 0;
+    if (cafY5Pre < 0 && (dscrSnapshot || 1.8) >= 1.6) {
+      log(`⚠️ Cash After Financing negativo → moviendo 20 unidades Y5 → Y4`);
+      modelData.unitsPerYear[3] += 20;
+      modelData.unitsPerYear[4] = Math.max(0, modelData.unitsPerYear[4] - 20);
+    }
+
+    // Persistir selección y configuración actual
+    if (typeof saveScenarioConfig === 'function') {
+      saveScenarioConfig(targetUnits);
+    }
+
+    // Recalcular el modelo
+    forceCalculate();
+  } catch (e) {
+    log(`❌ ERROR in applyGrowthScenario: ${e.message}`);
+  }
+}
+
+// 🧠 Persistencia de Escenario y Configuración de Financiamiento
+// Guarda y reaplica el escenario + tasas/plazo/balloon al recargar o recalcular
+
+function saveScenarioConfig(targetUnits) {
+  try {
+    const config = {
+      scenarioUnits: targetUnits,
+      ventureRate: modelData.ventureDebtRate || 18,
+      commercialRate: modelData.commercialDebtRate || 14,
+      graceMonths: modelData.commercialGraceMonths || 12,
+      termMonths: modelData.commercialLoanTermMonths || 60,
+      balloon: modelData.commercialBalloonPercent || 20,
+    };
+    localStorage.setItem('financialScenarioConfig', JSON.stringify(config));
+    log(`💾 Configuración guardada: ${targetUnits} unidades @ ${config.commercialRate}% comercial`);
+  } catch (e) {
+    log(`❌ Error saving scenario config: ${e.message}`);
+  }
+}
+
+function loadScenarioConfig() {
+  try {
+    const saved = localStorage.getItem('financialScenarioConfig');
+    if (!saved) return;
+    const config = JSON.parse(saved);
+    if (config && config.scenarioUnits && [250, 500, 750, 1000].includes(config.scenarioUnits)) {
+      log(`♻️ Reaplicando escenario guardado (${config.scenarioUnits} unidades)...`);
+      modelData.ventureDebtRate = config.ventureRate;
+      modelData.commercialDebtRate = config.commercialRate;
+      modelData.commercialGraceMonths = config.graceMonths;
+      modelData.commercialLoanTermMonths = config.termMonths;
+      modelData.commercialBalloonPercent = config.balloon;
+      setTimeout(() => applyGrowthScenario(config.scenarioUnits), 600);
+    } else {
+      log('ℹ️ Sin configuración guardada, cargando Base (500 unidades)...');
+      setTimeout(() => applyGrowthScenario(500), 600);
+    }
+  } catch (e) {
+    log(`❌ Error loading scenario config: ${e.message}`);
+  }
+}
+
+// Reaplicar al cargar la página
+try {
+  window.addEventListener('load', () => loadScenarioConfig());
+} catch (e) { /* ignore */ }
+
+// Reaplicar tras “Recalcular Modelo” si existe el botón
+try {
+  const recalcBtn = document.getElementById('recalculate-model-btn')
+    || document.querySelector('.recalculate-btn')
+    || (function() {
+      const buttons = Array.from(document.querySelectorAll('button'));
+      return buttons.find(b => (b.textContent || '').includes('Recalcular Modelo')) || null;
+    })();
+  if (recalcBtn) {
+    recalcBtn.addEventListener('click', () => {
+      const saved = JSON.parse(localStorage.getItem('financialScenarioConfig') || '{}');
+      if (saved && saved.scenarioUnits) {
+        log(`🔁 Reaplicando escenario ${saved.scenarioUnits} unidades tras recalcular...`);
+        setTimeout(() => loadScenarioConfig(), 800);
+      }
+    });
+  }
+} catch (e) { /* ignore */ }
 }
 
 /**
@@ -3374,7 +3523,17 @@ try {
   });
 } catch (e) { /* best-effort logging */ }
 
-log(`✅ UI Update sequence completed.`);
+    // Visual consolidated log at end of UI update
+    try {
+      const unitsStr = Array.isArray(modelData.unitsPerYear) ? modelData.unitsPerYear.join('-') : '';
+      const capexTotal = calculateTotalCapex();
+      const fundingNow = totalFundingFromCF();
+      const coverageNow = capexTotal > 0 ? ((fundingNow / capexTotal) * 100).toFixed(1) : '0.0';
+      financialResults.totalCapex = capexTotal;
+      financialResults.coverage = Number(coverageNow);
+      log(`✅ Modelo actualizado | Unidades: ${unitsStr} | CAPEX: $${formatCurrency(capexTotal)} | Coverage: ${coverageNow}%`);
+    } catch (e) { /* best-effort UI log */ }
+    log(`✅ UI Update sequence completed.`);
 } catch (error) {
 log(`❌ Error in updateUI: ${error.message}`);
 }
@@ -4950,9 +5109,20 @@ statusElement.innerHTML = `
 // SCENARIO EVENT LISTENERS SETUP
 function setupScenarioListeners() {
     try {
-        document.getElementById('scenario-pesimista')?.addEventListener('click', () => switchScenario('pesimista'));
-        document.getElementById('scenario-base')?.addEventListener('click', () => switchScenario('base'));
-        document.getElementById('scenario-optimista')?.addEventListener('click', () => switchScenario('optimista'));
+        // Rewire buttons to parametric growth scenarios
+        const pesBtn = document.getElementById('scenario-pesimista');
+        const baseBtn = document.getElementById('scenario-base');
+        const optBtn = document.getElementById('scenario-optimista');
+
+        pesBtn?.addEventListener('click', () => applyGrowthScenario(250));
+        baseBtn?.addEventListener('click', () => applyGrowthScenario(500));
+        optBtn?.addEventListener('click', () => applyGrowthScenario(750));
+
+        // Optional stress button if present
+        const stressBtn = document.getElementById('stress-scenario-btn');
+        if (stressBtn) {
+            stressBtn.addEventListener('click', () => applyGrowthScenario(1000));
+        }
         
         log('✅ Scenario listeners configured successfully');
     } catch (error) {
