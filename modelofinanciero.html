@@ -418,15 +418,19 @@ min-height: 280px;
   <div class="flex gap-2">
     <button id="scenario-pesimista" class="scenario-btn px-4 py-2 bg-slate-700 text-slate-300 rounded-lg border border-slate-600 text-sm hover:bg-slate-600 transition-all duration-200 hover:border-slate-500">
       📉 <strong>Pesimista</strong><br>
-      <small class="text-xs opacity-75">238 units · $149M CAPEX</small>
+      <small class="text-xs opacity-75">250 units · ~$150M CAPEX</small>
     </button>
     <button id="scenario-base" class="scenario-btn active px-4 py-2 bg-emerald-700 text-white rounded-lg border border-emerald-600 text-sm font-medium shadow-lg">
       📊 <strong>Base</strong><br>
-      <small class="text-xs opacity-90">595 units · $372M CAPEX</small>
+      <small class="text-xs opacity-90">500 units · ~$340M CAPEX</small>
     </button>
     <button id="scenario-optimista" class="scenario-btn px-4 py-2 bg-slate-700 text-slate-300 rounded-lg border border-slate-600 text-sm hover:bg-slate-600 transition-all duration-200 hover:border-slate-500">
       📈 <strong>Optimista</strong><br>
-      <small class="text-xs opacity-75">1,055 units · $659M CAPEX</small>
+      <small class="text-xs opacity-75">750 units · ~$510M CAPEX</small>
+    </button>
+    <button id="scenario-stress" class="scenario-btn px-4 py-2 bg-slate-700 text-slate-300 rounded-lg border border-slate-600 text-sm hover:bg-slate-600 transition-all duration-200 hover:border-slate-500">
+      🧪 <strong>Stress</strong><br>
+      <small class="text-xs opacity-75">1,000 units · ~$680M CAPEX</small>
     </button>
   </div>
 </div>
@@ -1313,9 +1317,10 @@ function updateProtectedCapitalMotor() {
 
 // SCENARIO DEFINITIONS
 const scenarios = {
-    pesimista: [8, 25, 45, 70, 90],
-    base: [15, 50, 100, 180, 250],
-    optimista: [25, 80, 180, 320, 450]
+    pesimista: [10, 40, 60, 65, 75],   // 250
+    base: [15, 70, 120, 150, 145],     // 500
+    optimista: [20, 100, 200, 220, 210], // 750
+    stress: [25, 150, 250, 300, 275]   // 1000
 };
 
 let currentScenario = 'base';
@@ -2855,6 +2860,24 @@ function applyGrowthScenario(targetUnits) {
     financialResults.totalCapex = newCapex;
     financialResults.coverage = Number(coverageNow.toFixed(1));
 
+    // Mantener compatibilidad con lógica simple basada en unidades
+    modelData.units = totalUnits;
+    modelData.totalCapex = newCapex;
+    let scenarioName = '';
+    let scenarioKey = '';
+    if (targetUnits <= 300) { scenarioName = 'Pesimista'; scenarioKey = 'pesimista'; }
+    else if (targetUnits <= 600) { scenarioName = 'Base'; scenarioKey = 'base'; }
+    else if (targetUnits <= 800) { scenarioName = 'Expansivo'; scenarioKey = 'optimista'; }
+    else { scenarioName = 'Stress'; scenarioKey = 'stress'; }
+    try {
+      localStorage.setItem('selectedScenario', JSON.stringify({ units: targetUnits, scenarioName }));
+      log(`🧩 Escenario aplicado: ${scenarioName} (${targetUnits} unidades)`);
+    } catch (_) { /* ignore storage errors */ }
+
+    // Update scenario button UI if helper exists
+    try { if (typeof updateScenarioButtons === 'function' && scenarioKey) updateScenarioButtons(scenarioKey); } catch (_) { /* ignore */ }
+    try { if (typeof updateUnitInputs === 'function') updateUnitInputs(pattern); } catch (_) { /* ignore */ }
+
     // Reglas automáticas de oro
     if (financialResults.coverage > 105) {
       log(`⚠️ Cobertura >105% → reduciendo 5% unidades Y5`);
@@ -2902,6 +2925,14 @@ function saveScenarioConfig(targetUnits) {
     };
     localStorage.setItem('financialScenarioConfig', JSON.stringify(config));
     log(`💾 Configuración guardada: ${targetUnits} unidades @ ${config.commercialRate}% comercial`);
+
+    // Persistencia adicional mínima para compatibilidad
+    let scenarioName = '';
+    if (targetUnits <= 300) scenarioName = 'Pesimista';
+    else if (targetUnits <= 600) scenarioName = 'Base';
+    else if (targetUnits <= 800) scenarioName = 'Expansivo';
+    else scenarioName = 'Stress';
+    try { localStorage.setItem('selectedScenario', JSON.stringify({ units: targetUnits, scenarioName })); } catch (_) { /* ignore */ }
   } catch (e) {
     log(`❌ Error saving scenario config: ${e.message}`);
   }
@@ -2910,20 +2941,34 @@ function saveScenarioConfig(targetUnits) {
 function loadScenarioConfig() {
   try {
     const saved = localStorage.getItem('financialScenarioConfig');
-    if (!saved) return;
-    const config = JSON.parse(saved);
-    if (config && config.scenarioUnits && [250, 500, 750, 1000].includes(config.scenarioUnits)) {
-      log(`♻️ Reaplicando escenario guardado (${config.scenarioUnits} unidades)...`);
-      modelData.ventureDebtRate = config.ventureRate;
-      modelData.commercialDebtRate = config.commercialRate;
-      modelData.commercialGraceMonths = config.graceMonths;
-      modelData.commercialLoanTermMonths = config.termMonths;
-      modelData.commercialBalloonPercent = config.balloon;
-      setTimeout(() => applyGrowthScenario(config.scenarioUnits), 600);
-    } else {
-      log('ℹ️ Sin configuración guardada, cargando Base (500 unidades)...');
-      setTimeout(() => applyGrowthScenario(500), 600);
+    if (saved) {
+      const config = JSON.parse(saved);
+      if (config && config.scenarioUnits && [250, 500, 750, 1000].includes(config.scenarioUnits)) {
+        log(`♻️ Reaplicando escenario guardado (${config.scenarioUnits} unidades)...`);
+        modelData.ventureDebtRate = config.ventureRate;
+        modelData.commercialDebtRate = config.commercialRate;
+        modelData.commercialGraceMonths = config.graceMonths;
+        modelData.commercialLoanTermMonths = config.termMonths;
+        modelData.commercialBalloonPercent = config.balloon;
+        setTimeout(() => applyGrowthScenario(config.scenarioUnits), 600);
+        return;
+      }
     }
+
+    // Fallback a persistencia mínima 'selectedScenario'
+    const stored = localStorage.getItem('selectedScenario');
+    if (stored) {
+      const { units, scenarioName } = JSON.parse(stored);
+      if ([250, 500, 750, 1000].includes(units)) {
+        log(`💾 Escenario restaurado: ${scenarioName} (${units} unidades)`);
+        setTimeout(() => applyGrowthScenario(units), 600);
+        return;
+      }
+    }
+
+    // Default
+    log('ℹ️ Sin configuración guardada, cargando Base (500 unidades)...');
+    setTimeout(() => applyGrowthScenario(500), 600);
   } catch (e) {
     log(`❌ Error loading scenario config: ${e.message}`);
   }
@@ -5108,26 +5153,17 @@ statusElement.innerHTML = `
 */
 // SCENARIO EVENT LISTENERS SETUP
 function setupScenarioListeners() {
-    try {
-        // Rewire buttons to parametric growth scenarios
-        const pesBtn = document.getElementById('scenario-pesimista');
-        const baseBtn = document.getElementById('scenario-base');
-        const optBtn = document.getElementById('scenario-optimista');
+  const pesBtn = document.getElementById('scenario-pesimista');
+  const baseBtn = document.getElementById('scenario-base');
+  const optBtn = document.getElementById('scenario-optimista');
+  const stressBtn = document.getElementById('scenario-stress');
 
-        pesBtn?.addEventListener('click', () => applyGrowthScenario(250));
-        baseBtn?.addEventListener('click', () => applyGrowthScenario(500));
-        optBtn?.addEventListener('click', () => applyGrowthScenario(750));
+  pesBtn?.addEventListener('click', () => applyGrowthScenario(250));
+  baseBtn?.addEventListener('click', () => applyGrowthScenario(500));
+  optBtn?.addEventListener('click', () => applyGrowthScenario(750));
+  stressBtn?.addEventListener('click', () => applyGrowthScenario(1000));
 
-        // Optional stress button if present
-        const stressBtn = document.getElementById('stress-scenario-btn');
-        if (stressBtn) {
-            stressBtn.addEventListener('click', () => applyGrowthScenario(1000));
-        }
-        
-        log('✅ Scenario listeners configured successfully');
-    } catch (error) {
-        log(`❌ Error setting up scenario listeners: ${error.message}`);
-    }
+  log('✅ Scenario listeners bound successfully');
 }
 
 function setupControls() {
