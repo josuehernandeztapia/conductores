@@ -2870,88 +2870,58 @@ return false;
  * cobertura, DSCR y CFO positivo.
  * @param {number} targetUnits - Total de unidades objetivo (250, 500, 750, 1000)
  */
-function applyGrowthScenario(targetUnits) {
+function applyGrowthScenario(units) {
   try {
+    // 1) Update scenario base data and yearly pattern
     let pattern = [];
-    switch (targetUnits) {
-      case 250:
-        pattern = [10, 40, 60, 65, 75];
-        break;
-      case 500:
-        pattern = [15, 70, 120, 150, 145];
-        break;
-      case 750:
-        pattern = [20, 100, 200, 220, 210];
-        break;
-      case 1000:
-        pattern = [25, 150, 250, 300, 275];
-        break;
-      default:
-        pattern = [15, 50, 120, 190, 220];
+    switch (true) {
+      case (units <= 300): pattern = [10, 40, 60, 65, 75]; break;      // ~250
+      case (units <= 600): pattern = [15, 70, 120, 150, 145]; break;   // ~500
+      case (units <= 800): pattern = [20, 100, 200, 220, 210]; break;  // ~750
+      default:              pattern = [25, 150, 250, 300, 275];         // ~1000
     }
-
-    // Aplicar patrón
     modelData.unitsPerYear = [...pattern];
-    log(`📈 Escenario aplicado: ${targetUnits} unidades totales → ${pattern.join('-')}`);
-
-    // Recalcular CAPEX y cobertura con funciones existentes
     const totalUnits = pattern.reduce((a, b) => a + b, 0);
-    const newCapex = totalUnits * getTotalPackageCost();
-    const fundingNow = totalFundingFromCF();
-    const coverageNow = newCapex > 0 ? (fundingNow / newCapex) * 100 : 0;
-    financialResults.totalCapex = newCapex;
-    financialResults.coverage = Number(coverageNow.toFixed(1));
+    modelData.units = units || totalUnits;
+    modelData.totalCapex = totalUnits * getTotalPackageCost();
 
-    // Mantener compatibilidad con lógica simple basada en unidades
-    modelData.units = totalUnits;
-    modelData.totalCapex = newCapex;
-    let scenarioName = '';
-    let scenarioKey = '';
-    if (targetUnits <= 300) { scenarioName = 'Pesimista'; scenarioKey = 'pesimista'; }
-    else if (targetUnits <= 600) { scenarioName = 'Base'; scenarioKey = 'base'; }
-    else if (targetUnits <= 800) { scenarioName = 'Expansivo'; scenarioKey = 'optimista'; }
-    else { scenarioName = 'Stress'; scenarioKey = 'stress'; }
+    // 2) Scenario label
+    const scenarioName =
+      (units <= 300) ? 'Pesimista' :
+      (units <= 600) ? 'Base' :
+      (units <= 800) ? 'Optimista' : 'Stress';
+    log(`🧩 Escenario aplicado: ${scenarioName} (${units} unidades)`);
+
+    // 3) Reset CF/results before full recalculation
     try {
-      localStorage.setItem('selectedScenario', JSON.stringify({ units: targetUnits, scenarioName }));
-      log(`🧩 Escenario aplicado: ${scenarioName} (${targetUnits} unidades)`);
-    } catch (_) { /* ignore storage errors */ }
+      financialResults.cf = [];
+      financialResults.totalCapex = 0;
+      financialResults.coverage = 0;
+    } catch (_) { /* best effort reset */ }
 
-    // Update scenario button UI if helper exists
-    try { if (typeof updateScenarioButtons === 'function' && scenarioKey) updateScenarioButtons(scenarioKey); } catch (_) { /* ignore */ }
-    try { if (typeof updateUnitInputs === 'function') updateUnitInputs(pattern); } catch (_) { /* ignore */ }
-
-    // Reglas automáticas de oro
-    if (financialResults.coverage > 105) {
-      log(`⚠️ Cobertura >105% → reduciendo 5% unidades Y5`);
-      modelData.unitsPerYear[4] = Math.round(modelData.unitsPerYear[4] * 0.95);
+    // 4) Re-run core calculations and UI
+    const ok = calculateFinancials();
+    if (ok) {
+      updateUI();
+      // 5) Log validation snapshot
+      try {
+        log(`💰 Equity: ${formatCurrency(calculateTotalEquityRaised())} | Debt: ${formatCurrency(calculateTotalDebtRaised())} | Coverage: ${financialResults.coverage?.toFixed(1)}%`);
+      } catch (_) { /* ignore */ }
     }
 
-    const dscrSnapshot = (typeof calculateFinalDSCR === 'function') ? (calculateFinalDSCR() || 0) : (financialResults.finalDSCR || 0);
-    if (dscrSnapshot > 0 && dscrSnapshot < 1.6) {
-      log(`⚠️ DSCR <1.6 → extendiendo plazo comercial a 72m`);
-      modelData.commercialLoanTermMonths = 72;
-    }
+    // 6) Persist scenario
+    try {
+      localStorage.setItem('selectedScenario', JSON.stringify({ units, scenarioName }));
+    } catch (_) { /* ignore */ }
 
-    const cafY5Pre = (financialResults && financialResults.cf && financialResults.cf[4] && typeof financialResults.cf[4].cashAfterFinancing !== 'undefined')
-      ? financialResults.cf[4].cashAfterFinancing : 0;
-    if (cafY5Pre < 0 && (dscrSnapshot || 1.8) >= 1.6) {
-      log(`⚠️ Cash After Financing negativo → moviendo 20 unidades Y5 → Y4`);
-      modelData.unitsPerYear[3] += 20;
-      modelData.unitsPerYear[4] = Math.max(0, modelData.unitsPerYear[4] - 20);
-    }
+    // UI helpers
+    try { if (typeof updateScenarioButtons === 'function') updateScenarioButtons((units<=300?'pesimista':units<=600?'base':units<=800?'optimista':'stress')); } catch (_) {}
+    try { if (typeof updateUnitInputs === 'function') updateUnitInputs(pattern); } catch (_) {}
 
-    // Persistir selección y configuración actual
-    if (typeof saveScenarioConfig === 'function') {
-      saveScenarioConfig(targetUnits);
-    }
-
-    // Mark as applied globally to avoid overrides
-    try { window.__scenarioApplied = true; } catch (_) {}
-
-    // Recalcular el modelo
-    forceCalculate();
-  } catch (e) {
-    log(`❌ ERROR in applyGrowthScenario: ${e.message}`);
+    log(`✅ Escenario ${scenarioName} aplicado y recalculado correctamente.`);
+  } catch (error) {
+    console.error("❌ Error en applyGrowthScenario:", error);
+    alert("Error aplicando escenario: " + error.message);
   }
 }
 
