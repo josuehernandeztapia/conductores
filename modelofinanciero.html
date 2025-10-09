@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Modelo Financiero Interactivo - Conductores del Mundo</title>
+<title>Modelo Financiero Interactivo - Rodando a Gas</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -400,7 +400,7 @@ min-height: 280px;
 <div class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
 <!-- Header and Key Metrics -->
 <header class="mb-8 text-center bg-transparent rounded-xl p-6">
-<h1 class="text-4xl lg:text-5xl font-black text-white leading-tight tracking-tighter mb-2">Modelo Financiero - Conductores del Mundo</h1>
+<h1 class="text-4xl lg:text-5xl font-black text-white leading-tight tracking-tighter mb-2">Modelo Financiero - Rodando a <span class="highlight-text">Gas</span></h1>
 <p class="text-xl text-slate-400 mt-2">NIIF-Compliant | Series A Due Diligence</p>
 <p class="text-sm text-amber-400 mt-1">⚠️ Modelo en desarrollo - Validación continua</p>
 <button onclick="toggleDebug()" class="mt-4 bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 rounded-lg font-medium transition duration-300 inline-flex items-center gap-2">
@@ -418,19 +418,15 @@ min-height: 280px;
   <div class="flex gap-2">
     <button id="scenario-pesimista" class="scenario-btn px-4 py-2 bg-slate-700 text-slate-300 rounded-lg border border-slate-600 text-sm hover:bg-slate-600 transition-all duration-200 hover:border-slate-500">
       📉 <strong>Pesimista</strong><br>
-      <small class="text-xs opacity-75">250 units · ~$150M CAPEX</small>
+      <small class="text-xs opacity-75">238 units · $149M CAPEX</small>
     </button>
     <button id="scenario-base" class="scenario-btn active px-4 py-2 bg-emerald-700 text-white rounded-lg border border-emerald-600 text-sm font-medium shadow-lg">
       📊 <strong>Base</strong><br>
-      <small class="text-xs opacity-90">500 units · ~$340M CAPEX</small>
+      <small class="text-xs opacity-90">595 units · $372M CAPEX</small>
     </button>
     <button id="scenario-optimista" class="scenario-btn px-4 py-2 bg-slate-700 text-slate-300 rounded-lg border border-slate-600 text-sm hover:bg-slate-600 transition-all duration-200 hover:border-slate-500">
       📈 <strong>Optimista</strong><br>
-      <small class="text-xs opacity-75">750 units · ~$510M CAPEX</small>
-    </button>
-    <button id="scenario-stress" class="scenario-btn px-4 py-2 bg-slate-700 text-slate-300 rounded-lg border border-slate-600 text-sm hover:bg-slate-600 transition-all duration-200 hover:border-slate-500">
-      🧪 <strong>Stress</strong><br>
-      <small class="text-xs opacity-75">1,000 units · ~$680M CAPEX</small>
+      <small class="text-xs opacity-75">1,055 units · $659M CAPEX</small>
     </button>
   </div>
 </div>
@@ -591,12 +587,6 @@ min-height: 280px;
 <button onclick="forceCalculate()" class="mt-6 bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-3 rounded-lg font-medium transition duration-300 inline-flex items-center gap-2">
 <i data-lucide="refresh-cw" class="w-5 h-5"></i> Recalcular Modelo
 </button>
-<button
-  onclick="runSensitivityAnalysis()"
-  class="mt-6 bg-emerald-700 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium transition duration-300 inline-flex items-center gap-2 ml-2 text-sm"
->
-  🔍 Analizar Sweet Spot
-</button>
 </div>
 </div>
 <!-- Tab Content: Financials -->
@@ -735,8 +725,6 @@ lucide.createIcons();
 let debugLogs = []; // Array to store debug logs
 let charts = {}; // Object to store Chart.js instances
 let plannedFinancingData = {}; // NEW: To store pre-calculation financing plan
-// Global sentinel to prevent duplicate scenario application
-window.__scenarioApplied = window.__scenarioApplied || false;
 
 /**
 * @typedef {Object} ModelData
@@ -771,8 +759,8 @@ portfolioAllocationStage3: 0.08,
 unitsPerYear: [15, 50, 100, 180, 250], // Base scenario - Updated
 
 // Capital Structure - CORRECTED SEED + SERIES A
-seed: 10000000,     // Seed $10M for tech + pilot (pre-Series A)
-seriesA: 50000000,  // Series A $50M growth capital
+seed: 5000000,     // $5M MXN - Tech inicial + 2-3 units proof (6 months)
+seriesA: 50000000, // $50M MXN - Growth capital Year 0 for scaling
 ventureDebtLineAvailable: 100000000, 
 commercialDebtLineAvailable: 300000000, 
 ventureDebtRate: 18.0,
@@ -1284,15 +1272,11 @@ function updateProtectedCapitalMotor() {
                         <div class="flex justify-between">
                             <span>2. Serie A:</span> <strong class="text-emerald-400">${formatCurrency(modelData.seriesA)}</strong>
                         </div>
-                        <div class="flex justify-between text-xs text-slate-400 mt-1">
-                          <span>Seed + Serie A Combined:</span>
-                          <strong class="text-sky-400">${formatCurrency(modelData.seed + modelData.seriesA)}</strong>
-                        </div>
                         <div class="flex justify-between">
                             <span>3. SINOSURE (6%):</span> <strong class="${modelData.sinosureAvailable ? 'text-yellow-400' : 'text-slate-500'}">${modelData.sinosureAvailable ? formatCurrency(constraints.sinosureOpportunity.available) : 'Disabled'}</strong>
                         </div>
                         <div class="flex justify-between">
-                            <span>4. Commercial (14%):</span> <strong class="text-orange-400">${formatCurrency(calculateTotalCommercialDebtRaised())}</strong>
+                            <span>4. Commercial (14%):</span> <strong class="text-orange-400">${formatCurrency(calculateTotalDebtRaised() - (modelData.sinosureAvailable ? constraints.sinosureOpportunity.available : 0))}</strong>
                         </div>
                         <div class="flex justify-between">
                             <span>5. Venture (18%):</span> <strong class="text-red-400">${modelData.sinosureAvailable ? '$0 (Displaced)' : formatCurrency(Math.max(0, totalCapex - modelData.seed - modelData.seriesA - 300000000))}</strong>
@@ -1303,7 +1287,7 @@ function updateProtectedCapitalMotor() {
                 <div class="p-2 bg-slate-800/50 rounded border border-slate-700">
                     <div class="font-semibold text-purple-400 mb-1">Engine Output</div>
                     <div class="flex justify-between text-xs">
-                        <span>Total Funding:</span> <strong class="text-white">${formatCurrency(totalFundingFromCF())}</strong>
+                        <span>Total Funding:</span> <strong class="text-white">${formatCurrency(constraints.capitalHealth.totalFunding)}</strong>
                     </div>
                     <div class="flex justify-between text-xs">
                         <span>Coverage:</span> <strong class="${constraints.capitalHealth.coverage >= 100 ? 'text-emerald-400' : 'text-amber-400'}">${constraints.capitalHealth.coverage.toFixed(1)}%</strong>
@@ -1325,10 +1309,9 @@ function updateProtectedCapitalMotor() {
 
 // SCENARIO DEFINITIONS
 const scenarios = {
-    pesimista: [10, 40, 60, 65, 75],   // 250
-    base: [15, 70, 120, 150, 145],     // 500
-    optimista: [20, 100, 200, 220, 210], // 750
-    stress: [25, 150, 250, 300, 275]   // 1000
+    pesimista: [8, 25, 45, 70, 90],
+    base: [15, 50, 100, 180, 250],
+    optimista: [25, 80, 180, 320, 450]
 };
 
 let currentScenario = 'base';
@@ -1512,12 +1495,6 @@ return totalFunding;
 * @returns {number} Total funding actually received.
 */
 function totalFundingFromCF() {
-    // Handle case where CF is empty — fallback to Seed + Serie A equity
-    if (!financialResults || !Array.isArray(financialResults.cf) || financialResults.cf.length === 0) {
-        log("⚠️ CF empty — using Seed + Serie A as fallback funding source.");
-        return (modelData.seed || 0) + (modelData.seriesA || 0);
-    }
-    
     if (!financialResults || !Array.isArray(financialResults.cf)) return 0;
     let total = 0;
     financialResults.cf.forEach((cf, index) => {
@@ -1641,19 +1618,6 @@ for (let i = 1; i <= 5; i++) {
 total += (modelData[`ventureDebtYear${i}`] || 0);
 total += (modelData[`commercialDebtYear${i}`] || 0);
 }
-// Sync with CF real draws
-if (financialResults && Array.isArray(financialResults.cf)) {
-  let cfDebt = 0;
-  financialResults.cf.forEach(cf => {
-    cfDebt += Math.max(
-      0,
-      (cf.currentYearVentureDebtDraw || 0) +
-      (cf.additionalFundingRaised || 0) +
-      (cf.sinosureDrawn || 0)
-    );
-  });
-  total = Math.max(total, cfDebt);
-}
 return total;
 }
 /**
@@ -1666,62 +1630,7 @@ for (let i = 1; i <= 5; i++) {
 total += (modelData[`partnerCapitalizationYear${i}`] || 0) +
 (modelData[`seriesB_newInvestors_year${i}`] || 0);
 }
-// Sync with CF real equity injections (fallback to model if CF not present)
-if (financialResults && Array.isArray(financialResults.cf)) {
-  let cfEquity = 0;
-  financialResults.cf.forEach((cf, index) => {
-    const year = index + 1;
-    const equityFromCF = Math.max(
-      0,
-      (cf.partnerCapitalization || 0) + (cf.seriesBNewInvestors || 0)
-    );
-    const equityFromModel = Math.max(
-      0,
-      (modelData[`partnerCapitalizationYear${year}`] || 0) +
-      (modelData[`seriesB_newInvestors_year${year}`] || 0)
-    );
-    cfEquity += equityFromCF > 0 ? equityFromCF : equityFromModel;
-  });
-  total = Math.max(total, cfEquity);
-}
 return total;
-}
-
-// 🧩 Utility: Validate and reset Cash Flow
-function validateCashFlowIntegrity() {
-  const cf = (financialResults && Array.isArray(financialResults.cf)) ? financialResults.cf : [];
-  const hasEquity = cf.some(e => ((e.partnerCapitalization || 0) > 0) || ((e.seriesBNewInvestors || 0) > 0));
-  const totalFunding = totalFundingFromCF();
-
-  console.log("%c🔍 CF Integrity Check", "background:#0D1117; color:#58A6FF; font-weight:bold;");
-  console.table({
-    "Entries": cf.length,
-    "Contains Equity": hasEquity,
-    "Total Funding (CF)": totalFunding,
-    "CAPEX": calculateTotalCapex(),
-    "Coverage (%)": ((totalFunding / calculateTotalCapex()) * 100).toFixed(1),
-    "DSCR": (financialResults && typeof financialResults.finalDSCR !== 'undefined') ? financialResults.finalDSCR : "N/A"
-  });
-
-  if (!hasEquity) {
-    console.warn("⚠️ CF missing initial equity injection — reinjecting Seed + Serie A...");
-    if (financialResults && Array.isArray(financialResults.cf)) {
-      financialResults.cf.push({
-        year: 0,
-        partnerCapitalization: modelData.seed,
-        seriesBNewInvestors: modelData.seriesA,
-        totalFunding: (modelData.seed || 0) + (modelData.seriesA || 0)
-      });
-    }
-  }
-
-  const capex = calculateTotalCapex();
-  if (capex > 0 && (totalFunding / capex) < 0.95) {
-    console.warn("⚠️ Coverage <95% — forcing recalculation.");
-    if (typeof forceCalculate === 'function') {
-      forceCalculate();
-    }
-  }
 }
 /**
 * Calculates the residual balance of Venture Debt for a given year.
@@ -1849,10 +1758,14 @@ function allocateCapital(year, remainingCapex) {
     const draws = { equity: 0, sinosure: 0, commercial: 0, venture: 0 };
     let remaining = remainingCapex;
 
-    // Fixed Equity (Seed + Serie A)
-    const fixedEquity = modelData.seed + modelData.seriesA;
-    const eqAvail = Math.min(fixedEquity, remaining);
-    draws.equity = eqAvail;
+    // 1) Planned Equity for the year (Partner + New Investors)
+    const eqLimit = remainingCapex * 0.25;
+    const plannedPartner = (plannedFinancingData[`partnerCapitalizationYear${year}`] || 0);
+    const plannedSeriesA = (plannedFinancingData[`seriesA_year${year}`] || 0);
+    const plannedSeriesB = (plannedFinancingData[`seriesB_newInvestors_year${year}`] || 0);
+    const eqPlannedTotal = plannedPartner + plannedSeriesA + plannedSeriesB;
+    const eqAvail = Math.min(eqLimit, eqPlannedTotal);
+    draws.equity = Math.min(eqAvail, remaining);
     remaining -= draws.equity;
 
     // 2) Sinosure (only if available and Year >= 2)
@@ -1869,8 +1782,6 @@ function allocateCapital(year, remainingCapex) {
         draws.commercial = commercialAvail;
         remaining -= commercialAvail;
     }
-    // Clamp negative commercial drawdowns
-    draws.commercial = Math.max(0, draws.commercial || 0);
 
     // 4) Venture Debt (only Y0–Y1 i.e., year <= 1)
     if (remaining > 0 && year <= 1) {
@@ -2021,85 +1932,51 @@ function calculateSeriesAMetrics() {
     };
 }
 /**
-* Calculates investor score (Dual: Growth vs Steady-State).
-* @returns {Object} { score, grade, issues, isInvestable }
+* Calculates general investor score.
+* @returns {Object} Investor health score.
 */
 function calculateInvestorScore() {
-const dscrFinal = calculateFinalDSCR() || 0;
-const totalCapexForCoverage = calculateTotalCapex();
-const totalFundingCF = totalFundingFromCF();
-// Use true coverage without clamping to allow >110% detection
-const coverage = totalCapexForCoverage > 0 ? ((totalFundingCF / totalCapexForCoverage) * 100) : 0;
-const year5BS = (financialResults.bs && financialResults.bs[4]) ? financialResults.bs[4] : {};
-const leverage = (year5BS && year5BS.equity) ? ((year5BS.debt || 0) / (year5BS.equity || 1)) : 0;
-const year5CF = financialResults.cf && financialResults.cf[4] ? financialResults.cf[4] : {};
-const cashAfterFin = (typeof year5CF.cashAfterFinancing === 'number') ? year5CF.cashAfterFinancing : ((year5CF.netCash != null) ? year5CF.netCash : ((year5CF.operatingCash || 0) + (year5CF.investingCash || 0) + (year5CF.financingCash || 0)));
-const normalizedCFAF = typeof financialResults.normalizedCFAF_Y5 === 'number' ? financialResults.normalizedCFAF_Y5 : 0;
+const unitEcon = evaluateUnitEconomics();
+const debtService = calculateDebtServiceCoverage();
 
-// Growth and Steady-State Scores (start at 10)
-let scoreGrowth = 10;
-let scoreSteady = 10;
-
-// Build issues with refined gating/thresholds
+let score = 10;
 let issues = [];
 
-// --- DSCR gating ---
-if (dscrFinal >= 1.5) {
-  issues = issues.filter(i => !i.includes("DSCR"));
-} else if (dscrFinal < 1.2) {
-  scoreGrowth -= 2;
-  scoreSteady -= 1.5;
-  issues.push('🚨 DSCR crítico (<1.2x)');
-} else if (dscrFinal < 1.5) {
-  scoreGrowth -= 1;
-  scoreSteady -= 0.5;
-  issues.push('⚠️ DSCR moderado (<1.5x)');
+// Unit economics (40% weight)
+if (unitEcon.marginPercent < 10) { score -= 4; issues.push('🚨 Unit economics críticos (<10%)'); }
+else if (unitEcon.marginPercent < 15) { score -= 2; issues.push('⚠️ Unit economics bajos (<15%)'); }
+
+// Debt service (30% weight)
+if (debtService.dscr < 1.2) { score -= 3; issues.push('🚨 DSCR crítico (<1.2x)'); }
+else if (debtService.dscr < 1.5) { score -= 1.5; issues.push('⚠️ DSCR bajo (<1.5x)'); }
+
+// Risk assumptions (20% weight)
+if (modelData.pdStage1 < 0.003) { score -= 1; issues.push('📊 PD Stage 1 optimista'); }
+if (modelData.tasaInteres < 22) { score -= 1; issues.push('💰 Tasa cliente insostenible'); }
+
+// Operational efficiency (10% weight)
+if (modelData.opexRates.some(rate => rate > 18)) {
+score -= 1;
+issues.push('🚀 OPEX alto (>18% en algún año)');
 }
 
-// --- Coverage band adjustment ---
-if (coverage < 95) {
-  scoreGrowth -= 1;
-  scoreSteady -= 0.5;
-  issues.push('⚠️ Cobertura de capital baja (<95%)');
-} else if (coverage > 110) {
-  scoreGrowth -= 0.5;
-  scoreSteady -= 0.25;
-  issues.push('⚠️ Cobertura de capital alta (>110%)');
+// Enhanced debt structure analysis (10% weight)
+const debtMetrics = calculateDebtMetricsBreakdown();
+if (debtMetrics.finalDSCR < 1.5) {
+score -= 1;
+issues.push('🏦 DSCR final bajo (<1.5x)');
+}
+if (financialResults.bs.length > 4 && financialResults.bs[4].equity > 0 && financialResults.bs[4].debt > financialResults.bs[4].equity * 2) {
+score -= 0.5;
+issues.push('📊 Leverage alto (Debt/Equity >2x)');
 }
 
-// --- Leverage logic refined ---
-if (leverage > 2.5) {
-  scoreGrowth -= 1;
-  scoreSteady -= 0.75;
-  issues.push('📊 Leverage alto (>2.5x)');
-} else if (leverage > 2.0) {
-  scoreGrowth -= 0.5;
-  scoreSteady -= 0.25;
-  issues.push('⚠️ Leverage moderado (>2.0x)');
-}
-
-// --- Cash flow impact adjusted ---
-if (cashAfterFin < 0 && Math.abs(cashAfterFin) > 0.3 * totalCapexForCoverage) {
-  scoreGrowth -= 1;
-  issues.push('💸 Cash Flow negativo por expansión agresiva');
-}
-
-// Keep steady-state normalized cash flow consideration
-if (normalizedCFAF < 0) {
-  scoreSteady -= 0.5;
-  issues.push('💵 Cash flow after financing normalizado (Y5) negativo');
-}
-
-// Normalize and log
-financialResults.investorScoreGrowth = Math.max(0, scoreGrowth);
-financialResults.investorScoreSteady = Math.max(0, scoreSteady);
-log(`💹 Investor Scores => Growth: ${financialResults.investorScoreGrowth}/10 | Steady: ${financialResults.investorScoreSteady}/10`);
-
-const score = Math.max(0, financialResults.investorScoreGrowth);
-const grade = score >= 8.5 ? 'A' : score >= 7 ? 'B' : score >= 5 ? 'C' : 'D';
-const isInvestable = score >= 6.5;
-
-return { score, grade, issues, isInvestable };
+return {
+score: Math.max(0, score),
+grade: score >= 8.5 ? 'A' : score >= 7 ? 'B' : score >= 5 ? 'C' : 'D',
+issues,
+isInvestable: score >= 6.5
+};
 }
 // ===== IFRS CALCULATION MODULES =====
 /**
@@ -2240,20 +2117,6 @@ if (cohort.originalUpfrontLiability > 0) {
 const monthlyUpfrontAmortization = cohort.originalUpfrontLiability / totalPaymentsMonthsClient;
 recognizedUpfrontCommission += Math.min(monthlyUpfrontAmortization, cohort.remainingUpfrontLiability);
 }
-}
-
-// Helper: total commercial debt raised (non-negative only)
-function calculateTotalCommercialDebtRaised() {
-  let total = 0;
-  for (let i = 1; i <= 5; i++) {
-    total += Math.max(0, (modelData[`commercialDebtYear${i}`] || 0));
-  }
-  if (financialResults && Array.isArray(financialResults.cf)) {
-    financialResults.cf.forEach(cf => {
-      total += Math.max(0, cf.additionalFundingRaised || 0);
-    });
-  }
-  return total;
 }
 
 const actualRecognizedOrigination = Math.min(recognizedOriginationFromPrincipal, cohort.remainingOriginationCommission);
@@ -2460,12 +2323,9 @@ try {
     debtOptimizationHistory = [];
 
 // --- Initial state variables ---
-let cash = 0; // Equity injection handled via allocation engine & CF only
+let cash = modelData.seriesA;
 let currentProvisionsBalance = 0;
-let endOfYearEquity = 0; // Equity tracked via CF and allocation engine
-
-// CF will be rebuilt during calculation; equity contributions flow via allocateCapital
-financialResults.cf = financialResults.cf || [];
+let endOfYearEquity = modelData.seriesA;
 
 // --- Cohort tracking ---
 let loanCohorts = [];
@@ -2478,10 +2338,10 @@ let ventureDebtBalance = 0;
 let commercialDebtBalance = 0;
 
 // --- IRR Cash Flow arrays ---
-let equityCashFlows = [0];
-let projectCashFlows = [0];
+let equityCashFlows = [-modelData.seriesA];
+let projectCashFlows = [-modelData.seriesA];
 let portfolioCashFlows = [];
-// Initial equity is considered in CF via allocation; no direct injection here
+log(`Initial Series A capital: ${formatCurrency(modelData.seriesA)}`);
 
 // --- Main annual loop (5 years) ---
 for (let year = 0; year < 5; year++) {
@@ -2652,10 +2512,6 @@ let techInvestmentThisYear = 0;
 if (currentYear === 1 || currentYear === 2) {
     techInvestmentThisYear = 6875000;
 }
-
-if (currentYear === 1) {
-    log(`💡 Seed applied to technology & pilot ($${(modelData.seed / 1e6).toFixed(1)}M)`);
-}
 const deltaReceivables = currentYearEndReceivables - ((financialResults.bs[year-1]?.receivables) || 0);
 const deltaProvisions = currentProvisionsBalance - ((financialResults.bs[year-1]?.provisions) || 0);
 const deltaContractLiabilities = niif15Results.contractLiabilitiesBalance - ((financialResults.bs[year-1]?.contractLiabilities) || 0);
@@ -2670,8 +2526,6 @@ const operatingCash = netIncome + annualDepreciation + impairment + deltaProvisi
         const finalNewEquityInjections = draws.equity;
         let finalNewVentureDebt = draws.venture;
         let finalNewCommercialDebt = draws.commercial;
-        // Ensure SINOSURE displacement never drives commercial negative
-        finalNewCommercialDebt = Math.max(0, finalNewCommercialDebt || 0);
 
         // SINOSURE cohort creation based on allocation
         if (draws.sinosure > 0) {
@@ -2682,31 +2536,9 @@ const operatingCash = netIncome + annualDepreciation + impairment + deltaProvisi
             });
         }
 
-        // DSCR-targeted leverage when coverage < 100%
-        try {
-          const covPct = (totalFundingFromCF() / calculateTotalCapex()) * 100;
-          const targetMinDSCR = 1.7;
-          const targetMaxDSCR = 2.0;
-          if (covPct < 100) {
-            const dscrNow = (typeof calculateFinalDSCR === 'function') ? (calculateFinalDSCR() || 0) : (financialResults.finalDSCR || 0);
-            if (dscrNow > targetMinDSCR) {
-              const capexGap = Math.max(0, calculateTotalCapex() - totalFundingFromCF());
-              let extraComm = Math.max(0, capexGap);
-              // soft cap: do not overshoot DSCR below ~1.6x; gentle step when far above target
-              if (dscrNow > targetMaxDSCR) {
-                extraComm = Math.min(extraComm, 0.15 * calculateTotalCapex());
-              }
-              if (extraComm > 0) {
-                finalNewCommercialDebt += extraComm;
-                log(`🏦 DSCR target leverage: +${formatCurrency(extraComm)} commercial Y${currentYear} to reach cov~100% & DSCR~1.8–2.0x`);
-              }
-            }
-          }
-        } catch (e) { log('⚠️ DSCR-target leverage skipped: ' + (e && e.message ? e.message : e)); }
-
 // Actualizar modelData con los valores optimizados/totales
 modelData[`ventureDebtYear${currentYear}`] = finalNewVentureDebt;
-modelData[`commercialDebtYear${currentYear}`] = Math.max(0, finalNewCommercialDebt || 0);
+modelData[`commercialDebtYear${currentYear}`] = finalNewCommercialDebt;
 modelData[`partnerCapitalizationYear${currentYear}`] = (plannedFinancingData[`partnerCapitalizationYear${currentYear}`] || 0);
 modelData[`seriesB_newInvestors_year${currentYear}`] = (plannedFinancingData[`seriesB_newInvestors_year${currentYear}`] || 0);
 
@@ -2752,30 +2584,9 @@ totalLiabilitiesEquity = totalLiabilities + endOfYearEquity;
 }
 
 financialResults.pl.push({ ...niif15Results, interestRevenue: annualInterestReceived, totalRevenue, ebitda, ebit, netIncome, interestExpense, depreciation: annualDepreciation, provisions, impairment, totalCOGS: sparePartsCOGS, grossProfit: totalRevenue - sparePartsCOGS, opex, earningsBeforeTax, incomeTaxExpense, addedUnits });
-// Corrected: include financing inflows but avoid double balloon deduction
-const cashAfterFinancing = (operatingCash || 0) + (financingCash || 0) + (financingOutflows || 0);
-financialResults.cf.push({
-    operatingCash,
-    investingCash,
-    financingCash,
-    netCash,
-    deltaProvisions,
-    deltaContractLiabilities,
-    incomeTaxPaid: incomeTaxExpense,
-    clientPrincipalPaymentsReceived: annualPrincipalReceived,
-    clientInterestPaymentsReceived: annualInterestReceived,
-    // ✅ Record equity injections in CF for accurate coverage/cards (only in Year 1)
-    partnerCapitalization: currentYear === 1 ? (modelData.seed || 0) : 0,
-    seriesBNewInvestors: currentYear === 1 ? (modelData.seriesA || 0) : 0,
-    currentYearVentureDebtDraw: finalNewVentureDebt,
-    additionalFundingRaised: finalNewCommercialDebt,
-    sinosureDrawn: sinosureDrawdowns,
-    debtPrincipalRepayment: totalDebtPrincipalRepayment,
-    techInvestmentThisYear,
-    financingOutflows,
-    balloonPayment: balloonPrincipalThisYear,
-    cashAfterFinancing
-});
+// Derive cashAfterFinancing (operating minus financing outflows) and store balloonPayment detail
+const cashAfterFinancing = (operatingCash || 0) - (financingOutflows || 0);
+financialResults.cf.push({ operatingCash, investingCash, financingCash, netCash, deltaProvisions, deltaContractLiabilities, incomeTaxPaid: incomeTaxExpense, clientPrincipalPaymentsReceived: annualPrincipalReceived, clientInterestPaymentsReceived: annualInterestReceived, currentYearVentureDebtDraw: finalNewVentureDebt, additionalFundingRaised: finalNewCommercialDebt, sinosureDrawn: sinosureDrawdowns, debtPrincipalRepayment: totalDebtPrincipalRepayment, techInvestmentThisYear, financingOutflows, balloonPayment: balloonPrincipalThisYear, cashAfterFinancing });
 log(`💵 Cash After Financing Y${currentYear}: ${formatCurrency(cashAfterFinancing)}`);
 financialResults.bs.push({ cash, receivables: currentYearEndReceivables, receivablesNet: currentYearEndReceivables - currentProvisionsBalance, fixedAssets: fixedAssetsNet, assetsHeldForSale: assetsHeldForSaleNet, totalAssets: totalAssets, debt: totalDebt, equity: endOfYearEquity, totalLiabilitiesEquity: totalLiabilitiesEquity, provisions: currentProvisionsBalance, contractLiabilities: niif15Results.contractLiabilitiesBalance });
 financialResults.niifDetails.push({ niif15: niif15Results, niif5: niif5Results.niif5Details, niif9: {...niif9Results, pdStage1: modelData.pdStage1, pdStage2: modelData.pdStage2, pdStage3: modelData.pdStage3, lgd: modelData.lgd, economicAdjustmentFactor: modelData.economicAdjustmentFactor, proteccionRodandoActiva: modelData.proteccionRodando, provisionesConProteccion: provisions, reduccionPorProteccion: niif9Results.totalECLBeforeAdjustment - provisions, saldoProvisionesAcumulado: currentProvisionsBalance } });
@@ -2837,190 +2648,13 @@ try {
     log(`⚠️ Could not compute normalized metrics: ${e.message}`);
 }
 
- // ✅ Validate after main calculation
- setTimeout(() => {
-   if (typeof validateCashFlowIntegrity === 'function') {
-     validateCashFlowIntegrity();
-     log("✅ Financial model recalculated with Seed + Serie A injection verified.");
-     // 💹 Post-Validation snapshot for DSCR, Cash After Financing Y5, and Coverage
-     try {
-       const dscr = (typeof calculateFinalDSCR === 'function') ? (calculateFinalDSCR() || 0) : (financialResults.finalDSCR || 0);
-       const cafY5 = (financialResults && financialResults.cf && financialResults.cf[4] && typeof financialResults.cf[4].cashAfterFinancing !== 'undefined')
-         ? financialResults.cf[4].cashAfterFinancing : 0;
-       const capexCheck = calculateTotalCapex();
-       const fundingCheck = totalFundingFromCF();
-       const coveragePct = capexCheck > 0 ? (fundingCheck / capexCheck) * 100 : 0;
-       // Store for downstream UI logs
-       financialResults.finalDSCR = dscr;
-       financialResults.coverage = Number(coveragePct.toFixed(1));
-       log(`💹 Post-Validation: DSCR=${(dscr && dscr !== 999) ? dscr.toFixed(2) : 'N/A'} | CashAfterFin Y5=${formatCurrency(cafY5)} | Coverage=${Number(coveragePct.toFixed(1))}%`);
-     } catch (e) { /* best-effort logging */ }
-   }
- }, 500);
- log('✅ FINANCIAL CALCULATIONS (v23) COMPLETED');
+log('✅ FINANCIAL CALCULATIONS (v23) COMPLETED');
 return true;
 } catch (error) {
 log(`❌ ERROR in calculateFinancials (v23): ${error.message}`);
 document.getElementById('balance-validation').innerHTML = `<span class="text-red-600">❌ ${error.message}</span>`;
 return false;
 }
-
-// ========= Escenarios de Crecimiento Optimizados (250 / 500 / 750 / 1000) =========
-/**
- * Aplica escenario de crecimiento, global y con motor completo.
- * Asegura SINOSURE ON, persiste selección y valida cobertura.
- * @param {number} units - 250 | 500 | 750 | 1000
- */
-function applyGrowthScenario(units) {
-  try {
-    // 1) Map units per scenario
-    let pattern = [];
-    if (units === 250)       pattern = [10, 40, 60, 65, 75];
-    else if (units === 500)  pattern = [15, 70, 120, 150, 145];
-    else if (units === 750)  pattern = [20, 100, 200, 220, 210];
-    else if (units === 1000) pattern = [25, 150, 250, 300, 275];
-    else                     pattern = [15, 50, 120, 190, 220];
-
-    // 2) Apply pattern and ensure SINOSURE ON
-    modelData.unitsPerYear = [...pattern];
-    modelData.sinosureAvailable = true;
-
-    // 3) Persist selection
-    const scenarioName = (units===250?'Pesimista':units===500?'Base':units===750?'Optimista':'Stress');
-    try { localStorage.setItem('selectedScenario', JSON.stringify({ units, scenarioName })); } catch (_) {}
-    log(`🧩 Escenario aplicado: ${scenarioName} (${units}u) → ${pattern.join('-')}`);
-
-    // 4) Full engine recalculation
-    if (typeof forceCalculate === 'function') {
-      forceCalculate();
-    } else {
-      // Fallback to core if forceCalculate missing
-      if (calculateFinancials()) updateUI();
-    }
-
-    // 5) Post-calc validation snapshot
-    setTimeout(() => {
-      try {
-        const covPct = ((totalFundingFromCF() / calculateTotalCapex()) * 100).toFixed(1);
-        const dscr = (financialResults?.finalDSCR || 0).toFixed(2);
-        log(`✅ Post-escenario: Coverage=${covPct}% | DSCR=${dscr}x`);
-      } catch (_) {}
-    }, 250);
-  } catch (error) {
-    console.error('❌ Error en applyGrowthScenario:', error);
-    alert('Error aplicando escenario: ' + error.message);
-  }
-}
-
-// Ensure global exposure of the function
-try { window.applyGrowthScenario = applyGrowthScenario; } catch (_) {}
-
-// 🧠 Persistencia de Escenario y Configuración de Financiamiento
-// Guarda y reaplica el escenario + tasas/plazo/balloon al recargar o recalcular
-
-function saveScenarioConfig(targetUnits) {
-  try {
-    const config = {
-      scenarioUnits: targetUnits,
-      ventureRate: modelData.ventureDebtRate || 18,
-      commercialRate: modelData.commercialDebtRate || 14,
-      graceMonths: modelData.commercialGraceMonths || 12,
-      termMonths: modelData.commercialLoanTermMonths || 60,
-      balloon: modelData.commercialBalloonPercent || 20,
-    };
-    localStorage.setItem('financialScenarioConfig', JSON.stringify(config));
-    log(`💾 Configuración guardada: ${targetUnits} unidades @ ${config.commercialRate}% comercial`);
-
-    // Persistencia adicional mínima para compatibilidad
-    let scenarioName = '';
-    if (targetUnits <= 300) scenarioName = 'Pesimista';
-    else if (targetUnits <= 600) scenarioName = 'Base';
-    else if (targetUnits <= 800) scenarioName = 'Expansivo';
-    else scenarioName = 'Stress';
-    try { localStorage.setItem('selectedScenario', JSON.stringify({ units: targetUnits, scenarioName })); } catch (_) { /* ignore */ }
-  } catch (e) {
-    log(`❌ Error saving scenario config: ${e.message}`);
-  }
-}
-
-function loadScenarioConfig() {
-  try {
-    // Avoid re-applying if already applied
-    if (window.__scenarioApplied) return;
-    const saved = localStorage.getItem('financialScenarioConfig');
-    if (saved) {
-      const config = JSON.parse(saved);
-      if (config && config.scenarioUnits && [250, 500, 750, 1000].includes(config.scenarioUnits)) {
-        log(`♻️ Reaplicando escenario guardado (${config.scenarioUnits} unidades)...`);
-        modelData.ventureDebtRate = config.ventureRate;
-        modelData.commercialDebtRate = config.commercialRate;
-        modelData.commercialGraceMonths = config.graceMonths;
-        modelData.commercialLoanTermMonths = config.termMonths;
-        modelData.commercialBalloonPercent = config.balloon;
-        setTimeout(() => { applyGrowthScenario(config.scenarioUnits); try { window.__scenarioApplied = true; } catch (_) {} }, 600);
-        return;
-      }
-    }
-
-    // Fallback a persistencia mínima 'selectedScenario'
-    const stored = localStorage.getItem('selectedScenario');
-    if (stored) {
-      const { units, scenarioName } = JSON.parse(stored);
-      if ([250, 500, 750, 1000].includes(units)) {
-        log(`💾 Escenario restaurado: ${scenarioName} (${units} unidades)`);
-        setTimeout(() => { applyGrowthScenario(units); try { window.__scenarioApplied = true; } catch (_) {} }, 600);
-        return;
-      }
-    }
-
-    // Default
-    log('ℹ️ Sin configuración guardada, cargando Base (500 unidades)...');
-    setTimeout(() => { applyGrowthScenario(500); try { window.__scenarioApplied = true; } catch (_) {} }, 600);
-  } catch (e) {
-    log(`❌ Error loading scenario config: ${e.message}`);
-  }
-}
-
-// Reaplicar al cargar la página
-try {
-  window.addEventListener('load', () => loadScenarioConfig());
-} catch (e) { /* ignore */ }
-
-// Restore minimal selectedScenario on DOMContentLoaded (redundant-safe)
-try {
-  window.addEventListener('DOMContentLoaded', () => {
-    try {
-      const saved = localStorage.getItem('selectedScenario');
-      if (!saved) return;
-      const { units, scenarioName } = JSON.parse(saved);
-      if (units) {
-        log(`💾 Restaurando escenario: ${scenarioName} (${units}u)`);
-        setTimeout(() => window.applyGrowthScenario(units), 200);
-      }
-    } catch (e) {
-      log('⚠️ Restore scenario error: ' + e.message);
-    }
-  }, { once: true });
-} catch (e) { /* ignore */ }
-
-// Reaplicar tras “Recalcular Modelo” si existe el botón
-try {
-  const recalcBtn = document.getElementById('recalculate-model-btn')
-    || document.querySelector('.recalculate-btn')
-    || (function() {
-      const buttons = Array.from(document.querySelectorAll('button'));
-      return buttons.find(b => (b.textContent || '').includes('Recalcular Modelo')) || null;
-    })();
-  if (recalcBtn) {
-    recalcBtn.addEventListener('click', () => {
-      const saved = JSON.parse(localStorage.getItem('financialScenarioConfig') || '{}');
-      if (saved && saved.scenarioUnits) {
-        log(`🔁 Reaplicando escenario ${saved.scenarioUnits} unidades tras recalcular...`);
-        setTimeout(() => loadScenarioConfig(), 800);
-      }
-    });
-  }
-} catch (e) { /* ignore */ }
 }
 
 /**
@@ -3447,17 +3081,6 @@ function toggleDebug() {
 const panel = document.getElementById('debug-info');
 panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
 }
-
-// Optional: Manual CF validation trigger via a Debug button (if present)
-const debugButton = document.getElementById('debug-button');
-if (debugButton) {
-  debugButton.addEventListener('click', () => {
-    console.log('🧠 Manual CF Validation Triggered');
-    if (typeof validateCashFlowIntegrity === 'function') {
-      validateCashFlowIntegrity();
-    }
-  });
-}
 /**
 * Shows a temporary warning in the UI.
 * @param {string} message - Warning message.
@@ -3518,24 +3141,8 @@ document.getElementById('aum-value').textContent = formatCurrency(year5BS.totalA
 const totalVansFinanced = financialResults.pl.reduce((a, b) => a + (b.addedUnits || 0), 0);
 document.getElementById('total-vans-financed').textContent = totalVansFinanced.toLocaleString();
 // Row 2: La Maquinaria de Crecimiento
-// Use CF-based aggregates instead of static modelData
-// CF-based aggregates (Single Source of Truth)
-const cfAgg = (financialResults.cf || []).reduce((acc, cf) => {
-  acc.equity += Math.max(0, (cf.partnerCapitalization || 0) + (cf.seriesBNewInvestors || 0));
-  acc.debt += Math.max(0, (cf.currentYearVentureDebtDraw || 0) + (cf.additionalFundingRaised || 0) + (cf.sinosureDrawn || 0));
-  return acc;
-}, { equity: 0, debt: 0 });
-
-document.getElementById('equity-raised').textContent = formatCurrency(cfAgg.equity || 0);
-document.getElementById('total-debt-raised').textContent = formatCurrency(cfAgg.debt || 0);
-
-// Log visual feedback
-console.log("%c💰 Updated Equity & Debt Cards:", "color: #00FFFF; font-weight:bold;");
-console.table({
-  "Equity (Seed+SerieA)": cfAgg.equity,
-  "Debt (Commercial+Sinosure)": cfAgg.debt,
-  "CF Entries": financialResults.cf?.length || 0
-});
+document.getElementById('equity-raised').textContent = formatCurrency(calculateTotalEquityRaised());
+document.getElementById('total-debt-raised').textContent = formatCurrency(calculateTotalDebtRaised());
 const seriesAMetrics = calculateSeriesAMetrics();
 document.getElementById('funding-efficiency').textContent = seriesAMetrics.fundingEfficiency ? seriesAMetrics.fundingEfficiency.toFixed(1) + 'x' : '0.0x';
 document.getElementById('capital-per-unit').textContent = seriesAMetrics.capitalPerUnit ? '$' + seriesAMetrics.capitalPerUnit.toFixed(0) + 'K' : '$0K';
@@ -3562,12 +3169,12 @@ const plYear = financialResults.pl[i];
 if (plYear.totalRevenue > (plYear.opex + plYear.provisions + plYear.impairment)) {
 actualAutosufficiencyYear = i + 1;
 break;
+        // Apply current mode visibility after values update
+        updateFinancialModeUI();
 }
 }
 }
-// After computing the autosufficiency year, apply current mode visibility
 document.getElementById('autosuficiency-year').textContent = actualAutosufficiencyYear > 0 ? `Año ${actualAutosufficiencyYear}` : 'No alcanzado';
-updateFinancialModeUI();
 }
 
 updateTables();
@@ -3581,65 +3188,11 @@ updateOptimizationStatus();
 updateInvestorScore();
 updateFundingCoverageCard();
 
-    // Render CF-based Capital Analysis (guarded)
-    try { renderCapitalAnalysisCF(); } catch(e) { log('⚠️ renderCapitalAnalysisCF: '+e.message); }
-
-    // Quick validation snapshot
-    try {
-      console.log("%cCF Capital Snapshot",
-        "background:#0D1117;color:#58A6FF;font-weight:bold;",
-        {
-          CAPEX: calculateTotalCapex(),
-          Equity_CF: (financialResults.cf||[]).reduce((s,cf)=> s + Math.max(0,(cf.partnerCapitalization||0)+(cf.seriesBNewInvestors||0)), 0),
-          Debt_CF: (financialResults.cf||[]).reduce((s,cf)=> s + Math.max(0,(cf.currentYearVentureDebtDraw||0)+(cf.additionalFundingRaised||0)+(cf.sinosureDrawn||0)), 0)
-        }
-      );
-    } catch(_) {}
-
-// UI validation snapshot
-try {
-  console.table({
-    "💰 Seed (MXN)": modelData.seed,
-    "💰 Serie A (MXN)": modelData.seriesA,
-    "🏦 Total Equity": (modelData.seed || 0) + (modelData.seriesA || 0),
-    "📊 Coverage %": ((totalFundingFromCF() / calculateTotalCapex()) * 100).toFixed(1),
-    "⚙️ DSCR": (typeof calculateFinalDSCR === 'function' ? (calculateFinalDSCR() || 'N/A') : (financialResults.finalDSCR || 'N/A')),
-  });
-} catch (e) { /* best-effort logging */ }
-
-    // Visual consolidated log at end of UI update
-    try {
-      const unitsStr = Array.isArray(modelData.unitsPerYear) ? modelData.unitsPerYear.join('-') : '';
-      const capexTotal = calculateTotalCapex();
-      const fundingNow = totalFundingFromCF();
-      const coverageNow = capexTotal > 0 ? ((fundingNow / capexTotal) * 100).toFixed(1) : '0.0';
-      financialResults.totalCapex = capexTotal;
-      financialResults.coverage = Number(coverageNow);
-      log(`✅ Modelo actualizado | Unidades: ${unitsStr} | CAPEX: $${formatCurrency(capexTotal)} | Coverage: ${coverageNow}%`);
-    } catch (e) { /* best-effort UI log */ }
-    log(`✅ UI Update sequence completed.`);
+log(`✅ UI Update sequence completed.`);
 } catch (error) {
 log(`❌ Error in updateUI: ${error.message}`);
 }
 }
-
-// Lightweight persistence loader for selectedScenario
-// Only activates if no dedicated loadScenarioConfig() exists
-(function loadScenarioConfigIIFE() {
-  try {
-    if (typeof loadScenarioConfig === 'function') return; // use the dedicated loader if present
-    if (window.__scenarioApplied) return; // already applied; skip
-    const stored = localStorage.getItem('selectedScenario');
-    if (!stored) return;
-    const { units, scenarioName } = JSON.parse(stored);
-    if (units) {
-      applyGrowthScenario(units);
-      log(`💾 Escenario restaurado: ${scenarioName} (${units} unidades)`);
-    }
-  } catch (err) {
-    log(`⚠️ Error loading scenario config: ${err.message}`);
-  }
-})();
 /**
 * Coordinates the update of all financial tables (P&L, CF, BS).
 */
@@ -4601,25 +4154,35 @@ function updateScenarioButtons(activeScenario) {
 }
 
 function updateCapitalStatus(capitalPlan) {
-    // CF-only SSOT for capital analysis
-    const cfAgg = (financialResults.cf || []).reduce((acc, cf) => {
-        acc.equity += Math.max(0, (cf.partnerCapitalization || 0) + (cf.seriesBNewInvestors || 0));
-        acc.debt   += Math.max(0, (cf.currentYearVentureDebtDraw || 0) + (cf.additionalFundingRaised || 0) + (cf.sinosureDrawn || 0));
-        return acc;
-    }, { equity: 0, debt: 0 });
-
-    const planInvestment = calculateTotalCapex();
-    const equityDeployed = cfAgg.equity;
-    const debtDeployed   = cfAgg.debt;
-
+    const { allocation, deficit, totalCapex } = capitalPlan;
+    const totalFunding = totalFundingFromCF();
+    const coverage = totalCapex > 0 ? (totalFunding / totalCapex) * 100 : 0;
+    
+    // Update "Análisis de Estructura de Capital" section
     const statusContainer = document.querySelector('#financing-summary-card');
     if (statusContainer) {
         statusContainer.innerHTML = `
-            <h5 class="font-semibold text-white mb-2">📊 Análisis de Estructura de Capital</h5>
+            <h5 class="font-semibold text-white mb-3 flex items-center">
+                🧠 Intelligent Capital Allocation 
+                <span class="ml-2 text-xs px-2 py-1 rounded ${coverage >= 100 ? 'bg-emerald-900 text-emerald-300' : 'bg-amber-900 text-amber-300'}">${coverage.toFixed(0)}% covered</span>
+            </h5>
             <div class="text-sm space-y-2 text-slate-300">
-                <div class="flex justify-between"><span>• Plan de Inversión (CAPEX Total):</span> <strong>${formatCurrency(planInvestment)}</strong></div>
-                <div class="flex justify-between"><span>• Capital de Socios Desplegado (CF):</span> <strong class="text-sky-400">${formatCurrency(equityDeployed)}</strong></div>
-                <div class="flex justify-between border-t border-slate-700 pt-1"><span>• Deuda Desplegada (CF):</span> <strong class="text-emerald-400">${formatCurrency(debtDeployed)}</strong></div>
+                <div class="font-semibold text-sky-400 border-b border-slate-700 pb-1">Escenario: ${currentScenario.toUpperCase()}</div>
+                
+                <div class="space-y-1">
+                    <div class="flex justify-between"><span>• Seed Capital:</span> <strong class="text-blue-400">$${(allocation.seed/1000000).toFixed(0)}M</strong></div>
+                    <div class="flex justify-between"><span>• Serie A:</span> <strong class="text-emerald-400">$${(allocation.seriesA/1000000).toFixed(0)}M</strong></div>
+                    <div class="flex justify-between"><span>• SINOSURE (6%):</span> <strong class="${allocation.sinosure > 0 ? 'text-yellow-400' : 'text-slate-500'}">${allocation.sinosure > 0 ? '$' + (allocation.sinosure/1000000).toFixed(0) + 'M' : 'No disponible'}</strong></div>
+                    <div class="flex justify-between"><span>• Venture Debt (18%):</span> <strong class="text-red-400">$${(allocation.ventureDebt/1000000).toFixed(0)}M</strong></div>
+                    <div class="flex justify-between"><span>• Commercial Debt (14%):</span> <strong class="text-orange-400">$${(allocation.commercialDebt/1000000).toFixed(0)}M</strong></div>
+                    <div class="flex justify-between"><span>• Serie B:</span> <strong class="text-purple-400">$${(allocation.seriesB/1000000).toFixed(0)}M</strong></div>
+                </div>
+                
+                <div class="border-t border-slate-700 pt-2 mt-2">
+                    <div class="flex justify-between font-semibold"><span>Total CAPEX Needed:</span> <strong class="text-white">$${(totalCapex/1000000).toFixed(0)}M</strong></div>
+                    <div class="flex justify-between font-semibold"><span>Total Funding (CF):</span> <strong class="text-sky-400">$${(totalFunding/1000000).toFixed(0)}M</strong></div>
+                    ${deficit > 0 ? `<div class="flex justify-between text-red-400 font-semibold"><span>• Funding Gap:</span> <strong>$${(deficit/1000000).toFixed(0)}M ⚠️</strong></div>` : '<div class="text-emerald-400 font-semibold">✅ Fully Funded</div>'}
+                </div>
             </div>
         `;
     }
@@ -4637,21 +4200,11 @@ function forceCalculate() {
         updateUI();
         // Validation logs to confirm funding ≈ capex after cohorts are created
         try {
-            setTimeout(() => {
-              const capexCheck = calculateTotalCapex();
-              const fundingCheck = totalFundingFromCF();
-              const coveragePct = (capexCheck > 0 ? (fundingCheck / capexCheck) * 100 : 0).toFixed(1);
-              console.log("%c📊 Financial Validation Snapshot", "background: #222; color: #0ff; font-weight:bold;");
-              console.table({
-                "Seed": modelData.seed,
-                "Serie A": modelData.seriesA,
-                "Equity Total": modelData.seed + modelData.seriesA,
-                "Total Funding (CF)": fundingCheck,
-                "CAPEX": capexCheck,
-                "Coverage %": `${coveragePct}%`,
-                "DSCR": financialResults.finalDSCR || 0
-              });
-            }, 1000);
+            const capexCheck = calculateTotalCapex();
+            const fundingCheck = totalFundingFromCF();
+            console.log('CAPEX:', capexCheck);
+            console.log('FUNDING (CF):', fundingCheck);
+            console.log('Coverage (% via CF):', capexCheck > 0 ? (fundingCheck / capexCheck) * 100 : 0);
         } catch (e) { /* ignore validation log errors */ }
         runGlobalChecks(); // Run global checks after manual recalculation
         
@@ -5009,10 +4562,6 @@ function setupFinancingMatrix() {
         forceCalculate();
     });
 
-    const sanitizeFinancingTable = (value) => {
-        return value <= 0 ? 0 : value;
-    };
-
     const table = document.createElement('table');
     table.id = 'financing-matrix-table';
     
@@ -5046,8 +4595,7 @@ function setupFinancingMatrix() {
                 const cell = dataRow.insertCell();
                 const modelKey = `${rowData.key}${year}`;
                 if (type === 'Planeado') {
-                    const displayVal = sanitizeFinancingTable(modelData[modelKey] || 0);
-                    cell.innerHTML = `<input type="number" id="planned-${modelKey}" step="1000000" min="0" value="${displayVal}" class="w-full">`;
+                    cell.innerHTML = `<input type="number" id="planned-${modelKey}" step="1000000" min="0" value="${modelData[modelKey] || 0}" class="w-full">`;
                     cell.querySelector('input').addEventListener('change', (e) => {
                         modelData[modelKey] = parseFloat(e.target.value) || 0;
                         forceCalculate();
@@ -5061,11 +4609,6 @@ function setupFinancingMatrix() {
     });
 
     container.appendChild(table);
-
-    const note = document.createElement('small');
-    note.className = 'text-slate-400 italic';
-    note.textContent = '*Valores negativos u obsoletos corresponden a optimización automática del motor (no representan uso real).';
-    container.appendChild(note);
 
     // Summary Card Placeholder
     const summaryCard = document.createElement('div');
@@ -5085,22 +4628,6 @@ function setupFinancingMatrix() {
     createNumberControl({ id: 'commercialBalloonPercent', label: 'Balloon Payment (%)', min: 0, max: 40, step: 5, type: 'number' }, ratesDiv);
 
     container.appendChild(ratesDiv);
-
-    // --- Ensure Capital Analysis card exists ---
-    ensureElement(
-      'capital-analysis-card',
-      `
-      <section id="capital-analysis-card" class="mt-4 bg-slate-900 rounded-xl border border-slate-800 p-4">
-        <h3 class="text-slate-200 font-semibold text-sm mb-2">📊 Análisis de Estructura de Capital</h3>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-slate-300 text-sm">
-          <div id="cap-ssot-equity"  class="p-3 bg-slate-800 rounded-lg"></div>
-          <div id="cap-ssot-debt"    class="p-3 bg-slate-800 rounded-lg"></div>
-          <div id="cap-ssot-lines"   class="md:col-span-2 p-3 bg-slate-800 rounded-lg"></div>
-        </div>
-      </section>
-      `,
-      '#matriz-financiamiento-controls'
-    );
 }
 
 /**
@@ -5148,21 +4675,35 @@ function updateFinancingMatrixWithOptimized() {
 
     const summaryCard = document.getElementById('financing-summary-card');
     if (summaryCard) {
-        const cfAgg = (financialResults.cf||[]).reduce((a,cf)=>{
-          a.equity += Math.max(0,(cf.partnerCapitalization||0)+(cf.seriesBNewInvestors||0));
-          a.debt   += Math.max(0,(cf.currentYearVentureDebtDraw||0)+(cf.additionalFundingRaised||0)+(cf.sinosureDrawn||0));
-          return a;
-        },{equity:0,debt:0});
-        const planInvestment = calculateTotalCapex();
-        const equityDeployed = cfAgg.equity;
-        const debtDeployed   = cfAgg.debt;
+        let vdUsed = 0, cdUsed = 0;
+        for (let i = 1; i <= 5; i++) {
+            vdUsed += modelData[`ventureDebtYear${i}`] || 0;
+            cdUsed += modelData[`commercialDebtYear${i}`] || 0;
+        }
+        const vdUtilization = modelData.ventureDebtLineAvailable > 0 ? (vdUsed / modelData.ventureDebtLineAvailable) * 100 : 0;
+        const cdUtilization = modelData.commercialDebtLineAvailable > 0 ? (cdUsed / modelData.commercialDebtLineAvailable) * 100 : 0;
+        
+        const vdStatus = vdUsed > modelData.ventureDebtLineAvailable ? `🚨 Déficit de ${formatCurrency(vdUsed - modelData.ventureDebtLineAvailable)}` : '✅ Cubierto';
+        const cdStatus = cdUsed > modelData.commercialDebtLineAvailable ? `🚨 Déficit de ${formatCurrency(cdUsed - modelData.commercialDebtLineAvailable)}` : '✅ Cubierto';
 
         summaryCard.innerHTML = `
             <h5 class="font-semibold text-white mb-2">📊 Análisis de Estructura de Capital</h5>
             <div class="text-sm space-y-2 text-slate-300">
-                <div class="flex justify-between"><span>• Plan de Inversión (CAPEX Total):</span> <strong>${formatCurrency(planInvestment)}</strong></div>
-                <div class="flex justify-between"><span>• Capital de Socios Desplegado (CF):</span> <strong class="text-sky-400">${formatCurrency(equityDeployed)}</strong></div>
-                <div class="flex justify-between border-t border-slate-700 pt-1"><span>• Deuda Desplegada (CF):</span> <strong class="text-emerald-400">${formatCurrency(debtDeployed)}</strong></div>
+                <div class="font-semibold text-sky-400">Capital de Socios (Equity)</div>
+                <div class="flex justify-between"><span>• Plan de Inversión:</span> <strong>${formatCurrency(totalPlannedEquity + modelData.seriesA)}</strong></div>
+                <div class="flex justify-between"><span>• Capital Adicional Requerido:</span> <strong class="text-amber-400">${formatCurrency(totalOptimizedEquity - totalPlannedEquity)}</strong></div>
+                <div class="flex justify-between border-t border-slate-700 pt-1"><span>• Total Equity Desplegado:</span> <strong>${formatCurrency(totalOptimizedEquity + modelData.seriesA)}</strong></div>
+            </div>
+            <div class="text-sm space-y-2 text-slate-300 mt-3 pt-3 border-t border-slate-700">
+                <div class="font-semibold text-sky-400">Capital de Deuda</div>
+                <div class="flex justify-between"><span>• Plan de Retiros (Drawdown):</span> <strong>${formatCurrency(totalPlannedDebt)}</strong></div>
+                <div class="flex justify-between"><span>• Deuda Adicional Requerida:</span> <strong class="text-amber-400">${formatCurrency(totalOptimizedDebt - totalPlannedDebt)}</strong></div>
+                <div class="flex justify-between border-t border-slate-700 pt-1"><span>• Total Deuda Desplegada:</span> <strong>${formatCurrency(totalOptimizedDebt)}</strong></div>
+            </div>
+            <div class="text-sm space-y-2 text-slate-300 mt-3 pt-3 border-t border-slate-700">
+                 <div class="font-semibold text-sky-400">Estado de Líneas de Crédito</div>
+                 <div class="flex justify-between"><span>• Línea Venture Debt:</span> <strong>${formatCurrency(modelData.ventureDebtLineAvailable)}</strong> | <span>Utilizado:</span> <strong>${formatCurrency(vdUsed)} (${vdUtilization.toFixed(0)}%)</strong> | <strong class="${vdUsed > modelData.ventureDebtLineAvailable ? 'text-red-400' : 'text-emerald-400'}">${vdStatus}</strong></div>
+                 <div class="flex justify-between"><span>• Línea Deuda Comercial:</span> <strong>${formatCurrency(modelData.commercialDebtLineAvailable)}</strong> | <span>Utilizado:</span> <strong>${formatCurrency(cdUsed)} (${cdUtilization.toFixed(0)}%)</strong> | <strong class="${cdUsed > modelData.commercialDebtLineAvailable ? 'text-red-400' : 'text-emerald-400'}">${cdStatus}</strong></div>
             </div>
         `;
     }
@@ -5197,178 +4738,20 @@ statusElement.innerHTML = `
 }
 }
 
-// --- CF-based Capital Analysis renderer (SSOT CF, guarded) ---
-function renderCapitalAnalysisCF() {
-  try {
-    const cfArray = Array.isArray(financialResults?.cf) ? financialResults.cf : [];
-    const agg = cfArray.reduce((a, cf) => {
-      a.equity += Math.max(0, (cf.partnerCapitalization||0) + (cf.seriesBNewInvestors||0));
-      a.debt   += Math.max(0, (cf.currentYearVentureDebtDraw||0) + (cf.additionalFundingRaised||0) + (cf.sinosureDrawn||0));
-      return a;
-    }, { equity: 0, debt: 0 });
-
-    const capexPlan = calculateTotalCapex();
-    const e = document.getElementById('cap-ssot-equity');
-    const d = document.getElementById('cap-ssot-debt');
-    const l = document.getElementById('cap-ssot-lines');
-
-    if (e) {
-      e.innerHTML = `
-        <div class="font-medium text-emerald-400 mb-1">Capital de Socios (CF)</div>
-        <div>• Plan de Inversión (CAPEX): <strong>${formatCurrency(capexPlan)}</strong></div>
-        <div>• Total Equity Desplegado (CF): <strong>${formatCurrency(agg.equity)}</strong></div>
-        <div>• Gap de Equity: <strong>${formatCurrency(Math.max(0, capexPlan - agg.equity - agg.debt))}</strong></div>
-      `;
-    }
-
-    if (d) {
-      const coveragePct = capexPlan ? (((agg.equity + agg.debt) / capexPlan) * 100).toFixed(1) : '0.0';
-      const dscrY5 = (typeof calculateFinalDSCR === 'function')
-        ? calculateFinalDSCR()
-        : (financialResults?.finalDSCR || 0);
-      const dscrText = (dscrY5 && dscrY5 !== 999) ? `${dscrY5.toFixed(2)}x` : (dscrY5 === 999 ? '∞' : 'N/A');
-      d.innerHTML = `
-        <div class="font-medium text-sky-400 mb-1">Capital de Deuda (CF)</div>
-        <div>• Total Deuda Desplegada (CF): <strong>${formatCurrency(agg.debt)}</strong></div>
-        <div>• Cobertura CAPEX (CF/CAPEX): <strong>${coveragePct}%</strong></div>
-        <div>• DSCR (Y5): <strong>${dscrText}</strong></div>
-      `;
-    }
-
-    if (l) {
-      const vdLimit = modelData?.ventureDebtLineAvailable || 0;
-      const cdLimit = modelData?.commercialDebtLineAvailable || 0;
-      const vdUsed = cfArray.reduce((s, cf) => s + Math.max(0, cf.currentYearVentureDebtDraw || 0), 0);
-      const cdUsed = cfArray.reduce((s, cf) => s + Math.max(0, (cf.additionalFundingRaised||0) + (cf.sinosureDrawn||0)), 0);
-      const vdPct = vdLimit ? ((vdUsed / vdLimit) * 100).toFixed(0) : '0';
-      const cdPct = cdLimit ? ((cdUsed / cdLimit) * 100).toFixed(0) : '0';
-      l.innerHTML = `
-        <div class="font-medium text-slate-200 mb-1">Estado de Líneas de Crédito</div>
-        <div>• Línea Venture Debt: <strong>${formatCurrency(vdLimit)}</strong> | Utilizado: <strong>${formatCurrency(vdUsed)} (${vdPct}%)</strong></div>
-        <div>• Línea Deuda Comercial (incl. SINOSURE): <strong>${formatCurrency(cdLimit)}</strong> | Utilizado: <strong>${formatCurrency(cdUsed)} (${cdPct}%)</strong></div>
-      `;
-    }
-  } catch (err) {
-    console.error('renderCapitalAnalysisCF:', err);
-  }
-}
-
 /**
 * Main function to set up all UI controls.
 */
-// ----- Utilities -----
-// --- UI guards ---
-function ensureElement(id, html, parentSel='body') {
-  let el = document.getElementById(id);
-  if (!el) {
-    const parent = document.querySelector(parentSel) || document.body;
-    const wrapper = document.createElement('div');
-    wrapper.innerHTML = html.trim();
-    el = wrapper.firstElementChild;
-    parent.appendChild(el);
-  }
-  return el;
-}
-
-function deepClone(o){ return JSON.parse(JSON.stringify(o)); }
-
-function snapshotState(){
-  return {
-    modelData: deepClone(modelData),
-    financialResults: deepClone(financialResults),
-    plannedFinancingData: deepClone(typeof plannedFinancingData!=='undefined'? plannedFinancingData : {}),
-    sinosureCohorts: deepClone(typeof sinosureCohorts!=='undefined'? sinosureCohorts : []),
-    ventureDebtCohorts: deepClone(typeof ventureDebtCohorts!=='undefined'? ventureDebtCohorts : []),
-    commercialDebtCohorts: deepClone(typeof commercialDebtCohorts!=='undefined'? commercialDebtCohorts : []),
-  };
-}
-function restoreState(s){
-  modelData = deepClone(s.modelData);
-  financialResults = deepClone(s.financialResults);
-  if (typeof plannedFinancingData!=='undefined') plannedFinancingData = deepClone(s.plannedFinancingData);
-  if (typeof sinosureCohorts!=='undefined') sinosureCohorts = deepClone(s.sinosureCohorts);
-  if (typeof ventureDebtCohorts!=='undefined') ventureDebtCohorts = deepClone(s.ventureDebtCohorts);
-  if (typeof commercialDebtCohorts!=='undefined') commercialDebtCohorts = deepClone(s.commercialDebtCohorts);
-}
-function hardResetEngine(){
-  try {
-    financialResults = { pl:[], cf:[], bs:[], niifDetails:[], tirProyecto:0, tirCartera:0, tirEquity:0, roe:[], roic:[] };
-    if (typeof sinosureCohorts!=='undefined') sinosureCohorts.length = 0;
-    if (typeof ventureDebtCohorts!=='undefined') ventureDebtCohorts.length = 0;
-    if (typeof commercialDebtCohorts!=='undefined') commercialDebtCohorts.length = 0;
-    log('🧼 Engine hard-reset completed');
-  } catch(e) { log('⚠️ hardResetEngine: '+e.message); }
-}
-function injectInitialEquityIfMissing(){
-  try{
-    const hasEq0 = (financialResults.cf||[]).some(e => e.year===0 && (((e.partnerCapitalization||0)+(e.seriesBNewInvestors||0))>0));
-    if(!hasEq0){
-      financialResults.cf = financialResults.cf || [];
-      financialResults.cf.push({
-        year:0,
-        partnerCapitalization: modelData.seed||0,
-        seriesBNewInvestors: modelData.seriesA||0,
-        currentYearVentureDebtDraw:0,
-        additionalFundingRaised:0,
-        sinosureDrawn:0
-      });
-      log(`💡 Injected initial equity Y0: ${formatCurrency((modelData.seed||0)+(modelData.seriesA||0))}`);
-    }
-  }catch(e){ log('⚠️ injectInitialEquityIfMissing: '+e.message); }
-}
-
-// Global scenario function
-function _applyGrowthScenario(units){
-  try{
-    // ramp patterns
-    let pattern=[];
-    if(units===250) pattern=[10,40,60,65,75];
-    else if(units===500) pattern=[15,70,120,150,145];
-    else if(units===750) pattern=[20,100,200,220,210];
-    else if(units===1000) pattern=[25,150,250,300,275];
-    else pattern=[15,50,120,190,220];
-
-    modelData.unitsPerYear = [...pattern];
-    modelData.sinosureAvailable = true; // deterministic on scenarios
-
-    const scenarioName = (units===250?'Pesimista':units===500?'Base':units===750?'Optimista':'Stress');
-    localStorage.setItem('selectedScenario', JSON.stringify({ units, scenarioName }));
-    log(`🧩 Scenario set: ${scenarioName} (${units}u) → ${pattern.join('-')}`);
-
-    // full clean + full recalc
-    hardResetEngine();
-    forceCalculate();
-
-    setTimeout(()=>{
-      injectInitialEquityIfMissing();
-      const cov=((totalFundingFromCF()/calculateTotalCapex())*100).toFixed(1);
-      const dscr=(financialResults?.finalDSCR||0).toFixed(2);
-      log(`✅ Post-scenario: Coverage=${cov}% | DSCR=${dscr}x`);
-    },250);
-  }catch(e){
-    console.error('❌ _applyGrowthScenario:',e);
-    alert('Error aplicando escenario: '+e.message);
-  }
-}
-try { window.applyGrowthScenario = _applyGrowthScenario; } catch(_) {}
-// Ensure direct calls use the new scenario function
-function applyGrowthScenario(units){ return _applyGrowthScenario(units); }
-
 // SCENARIO EVENT LISTENERS SETUP
-function setupScenarioListeners(){
-  try{
-    const wire=()=>{
-      ['scenario-pesimista','scenario-base','scenario-optimista','scenario-stress']
-        .forEach(id=>document.getElementById(id)?.removeAttribute('onclick'));
-      document.getElementById('scenario-pesimista')?.addEventListener('click', ()=>window.applyGrowthScenario(250));
-      document.getElementById('scenario-base')?.addEventListener('click', ()=>window.applyGrowthScenario(500));
-      document.getElementById('scenario-optimista')?.addEventListener('click', ()=>window.applyGrowthScenario(750));
-      document.getElementById('scenario-stress')?.addEventListener('click', ()=>window.applyGrowthScenario(1000));
-      log('✅ Scenario listeners bound successfully');
-    };
-    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', wire, {once:true});
-    else wire();
-  }catch(e){ log('⚠️ setupScenarioListeners: '+e.message); }
+function setupScenarioListeners() {
+    try {
+        document.getElementById('scenario-pesimista')?.addEventListener('click', () => switchScenario('pesimista'));
+        document.getElementById('scenario-base')?.addEventListener('click', () => switchScenario('base'));
+        document.getElementById('scenario-optimista')?.addEventListener('click', () => switchScenario('optimista'));
+        
+        log('✅ Scenario listeners configured successfully');
+    } catch (error) {
+        log(`❌ Error setting up scenario listeners: ${error.message}`);
+    }
 }
 
 function setupControls() {
@@ -5486,21 +4869,10 @@ container.appendChild(summaryDiv);
 function updateFundingCoverageCard() {
 const totalFunding = totalFundingFromCF();
 const totalCapex = calculateTotalCapex();
+const surplus = totalFunding - totalCapex;
+// Coverage computed from updated totals after cohorts exist
 const coverage = totalCapex > 0 ? (totalFunding / totalCapex) * 100 : 0;
-const container = document.getElementById('funding-coverage-card-container');
-if (!container) return;
-let card = document.getElementById('funding-coverage-card');
-if (!card) {
-card = document.createElement('div');
-card.id = 'funding-coverage-card';
-card.className = 'p-3 rounded-lg border border-slate-700 bg-slate-800 flex items-center justify-between';
-container.appendChild(card);
-}
-const coverageText = `${coverage.toFixed(0)}%`;
-card.innerHTML = `
-  <span class="text-sm text-slate-300">Funding Coverage (CF / CAPEX)</span>
-  <span class="text-lg font-semibold text-white">${coverageText}</span>
-`;
+// The visual part will be added in the next step.
 }
 
 /**
@@ -5526,46 +4898,28 @@ const gradeColor = {
 'D': 'bg-red-900 border-red-600 text-red-200'
 }[investorScore.grade];
 
-    // Determine dynamic issues section title
-    const onlyLeverageIssues = investorScore.issues && investorScore.issues.length > 0 && investorScore.issues.every(issue => /Leverage/i.test(issue));
-    const issuesSectionTitle = onlyLeverageIssues ? '⚠️ Leverage alto (>2x)' : 'Key Issues:';
-
-    scoreContainer.className = `mt-4 p-4 rounded-lg border ${gradeColor}`;
-    scoreContainer.innerHTML = `
-<div class="flex items-center justify-between">
-  <span class="text-sm">Investor Score</span>
-  <div class="text-right">
-    <div class="text-xs text-slate-400">Growth Mode</div>
-    <div class="text-lg font-semibold text-white" id="investor-score-growth">0.0</div>
-    <div class="text-xs text-slate-400">Steady-State</div>
-    <div class="text-lg font-semibold text-teal-400" id="investor-score-steady">0.0</div>
-  </div>
+scoreContainer.className = `mt-4 p-4 rounded-lg border ${gradeColor}`;
+scoreContainer.innerHTML = `
+<div class="flex justify-between items-center">
+<div>
+<h3 class="font-semibold">📊 Investor Health Score</h3>
+<p class="text-sm opacity-80">Serie A Investment Readiness</p>
 </div>
-<div class="mt-2 text-right">
-  <div class="text-sm">Grade ${investorScore.grade}</div>
-  <div class="text-xs">${investorScore.isInvestable ? '✅ Investable' : '❌ Needs Work'}</div>
+<div class="text-right">
+<div class="text-2xl font-bold">${investorScore.score.toFixed(1)}/10</div>
+<div class="text-lg font-semibold">Grade ${investorScore.grade}</div>
+<div class="text-xs">${investorScore.isInvestable ? '✅ Investable' : '❌ Needs Work'}</div>
+</div>
 </div>
 ${investorScore.issues.length > 0 ? `
 <div class="mt-3 pt-3 border-t border-white border-opacity-20">
-<p class="text-sm font-medium mb-2">${issuesSectionTitle}</p>
+<p class="text-sm font-medium mb-2">Key Issues:</p>
 <ul class="text-xs space-y-1">
 ${investorScore.issues.map(issue => `<li>${issue}</li>`).join('')}
 </ul>
 </div>
 ` : '<div class="mt-2 text-sm">🎉 All key metrics look strong for Serie A!</div>'}
 `;
-
-// Update the dual score values and apply optional dynamic color for steady-state
-const growthScoreEl = document.getElementById('investor-score-growth');
-const steadyScoreEl = document.getElementById('investor-score-steady');
-if (growthScoreEl) {
-    growthScoreEl.textContent = (financialResults.investorScoreGrowth || 0).toFixed(1);
-}
-if (steadyScoreEl) {
-    const steady = financialResults.investorScoreSteady || 0;
-    steadyScoreEl.textContent = steady.toFixed(1);
-    steadyScoreEl.style.color = steady >= 8 ? "#10B981" : steady >= 6 ? "#FBBF24" : "#EF4444";
-}
 }
 // ===== APPLICATION READY AND RUNNING =====
 /**
@@ -5598,14 +4952,9 @@ setTimeout(() => {
 // --- UI calls re-enabled ---
 log('✅ UI updates enabled.');
 
-// Restore selected scenario from localStorage (non-intrusive)
+// SET DEFAULT TO BASE SCENARIO
 setTimeout(() => {
-  try{
-    const s=localStorage.getItem('selectedScenario');
-    if(!s) return;
-    const {units}=JSON.parse(s);
-    if(units) setTimeout(()=>window.applyGrowthScenario(units), 200);
-  }catch(e){ log('⚠️ restore scenario: '+e.message); }
+    switchScenario('base');
 }, 100);
 
 setTimeout(() => {
@@ -5631,42 +4980,6 @@ console.log('Emergency rollback available: emergencyRollback()');
 }
 });
 
-</script>
-
-<!-- Sensitivity Analysis Script -->
-<script>
-// === Sensitivity Analysis: TIR vs Units ===
-async function runSensitivityAnalysis(){
-  const scenarios=[250,400,500,600,750,900,1000];
-  const baseSnap = snapshotState();
-  const results=[];
-  try{
-    log('📊 Running Sweet Spot (pure)...');
-    for(const units of scenarios){
-      const snap = snapshotState();
-      try{
-        modelData.unitsPerYear = (units===250)?[10,40,60,65,75] :
-                                 (units===400)?[12,60,95,120,113] :
-                                 (units===500)?[15,70,120,150,145] :
-                                 (units===600)?[18,85,150,175,172] :
-                                 (units===750)?[20,100,200,220,210] :
-                                 (units===900)?[22,130,230,260,258] :
-                                               [25,150,250,300,275];
-        modelData.sinosureAvailable = true;
-        hardResetEngine();
-        forceCalculate();
-
-        const irr  = (financialResults?.tirEquity || financialResults?.equityIRR || 0);
-        const dscr = (financialResults?.finalDSCR || 0);
-        const cfaf = (financialResults?.cf?.[4]?.cashAfterFinancing || 0)/1e6;
-        results.push({units, irr:+irr.toFixed(1), dscr:+dscr.toFixed(2), cfaf:+cfaf.toFixed(1)});
-      } finally { restoreState(snap); }
-    }
-    restoreState(baseSnap); updateUI();
-    console.table(results);
-  } catch(e){ console.error('❌ Sweet Spot:',e); restoreState(baseSnap); updateUI(); }
-}
-</script>
 </script>
 </body>
 </html>
