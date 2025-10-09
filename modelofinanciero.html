@@ -1284,7 +1284,7 @@ function updateProtectedCapitalMotor() {
                             <span>3. SINOSURE (6%):</span> <strong class="${modelData.sinosureAvailable ? 'text-yellow-400' : 'text-slate-500'}">${modelData.sinosureAvailable ? formatCurrency(constraints.sinosureOpportunity.available) : 'Disabled'}</strong>
                         </div>
                         <div class="flex justify-between">
-                            <span>4. Commercial (14%):</span> <strong class="text-orange-400">${formatCurrency(calculateTotalDebtRaised() - (modelData.sinosureAvailable ? constraints.sinosureOpportunity.available : 0))}</strong>
+                            <span>4. Commercial (14%):</span> <strong class="text-orange-400">${formatCurrency(calculateTotalCommercialDebtRaised())}</strong>
                         </div>
                         <div class="flex justify-between">
                             <span>5. Venture (18%):</span> <strong class="text-red-400">${modelData.sinosureAvailable ? '$0 (Displaced)' : formatCurrency(Math.max(0, totalCapex - modelData.seed - modelData.seriesA - 300000000))}</strong>
@@ -1295,7 +1295,7 @@ function updateProtectedCapitalMotor() {
                 <div class="p-2 bg-slate-800/50 rounded border border-slate-700">
                     <div class="font-semibold text-purple-400 mb-1">Engine Output</div>
                     <div class="flex justify-between text-xs">
-                        <span>Total Funding:</span> <strong class="text-white">${formatCurrency(constraints.capitalHealth.totalFunding)}</strong>
+                        <span>Total Funding:</span> <strong class="text-white">${formatCurrency(totalFundingFromCF())}</strong>
                     </div>
                     <div class="flex justify-between text-xs">
                         <span>Coverage:</span> <strong class="${constraints.capitalHealth.coverage >= 100 ? 'text-emerald-400' : 'text-amber-400'}">${constraints.capitalHealth.coverage.toFixed(1)}%</strong>
@@ -1861,6 +1861,8 @@ function allocateCapital(year, remainingCapex) {
         draws.commercial = commercialAvail;
         remaining -= commercialAvail;
     }
+    // Clamp negative commercial drawdowns
+    draws.commercial = Math.max(0, draws.commercial || 0);
 
     // 4) Venture Debt (only Y0–Y1 i.e., year <= 1)
     if (remaining > 0 && year <= 1) {
@@ -2230,6 +2232,20 @@ if (cohort.originalUpfrontLiability > 0) {
 const monthlyUpfrontAmortization = cohort.originalUpfrontLiability / totalPaymentsMonthsClient;
 recognizedUpfrontCommission += Math.min(monthlyUpfrontAmortization, cohort.remainingUpfrontLiability);
 }
+}
+
+// Helper: total commercial debt raised (non-negative only)
+function calculateTotalCommercialDebtRaised() {
+  let total = 0;
+  for (let i = 1; i <= 5; i++) {
+    total += Math.max(0, (modelData[`commercialDebtYear${i}`] || 0));
+  }
+  if (financialResults && Array.isArray(financialResults.cf)) {
+    financialResults.cf.forEach(cf => {
+      total += Math.max(0, cf.additionalFundingRaised || 0);
+    });
+  }
+  return total;
 }
 
 const actualRecognizedOrigination = Math.min(recognizedOriginationFromPrincipal, cohort.remainingOriginationCommission);
@@ -2651,6 +2667,8 @@ const operatingCash = netIncome + annualDepreciation + impairment + deltaProvisi
         const finalNewEquityInjections = draws.equity;
         let finalNewVentureDebt = draws.venture;
         let finalNewCommercialDebt = draws.commercial;
+        // Ensure SINOSURE displacement never drives commercial negative
+        finalNewCommercialDebt = Math.max(0, finalNewCommercialDebt || 0);
 
         // SINOSURE cohort creation based on allocation
         if (draws.sinosure > 0) {
@@ -2661,9 +2679,31 @@ const operatingCash = netIncome + annualDepreciation + impairment + deltaProvisi
             });
         }
 
+        // DSCR-targeted leverage when coverage < 100%
+        try {
+          const covPct = (totalFundingFromCF() / calculateTotalCapex()) * 100;
+          const targetMinDSCR = 1.7;
+          const targetMaxDSCR = 2.0;
+          if (covPct < 100) {
+            const dscrNow = (typeof calculateFinalDSCR === 'function') ? (calculateFinalDSCR() || 0) : (financialResults.finalDSCR || 0);
+            if (dscrNow > targetMinDSCR) {
+              const capexGap = Math.max(0, calculateTotalCapex() - totalFundingFromCF());
+              let extraComm = Math.max(0, capexGap);
+              // soft cap: do not overshoot DSCR below ~1.6x; gentle step when far above target
+              if (dscrNow > targetMaxDSCR) {
+                extraComm = Math.min(extraComm, 0.15 * calculateTotalCapex());
+              }
+              if (extraComm > 0) {
+                finalNewCommercialDebt += extraComm;
+                log(`🏦 DSCR target leverage: +${formatCurrency(extraComm)} commercial Y${currentYear} to reach cov~100% & DSCR~1.8–2.0x`);
+              }
+            }
+          }
+        } catch (e) { log('⚠️ DSCR-target leverage skipped: ' + (e && e.message ? e.message : e)); }
+
 // Actualizar modelData con los valores optimizados/totales
 modelData[`ventureDebtYear${currentYear}`] = finalNewVentureDebt;
-modelData[`commercialDebtYear${currentYear}`] = finalNewCommercialDebt;
+modelData[`commercialDebtYear${currentYear}`] = Math.max(0, finalNewCommercialDebt || 0);
 modelData[`partnerCapitalizationYear${currentYear}`] = (plannedFinancingData[`partnerCapitalizationYear${currentYear}`] || 0);
 modelData[`seriesB_newInvestors_year${currentYear}`] = (plannedFinancingData[`seriesB_newInvestors_year${currentYear}`] || 0);
 
