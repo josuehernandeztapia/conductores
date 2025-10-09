@@ -729,6 +729,8 @@ lucide.createIcons();
 let debugLogs = []; // Array to store debug logs
 let charts = {}; // Object to store Chart.js instances
 let plannedFinancingData = {}; // NEW: To store pre-calculation financing plan
+// Global sentinel to prevent duplicate scenario application
+window.__scenarioApplied = window.__scenarioApplied || false;
 
 /**
 * @typedef {Object} ModelData
@@ -2943,12 +2945,18 @@ function applyGrowthScenario(targetUnits) {
       saveScenarioConfig(targetUnits);
     }
 
+    // Mark as applied globally to avoid overrides
+    try { window.__scenarioApplied = true; } catch (_) {}
+
     // Recalcular el modelo
     forceCalculate();
   } catch (e) {
     log(`❌ ERROR in applyGrowthScenario: ${e.message}`);
   }
 }
+
+// Ensure global exposure of the function
+try { window.applyGrowthScenario = applyGrowthScenario; } catch (_) {}
 
 // 🧠 Persistencia de Escenario y Configuración de Financiamiento
 // Guarda y reaplica el escenario + tasas/plazo/balloon al recargar o recalcular
@@ -2980,6 +2988,8 @@ function saveScenarioConfig(targetUnits) {
 
 function loadScenarioConfig() {
   try {
+    // Avoid re-applying if already applied
+    if (window.__scenarioApplied) return;
     const saved = localStorage.getItem('financialScenarioConfig');
     if (saved) {
       const config = JSON.parse(saved);
@@ -2990,7 +3000,7 @@ function loadScenarioConfig() {
         modelData.commercialGraceMonths = config.graceMonths;
         modelData.commercialLoanTermMonths = config.termMonths;
         modelData.commercialBalloonPercent = config.balloon;
-        setTimeout(() => applyGrowthScenario(config.scenarioUnits), 600);
+        setTimeout(() => { applyGrowthScenario(config.scenarioUnits); try { window.__scenarioApplied = true; } catch (_) {} }, 600);
         return;
       }
     }
@@ -3001,14 +3011,14 @@ function loadScenarioConfig() {
       const { units, scenarioName } = JSON.parse(stored);
       if ([250, 500, 750, 1000].includes(units)) {
         log(`💾 Escenario restaurado: ${scenarioName} (${units} unidades)`);
-        setTimeout(() => applyGrowthScenario(units), 600);
+        setTimeout(() => { applyGrowthScenario(units); try { window.__scenarioApplied = true; } catch (_) {} }, 600);
         return;
       }
     }
 
     // Default
     log('ℹ️ Sin configuración guardada, cargando Base (500 unidades)...');
-    setTimeout(() => applyGrowthScenario(500), 600);
+    setTimeout(() => { applyGrowthScenario(500); try { window.__scenarioApplied = true; } catch (_) {} }, 600);
   } catch (e) {
     log(`❌ Error loading scenario config: ${e.message}`);
   }
@@ -3629,6 +3639,7 @@ log(`❌ Error in updateUI: ${error.message}`);
 (function loadScenarioConfigIIFE() {
   try {
     if (typeof loadScenarioConfig === 'function') return; // use the dedicated loader if present
+    if (window.__scenarioApplied) return; // already applied; skip
     const stored = localStorage.getItem('selectedScenario');
     if (!stored) return;
     const { units, scenarioName } = JSON.parse(stored);
