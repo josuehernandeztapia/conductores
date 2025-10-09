@@ -591,6 +591,12 @@ min-height: 280px;
 <button onclick="forceCalculate()" class="mt-6 bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-3 rounded-lg font-medium transition duration-300 inline-flex items-center gap-2">
 <i data-lucide="refresh-cw" class="w-5 h-5"></i> Recalcular Modelo
 </button>
+<button
+  onclick="runSensitivityAnalysis()"
+  class="mt-6 bg-emerald-700 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium transition duration-300 inline-flex items-center gap-2 ml-2 text-sm"
+>
+  🔍 Analizar Sweet Spot
+</button>
 </div>
 </div>
 <!-- Tab Content: Financials -->
@@ -2454,17 +2460,12 @@ try {
     debtOptimizationHistory = [];
 
 // --- Initial state variables ---
-let cash = modelData.seed + modelData.seriesA;
+let cash = 0; // Equity injection handled via allocation engine & CF only
 let currentProvisionsBalance = 0;
-let endOfYearEquity = modelData.seed + modelData.seriesA;
+let endOfYearEquity = 0; // Equity tracked via CF and allocation engine
 
-// ✅ Inject initial equity (Seed + Serie A) validation and coverage recompute
+// CF will be rebuilt during calculation; equity contributions flow via allocateCapital
 financialResults.cf = financialResults.cf || [];
-log(`💡 Initial Equity Injection recorded: ${formatCurrency(modelData.seed + modelData.seriesA)} (Seed + Serie A)`);
-// Ensure coverage recalculates correctly after injection (uses CF fallback if empty)
-log("🧾 Recomputing coverage after initial equity injection...");
-const coverageCheck = ((totalFundingFromCF() / calculateTotalCapex()) * 100).toFixed(1);
-log(`✅ Coverage now at ${coverageCheck}%`);
 
 // --- Cohort tracking ---
 let loanCohorts = [];
@@ -2477,10 +2478,10 @@ let ventureDebtBalance = 0;
 let commercialDebtBalance = 0;
 
 // --- IRR Cash Flow arrays ---
-let equityCashFlows = [-(modelData.seed + modelData.seriesA)];
-let projectCashFlows = [-(modelData.seed + modelData.seriesA)];
+let equityCashFlows = [0];
+let projectCashFlows = [0];
 let portfolioCashFlows = [];
-log(`Initial Equity (Seed + Serie A): ${formatCurrency(modelData.seed + modelData.seriesA)}`);
+// Initial equity is considered in CF via allocation; no direct injection here
 
 // --- Main annual loop (5 years) ---
 for (let year = 0; year < 5; year++) {
@@ -2870,88 +2871,58 @@ return false;
  * cobertura, DSCR y CFO positivo.
  * @param {number} targetUnits - Total de unidades objetivo (250, 500, 750, 1000)
  */
-function applyGrowthScenario(targetUnits) {
+function applyGrowthScenario(units) {
   try {
+    // 1) Update scenario base data and yearly pattern
     let pattern = [];
-    switch (targetUnits) {
-      case 250:
-        pattern = [10, 40, 60, 65, 75];
-        break;
-      case 500:
-        pattern = [15, 70, 120, 150, 145];
-        break;
-      case 750:
-        pattern = [20, 100, 200, 220, 210];
-        break;
-      case 1000:
-        pattern = [25, 150, 250, 300, 275];
-        break;
-      default:
-        pattern = [15, 50, 120, 190, 220];
+    switch (true) {
+      case (units <= 300): pattern = [10, 40, 60, 65, 75]; break;      // ~250
+      case (units <= 600): pattern = [15, 70, 120, 150, 145]; break;   // ~500
+      case (units <= 800): pattern = [20, 100, 200, 220, 210]; break;  // ~750
+      default:              pattern = [25, 150, 250, 300, 275];         // ~1000
     }
-
-    // Aplicar patrón
     modelData.unitsPerYear = [...pattern];
-    log(`📈 Escenario aplicado: ${targetUnits} unidades totales → ${pattern.join('-')}`);
-
-    // Recalcular CAPEX y cobertura con funciones existentes
     const totalUnits = pattern.reduce((a, b) => a + b, 0);
-    const newCapex = totalUnits * getTotalPackageCost();
-    const fundingNow = totalFundingFromCF();
-    const coverageNow = newCapex > 0 ? (fundingNow / newCapex) * 100 : 0;
-    financialResults.totalCapex = newCapex;
-    financialResults.coverage = Number(coverageNow.toFixed(1));
+    modelData.units = units || totalUnits;
+    modelData.totalCapex = totalUnits * getTotalPackageCost();
 
-    // Mantener compatibilidad con lógica simple basada en unidades
-    modelData.units = totalUnits;
-    modelData.totalCapex = newCapex;
-    let scenarioName = '';
-    let scenarioKey = '';
-    if (targetUnits <= 300) { scenarioName = 'Pesimista'; scenarioKey = 'pesimista'; }
-    else if (targetUnits <= 600) { scenarioName = 'Base'; scenarioKey = 'base'; }
-    else if (targetUnits <= 800) { scenarioName = 'Expansivo'; scenarioKey = 'optimista'; }
-    else { scenarioName = 'Stress'; scenarioKey = 'stress'; }
+    // 2) Scenario label
+    const scenarioName =
+      (units <= 300) ? 'Pesimista' :
+      (units <= 600) ? 'Base' :
+      (units <= 800) ? 'Optimista' : 'Stress';
+    log(`🧩 Escenario aplicado: ${scenarioName} (${units} unidades)`);
+
+    // 3) Reset CF/results before full recalculation
     try {
-      localStorage.setItem('selectedScenario', JSON.stringify({ units: targetUnits, scenarioName }));
-      log(`🧩 Escenario aplicado: ${scenarioName} (${targetUnits} unidades)`);
-    } catch (_) { /* ignore storage errors */ }
+      financialResults.cf = [];
+      financialResults.totalCapex = 0;
+      financialResults.coverage = 0;
+    } catch (_) { /* best effort reset */ }
 
-    // Update scenario button UI if helper exists
-    try { if (typeof updateScenarioButtons === 'function' && scenarioKey) updateScenarioButtons(scenarioKey); } catch (_) { /* ignore */ }
-    try { if (typeof updateUnitInputs === 'function') updateUnitInputs(pattern); } catch (_) { /* ignore */ }
-
-    // Reglas automáticas de oro
-    if (financialResults.coverage > 105) {
-      log(`⚠️ Cobertura >105% → reduciendo 5% unidades Y5`);
-      modelData.unitsPerYear[4] = Math.round(modelData.unitsPerYear[4] * 0.95);
+    // 4) Re-run core calculations and UI
+    const ok = calculateFinancials();
+    if (ok) {
+      updateUI();
+      // 5) Log validation snapshot
+      try {
+        log(`💰 Equity: ${formatCurrency(calculateTotalEquityRaised())} | Debt: ${formatCurrency(calculateTotalDebtRaised())} | Coverage: ${financialResults.coverage?.toFixed(1)}%`);
+      } catch (_) { /* ignore */ }
     }
 
-    const dscrSnapshot = (typeof calculateFinalDSCR === 'function') ? (calculateFinalDSCR() || 0) : (financialResults.finalDSCR || 0);
-    if (dscrSnapshot > 0 && dscrSnapshot < 1.6) {
-      log(`⚠️ DSCR <1.6 → extendiendo plazo comercial a 72m`);
-      modelData.commercialLoanTermMonths = 72;
-    }
+    // 6) Persist scenario
+    try {
+      localStorage.setItem('selectedScenario', JSON.stringify({ units, scenarioName }));
+    } catch (_) { /* ignore */ }
 
-    const cafY5Pre = (financialResults && financialResults.cf && financialResults.cf[4] && typeof financialResults.cf[4].cashAfterFinancing !== 'undefined')
-      ? financialResults.cf[4].cashAfterFinancing : 0;
-    if (cafY5Pre < 0 && (dscrSnapshot || 1.8) >= 1.6) {
-      log(`⚠️ Cash After Financing negativo → moviendo 20 unidades Y5 → Y4`);
-      modelData.unitsPerYear[3] += 20;
-      modelData.unitsPerYear[4] = Math.max(0, modelData.unitsPerYear[4] - 20);
-    }
+    // UI helpers
+    try { if (typeof updateScenarioButtons === 'function') updateScenarioButtons((units<=300?'pesimista':units<=600?'base':units<=800?'optimista':'stress')); } catch (_) {}
+    try { if (typeof updateUnitInputs === 'function') updateUnitInputs(pattern); } catch (_) {}
 
-    // Persistir selección y configuración actual
-    if (typeof saveScenarioConfig === 'function') {
-      saveScenarioConfig(targetUnits);
-    }
-
-    // Mark as applied globally to avoid overrides
-    try { window.__scenarioApplied = true; } catch (_) {}
-
-    // Recalcular el modelo
-    forceCalculate();
-  } catch (e) {
-    log(`❌ ERROR in applyGrowthScenario: ${e.message}`);
+    log(`✅ Escenario ${scenarioName} aplicado y recalculado correctamente.`);
+  } catch (error) {
+    console.error("❌ Error en applyGrowthScenario:", error);
+    alert("Error aplicando escenario: " + error.message);
   }
 }
 
@@ -5494,6 +5465,138 @@ console.log('Emergency rollback available: emergencyRollback()');
 }
 });
 
+</script>
+
+<!-- Sensitivity Analysis Script -->
+<script>
+// === Sensitivity Analysis: TIR vs Units ===
+async function runSensitivityAnalysis() {
+  try {
+    const scenarios = [250, 400, 500, 600, 750, 900, 1000];
+    const results = [];
+
+    log("📊 Running sensitivity analysis across unit scenarios...");
+
+    const prevUnits = modelData.units;
+    const prevUnitsPerYear = Array.isArray(modelData.unitsPerYear) ? [...modelData.unitsPerYear] : null;
+
+    for (const units of scenarios) {
+      // Apply scenario baseline
+      applyGrowthScenario(units);
+
+      // Recalculate core financials
+      const ok = calculateFinancials();
+      if (ok) {
+        const irr = (financialResults.tirEquity || 0).toFixed(1);
+        const dscr = (financialResults.finalDSCR || 0).toFixed(1);
+        const cfaf = (financialResults.cf?.[4]?.cashAfterFinancing || 0) / 1e6;
+
+        results.push({
+          units,
+          irr: parseFloat(irr),
+          dscr: parseFloat(dscr),
+          cfaf: parseFloat(cfaf.toFixed(1)),
+        });
+      }
+    }
+
+    // Restore previous state
+    if (typeof prevUnits === 'number') modelData.units = prevUnits;
+    if (prevUnitsPerYear) modelData.unitsPerYear = prevUnitsPerYear;
+    calculateFinancials();
+    updateUI();
+
+    log("✅ Sensitivity data generated:", results);
+
+    // Draw chart
+    const ctxId = "tirSensitivityChart";
+    let canvas = document.getElementById(ctxId);
+    if (!canvas) {
+      const chartContainer = document.createElement("div");
+      chartContainer.innerHTML = `
+        <div class="mt-6 bg-slate-900 rounded-2xl shadow-md p-4">
+          <h3 class="text-slate-200 text-sm mb-2">📈 Sweet Spot: TIR, DSCR & CashFlow by Units</h3>
+          <canvas id="${ctxId}" height="130"></canvas>
+        </div>`;
+      document.body.appendChild(chartContainer);
+      canvas = document.getElementById(ctxId);
+    }
+
+    const ctx = canvas.getContext("2d");
+    if (window.sweetSpotChart) window.sweetSpotChart.destroy();
+
+    window.sweetSpotChart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: results.map(r => `${r.units}`),
+        datasets: [
+          {
+            label: "TIR Equity (%)",
+            data: results.map(r => r.irr),
+            borderColor: "#10B981",
+            backgroundColor: "rgba(16,185,129,0.3)",
+            yAxisID: "y",
+          },
+          {
+            label: "DSCR (x)",
+            data: results.map(r => r.dscr),
+            borderColor: "#3B82F6",
+            backgroundColor: "rgba(59,130,246,0.3)",
+            yAxisID: "y1",
+          },
+          {
+            label: "Cash Flow After Financing (Y5, M MXN)",
+            data: results.map(r => r.cfaf),
+            borderColor: "#F59E0B",
+            backgroundColor: "rgba(245,158,11,0.3)",
+            yAxisID: "y2",
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        interaction: { mode: "index", intersect: false },
+        stacked: false,
+        plugins: {
+          legend: { labels: { color: "#CBD5E1" } },
+          tooltip: {
+            callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y}` },
+          },
+        },
+        scales: {
+          x: {
+            title: { display: true, text: "Unidades", color: "#94A3B8" },
+            ticks: { color: "#CBD5E1" },
+            grid: { color: "#1E293B" },
+          },
+          y: {
+            type: "linear",
+            position: "left",
+            title: { display: true, text: "TIR (%)", color: "#10B981" },
+            ticks: { color: "#10B981" },
+          },
+          y1: {
+            type: "linear",
+            position: "right",
+            grid: { drawOnChartArea: false },
+            title: { display: true, text: "DSCR (x)", color: "#3B82F6" },
+            ticks: { color: "#3B82F6" },
+          },
+          y2: {
+            type: "linear",
+            position: "right",
+            grid: { drawOnChartArea: false },
+            title: { display: true, text: "Cash Flow (M MXN)", color: "#F59E0B" },
+            ticks: { color: "#F59E0B" },
+          },
+        },
+      },
+    });
+  } catch (error) {
+    console.error("❌ Error running sensitivity chart:", error);
+  }
+}
+</script>
 </script>
 </body>
 </html>
