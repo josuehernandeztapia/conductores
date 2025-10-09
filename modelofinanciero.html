@@ -813,7 +813,7 @@ gmvPromedioMensualPorUnidad: 9000,
 takeRateMarketplace: 3.0,
 avgRemainingTermCartera: 2.5,
 // SINOSURE Configuration
-sinosureAvailable: false
+sinosureAvailable: true
 };
 
 // EMERGENCY ROLLBACK FUNCTION
@@ -1521,6 +1521,7 @@ function totalFundingFromCF() {
         );
         const equity = equityFromCF > 0 ? equityFromCF : equityFromModel;
         const vd = Math.max(0, cf.currentYearVentureDebtDraw || 0);
+        // never count negative commercial; ignore if negative
         const cd = Math.max(0, cf.additionalFundingRaised || 0);
         const ex = Math.max(0, cf.sinosureDrawn || 0);
         total += equity + vd + cd + ex;
@@ -4528,10 +4529,10 @@ function updateCapitalStructure(capitalPlan) {
     
     if (allocation.commercialDebt > 0) {
         const yearlyCommercial = allocation.commercialDebt / 3; // Spread over years 3-5
-        modelData.commercialDebtYear3 = yearlyCommercial;
-        modelData.commercialDebtYear4 = yearlyCommercial;
+        modelData.commercialDebtYear3 = Math.max(0, yearlyCommercial);
+        modelData.commercialDebtYear4 = Math.max(0, yearlyCommercial);
         if (allocation.commercialDebt > (yearlyCommercial * 2)) {
-            modelData.commercialDebtYear5 = allocation.commercialDebt - (yearlyCommercial * 2);
+            modelData.commercialDebtYear5 = Math.max(0, allocation.commercialDebt - (yearlyCommercial * 2));
         }
     }
     
