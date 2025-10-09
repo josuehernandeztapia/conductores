@@ -5110,5 +5110,142 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 </script>
 
+<script>
+// =============== KPI RENDER LAYER (SAFE) ===============
+
+// Helpers de formato
+function fmtM(v){ if(!isFinite(v)) return '$0M'; return '$'+(v/1e6).toFixed(1)+'M'; }
+function fmtK(v){ if(!isFinite(v)) return '$0K'; return '$'+(v/1e3).toFixed(0)+'K'; }
+function fmt$(v){ if(!isFinite(v)) return '$0'; return (Math.abs(v)>=1e6?fmtM(v):(Math.abs(v)>=1e3?fmtK(v):'$'+Math.round(v).toLocaleString('es-MX'))); }
+function fmtPct(p){ if(!isFinite(p)) return '0.0%'; return (p.toFixed(1)+'%'); }
+function safeSet(id, val){ const el=document.getElementById(id); if(el) el.textContent = val; }
+
+// Derivación de métricas (no toca el cálculo)
+function computeDerivedMetrics() {
+  const fr = window.financialResults || {};
+  const pl = fr.pl || [];
+  const bs = fr.bs || [];
+  const cf = fr.cf || [];
+
+  // EBITDA Y5
+  const ebitdaY5 = (pl[4]?.ebitda) || 0;
+
+  // TIR Equity (si el engine aún no la puso a mano, será 0)
+  const tirEquity = fr.tirEquity || 0;
+
+  // AUM ~ Cash + CxC netas + Activos fijos + HFS (Y5)
+  const aumY5 = ((bs[4]?.cash||0)
+               + (bs[4]?.receivablesNet||bs[4]?.receivables||0)
+               + (bs[4]?.fixedAssets||0)
+               + (bs[4]?.assetsHeldForSale||0));
+
+  // Total unidades financiadas: suma de addedUnits por año (fallback 0)
+  const totalUnits = pl.reduce((s,row)=>s+(row?.addedUnits||0),0);
+
+  // Equity levantado (CF) = Σ partnerCapitalization + seriesBNewInvestors (años 1..5)
+  let equityRaised = 0, debtRaised = 0;
+  cf.forEach(y=>{
+    equityRaised += Math.max(0,(y?.partnerCapitalization||0)+(y?.seriesBNewInvestors||0));
+    debtRaised   += Math.max(0,(y?.currentYearVentureDebtDraw||0))
+                 +  Math.max(0,(y?.additionalFundingRaised||0))
+                 +  Math.max(0,(y?.sinosureDrawn||0));
+  });
+
+  // Funding efficiency = Ingresos acumulados / Funding total (CF)
+  const totalRevenue = pl.reduce((s,row)=>s+(row?.totalRevenue||0),0);
+  const totalFundingCF = equityRaised + debtRaised;
+  const fundingEfficiency = totalFundingCF>0 ? (totalRevenue/totalFundingCF) : 0;
+
+  // CAPEX por unidad
+  const totalCapex = (window.calculateTotalCapex? calculateTotalCapex():0);
+  const capexPerUnit = totalUnits>0 ? (totalCapex/totalUnits) : 0;
+
+  // Cash After Financing (Y5) (si existe; si no, aprox = operating - financingOutflows)
+  let cashAfterFinY5 = 0;
+  if (cf[4]) {
+    if (typeof cf[4].cashAfterFinancing === 'number') cashAfterFinY5 = cf[4].cashAfterFinancing;
+    else {
+      const op = (cf[4].operatingCash||0);
+      const fo = (cf[4].financingOutflows||0);
+      cashAfterFinY5 = op - fo;
+    }
+  }
+
+  return {
+    ebitdaY5, tirEquity, aumY5, totalUnits,
+    equityRaised, debtRaised, fundingEfficiency, capexPerUnit,
+    cashAfterFinY5
+  };
+}
+
+// Render seguro de cards (si no existe el ID, no rompe)
+function renderCoreKPIs(){
+  try{
+    const d = computeDerivedMetrics();
+
+    safeSet('ebitda-year5', fmtM(d.ebitdaY5));
+    // TIR Equity como % con 1 decimal
+    safeSet('tir-equity', (isFinite(d.tirEquity)? (d.tirEquity.toFixed(1)+'%') : '0%'));
+    safeSet('aum-value', fmtM(d.aumY5));
+    safeSet('total-vans-financed', (isFinite(d.totalUnits)? d.totalUnits.toLocaleString('es-MX') : '0'));
+
+    safeSet('equity-raised', fmtM(d.equityRaised));
+    safeSet('total-debt-raised', fmtM(d.debtRaised));
+    // Funding efficiency en “x”
+    safeSet('funding-efficiency', (isFinite(d.fundingEfficiency)? d.fundingEfficiency.toFixed(1)+'x' : '0.0x'));
+    // CAPEX por unidad en K
+    safeSet('capital-per-unit', (isFinite(d.capexPerUnit)? ('$'+Math.round(d.capexPerUnit/1000)+'K') : '$0K'));
+
+    // Cash After Financing (Y5)
+    safeSet('cash-after-financing-display', fmt$(d.cashAfterFinY5));
+
+    // DSCR final (si el engine lo calcula ya, úsalo; si no, respeta 0.0x/N/A en card)
+    if (typeof computeFinalDSCR === 'function') {
+      const dscrFinal = computeFinalDSCR();
+      const v = (dscrFinal==null? 'N/A' : (dscrFinal.toFixed(1)+'x'));
+      safeSet('dscr-final', v);
+    }
+  }catch(e){
+    console.warn('renderCoreKPIs error:', e);
+  }
+}
+
+// Hook de arranque (por si faltaba el cálculo inicial)
+document.addEventListener('DOMContentLoaded', () => {
+  try{
+    if (typeof calculateFinancials === 'function') {
+      // Asegurar units base si vienen vacíos
+      if (!window.modelData) window.modelData = {};
+      if (!Array.isArray(modelData.unitsPerYear) || modelData.unitsPerYear.length===0){
+        modelData.unitsPerYear = [15,50,100,180,250];
+      }
+      calculateFinancials();
+    }
+    renderCoreKPIs();
+    if (typeof updateConstraintDashboard === 'function') updateConstraintDashboard();
+    if (typeof updateFinancialModeUI === 'function') updateFinancialModeUI();
+  }catch(e){
+    console.error('Init-render error:', e);
+  }
+});
+
+// Enganche post-cálculo (sin tocar tu engine): si tienes un forceCalculate, refrescamos KPIs después
+(function wrapForceCalculate(){
+  const original = window.forceCalculate;
+  window.forceCalculate = function(){
+    if (typeof original === 'function') original();
+    try{
+      renderCoreKPIs();
+      if (typeof updateConstraintDashboard === 'function') updateConstraintDashboard();
+      if (typeof updateFinancialModeUI === 'function') updateFinancialModeUI();
+    }catch(e){
+      console.warn('post-calc render error:', e);
+    }
+  }
+})();
+
+// ============ FIN KPI RENDER LAYER ============
+</script>
+
 </body>
 </html>
