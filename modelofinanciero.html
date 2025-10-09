@@ -3581,6 +3581,21 @@ updateOptimizationStatus();
 updateInvestorScore();
 updateFundingCoverageCard();
 
+    // Render CF-based Capital Analysis (guarded)
+    try { renderCapitalAnalysisCF(); } catch(e) { log('⚠️ renderCapitalAnalysisCF: '+e.message); }
+
+    // Quick validation snapshot
+    try {
+      console.log("%cCF Capital Snapshot",
+        "background:#0D1117;color:#58A6FF;font-weight:bold;",
+        {
+          CAPEX: calculateTotalCapex(),
+          Equity_CF: (financialResults.cf||[]).reduce((s,cf)=> s + Math.max(0,(cf.partnerCapitalization||0)+(cf.seriesBNewInvestors||0)), 0),
+          Debt_CF: (financialResults.cf||[]).reduce((s,cf)=> s + Math.max(0,(cf.currentYearVentureDebtDraw||0)+(cf.additionalFundingRaised||0)+(cf.sinosureDrawn||0)), 0)
+        }
+      );
+    } catch(_) {}
+
 // UI validation snapshot
 try {
   console.table({
@@ -5070,6 +5085,22 @@ function setupFinancingMatrix() {
     createNumberControl({ id: 'commercialBalloonPercent', label: 'Balloon Payment (%)', min: 0, max: 40, step: 5, type: 'number' }, ratesDiv);
 
     container.appendChild(ratesDiv);
+
+    // --- Ensure Capital Analysis card exists ---
+    ensureElement(
+      'capital-analysis-card',
+      `
+      <section id="capital-analysis-card" class="mt-4 bg-slate-900 rounded-xl border border-slate-800 p-4">
+        <h3 class="text-slate-200 font-semibold text-sm mb-2">📊 Análisis de Estructura de Capital</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-slate-300 text-sm">
+          <div id="cap-ssot-equity"  class="p-3 bg-slate-800 rounded-lg"></div>
+          <div id="cap-ssot-debt"    class="p-3 bg-slate-800 rounded-lg"></div>
+          <div id="cap-ssot-lines"   class="md:col-span-2 p-3 bg-slate-800 rounded-lg"></div>
+        </div>
+      </section>
+      `,
+      '#matriz-financiamiento-controls'
+    );
 }
 
 /**
@@ -5166,10 +5197,79 @@ statusElement.innerHTML = `
 }
 }
 
+// --- CF-based Capital Analysis renderer (SSOT CF, guarded) ---
+function renderCapitalAnalysisCF() {
+  try {
+    const cfArray = Array.isArray(financialResults?.cf) ? financialResults.cf : [];
+    const agg = cfArray.reduce((a, cf) => {
+      a.equity += Math.max(0, (cf.partnerCapitalization||0) + (cf.seriesBNewInvestors||0));
+      a.debt   += Math.max(0, (cf.currentYearVentureDebtDraw||0) + (cf.additionalFundingRaised||0) + (cf.sinosureDrawn||0));
+      return a;
+    }, { equity: 0, debt: 0 });
+
+    const capexPlan = calculateTotalCapex();
+    const e = document.getElementById('cap-ssot-equity');
+    const d = document.getElementById('cap-ssot-debt');
+    const l = document.getElementById('cap-ssot-lines');
+
+    if (e) {
+      e.innerHTML = `
+        <div class="font-medium text-emerald-400 mb-1">Capital de Socios (CF)</div>
+        <div>• Plan de Inversión (CAPEX): <strong>${formatCurrency(capexPlan)}</strong></div>
+        <div>• Total Equity Desplegado (CF): <strong>${formatCurrency(agg.equity)}</strong></div>
+        <div>• Gap de Equity: <strong>${formatCurrency(Math.max(0, capexPlan - agg.equity - agg.debt))}</strong></div>
+      `;
+    }
+
+    if (d) {
+      const coveragePct = capexPlan ? (((agg.equity + agg.debt) / capexPlan) * 100).toFixed(1) : '0.0';
+      const dscrY5 = (typeof calculateFinalDSCR === 'function')
+        ? calculateFinalDSCR()
+        : (financialResults?.finalDSCR || 0);
+      const dscrText = (dscrY5 && dscrY5 !== 999) ? `${dscrY5.toFixed(2)}x` : (dscrY5 === 999 ? '∞' : 'N/A');
+      d.innerHTML = `
+        <div class="font-medium text-sky-400 mb-1">Capital de Deuda (CF)</div>
+        <div>• Total Deuda Desplegada (CF): <strong>${formatCurrency(agg.debt)}</strong></div>
+        <div>• Cobertura CAPEX (CF/CAPEX): <strong>${coveragePct}%</strong></div>
+        <div>• DSCR (Y5): <strong>${dscrText}</strong></div>
+      `;
+    }
+
+    if (l) {
+      const vdLimit = modelData?.ventureDebtLineAvailable || 0;
+      const cdLimit = modelData?.commercialDebtLineAvailable || 0;
+      const vdUsed = cfArray.reduce((s, cf) => s + Math.max(0, cf.currentYearVentureDebtDraw || 0), 0);
+      const cdUsed = cfArray.reduce((s, cf) => s + Math.max(0, (cf.additionalFundingRaised||0) + (cf.sinosureDrawn||0)), 0);
+      const vdPct = vdLimit ? ((vdUsed / vdLimit) * 100).toFixed(0) : '0';
+      const cdPct = cdLimit ? ((cdUsed / cdLimit) * 100).toFixed(0) : '0';
+      l.innerHTML = `
+        <div class="font-medium text-slate-200 mb-1">Estado de Líneas de Crédito</div>
+        <div>• Línea Venture Debt: <strong>${formatCurrency(vdLimit)}</strong> | Utilizado: <strong>${formatCurrency(vdUsed)} (${vdPct}%)</strong></div>
+        <div>• Línea Deuda Comercial (incl. SINOSURE): <strong>${formatCurrency(cdLimit)}</strong> | Utilizado: <strong>${formatCurrency(cdUsed)} (${cdPct}%)</strong></div>
+      `;
+    }
+  } catch (err) {
+    console.error('renderCapitalAnalysisCF:', err);
+  }
+}
+
 /**
 * Main function to set up all UI controls.
 */
 // ----- Utilities -----
+// --- UI guards ---
+function ensureElement(id, html, parentSel='body') {
+  let el = document.getElementById(id);
+  if (!el) {
+    const parent = document.querySelector(parentSel) || document.body;
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = html.trim();
+    el = wrapper.firstElementChild;
+    parent.appendChild(el);
+  }
+  return el;
+}
+
 function deepClone(o){ return JSON.parse(JSON.stringify(o)); }
 
 function snapshotState(){
