@@ -1512,6 +1512,96 @@ function totalFundingFromCF() {
     });
     return total;
 }
+
+// === 🔧 FASE 1 – STABILIZATION CORE ===
+// 1️⃣ Normaliza DSCR (N/A si no hay deuda)
+function computeFinalDSCR() {
+  try {
+    const year5EBITDA = (financialResults?.pl?.[4]?.ebitda) || 0;
+    const year5Interest = (financialResults?.pl?.[4]?.interestExpense) || 0;
+    const year5Principal = (financialResults?.cf?.[4]?.debtPrincipalRepayment) || 0;
+    const debtService = year5Interest + year5Principal;
+    if (debtService <= 0) {
+      financialResults.finalDSCR = null; // N/A si no hay deuda
+    } else {
+      financialResults.finalDSCR = year5EBITDA / debtService;
+    }
+    return financialResults.finalDSCR;
+  } catch (e) {
+    console.warn('⚠️ computeFinalDSCR error:', e?.message || e);
+    return null;
+  }
+}
+
+// 2️⃣ Cobertura unificada (SSOT = CF / CAPEX)
+function computeCoverage() {
+  try {
+    const totalCapex = calculateTotalCapex() || 1;
+    const coverage = (totalFundingFromCF() / totalCapex) * 100;
+    return Math.min(coverage, 105);
+  } catch (e) {
+    console.warn('⚠️ computeCoverage error:', e?.message || e);
+    return 0;
+  }
+}
+
+// 3️⃣ Inyección automática de deuda (Sinosure + Comercial)
+function ensureDebtInjection() {
+  try {
+    const capex = calculateTotalCapex() || 0;
+    const equity = (modelData.seed || 0) + (modelData.seriesA || 0);
+    const coverageNow = (totalFundingFromCF() / (capex || 1)) * 100;
+
+    if (coverageNow < 95 && capex > equity) {
+      const missing = capex - equity;
+      const sinosureDraw = modelData.sinosureAvailable ? Math.min(missing * 0.6, capex * 0.6) : 0;
+      const commercialDraw = Math.max(0, missing - sinosureDraw);
+
+      financialResults.cf = financialResults.cf || [];
+      if (financialResults.cf.length === 0) return; // nothing to inject into yet
+      const lastIndex = financialResults.cf.length - 1;
+      const cfLast = financialResults.cf[lastIndex] || {};
+      cfLast.sinosureDrawn = (cfLast.sinosureDrawn || 0) + sinosureDraw;
+      cfLast.additionalFundingRaised = (cfLast.additionalFundingRaised || 0) + commercialDraw;
+      financialResults.cf[lastIndex] = cfLast;
+
+      console.log(`💸 Auto-debt injection → SINOSURE=${formatCurrency(sinosureDraw)} | COMMERCIAL=${formatCurrency(commercialDraw)}`);
+    }
+  } catch (e) {
+    console.warn('⚠️ debt auto-injection:', e?.message || e);
+  }
+}
+
+// 4️⃣ Limpieza de la matriz de financiamiento (sin negativos)
+function sanitizeFundingMatrixRow(cf) {
+  try {
+    const safe = {
+      eq: Math.max(0, (cf?.partnerCapitalization || 0) + (cf?.seriesBNewInvestors || 0)),
+      vd: Math.max(0, cf?.currentYearVentureDebtDraw || 0),
+      cd: Math.max(0, cf?.additionalFundingRaised || 0),
+      sx: Math.max(0, cf?.sinosureDrawn || 0),
+    };
+    return safe;
+  } catch (e) {
+    return { eq: 0, vd: 0, cd: 0, sx: 0 };
+  }
+}
+
+// 5️⃣ Validación rápida del modelo
+function validateModelComprehensively() {
+  try {
+    const coverage = computeCoverage();
+    const dscr = computeFinalDSCR();
+    const cash = financialResults?.bs?.[4]?.cash || 0;
+    const capex = calculateTotalCapex() || 0;
+    const funding = totalFundingFromCF();
+    const gap = capex - funding;
+
+    console.log(`🧠 VALIDATION → Coverage: ${coverage.toFixed(1)} % | DSCR: ${dscr ? dscr.toFixed(2) + 'x' : 'N/A'} | Cash Y5: ${formatCurrency(cash)} | Gap: ${formatCurrency(gap)}`);
+  } catch (e) {
+    console.warn('⚠️ validateModelComprehensively error:', e?.message || e);
+  }
+}
 /**
 * Calculates SINOSURE balance for a given year.
 * @param {number} year - The year to calculate balance for.
@@ -4197,6 +4287,11 @@ function forceCalculate() {
     if (!calculateFinancials()) {
         log('❌ Manual recalculation failed.');
     } else {
+        // Stabilization core hooks
+        ensureDebtInjection();
+        computeFinalDSCR();
+        validateModelComprehensively();
+
         updateUI();
         // Validation logs to confirm funding ≈ capex after cohorts are created
         try {
