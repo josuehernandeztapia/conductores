@@ -4586,35 +4586,25 @@ function updateScenarioButtons(activeScenario) {
 }
 
 function updateCapitalStatus(capitalPlan) {
-    const { allocation, deficit, totalCapex } = capitalPlan;
-    const totalFunding = totalFundingFromCF();
-    const coverage = totalCapex > 0 ? (totalFunding / totalCapex) * 100 : 0;
-    
-    // Update "Análisis de Estructura de Capital" section
+    // CF-only SSOT for capital analysis
+    const cfAgg = (financialResults.cf || []).reduce((acc, cf) => {
+        acc.equity += Math.max(0, (cf.partnerCapitalization || 0) + (cf.seriesBNewInvestors || 0));
+        acc.debt   += Math.max(0, (cf.currentYearVentureDebtDraw || 0) + (cf.additionalFundingRaised || 0) + (cf.sinosureDrawn || 0));
+        return acc;
+    }, { equity: 0, debt: 0 });
+
+    const planInvestment = calculateTotalCapex();
+    const equityDeployed = cfAgg.equity;
+    const debtDeployed   = cfAgg.debt;
+
     const statusContainer = document.querySelector('#financing-summary-card');
     if (statusContainer) {
         statusContainer.innerHTML = `
-            <h5 class="font-semibold text-white mb-3 flex items-center">
-                🧠 Intelligent Capital Allocation 
-                <span class="ml-2 text-xs px-2 py-1 rounded ${coverage >= 100 ? 'bg-emerald-900 text-emerald-300' : 'bg-amber-900 text-amber-300'}">${coverage.toFixed(0)}% covered</span>
-            </h5>
+            <h5 class="font-semibold text-white mb-2">📊 Análisis de Estructura de Capital</h5>
             <div class="text-sm space-y-2 text-slate-300">
-                <div class="font-semibold text-sky-400 border-b border-slate-700 pb-1">Escenario: ${currentScenario.toUpperCase()}</div>
-                
-                <div class="space-y-1">
-                    <div class="flex justify-between"><span>• Seed Capital:</span> <strong class="text-blue-400">$${(allocation.seed/1000000).toFixed(0)}M</strong></div>
-                    <div class="flex justify-between"><span>• Serie A:</span> <strong class="text-emerald-400">$${(allocation.seriesA/1000000).toFixed(0)}M</strong></div>
-                    <div class="flex justify-between"><span>• SINOSURE (6%):</span> <strong class="${allocation.sinosure > 0 ? 'text-yellow-400' : 'text-slate-500'}">${allocation.sinosure > 0 ? '$' + (allocation.sinosure/1000000).toFixed(0) + 'M' : 'No disponible'}</strong></div>
-                    <div class="flex justify-between"><span>• Venture Debt (18%):</span> <strong class="text-red-400">$${(allocation.ventureDebt/1000000).toFixed(0)}M</strong></div>
-                    <div class="flex justify-between"><span>• Commercial Debt (14%):</span> <strong class="text-orange-400">$${(allocation.commercialDebt/1000000).toFixed(0)}M</strong></div>
-                    <div class="flex justify-between"><span>• Serie B:</span> <strong class="text-purple-400">$${(allocation.seriesB/1000000).toFixed(0)}M</strong></div>
-                </div>
-                
-                <div class="border-t border-slate-700 pt-2 mt-2">
-                    <div class="flex justify-between font-semibold"><span>Total CAPEX Needed:</span> <strong class="text-white">$${(totalCapex/1000000).toFixed(0)}M</strong></div>
-                    <div class="flex justify-between font-semibold"><span>Total Funding (CF):</span> <strong class="text-sky-400">$${(totalFunding/1000000).toFixed(0)}M</strong></div>
-                    ${deficit > 0 ? `<div class="flex justify-between text-red-400 font-semibold"><span>• Funding Gap:</span> <strong>$${(deficit/1000000).toFixed(0)}M ⚠️</strong></div>` : '<div class="text-emerald-400 font-semibold">✅ Fully Funded</div>'}
-                </div>
+                <div class="flex justify-between"><span>• Plan de Inversión (CAPEX Total):</span> <strong>${formatCurrency(planInvestment)}</strong></div>
+                <div class="flex justify-between"><span>• Capital de Socios Desplegado (CF):</span> <strong class="text-sky-400">${formatCurrency(equityDeployed)}</strong></div>
+                <div class="flex justify-between border-t border-slate-700 pt-1"><span>• Deuda Desplegada (CF):</span> <strong class="text-emerald-400">${formatCurrency(debtDeployed)}</strong></div>
             </div>
         `;
     }
@@ -5127,35 +5117,21 @@ function updateFinancingMatrixWithOptimized() {
 
     const summaryCard = document.getElementById('financing-summary-card');
     if (summaryCard) {
-        let vdUsed = 0, cdUsed = 0;
-        for (let i = 1; i <= 5; i++) {
-            vdUsed += modelData[`ventureDebtYear${i}`] || 0;
-            cdUsed += modelData[`commercialDebtYear${i}`] || 0;
-        }
-        const vdUtilization = modelData.ventureDebtLineAvailable > 0 ? (vdUsed / modelData.ventureDebtLineAvailable) * 100 : 0;
-        const cdUtilization = modelData.commercialDebtLineAvailable > 0 ? (cdUsed / modelData.commercialDebtLineAvailable) * 100 : 0;
-        
-        const vdStatus = vdUsed > modelData.ventureDebtLineAvailable ? `🚨 Déficit de ${formatCurrency(vdUsed - modelData.ventureDebtLineAvailable)}` : '✅ Cubierto';
-        const cdStatus = cdUsed > modelData.commercialDebtLineAvailable ? `🚨 Déficit de ${formatCurrency(cdUsed - modelData.commercialDebtLineAvailable)}` : '✅ Cubierto';
+        const cfAgg = (financialResults.cf||[]).reduce((a,cf)=>{
+          a.equity += Math.max(0,(cf.partnerCapitalization||0)+(cf.seriesBNewInvestors||0));
+          a.debt   += Math.max(0,(cf.currentYearVentureDebtDraw||0)+(cf.additionalFundingRaised||0)+(cf.sinosureDrawn||0));
+          return a;
+        },{equity:0,debt:0});
+        const planInvestment = calculateTotalCapex();
+        const equityDeployed = cfAgg.equity;
+        const debtDeployed   = cfAgg.debt;
 
         summaryCard.innerHTML = `
             <h5 class="font-semibold text-white mb-2">📊 Análisis de Estructura de Capital</h5>
             <div class="text-sm space-y-2 text-slate-300">
-                <div class="font-semibold text-sky-400">Capital de Socios (Equity)</div>
-                <div class="flex justify-between"><span>• Plan de Inversión:</span> <strong>${formatCurrency(totalPlannedEquity + modelData.seriesA)}</strong></div>
-                <div class="flex justify-between"><span>• Capital Adicional Requerido:</span> <strong class="text-amber-400">${formatCurrency(totalOptimizedEquity - totalPlannedEquity)}</strong></div>
-                <div class="flex justify-between border-t border-slate-700 pt-1"><span>• Total Equity Desplegado:</span> <strong>${formatCurrency(totalOptimizedEquity + modelData.seriesA)}</strong></div>
-            </div>
-            <div class="text-sm space-y-2 text-slate-300 mt-3 pt-3 border-t border-slate-700">
-                <div class="font-semibold text-sky-400">Capital de Deuda</div>
-                <div class="flex justify-between"><span>• Plan de Retiros (Drawdown):</span> <strong>${formatCurrency(totalPlannedDebt)}</strong></div>
-                <div class="flex justify-between"><span>• Deuda Adicional Requerida:</span> <strong class="text-amber-400">${formatCurrency(totalOptimizedDebt - totalPlannedDebt)}</strong></div>
-                <div class="flex justify-between border-t border-slate-700 pt-1"><span>• Total Deuda Desplegada:</span> <strong>${formatCurrency(totalOptimizedDebt)}</strong></div>
-            </div>
-            <div class="text-sm space-y-2 text-slate-300 mt-3 pt-3 border-t border-slate-700">
-                 <div class="font-semibold text-sky-400">Estado de Líneas de Crédito</div>
-                 <div class="flex justify-between"><span>• Línea Venture Debt:</span> <strong>${formatCurrency(modelData.ventureDebtLineAvailable)}</strong> | <span>Utilizado:</span> <strong>${formatCurrency(vdUsed)} (${vdUtilization.toFixed(0)}%)</strong> | <strong class="${vdUsed > modelData.ventureDebtLineAvailable ? 'text-red-400' : 'text-emerald-400'}">${vdStatus}</strong></div>
-                 <div class="flex justify-between"><span>• Línea Deuda Comercial:</span> <strong>${formatCurrency(modelData.commercialDebtLineAvailable)}</strong> | <span>Utilizado:</span> <strong>${formatCurrency(cdUsed)} (${cdUtilization.toFixed(0)}%)</strong> | <strong class="${cdUsed > modelData.commercialDebtLineAvailable ? 'text-red-400' : 'text-emerald-400'}">${cdStatus}</strong></div>
+                <div class="flex justify-between"><span>• Plan de Inversión (CAPEX Total):</span> <strong>${formatCurrency(planInvestment)}</strong></div>
+                <div class="flex justify-between"><span>• Capital de Socios Desplegado (CF):</span> <strong class="text-sky-400">${formatCurrency(equityDeployed)}</strong></div>
+                <div class="flex justify-between border-t border-slate-700 pt-1"><span>• Deuda Desplegada (CF):</span> <strong class="text-emerald-400">${formatCurrency(debtDeployed)}</strong></div>
             </div>
         `;
     }
@@ -5193,37 +5169,106 @@ statusElement.innerHTML = `
 /**
 * Main function to set up all UI controls.
 */
-// SCENARIO EVENT LISTENERS SETUP
-function setupScenarioListeners() {
+// ----- Utilities -----
+function deepClone(o){ return JSON.parse(JSON.stringify(o)); }
+
+function snapshotState(){
+  return {
+    modelData: deepClone(modelData),
+    financialResults: deepClone(financialResults),
+    plannedFinancingData: deepClone(typeof plannedFinancingData!=='undefined'? plannedFinancingData : {}),
+    sinosureCohorts: deepClone(typeof sinosureCohorts!=='undefined'? sinosureCohorts : []),
+    ventureDebtCohorts: deepClone(typeof ventureDebtCohorts!=='undefined'? ventureDebtCohorts : []),
+    commercialDebtCohorts: deepClone(typeof commercialDebtCohorts!=='undefined'? commercialDebtCohorts : []),
+  };
+}
+function restoreState(s){
+  modelData = deepClone(s.modelData);
+  financialResults = deepClone(s.financialResults);
+  if (typeof plannedFinancingData!=='undefined') plannedFinancingData = deepClone(s.plannedFinancingData);
+  if (typeof sinosureCohorts!=='undefined') sinosureCohorts = deepClone(s.sinosureCohorts);
+  if (typeof ventureDebtCohorts!=='undefined') ventureDebtCohorts = deepClone(s.ventureDebtCohorts);
+  if (typeof commercialDebtCohorts!=='undefined') commercialDebtCohorts = deepClone(s.commercialDebtCohorts);
+}
+function hardResetEngine(){
   try {
-    const wire = () => {
-      const pes = document.getElementById('scenario-pesimista');
-      const base = document.getElementById('scenario-base');
-      const opt  = document.getElementById('scenario-optimista');
-      const str  = document.getElementById('scenario-stress');
+    financialResults = { pl:[], cf:[], bs:[], niifDetails:[], tirProyecto:0, tirCartera:0, tirEquity:0, roe:[], roic:[] };
+    if (typeof sinosureCohorts!=='undefined') sinosureCohorts.length = 0;
+    if (typeof ventureDebtCohorts!=='undefined') ventureDebtCohorts.length = 0;
+    if (typeof commercialDebtCohorts!=='undefined') commercialDebtCohorts.length = 0;
+    log('🧼 Engine hard-reset completed');
+  } catch(e) { log('⚠️ hardResetEngine: '+e.message); }
+}
+function injectInitialEquityIfMissing(){
+  try{
+    const hasEq0 = (financialResults.cf||[]).some(e => e.year===0 && (((e.partnerCapitalization||0)+(e.seriesBNewInvestors||0))>0));
+    if(!hasEq0){
+      financialResults.cf = financialResults.cf || [];
+      financialResults.cf.push({
+        year:0,
+        partnerCapitalization: modelData.seed||0,
+        seriesBNewInvestors: modelData.seriesA||0,
+        currentYearVentureDebtDraw:0,
+        additionalFundingRaised:0,
+        sinosureDrawn:0
+      });
+      log(`💡 Injected initial equity Y0: ${formatCurrency((modelData.seed||0)+(modelData.seriesA||0))}`);
+    }
+  }catch(e){ log('⚠️ injectInitialEquityIfMissing: '+e.message); }
+}
 
-      // Remove possible inline onclick to avoid double-binding
-      pes?.removeAttribute('onclick');
-      base?.removeAttribute('onclick');
-      opt?.removeAttribute('onclick');
-      str?.removeAttribute('onclick');
+// Global scenario function
+function _applyGrowthScenario(units){
+  try{
+    // ramp patterns
+    let pattern=[];
+    if(units===250) pattern=[10,40,60,65,75];
+    else if(units===500) pattern=[15,70,120,150,145];
+    else if(units===750) pattern=[20,100,200,220,210];
+    else if(units===1000) pattern=[25,150,250,300,275];
+    else pattern=[15,50,120,190,220];
 
-      pes?.addEventListener('click', () => window.applyGrowthScenario(250));
-      base?.addEventListener('click', () => window.applyGrowthScenario(500));
-      opt?.addEventListener('click', () => window.applyGrowthScenario(750));
-      str?.addEventListener('click', () => window.applyGrowthScenario(1000));
+    modelData.unitsPerYear = [...pattern];
+    modelData.sinosureAvailable = true; // deterministic on scenarios
 
+    const scenarioName = (units===250?'Pesimista':units===500?'Base':units===750?'Optimista':'Stress');
+    localStorage.setItem('selectedScenario', JSON.stringify({ units, scenarioName }));
+    log(`🧩 Scenario set: ${scenarioName} (${units}u) → ${pattern.join('-')}`);
+
+    // full clean + full recalc
+    hardResetEngine();
+    forceCalculate();
+
+    setTimeout(()=>{
+      injectInitialEquityIfMissing();
+      const cov=((totalFundingFromCF()/calculateTotalCapex())*100).toFixed(1);
+      const dscr=(financialResults?.finalDSCR||0).toFixed(2);
+      log(`✅ Post-scenario: Coverage=${cov}% | DSCR=${dscr}x`);
+    },250);
+  }catch(e){
+    console.error('❌ _applyGrowthScenario:',e);
+    alert('Error aplicando escenario: '+e.message);
+  }
+}
+try { window.applyGrowthScenario = _applyGrowthScenario; } catch(_) {}
+// Ensure direct calls use the new scenario function
+function applyGrowthScenario(units){ return _applyGrowthScenario(units); }
+
+// SCENARIO EVENT LISTENERS SETUP
+function setupScenarioListeners(){
+  try{
+    const wire=()=>{
+      ['scenario-pesimista','scenario-base','scenario-optimista','scenario-stress']
+        .forEach(id=>document.getElementById(id)?.removeAttribute('onclick'));
+      document.getElementById('scenario-pesimista')?.addEventListener('click', ()=>window.applyGrowthScenario(250));
+      document.getElementById('scenario-base')?.addEventListener('click', ()=>window.applyGrowthScenario(500));
+      document.getElementById('scenario-optimista')?.addEventListener('click', ()=>window.applyGrowthScenario(750));
+      document.getElementById('scenario-stress')?.addEventListener('click', ()=>window.applyGrowthScenario(1000));
       log('✅ Scenario listeners bound successfully');
     };
-
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', wire, { once: true });
-    } else {
-      wire();
-    }
-  } catch (error) {
-    log(`⚠️ Error in setupScenarioListeners: ${error.message}`);
-  }
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', wire, {once:true});
+    else wire();
+  }catch(e){ log('⚠️ setupScenarioListeners: '+e.message); }
 }
 
 function setupControls() {
@@ -5453,9 +5498,14 @@ setTimeout(() => {
 // --- UI calls re-enabled ---
 log('✅ UI updates enabled.');
 
-// SET DEFAULT TO BASE SCENARIO
+// Restore selected scenario from localStorage (non-intrusive)
 setTimeout(() => {
-    switchScenario('base');
+  try{
+    const s=localStorage.getItem('selectedScenario');
+    if(!s) return;
+    const {units}=JSON.parse(s);
+    if(units) setTimeout(()=>window.applyGrowthScenario(units), 200);
+  }catch(e){ log('⚠️ restore scenario: '+e.message); }
 }, 100);
 
 setTimeout(() => {
@@ -5486,131 +5536,35 @@ console.log('Emergency rollback available: emergencyRollback()');
 <!-- Sensitivity Analysis Script -->
 <script>
 // === Sensitivity Analysis: TIR vs Units ===
-async function runSensitivityAnalysis() {
-  try {
-    const scenarios = [250, 400, 500, 600, 750, 900, 1000];
-    const results = [];
+async function runSensitivityAnalysis(){
+  const scenarios=[250,400,500,600,750,900,1000];
+  const baseSnap = snapshotState();
+  const results=[];
+  try{
+    log('📊 Running Sweet Spot (pure)...');
+    for(const units of scenarios){
+      const snap = snapshotState();
+      try{
+        modelData.unitsPerYear = (units===250)?[10,40,60,65,75] :
+                                 (units===400)?[12,60,95,120,113] :
+                                 (units===500)?[15,70,120,150,145] :
+                                 (units===600)?[18,85,150,175,172] :
+                                 (units===750)?[20,100,200,220,210] :
+                                 (units===900)?[22,130,230,260,258] :
+                                               [25,150,250,300,275];
+        modelData.sinosureAvailable = true;
+        hardResetEngine();
+        forceCalculate();
 
-    log("📊 Running sensitivity analysis across unit scenarios...");
-
-    const prevUnits = modelData.units;
-    const prevUnitsPerYear = Array.isArray(modelData.unitsPerYear) ? [...modelData.unitsPerYear] : null;
-
-    for (const units of scenarios) {
-      // Apply scenario baseline
-      applyGrowthScenario(units);
-
-      // Recalculate core financials
-      const ok = calculateFinancials();
-      if (ok) {
-        const irr = (financialResults.tirEquity || 0).toFixed(1);
-        const dscr = (financialResults.finalDSCR || 0).toFixed(1);
-        const cfaf = (financialResults.cf?.[4]?.cashAfterFinancing || 0) / 1e6;
-
-        results.push({
-          units,
-          irr: parseFloat(irr),
-          dscr: parseFloat(dscr),
-          cfaf: parseFloat(cfaf.toFixed(1)),
-        });
-      }
+        const irr  = (financialResults?.tirEquity || financialResults?.equityIRR || 0);
+        const dscr = (financialResults?.finalDSCR || 0);
+        const cfaf = (financialResults?.cf?.[4]?.cashAfterFinancing || 0)/1e6;
+        results.push({units, irr:+irr.toFixed(1), dscr:+dscr.toFixed(2), cfaf:+cfaf.toFixed(1)});
+      } finally { restoreState(snap); }
     }
-
-    // Restore previous state
-    if (typeof prevUnits === 'number') modelData.units = prevUnits;
-    if (prevUnitsPerYear) modelData.unitsPerYear = prevUnitsPerYear;
-    calculateFinancials();
-    updateUI();
-
-    log("✅ Sensitivity data generated:", results);
-
-    // Draw chart
-    const ctxId = "tirSensitivityChart";
-    let canvas = document.getElementById(ctxId);
-    if (!canvas) {
-      const chartContainer = document.createElement("div");
-      chartContainer.innerHTML = `
-        <div class="mt-6 bg-slate-900 rounded-2xl shadow-md p-4">
-          <h3 class="text-slate-200 text-sm mb-2">📈 Sweet Spot: TIR, DSCR & CashFlow by Units</h3>
-          <canvas id="${ctxId}" height="130"></canvas>
-        </div>`;
-      document.body.appendChild(chartContainer);
-      canvas = document.getElementById(ctxId);
-    }
-
-    const ctx = canvas.getContext("2d");
-    if (window.sweetSpotChart) window.sweetSpotChart.destroy();
-
-    window.sweetSpotChart = new Chart(ctx, {
-      type: "line",
-      data: {
-        labels: results.map(r => `${r.units}`),
-        datasets: [
-          {
-            label: "TIR Equity (%)",
-            data: results.map(r => r.irr),
-            borderColor: "#10B981",
-            backgroundColor: "rgba(16,185,129,0.3)",
-            yAxisID: "y",
-          },
-          {
-            label: "DSCR (x)",
-            data: results.map(r => r.dscr),
-            borderColor: "#3B82F6",
-            backgroundColor: "rgba(59,130,246,0.3)",
-            yAxisID: "y1",
-          },
-          {
-            label: "Cash Flow After Financing (Y5, M MXN)",
-            data: results.map(r => r.cfaf),
-            borderColor: "#F59E0B",
-            backgroundColor: "rgba(245,158,11,0.3)",
-            yAxisID: "y2",
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        interaction: { mode: "index", intersect: false },
-        stacked: false,
-        plugins: {
-          legend: { labels: { color: "#CBD5E1" } },
-          tooltip: {
-            callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y}` },
-          },
-        },
-        scales: {
-          x: {
-            title: { display: true, text: "Unidades", color: "#94A3B8" },
-            ticks: { color: "#CBD5E1" },
-            grid: { color: "#1E293B" },
-          },
-          y: {
-            type: "linear",
-            position: "left",
-            title: { display: true, text: "TIR (%)", color: "#10B981" },
-            ticks: { color: "#10B981" },
-          },
-          y1: {
-            type: "linear",
-            position: "right",
-            grid: { drawOnChartArea: false },
-            title: { display: true, text: "DSCR (x)", color: "#3B82F6" },
-            ticks: { color: "#3B82F6" },
-          },
-          y2: {
-            type: "linear",
-            position: "right",
-            grid: { drawOnChartArea: false },
-            title: { display: true, text: "Cash Flow (M MXN)", color: "#F59E0B" },
-            ticks: { color: "#F59E0B" },
-          },
-        },
-      },
-    });
-  } catch (error) {
-    console.error("❌ Error running sensitivity chart:", error);
-  }
+    restoreState(baseSnap); updateUI();
+    console.table(results);
+  } catch(e){ console.error('❌ Sweet Spot:',e); restoreState(baseSnap); updateUI(); }
 }
 </script>
 </script>
