@@ -3583,6 +3583,23 @@ try {
 log(`❌ Error in updateUI: ${error.message}`);
 }
 }
+
+// Lightweight persistence loader for selectedScenario
+// Only activates if no dedicated loadScenarioConfig() exists
+(function loadScenarioConfigIIFE() {
+  try {
+    if (typeof loadScenarioConfig === 'function') return; // use the dedicated loader if present
+    const stored = localStorage.getItem('selectedScenario');
+    if (!stored) return;
+    const { units, scenarioName } = JSON.parse(stored);
+    if (units) {
+      applyGrowthScenario(units);
+      log(`💾 Escenario restaurado: ${scenarioName} (${units} unidades)`);
+    }
+  } catch (err) {
+    log(`⚠️ Error loading scenario config: ${err.message}`);
+  }
+})();
 /**
 * Coordinates the update of all financial tables (P&L, CF, BS).
 */
@@ -5153,17 +5170,22 @@ statusElement.innerHTML = `
 */
 // SCENARIO EVENT LISTENERS SETUP
 function setupScenarioListeners() {
-  const pesBtn = document.getElementById('scenario-pesimista');
-  const baseBtn = document.getElementById('scenario-base');
-  const optBtn = document.getElementById('scenario-optimista');
-  const stressBtn = document.getElementById('scenario-stress');
+  try {
+    const pesBtn = document.getElementById('scenario-pesimista');
+    const baseBtn = document.getElementById('scenario-base');
+    const optBtn = document.getElementById('scenario-optimista');
+    const stressBtn = document.getElementById('scenario-stress');
 
-  pesBtn?.addEventListener('click', () => applyGrowthScenario(250));
-  baseBtn?.addEventListener('click', () => applyGrowthScenario(500));
-  optBtn?.addEventListener('click', () => applyGrowthScenario(750));
-  stressBtn?.addEventListener('click', () => applyGrowthScenario(1000));
+    // Bind new parametric scenarios
+    pesBtn?.addEventListener('click', () => applyGrowthScenario(250));
+    baseBtn?.addEventListener('click', () => applyGrowthScenario(500));
+    optBtn?.addEventListener('click', () => applyGrowthScenario(750));
+    stressBtn?.addEventListener('click', () => applyGrowthScenario(1000));
 
-  log('✅ Scenario listeners bound successfully');
+    log('✅ Scenario listeners bound successfully');
+  } catch (error) {
+    log(`⚠️ Error in setupScenarioListeners: ${error.message}`);
+  }
 }
 
 function setupControls() {
