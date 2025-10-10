@@ -719,23 +719,6 @@ min-height: 280px;
 lucide.createIcons();
 
 // ===================================================================
-// ===== V3 ENGINE: SCENARIOS & CONFIGURATIONS =======================
-// ===================================================================
-const SCENARIO_DEFS = {
-    250: { units: [10, 40, 60, 65, 75], name: 'Pesimista' },
-    500: { units: [15, 70, 120, 150, 145], name: 'Base' },
-    750: { units: [20, 100, 200, 220, 210], name: 'Optimista' },
-    1000: { units: [25, 150, 250, 300, 275], name: 'Stress' }
-};
-
-const sinosureConfigOverrides = {
-    rate: 6.0,
-    productionCostUSD: 18250,
-    exchangeRate: 20,
-    availabilityStartYear: 2
-};
-
-// ===================================================================
 // ===== FASE 1: CONFIGURACIÓN Y DATOS INICIALES (EL QUÉ) =========
 // ===================================================================
 // (Aquí se definen todas las variables y la configuración inicial del modelo)
@@ -776,7 +759,7 @@ portfolioAllocationStage3: 0.08,
 unitsPerYear: [15, 50, 100, 180, 250], // Base scenario - Updated
 
 // Capital Structure - CORRECTED SEED + SERIES A
-seed: 10000000, // Seed $10M for tech + pilot (pre-Series A)
+seed: 5000000,     // $5M MXN - Tech inicial + 2-3 units proof (6 months)
 seriesA: 50000000, // $50M MXN - Growth capital Year 0 for scaling
 ventureDebtLineAvailable: 100000000, 
 commercialDebtLineAvailable: 300000000, 
@@ -1326,9 +1309,9 @@ function updateProtectedCapitalMotor() {
 
 // SCENARIO DEFINITIONS
 const scenarios = {
-    pesimista: SCENARIO_DEFS[250].units,
-    base: SCENARIO_DEFS[500].units,
-    optimista: SCENARIO_DEFS[750].units
+    pesimista: [8, 25, 45, 70, 90],
+    base: [15, 50, 100, 180, 250],
+    optimista: [25, 80, 180, 320, 450]
 };
 
 let currentScenario = 'base';
@@ -1771,39 +1754,49 @@ function calculateYearlyFinancingNeeds(year, capexThisYear, operatingCashFlow, s
 * @param {number} remainingCapex - CAPEX to fund for the year
 * @returns {{equity:number,sinosure:number,commercial:number,venture:number}}
 */
-function allocateCapital(year, capexThisYear) {
+function allocateCapital(year, remainingCapex) {
     const draws = { equity: 0, sinosure: 0, commercial: 0, venture: 0 };
-    let remaining = capexThisYear;
+    let remaining = remainingCapex;
 
-    // 1. SINOSURE (if available, from Year 2 onwards)
-    if (modelData.sinosureAvailable && year >= (sinosureConfig.availabilityStartYear || 2) && remaining > 0) {
-        const productionCostPerUnit = sinosureConfig.productionCostUSD * sinosureConfig.exchangeRate;
-        const sinosureLimit = modelData.unitsPerYear[year - 1] * productionCostPerUnit;
-        const sinosureDraw = Math.min(sinosureLimit, remaining);
+    // 1) Planned Equity for the year (Partner + New Investors)
+    const eqLimit = remainingCapex * 0.25;
+    const plannedPartner = (plannedFinancingData[`partnerCapitalizationYear${year}`] || 0);
+    const plannedSeriesA = (plannedFinancingData[`seriesA_year${year}`] || 0);
+    const plannedSeriesB = (plannedFinancingData[`seriesB_newInvestors_year${year}`] || 0);
+    const eqPlannedTotal = plannedPartner + plannedSeriesA + plannedSeriesB;
+    const eqAvail = Math.min(eqLimit, eqPlannedTotal);
+    draws.equity = Math.min(eqAvail, remaining);
+    remaining -= draws.equity;
+
+    // 2) Sinosure (only if available and Year >= 2)
+    if (modelData.sinosureAvailable && year >= 2 && remaining > 0) {
+        const limit = modelData.unitsPerYear[year - 1] * (sinosureConfig.productionCostUSD * sinosureConfig.exchangeRate);
+        const sinosureDraw = Math.min(limit, remaining);
         draws.sinosure = sinosureDraw;
         remaining -= sinosureDraw;
     }
 
-    // 2. Commercial Debt (to fill the rest of the gap)
+    // 3) Commercial Debt (allowed alongside Sinosure; fill remaining up to available line)
     if (remaining > 0) {
         const commercialAvail = Math.min(modelData.commercialDebtLineAvailable, remaining);
         draws.commercial = commercialAvail;
         remaining -= commercialAvail;
     }
 
-    // 3. Venture Debt (last resort, for early years or if other lines are exhausted)
-    if (remaining > 0 && year < 3) { // Primarily for Y1/Y2 before commercial debt is fully active
+    // 4) Venture Debt (only Y0–Y1 i.e., year <= 1)
+    if (remaining > 0 && year <= 1) {
         const ventureAvail = Math.min(modelData.ventureDebtLineAvailable, remaining);
         draws.venture = ventureAvail;
         remaining -= ventureAvail;
     }
 
-    // 4. Unit Throttling (if there is still a funding gap)
+    // 5) Throttle units if still short with 50% dampening to avoid over-cutting
     if (remaining > 0) {
         const unitCost = getTotalPackageCost();
-        const unitsToCut = Math.ceil(remaining / unitCost);
-        modelData.unitsPerYear[year - 1] = Math.max(0, modelData.unitsPerYear[year - 1] - unitsToCut);
-        log(`⚙️ Throttled ${unitsToCut} units in Y${year} due to funding gap of ${formatCurrency(remaining)}.`);
+        const unitsReduction = Math.ceil((remaining / unitCost) * 0.5);
+        modelData.unitsPerYear[year - 1] = Math.max(0, modelData.unitsPerYear[year - 1] - unitsReduction);
+        log(`⚙️ Throttled ${unitsReduction} units in year ${year} (50% dampening).`);
+        remaining = 0;
     }
 
     return draws;
@@ -2330,10 +2323,9 @@ try {
     debtOptimizationHistory = [];
 
 // --- Initial state variables ---
-let cash = (modelData.seed || 0) + (modelData.seriesA || 0);
+let cash = modelData.seriesA;
 let currentProvisionsBalance = 0;
-let endOfYearEquity = (modelData.seed || 0) + (modelData.seriesA || 0);
-log(`💡 Initial Equity Injection: ${formatCurrency(cash)} (Seed + Serie A)`);
+let endOfYearEquity = modelData.seriesA;
 
 // --- Cohort tracking ---
 let loanCohorts = [];
@@ -2346,8 +2338,8 @@ let ventureDebtBalance = 0;
 let commercialDebtBalance = 0;
 
 // --- IRR Cash Flow arrays ---
-let equityCashFlows = [-cash];
-let projectCashFlows = [-cash];
+let equityCashFlows = [-modelData.seriesA];
+let projectCashFlows = [-modelData.seriesA];
 let portfolioCashFlows = [];
 log(`Initial Series A capital: ${formatCurrency(modelData.seriesA)}`);
 
@@ -2915,7 +2907,7 @@ const pl = financialResults.pl[i];
 const cf = financialResults.cf[i];
 const bs = financialResults.bs[i];
 
-const prevBsCash = (i === 0) ? ((modelData.seed || 0) + (modelData.seriesA || 0)) : financialResults.bs[i-1].cash;
+const prevBsCash = (i === 0) ? modelData.seriesA : financialResults.bs[i-1].cash;
 
 const balanceDiff = Math.abs(bs.totalAssets - bs.totalLiabilitiesEquity);
 if (balanceDiff > tolerance) {
@@ -4107,10 +4099,24 @@ function switchScenario(scenarioName) {
     log(`🎯 Switching to scenario: ${scenarioName.toUpperCase()}`);
     
     try {
-        // DEPRECATED: Redirect to new engine
-        const mapping = { pesimista: 250, base: 500, optimista: 750 };
-        const targetUnits = mapping[scenarioName] || 500;
-        window.applyGrowthScenario(targetUnits);
+        // 1. Update units safely
+        modelData.unitsPerYear = [...scenarios[scenarioName]];
+        currentScenario = scenarioName;
+        
+        // 2. Auto-optimize capital allocation
+        const capitalPlan = optimizeCapitalAllocation(scenarios[scenarioName]);
+        updateCapitalStructure(capitalPlan);
+        
+        // 3. Update UI elements
+        updateUnitInputs(scenarios[scenarioName]);
+        updateScenarioButtons(scenarioName);
+        updateCapitalStatus(capitalPlan);
+        
+        // 4. Recalculate model safely
+        forceCalculate();
+        
+        const totalUnits = scenarios[scenarioName].reduce((a,b) => a+b, 0);
+        log(`✅ Scenario ${scenarioName.toUpperCase()} loaded successfully: ${totalUnits} total units`);
         
     } catch (error) {
         log(`❌ ERROR in switchScenario: ${error.message}`);
@@ -4222,36 +4228,6 @@ function forceCalculate() {
         log('✅ Manual recalculation completed.');
     }
 }
-
-// ===================================================================
-// ===== SCENARIO ENGINE (APPLY & PERSIST) ============================
-// ===================================================================
-function _applyGrowthScenario(units) {
-    try {
-        const scenario = SCENARIO_DEFS[units] || SCENARIO_DEFS[500];
-        modelData.unitsPerYear = [...scenario.units];
-        
-        // Activate SINOSURE for all scaled scenarios
-        modelData.sinosureAvailable = true; 
-        
-        // Sync optional overrides into active config
-        if (typeof sinosureConfig !== 'undefined') {
-            sinosureConfig.rate = sinosureConfigOverrides.rate;
-            sinosureConfig.productionCostUSD = sinosureConfigOverrides.productionCostUSD;
-            sinosureConfig.exchangeRate = sinosureConfigOverrides.exchangeRate;
-        }
-        
-        localStorage.setItem('selectedScenario', JSON.stringify({ units, name: scenario.name }));
-        log(`🧩 Scenario set: ${scenario.name} (${units} units) → ${modelData.unitsPerYear.join('-')}`);
-        
-        forceCalculate(); // Trigger the full recalculation engine
-    } catch (e) {
-        console.error('❌ _applyGrowthScenario Error:', e);
-        alert('Error applying scenario: ' + e.message);
-    }
-}
-// Expose the function globally to ensure it's always accessible
-window.applyGrowthScenario = _applyGrowthScenario;
 
 
 
@@ -4768,28 +4744,11 @@ statusElement.innerHTML = `
 // SCENARIO EVENT LISTENERS SETUP
 function setupScenarioListeners() {
     try {
-        const wire = () => {
-            document.getElementById('scenario-pesimista')?.addEventListener('click', () => window.applyGrowthScenario(250));
-            document.getElementById('scenario-base')?.addEventListener('click', () => window.applyGrowthScenario(500));
-            document.getElementById('scenario-optimista')?.addEventListener('click', () => window.applyGrowthScenario(750));
-
-            let stressBtn = document.getElementById('scenario-stress');
-            if (!stressBtn) {
-                const selector = document.querySelector('.scenario-selector .flex.gap-2');
-                if (selector) {
-                    selector.innerHTML += `<button id="scenario-stress" class="scenario-btn px-4 py-2 bg-slate-700 text-slate-300 rounded-lg border border-slate-600 text-sm">🧪 <strong>Stress</strong><br><small class="text-xs">${SCENARIO_DEFS[1000].units.reduce((a,b)=>a+b,0)} units</small></button>`;
-                    stressBtn = document.getElementById('scenario-stress');
-                }
-            }
-            stressBtn?.addEventListener('click', () => window.applyGrowthScenario(1000));
-            log('✅ Scenario listeners bound successfully');
-        };
-
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', wire, { once: true });
-        } else {
-            wire();
-        }
+        document.getElementById('scenario-pesimista')?.addEventListener('click', () => switchScenario('pesimista'));
+        document.getElementById('scenario-base')?.addEventListener('click', () => switchScenario('base'));
+        document.getElementById('scenario-optimista')?.addEventListener('click', () => switchScenario('optimista'));
+        
+        log('✅ Scenario listeners configured successfully');
     } catch (error) {
         log(`❌ Error setting up scenario listeners: ${error.message}`);
     }
