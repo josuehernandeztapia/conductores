@@ -759,7 +759,7 @@ portfolioAllocationStage3: 0.08,
 unitsPerYear: [15, 50, 100, 180, 250], // Base scenario - Updated
 
 // Capital Structure - CORRECTED SEED + SERIES A
-seed: 5000000,     // $5M MXN - Tech inicial + 2-3 units proof (6 months)
+seed: 10000000, // Seed $10M for tech + pilot (pre-Series A)
 seriesA: 50000000, // $50M MXN - Growth capital Year 0 for scaling
 ventureDebtLineAvailable: 100000000, 
 commercialDebtLineAvailable: 300000000, 
@@ -2323,9 +2323,10 @@ try {
     debtOptimizationHistory = [];
 
 // --- Initial state variables ---
-let cash = modelData.seriesA;
+let cash = (modelData.seed || 0) + (modelData.seriesA || 0);
 let currentProvisionsBalance = 0;
-let endOfYearEquity = modelData.seriesA;
+let endOfYearEquity = (modelData.seed || 0) + (modelData.seriesA || 0);
+log(`💡 Initial Equity Injection: ${formatCurrency(cash)} (Seed + Serie A)`);
 
 // --- Cohort tracking ---
 let loanCohorts = [];
@@ -2338,8 +2339,8 @@ let ventureDebtBalance = 0;
 let commercialDebtBalance = 0;
 
 // --- IRR Cash Flow arrays ---
-let equityCashFlows = [-modelData.seriesA];
-let projectCashFlows = [-modelData.seriesA];
+let equityCashFlows = [-cash];
+let projectCashFlows = [-cash];
 let portfolioCashFlows = [];
 log(`Initial Series A capital: ${formatCurrency(modelData.seriesA)}`);
 
@@ -2907,7 +2908,7 @@ const pl = financialResults.pl[i];
 const cf = financialResults.cf[i];
 const bs = financialResults.bs[i];
 
-const prevBsCash = (i === 0) ? modelData.seriesA : financialResults.bs[i-1].cash;
+const prevBsCash = (i === 0) ? ((modelData.seed || 0) + (modelData.seriesA || 0)) : financialResults.bs[i-1].cash;
 
 const balanceDiff = Math.abs(bs.totalAssets - bs.totalLiabilitiesEquity);
 if (balanceDiff > tolerance) {
