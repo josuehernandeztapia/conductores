@@ -5062,5 +5062,127 @@ console.log('Emergency rollback available: emergencyRollback()');
   window.applyScenarioV2 = applyScenarioV2;
 })();
 </script>
+<script>
+// =============== CF TRUTH FOR ENGINE (PRESENTATION ONLY) ===============
+
+// Helpers básicos
+function __fmtM(v){ return (isFinite(v)? '$'+(v/1e6).toFixed(1)+'M' : '$0M'); }
+function __fmtPct(p){ return (isFinite(p)? p.toFixed(1)+'%':'—'); }
+
+// Suma CF (SSOT) y sanea (negativos => 0 para presentación)
+function __sumCF() {
+  const cf = (window.financialResults?.cf)||[];
+  let eq=0, vd=0, cd=0, sx=0;
+  cf.forEach(y=>{
+    eq += Math.max(0,(y?.partnerCapitalization||0)+(y?.seriesBNewInvestors||0));
+    vd += Math.max(0,(y?.currentYearVentureDebtDraw||0));
+    cd += Math.max(0,(y?.additionalFundingRaised||0));
+    sx += Math.max(0,(y?.sinosureDrawn||0));
+  });
+  return { eq, vd, cd, sx, total: eq+vd+cd+sx };
+}
+
+// Cobertura SSOT desde CF (tope 105% para estabilidad visual)
+function __coverageCF() {
+  try{
+    const capex = (typeof calculateTotalCapex==='function'? calculateTotalCapex(): 0) || 1;
+    const fund  = (typeof totalFundingFromCF==='function'? totalFundingFromCF(): 0);
+    return Math.min((fund/capex)*100, 105);
+  }catch{ return 0; }
+}
+
+// DSCR final normalizado (N/A si no hay servicio)
+function __dscrFinal() {
+  const fr = window.financialResults || {};
+  const e = fr?.pl?.[4]?.ebitda || 0;
+  const i = fr?.pl?.[4]?.interestExpense || 0;
+  const p = fr?.cf?.[4]?.debtPrincipalRepayment || 0;
+  const ds = (i||0)+(p||0);
+  return (ds>0) ? (e/ds) : null;
+}
+
+// Busca el contenedor del Engine (por título) o lo crea si no existe
+function __getEngineContainer() {
+  // Prioriza contenedor existente (para reemplazar su contenido)
+  const headers = Array.from(document.querySelectorAll('h5, h4, h3')).filter(h=>/Protected Capital Engine/i.test(h.textContent||''));
+  if (headers.length){
+    // contenedor = card padre
+    const card = headers[0].closest('.card') || headers[0].parentElement;
+    if (card) return card;
+  }
+  // Fallback: crea una card al final del panel de control
+  const ctrl = document.getElementById('content-control') || document.body;
+  const card = document.createElement('div');
+  card.className = 'card';
+  ctrl.appendChild(card);
+  return card;
+}
+
+// Renderiza el Engine coherente con CF
+function renderEngineCF() {
+  try{
+    const card = __getEngineContainer();
+    if (!card) return;
+
+    const sums = __sumCF();
+    const capex = (typeof calculateTotalCapex==='function'? calculateTotalCapex(): 0);
+    const cov   = __coverageCF();
+    const dscr  = __dscrFinal();
+    const scenarioLabel = (window.currentScenario || '').toUpperCase() || '—';
+
+    // Equity semántico (seed+serieA son parte del equity CF si fueron inyectados correctamente)
+    const equityLabel = __fmtM(sums.eq);
+    const ventureLabel = __fmtM(sums.vd);
+    const commercialLabel = __fmtM(sums.cd);
+    const sinosureLabel = __fmtM(sums.sx);
+    const totalFundingCF = __fmtM(sums.total);
+
+    card.innerHTML = `
+      <h4 class="text-lg font-semibold mb-3 text-white">🧠 Protected Capital Engine <span class="ml-2 text-xs px-2 py-1 rounded bg-slate-700 text-slate-300">CF Truth</span></h4>
+      <div class="text-sm space-y-3 text-slate-300">
+        <div class="p-2 bg-slate-800/50 rounded border border-slate-700">
+          <div class="font-semibold text-blue-400 mb-1">Input Analysis</div>
+          <div class="flex justify-between text-xs"><span>Total Units:</span> <strong class="text-white">${(window.modelData?.unitsPerYear||[]).reduce((a,b)=>a+b,0)}</strong></div>
+          <div class="flex justify-between text-xs"><span>CAPEX Required:</span> <strong class="text-white">${__fmtM(capex)}</strong></div>
+          <div class="flex justify-between text-xs"><span>Scenario:</span> <strong class="text-emerald-400">${scenarioLabel || '—'}</strong></div>
+        </div>
+
+        <div class="p-2 bg-slate-800/50 rounded border border-slate-700">
+          <div class="font-semibold text-green-400 mb-1">Allocation by CF (sanitized)</div>
+          <div class="flex justify-between text-xs"><span>Equity (CF):</span>       <strong class="text-blue-400">${equityLabel}</strong></div>
+          <div class="flex justify-between text-xs"><span>SINOSURE (6%):</span>     <strong class="text-yellow-400">${sinosureLabel}</strong></div>
+          <div class="flex justify-between text-xs"><span>Commercial (14%):</span>  <strong class="text-orange-400">${commercialLabel}</strong></div>
+          <div class="flex justify-between text-xs"><span>Venture (18%):</span>     <strong class="text-red-400">${ventureLabel}</strong></div>
+        </div>
+
+        <div class="p-2 bg-slate-800/50 rounded border border-slate-700">
+          <div class="font-semibold text-purple-400 mb-1">Engine Output (from CF)</div>
+          <div class="flex justify-between text-xs"><span>Total Funding (CF):</span> <strong class="text-white">${totalFundingCF}</strong></div>
+          <div class="flex justify-between text-xs"><span>Coverage (CF/Capex):</span> <strong class="${cov>=95&&cov<=105?'text-emerald-400':'text-amber-400'}">${__fmtPct(cov)}</strong></div>
+          <div class="flex justify-between text-xs"><span>DSCR Impact:</span> <strong class="${(dscr!=null && dscr>=1.5)?'text-emerald-400':'text-red-400'}">${(dscr==null?'N/A':dscr.toFixed(1)+'x')}</strong></div>
+        </div>
+
+        <div class="text-xs p-2 bg-slate-700/30 rounded border border-slate-600">
+          🛡️ <strong>Protected:</strong> Coherent with CF; replacement amounts are sanitized (no negatives). Use scenario buttons to re-run allocations.
+        </div>
+      </div>
+    `;
+  }catch(e){
+    console.warn('renderEngineCF warn:', e.message);
+  }
+}
+
+// Hook: al cargar y tras cálculo
+document.addEventListener('DOMContentLoaded', ()=>{ try{ renderEngineCF(); }catch(e){} });
+(function wrapFCForEngineCF(){
+  const orig = window.forceCalculate;
+  window.forceCalculate = function(){
+    if (typeof orig === 'function') orig();
+    try{ renderEngineCF(); }catch(e){}
+  };
+})();
+
+// =============== END CF TRUTH FOR ENGINE ===============
+</script>
 </body>
 </html>
