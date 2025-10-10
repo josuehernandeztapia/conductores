@@ -4981,5 +4981,86 @@ console.log('Emergency rollback available: emergencyRollback()');
 });
 
 </script>
+<script>
+/* ===================== SCENARIOS V2 (NUMS-ONLY) ===================== */
+(function(){
+  // 1) SSOT de 4 escenarios (unidades por año)
+  const SCENARIOS_V2 = {
+    pesimista:  [25, 50, 60, 55, 60],    // 250
+    base:       [30, 75, 120, 135, 140], // 500
+    expansivo:  [35, 80, 170, 200, 265], // 750
+    optimista:  [40, 88, 190, 270, 412]  // 1000
+  };
+
+  // 2) Reset seguro de estado antes de recalcular (evita residuos)
+  function resetStateForScenario(){
+    try{
+      if (window.sinosureCohorts)           sinosureCohorts.length = 0;
+      if (window.commercialDebtCohorts)     commercialDebtCohorts.length = 0;
+      if (window.ventureDebtCohorts)        ventureDebtCohorts.length = 0;
+      if (window.financialResults) {
+        financialResults.pl = [];
+        financialResults.cf = [];
+        financialResults.bs = [];
+      }
+    } catch(e) { console.warn('resetStateForScenario warn:', e.message); }
+  }
+
+  // 3) Apply con SSOT + reset + recálculo (sin tocar lógica NIIF)
+  function applyScenarioV2(id){
+    const units = SCENARIOS_V2[id];
+    if (!Array.isArray(units)) { console.warn('Scenario not found:', id); return; }
+
+    if (!window.modelData) window.modelData = {};
+    modelData.unitsPerYear = units.slice();              // copia defensiva
+    window.currentScenario = (id||'').toUpperCase();     // meta-información
+
+    resetStateForScenario();                              // limpia cohorts/CF
+    if (typeof capturePlannedFinancing === 'function') capturePlannedFinancing();
+    if (typeof forceCalculate === 'function') forceCalculate();
+
+    // Actualiza el subtítulo de unidades/CAPEX del botón (si existe)
+    try {
+      const totalUnits = units.reduce((a,b)=>a+b,0);
+      const capex      = (typeof calculateTotalCapex==='function') ? calculateTotalCapex() : 0;
+      const small = {
+        pesimista:  document.querySelector('#scenario-pesimista small'),
+        base:       document.querySelector('#scenario-base small'),
+        optimista:  document.querySelector('#scenario-optimista small'),
+        expansivo:  document.querySelector('#scenario-expansivo small')
+      }[id];
+      if (small) small.textContent = `${totalUnits.toLocaleString('es-MX')} units · ${(capex/1e6).toFixed(0)}M CAPEX`;
+    } catch(e){}
+  }
+
+  // 4) Bind seguro a los botones existentes; crea "Expansivo" si no existe (UI mínima)
+  document.addEventListener('DOMContentLoaded', ()=>{
+    try{
+      const btnP = document.getElementById('scenario-pesimista');
+      const btnB = document.getElementById('scenario-base');
+      const btnO = document.getElementById('scenario-optimista');
+      if (btnP) btnP.onclick = ()=>applyScenarioV2('pesimista');
+      if (btnB) btnB.onclick = ()=>applyScenarioV2('base');
+      if (btnO) btnO.onclick = ()=>applyScenarioV2('optimista');
+
+      // Añade 4º botón (Expansivo) solo si falta. No altera estilos globales.
+      if (!document.getElementById('scenario-expansivo')) {
+        const row = document.querySelector('.scenario-selector .flex') || document.querySelector('.scenario-selector');
+        if (row) {
+          const btn = document.createElement('button');
+          btn.id = 'scenario-expansivo';
+          btn.className = 'scenario-btn px-4 py-2 bg-slate-700 text-slate-300 rounded-lg border border-slate-600 text-sm hover:bg-slate-600 transition-all duration-200 hover:border-slate-500';
+          btn.innerHTML = `📈 <strong>Expansivo</strong><br><small class="text-xs opacity-75">750 units · ~CAPEX</small>`;
+          btn.onclick = ()=>applyScenarioV2('expansivo');
+          row.appendChild(btn);
+        }
+      }
+    } catch(e){ console.warn('scenario binding v2 warn:', e.message); }
+  });
+
+  // 5) Expone la función por consola para pruebas rápidas
+  window.applyScenarioV2 = applyScenarioV2;
+})();
+</script>
 </body>
 </html>
