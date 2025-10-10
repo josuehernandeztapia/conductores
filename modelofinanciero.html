@@ -5063,126 +5063,182 @@ console.log('Emergency rollback available: emergencyRollback()');
 })();
 </script>
 <script>
-// =============== CF TRUTH FOR ENGINE (PRESENTATION ONLY) ===============
+// ===================== CF TRUTH STABLE LAYER =====================
 
-// Helpers básicos
-function __fmtM(v){ return (isFinite(v)? '$'+(v/1e6).toFixed(1)+'M' : '$0M'); }
-function __fmtPct(p){ return (isFinite(p)? p.toFixed(1)+'%':'—'); }
+// Numeritos
+function __num(v){ return (typeof v==='number' && isFinite(v)) ? v : 0; }
+function __fmtM(v){ return '$'+(v/1e6).toFixed(1)+'M'; }
+function __pct(p){ return (isFinite(p)? p.toFixed(1)+'%':'—'); }
 
-// Suma CF (SSOT) y sanea (negativos => 0 para presentación)
-function __sumCF() {
+// 1) Sumatorio CF robusto (busca claves comunes; ignora negativos)
+function __sumCF(){
   const cf = (window.financialResults?.cf)||[];
   let eq=0, vd=0, cd=0, sx=0;
   cf.forEach(y=>{
-    eq += Math.max(0,(y?.partnerCapitalization||0)+(y?.seriesBNewInvestors||0));
-    vd += Math.max(0,(y?.currentYearVentureDebtDraw||0));
-    cd += Math.max(0,(y?.additionalFundingRaised||0));
-    sx += Math.max(0,(y?.sinosureDrawn||0));
+    for(const k in y){
+      const v = __num(y[k]); if (v<=0) continue;
+      const key = k.toLowerCase();
+      if (key.includes('partner') || key.includes('seriesb') || key.includes('equity')) eq += v;
+      else if (key.includes('sino')) sx += v;
+      else if (key.includes('venture')) vd += v;
+      else if (key.includes('additionalfunding') || key.includes('commercial') || key.includes('comercial')) cd += v;
+    }
   });
-  return { eq, vd, cd, sx, total: eq+vd+cd+sx };
+  return {eq, vd, cd, sx, total: eq+vd+cd+sx};
 }
 
-// Cobertura SSOT desde CF (tope 105% para estabilidad visual)
-function __coverageCF() {
+// 2) Cobertura y DSCR desde cálculo (SSOT)
+function __coverageCF(){
   try{
     const capex = (typeof calculateTotalCapex==='function'? calculateTotalCapex(): 0) || 1;
     const fund  = (typeof totalFundingFromCF==='function'? totalFundingFromCF(): 0);
-    return Math.min((fund/capex)*100, 105);
-  }catch{ return 0; }
+    return Math.min((fund/capex)*100,105);
+  }catch{return 0;}
 }
-
-// DSCR final normalizado (N/A si no hay servicio)
-function __dscrFinal() {
-  const fr = window.financialResults || {};
-  const e = fr?.pl?.[4]?.ebitda || 0;
-  const i = fr?.pl?.[4]?.interestExpense || 0;
-  const p = fr?.cf?.[4]?.debtPrincipalRepayment || 0;
-  const ds = (i||0)+(p||0);
+function __dscrFinal(){
+  const fr = window.financialResults||{};
+  const e  = __num(fr?.pl?.[4]?.ebitda);
+  const i  = __num(fr?.pl?.[4]?.interestExpense);
+  const p  = __num(fr?.cf?.[4]?.debtPrincipalRepayment);
+  const ds = i+p;
   return (ds>0) ? (e/ds) : null;
 }
 
-// Busca el contenedor del Engine (por título) o lo crea si no existe
-function __getEngineContainer() {
-  // Prioriza contenedor existente (para reemplazar su contenido)
-  const headers = Array.from(document.querySelectorAll('h5, h4, h3')).filter(h=>/Protected Capital Engine/i.test(h.textContent||''));
-  if (headers.length){
-    // contenedor = card padre
-    const card = headers[0].closest('.card') || headers[0].parentElement;
-    if (card) return card;
+// 3) Unidades del escenario (modelData o fallback PL.addedUnits)
+function __totalUnits(){
+  let u = 0;
+  const arr = window.modelData?.unitsPerYear;
+  if (Array.isArray(arr) && arr.length) u = arr.reduce((a,b)=>a+__num(b),0);
+  if (!u) {
+    const pl = (window.financialResults?.pl)||[];
+    u = pl.reduce((s,row)=> s+__num(row?.addedUnits),0);
   }
-  // Fallback: crea una card al final del panel de control
-  const ctrl = document.getElementById('content-control') || document.body;
-  const card = document.createElement('div');
-  card.className = 'card';
-  ctrl.appendChild(card);
-  return card;
+  return u;
 }
 
-// Renderiza el Engine coherente con CF
-function renderEngineCF() {
-  try{
-    const card = __getEngineContainer();
-    if (!card) return;
+// 4) Render único del Engine (evita duplicados)
+function __engineContainer(){
+  // Reusar si ya existe
+  let el = document.getElementById('engine-cf-truth');
+  if (el) return el;
 
+  // Intentar reciclar la card original del engine (si existe)
+  const headers = Array.from(document.querySelectorAll('h4,h3'))
+      .filter(h=>/Protected Capital Engine/i.test(h.textContent||''));
+  if (headers.length){
+    const card = headers[0].closest('.card') || headers[0].parentElement;
+    card.id = 'engine-cf-truth';
+    return card;
+  }
+
+  // Fallback: crear una card en la pestaña Control
+  const ctrl = document.getElementById('content-control') || document.body;
+  el = document.createElement('div');
+  el.id = 'engine-cf-truth';
+  el.className = 'card';
+  ctrl.appendChild(el);
+  return el;
+}
+
+function renderEngineCF(){
+  try{
+    const el   = __engineContainer();
     const sums = __sumCF();
-    const capex = (typeof calculateTotalCapex==='function'? calculateTotalCapex(): 0);
+    const capex = (typeof calculateTotalCapex==='function'? calculateTotalCapex():0);
     const cov   = __coverageCF();
     const dscr  = __dscrFinal();
-    const scenarioLabel = (window.currentScenario || '').toUpperCase() || '—';
+    const units = __totalUnits();
+    const scen  = (window.currentScenario||'').toUpperCase() || '—';
 
-    // Equity semántico (seed+serieA son parte del equity CF si fueron inyectados correctamente)
-    const equityLabel = __fmtM(sums.eq);
-    const ventureLabel = __fmtM(sums.vd);
-    const commercialLabel = __fmtM(sums.cd);
-    const sinosureLabel = __fmtM(sums.sx);
-    const totalFundingCF = __fmtM(sums.total);
-
-    card.innerHTML = `
+    el.innerHTML = `
       <h4 class="text-lg font-semibold mb-3 text-white">🧠 Protected Capital Engine <span class="ml-2 text-xs px-2 py-1 rounded bg-slate-700 text-slate-300">CF Truth</span></h4>
       <div class="text-sm space-y-3 text-slate-300">
         <div class="p-2 bg-slate-800/50 rounded border border-slate-700">
           <div class="font-semibold text-blue-400 mb-1">Input Analysis</div>
-          <div class="flex justify-between text-xs"><span>Total Units:</span> <strong class="text-white">${(window.modelData?.unitsPerYear||[]).reduce((a,b)=>a+b,0)}</strong></div>
+          <div class="flex justify-between text-xs"><span>Total Units:</span> <strong class="text-white">${units}</strong></div>
           <div class="flex justify-between text-xs"><span>CAPEX Required:</span> <strong class="text-white">${__fmtM(capex)}</strong></div>
-          <div class="flex justify-between text-xs"><span>Scenario:</span> <strong class="text-emerald-400">${scenarioLabel || '—'}</strong></div>
+          <div class="flex justify-between text-xs"><span>Scenario:</span> <strong class="text-emerald-400">${scen}</strong></div>
         </div>
 
         <div class="p-2 bg-slate-800/50 rounded border border-slate-700">
           <div class="font-semibold text-green-400 mb-1">Allocation by CF (sanitized)</div>
-          <div class="flex justify-between text-xs"><span>Equity (CF):</span>       <strong class="text-blue-400">${equityLabel}</strong></div>
-          <div class="flex justify-between text-xs"><span>SINOSURE (6%):</span>     <strong class="text-yellow-400">${sinosureLabel}</strong></div>
-          <div class="flex justify-between text-xs"><span>Commercial (14%):</span>  <strong class="text-orange-400">${commercialLabel}</strong></div>
-          <div class="flex justify-between text-xs"><span>Venture (18%):</span>     <strong class="text-red-400">${ventureLabel}</strong></div>
+          <div class="flex justify-between text-xs"><span>Equity (CF):</span>       <strong class="text-blue-400">${__fmtM(sums.eq)}</strong></div>
+          <div class="flex justify-between text-xs"><span>SINOSURE (6%):</span>     <strong class="text-yellow-400">${__fmtM(sums.sx)}</strong></div>
+          <div class="flex justify-between text-xs"><span>Commercial (14%):</span>  <strong class="text-orange-400">${__fmtM(sums.cd)}</strong></div>
+          <div class="flex justify-between text-xs"><span>Venture (18%):</span>     <strong class="text-red-400">${__fmtM(sums.vd)}</strong></div>
         </div>
 
         <div class="p-2 bg-slate-800/50 rounded border border-slate-700">
           <div class="font-semibold text-purple-400 mb-1">Engine Output (from CF)</div>
-          <div class="flex justify-between text-xs"><span>Total Funding (CF):</span> <strong class="text-white">${totalFundingCF}</strong></div>
-          <div class="flex justify-between text-xs"><span>Coverage (CF/Capex):</span> <strong class="${cov>=95&&cov<=105?'text-emerald-400':'text-amber-400'}">${__fmtPct(cov)}</strong></div>
+          <div class="flex justify-between text-xs"><span>Total Funding (CF):</span> <strong class="text-white">${__fmtM(sums.total)}</strong></div>
+          <div class="flex justify-between text-xs"><span>Coverage (CF/Capex):</span> <strong class="${(cov>=95&&cov<=105)?'text-emerald-400':'text-amber-400'}">${__pct(cov)}</strong></div>
           <div class="flex justify-between text-xs"><span>DSCR Impact:</span> <strong class="${(dscr!=null && dscr>=1.5)?'text-emerald-400':'text-red-400'}">${(dscr==null?'N/A':dscr.toFixed(1)+'x')}</strong></div>
         </div>
 
         <div class="text-xs p-2 bg-slate-700/30 rounded border border-slate-600">
-          🛡️ <strong>Protected:</strong> Coherent with CF; replacement amounts are sanitized (no negatives). Use scenario buttons to re-run allocations.
+          🛡️ <strong>Protected:</strong> Values reflect CF (no negatives shown). Change scenario to re-run allocations.
         </div>
       </div>
     `;
-  }catch(e){
-    console.warn('renderEngineCF warn:', e.message);
-  }
+  }catch(e){ console.warn('renderEngineCF warn:', e.message); }
 }
 
-// Hook: al cargar y tras cálculo
-document.addEventListener('DOMContentLoaded', ()=>{ try{ renderEngineCF(); }catch(e){} });
-(function wrapFCForEngineCF(){
+// 5) Actualiza badges de los 4 escenarios (unidades + CAPEX real)
+(function badgeUpdate(){
+  // Definiciones si existen (del patch scenarios v2). Si no, se salta.
+  const S = window.SCENARIOS_V2 || {
+    pesimista:[8,25,45,70,90],
+    base:[15,50,100,180,250],
+    optimista:[25,80,180,320,450],
+    expansivo:[35,80,170,200,265]
+  };
+  function capexFromUnits(arr){
+    if (!Array.isArray(arr)||!arr.length) return 0;
+    const cost = (typeof getTotalPackageCost==='function') ? getTotalPackageCost() : 0;
+    return arr.reduce((a,b)=>a+__num(b),0) * __num(cost);
+  }
+  function setSmall(id, unitsArr){
+    const small = document.querySelector(id+' small'); if (!small) return;
+    const totalU = (Array.isArray(unitsArr)? unitsArr.reduce((a,b)=>a+__num(b),0) : 0);
+    const cap    = capexFromUnits(unitsArr);
+    small.textContent = `${totalU.toLocaleString('es-MX')} units · ${(cap/1e6).toFixed(0)}M CAPEX`;
+  }
+  document.addEventListener('DOMContentLoaded', ()=>{
+    try{
+      setSmall('#scenario-pesimista', S.pesimista);
+      setSmall('#scenario-base',      S.base);
+      setSmall('#scenario-optimista', S.optimista);
+      if (document.getElementById('scenario-expansivo')) setSmall('#scenario-expansivo', S.expansivo);
+    }catch(e){}
+  });
+})();
+
+// 6) Gating de "DSCR crítico" cuando DSCR ≥ 1.5x (solo UI; cálculo intacto)
+function __gateIssuesDSCR(){
+  const fr = window.financialResults||{};
+  const e  = __num(fr?.pl?.[4]?.ebitda);
+  const i  = __num(fr?.pl?.[4]?.interestExpense);
+  const p  = __num(fr?.cf?.[4]?.debtPrincipalRepayment);
+  const ok = ((i+p)>0) ? (e/(i+p))>=1.5 : true; // si no hay servicio, no mostrar crítico
+  if (!ok) return;
+  document.querySelectorAll('li').forEach(li=>{
+    const t=(li.textContent||'').trim();
+    if(/DSCR.*cr[ií]tico/i.test(t)) li.remove();
+  });
+}
+
+// Hooks de ciclo de vida
+document.addEventListener('DOMContentLoaded', ()=>{ try{ renderEngineCF(); __gateIssuesDSCR(); }catch(e){} });
+(function wrapFC(){
   const orig = window.forceCalculate;
   window.forceCalculate = function(){
-    if (typeof orig === 'function') orig();
-    try{ renderEngineCF(); }catch(e){}
+    if (typeof orig==='function') orig();
+    try{ renderEngineCF(); __gateIssuesDSCR(); }catch(e){}
   };
 })();
 
-// =============== END CF TRUTH FOR ENGINE ===============
+// ===================== END CF TRUTH STABLE LAYER =====================
 </script>
+
 </body>
 </html>
