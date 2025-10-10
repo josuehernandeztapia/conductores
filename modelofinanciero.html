@@ -400,7 +400,7 @@ min-height: 280px;
 <div class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
 <!-- Header and Key Metrics -->
 <header class="mb-8 text-center bg-transparent rounded-xl p-6">
-<h1 class="text-4xl lg:text-5xl font-black text-white leading-tight tracking-tighter mb-2">Modelo Financiero - Conductores del Mundo</h1>
+<h1 class="text-4xl lg:text-5xl font-black text-white leading-tight tracking-tighter mb-2">Modelo Financiero - Rodando a <span class="highlight-text">Gas</span></h1>
 <p class="text-xl text-slate-400 mt-2">NIIF-Compliant | Series A Due Diligence</p>
 <p class="text-sm text-amber-400 mt-1">⚠️ Modelo en desarrollo - Validación continua</p>
 <button onclick="toggleDebug()" class="mt-4 bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 rounded-lg font-medium transition duration-300 inline-flex items-center gap-2">
@@ -759,8 +759,8 @@ portfolioAllocationStage3: 0.08,
 unitsPerYear: [15, 50, 100, 180, 250], // Base scenario - Updated
 
 // Capital Structure - CORRECTED SEED + SERIES A
-seed: 10000000,     // Seed $10M for tech + pilot (pre-Series A)
-seriesA: 50000000, // Serie A $50M for growth capital
+seed: 5000000,     // $5M MXN - Tech inicial + 2-3 units proof (6 months)
+seriesA: 50000000, // $50M MXN - Growth capital Year 0 for scaling
 ventureDebtLineAvailable: 100000000, 
 commercialDebtLineAvailable: 300000000, 
 ventureDebtRate: 18.0,
@@ -1936,20 +1936,19 @@ function calculateSeriesAMetrics() {
 * @returns {Object} Investor health score.
 */
 function calculateInvestorScore() {
-let issues = [];
 const unitEcon = evaluateUnitEconomics();
 const debtService = calculateDebtServiceCoverage();
 
 let score = 10;
+let issues = [];
 
 // Unit economics (40% weight)
 if (unitEcon.marginPercent < 10) { score -= 4; issues.push('🚨 Unit economics críticos (<10%)'); }
 else if (unitEcon.marginPercent < 15) { score -= 2; issues.push('⚠️ Unit economics bajos (<15%)'); }
 
-// Debt service (30% weight) - use final DSCR from debt metrics
-const debtMetrics = calculateDebtMetricsBreakdown();
-if (debtMetrics.finalDSCR < 1.2) { score -= 3; issues.push('🚨 DSCR crítico (<1.2x)'); }
-else if (debtMetrics.finalDSCR < 1.5) { score -= 1.5; issues.push('⚠️ DSCR bajo (<1.5x)'); }
+// Debt service (30% weight)
+if (debtService.dscr < 1.2) { score -= 3; issues.push('🚨 DSCR crítico (<1.2x)'); }
+else if (debtService.dscr < 1.5) { score -= 1.5; issues.push('⚠️ DSCR bajo (<1.5x)'); }
 
 // Risk assumptions (20% weight)
 if (modelData.pdStage1 < 0.003) { score -= 1; issues.push('📊 PD Stage 1 optimista'); }
@@ -1962,7 +1961,11 @@ issues.push('🚀 OPEX alto (>18% en algún año)');
 }
 
 // Enhanced debt structure analysis (10% weight)
-// Keep leverage and structure checks without duplicating DSCR penalty
+const debtMetrics = calculateDebtMetricsBreakdown();
+if (debtMetrics.finalDSCR < 1.5) {
+score -= 1;
+issues.push('🏦 DSCR final bajo (<1.5x)');
+}
 if (financialResults.bs.length > 4 && financialResults.bs[4].equity > 0 && financialResults.bs[4].debt > financialResults.bs[4].equity * 2) {
 score -= 0.5;
 issues.push('📊 Leverage alto (Debt/Equity >2x)');
@@ -2320,9 +2323,9 @@ try {
     debtOptimizationHistory = [];
 
 // --- Initial state variables ---
-let cash = (modelData.seed || 0) + (modelData.seriesA || 0);
+let cash = modelData.seriesA;
 let currentProvisionsBalance = 0;
-let endOfYearEquity = (modelData.seed || 0) + (modelData.seriesA || 0);
+let endOfYearEquity = modelData.seriesA;
 
 // --- Cohort tracking ---
 let loanCohorts = [];
@@ -2335,10 +2338,10 @@ let ventureDebtBalance = 0;
 let commercialDebtBalance = 0;
 
 // --- IRR Cash Flow arrays ---
-let equityCashFlows = [-( (modelData.seed || 0) + (modelData.seriesA || 0) )];
-let projectCashFlows = [-( (modelData.seed || 0) + (modelData.seriesA || 0) )];
+let equityCashFlows = [-modelData.seriesA];
+let projectCashFlows = [-modelData.seriesA];
 let portfolioCashFlows = [];
-log(`💡 Initial Equity Injection: ${formatCurrency(cash)} (Seed + Serie A)`);
+log(`Initial Series A capital: ${formatCurrency(modelData.seriesA)}`);
 
 // --- Main annual loop (5 years) ---
 for (let year = 0; year < 5; year++) {
@@ -2514,15 +2517,15 @@ const deltaProvisions = currentProvisionsBalance - ((financialResults.bs[year-1]
 const deltaContractLiabilities = niif15Results.contractLiabilitiesBalance - ((financialResults.bs[year-1]?.contractLiabilities) || 0);
 const operatingCash = netIncome + annualDepreciation + impairment + deltaProvisions + deltaContractLiabilities - deltaReceivables;
 
-        // --- CORRECTED: Capital Allocation draws are now the Single Source of Truth ---
+        // --- NEW: Auto-Allocation Cascade ---
         const draws = allocateCapital(currentYear, capexThisYear);
-        log(`💰 Funding Mix Y${currentYear}: Eq=${formatCurrency(draws.equity)}, Snsr=${formatCurrency(draws.sinosure)}, Com=${formatCurrency(draws.commercial)}, Vent=${formatCurrency(draws.venture)}`);
+        log(`💰 Allocation Y${currentYear}: Eq ${formatCurrency(draws.equity)}, Exim ${formatCurrency(draws.sinosure)}, Com ${formatCurrency(draws.commercial)}, Vent ${formatCurrency(draws.venture)}`);
+        log(`🧩 Funding mix Y${currentYear}: Eq ${draws.equity}, Com ${draws.commercial}, Exim ${draws.sinosure}, Vent ${draws.venture}`);
 
         // Map draws to financing flows
         const finalNewEquityInjections = draws.equity;
-        const finalNewVentureDebt = draws.venture;
-        const finalNewCommercialDebt = draws.commercial;
-        const sinosureDrawdowns = draws.sinosure;
+        let finalNewVentureDebt = draws.venture;
+        let finalNewCommercialDebt = draws.commercial;
 
         // SINOSURE cohort creation based on allocation
         if (draws.sinosure > 0) {
@@ -2546,7 +2549,13 @@ if (finalNewCommercialDebt > 0) commercialDebtCohorts.push({ yearOriginated: cur
 
         const investingCash = -capexThisYear - techInvestmentThisYear;
         
-        // SINOSURE drawdowns are taken directly from this year's allocation
+        // Calculate SINOSURE drawdowns for cash flow
+        let sinosureDrawdowns = 0;
+        sinosureCohorts.forEach(cohort => {
+            if (cohort.yearOriginated === currentYear) {
+                sinosureDrawdowns += cohort.originalAmount;
+            }
+        });
         
         // Classify balloon principal as financing outflow (do not alter NIIF/logic, only classification)
         const financingOutflows = Math.max(0, balloonPrincipalThisYear);
