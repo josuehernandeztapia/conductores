@@ -1937,7 +1937,6 @@ function calculateSeriesAMetrics() {
 */
 function calculateInvestorScore() {
 const unitEcon = evaluateUnitEconomics();
-const debtService = calculateDebtServiceCoverage();
 
 let score = 10;
 let issues = [];
@@ -1946,9 +1945,15 @@ let issues = [];
 if (unitEcon.marginPercent < 10) { score -= 4; issues.push('🚨 Unit economics críticos (<10%)'); }
 else if (unitEcon.marginPercent < 15) { score -= 2; issues.push('⚠️ Unit economics bajos (<15%)'); }
 
-// Debt service (30% weight)
-if (debtService.dscr < 1.2) { score -= 3; issues.push('🚨 DSCR crítico (<1.2x)'); }
-else if (debtService.dscr < 1.5) { score -= 1.5; issues.push('⚠️ DSCR bajo (<1.5x)'); }
+// Debt service (30% weight) — use final DSCR from debt metrics
+const debtMetrics = calculateDebtMetricsBreakdown();
+if (debtMetrics.finalDSCR < 1.2) {
+    score -= 3;
+    issues.push('🚨 DSCR crítico (<1.2x)');
+} else if (debtMetrics.finalDSCR < 1.5) {
+    score -= 1.5;
+    issues.push('⚠️ DSCR bajo (<1.5x)');
+}
 
 // Risk assumptions (20% weight)
 if (modelData.pdStage1 < 0.003) { score -= 1; issues.push('📊 PD Stage 1 optimista'); }
@@ -1956,26 +1961,21 @@ if (modelData.tasaInteres < 22) { score -= 1; issues.push('💰 Tasa cliente ins
 
 // Operational efficiency (10% weight)
 if (modelData.opexRates.some(rate => rate > 18)) {
-score -= 1;
-issues.push('🚀 OPEX alto (>18% en algún año)');
+    score -= 1;
+    issues.push('🚀 OPEX alto (>18% en algún año)');
 }
 
 // Enhanced debt structure analysis (10% weight)
-const debtMetrics = calculateDebtMetricsBreakdown();
-if (debtMetrics.finalDSCR < 1.5) {
-score -= 1;
-issues.push('🏦 DSCR final bajo (<1.5x)');
-}
 if (financialResults.bs.length > 4 && financialResults.bs[4].equity > 0 && financialResults.bs[4].debt > financialResults.bs[4].equity * 2) {
-score -= 0.5;
-issues.push('📊 Leverage alto (Debt/Equity >2x)');
+    score -= 0.5;
+    issues.push('📊 Leverage alto (Debt/Equity >2x)');
 }
 
 return {
-score: Math.max(0, score),
-grade: score >= 8.5 ? 'A' : score >= 7 ? 'B' : score >= 5 ? 'C' : 'D',
-issues,
-isInvestable: score >= 6.5
+    score: Math.max(0, score),
+    grade: score >= 8.5 ? 'A' : score >= 7 ? 'B' : score >= 5 ? 'C' : 'D',
+    issues,
+    isInvestable: score >= 6.5
 };
 }
 // ===== IFRS CALCULATION MODULES =====
