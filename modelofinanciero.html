@@ -1936,19 +1936,20 @@ function calculateSeriesAMetrics() {
 * @returns {Object} Investor health score.
 */
 function calculateInvestorScore() {
+let issues = [];
 const unitEcon = evaluateUnitEconomics();
 const debtService = calculateDebtServiceCoverage();
 
 let score = 10;
-let issues = [];
 
 // Unit economics (40% weight)
 if (unitEcon.marginPercent < 10) { score -= 4; issues.push('🚨 Unit economics críticos (<10%)'); }
 else if (unitEcon.marginPercent < 15) { score -= 2; issues.push('⚠️ Unit economics bajos (<15%)'); }
 
-// Debt service (30% weight)
-if (debtService.dscr < 1.2) { score -= 3; issues.push('🚨 DSCR crítico (<1.2x)'); }
-else if (debtService.dscr < 1.5) { score -= 1.5; issues.push('⚠️ DSCR bajo (<1.5x)'); }
+// Debt service (30% weight) - use final DSCR from debt metrics
+const debtMetrics = calculateDebtMetricsBreakdown();
+if (debtMetrics.finalDSCR < 1.2) { score -= 3; issues.push('🚨 DSCR crítico (<1.2x)'); }
+else if (debtMetrics.finalDSCR < 1.5) { score -= 1.5; issues.push('⚠️ DSCR bajo (<1.5x)'); }
 
 // Risk assumptions (20% weight)
 if (modelData.pdStage1 < 0.003) { score -= 1; issues.push('📊 PD Stage 1 optimista'); }
@@ -1961,11 +1962,7 @@ issues.push('🚀 OPEX alto (>18% en algún año)');
 }
 
 // Enhanced debt structure analysis (10% weight)
-const debtMetrics = calculateDebtMetricsBreakdown();
-if (debtMetrics.finalDSCR < 1.5) {
-score -= 1;
-issues.push('🏦 DSCR final bajo (<1.5x)');
-}
+// Keep leverage and structure checks without duplicating DSCR penalty
 if (financialResults.bs.length > 4 && financialResults.bs[4].equity > 0 && financialResults.bs[4].debt > financialResults.bs[4].equity * 2) {
 score -= 0.5;
 issues.push('📊 Leverage alto (Debt/Equity >2x)');
@@ -2517,15 +2514,15 @@ const deltaProvisions = currentProvisionsBalance - ((financialResults.bs[year-1]
 const deltaContractLiabilities = niif15Results.contractLiabilitiesBalance - ((financialResults.bs[year-1]?.contractLiabilities) || 0);
 const operatingCash = netIncome + annualDepreciation + impairment + deltaProvisions + deltaContractLiabilities - deltaReceivables;
 
-        // --- NEW: Auto-Allocation Cascade ---
+        // --- CORRECTED: Capital Allocation draws are now the Single Source of Truth ---
         const draws = allocateCapital(currentYear, capexThisYear);
-        log(`💰 Allocation Y${currentYear}: Eq ${formatCurrency(draws.equity)}, Exim ${formatCurrency(draws.sinosure)}, Com ${formatCurrency(draws.commercial)}, Vent ${formatCurrency(draws.venture)}`);
-        log(`🧩 Funding mix Y${currentYear}: Eq ${draws.equity}, Com ${draws.commercial}, Exim ${draws.sinosure}, Vent ${draws.venture}`);
+        log(`💰 Funding Mix Y${currentYear}: Eq=${formatCurrency(draws.equity)}, Snsr=${formatCurrency(draws.sinosure)}, Com=${formatCurrency(draws.commercial)}, Vent=${formatCurrency(draws.venture)}`);
 
         // Map draws to financing flows
         const finalNewEquityInjections = draws.equity;
-        let finalNewVentureDebt = draws.venture;
-        let finalNewCommercialDebt = draws.commercial;
+        const finalNewVentureDebt = draws.venture;
+        const finalNewCommercialDebt = draws.commercial;
+        const sinosureDrawdowns = draws.sinosure;
 
         // SINOSURE cohort creation based on allocation
         if (draws.sinosure > 0) {
@@ -2549,13 +2546,7 @@ if (finalNewCommercialDebt > 0) commercialDebtCohorts.push({ yearOriginated: cur
 
         const investingCash = -capexThisYear - techInvestmentThisYear;
         
-        // Calculate SINOSURE drawdowns for cash flow
-        let sinosureDrawdowns = 0;
-        sinosureCohorts.forEach(cohort => {
-            if (cohort.yearOriginated === currentYear) {
-                sinosureDrawdowns += cohort.originalAmount;
-            }
-        });
+        // SINOSURE drawdowns are taken directly from this year's allocation
         
         // Classify balloon principal as financing outflow (do not alter NIIF/logic, only classification)
         const financingOutflows = Math.max(0, balloonPrincipalThisYear);
