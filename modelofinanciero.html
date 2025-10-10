@@ -718,6 +718,52 @@ min-height: 280px;
 // Initializes Lucide icons
 lucide.createIcons();
 
+// ----- CORE STABILITY UTILITIES -----
+function deepClone(o) { return JSON.parse(JSON.stringify(o)); }
+
+function snapshotState() {
+    return {
+        modelData: deepClone(modelData),
+        financialResults: deepClone(financialResults),
+        sinosureCohorts: deepClone(typeof sinosureCohorts !== 'undefined' ? sinosureCohorts : []),
+        ventureDebtCohorts: deepClone(typeof ventureDebtCohorts !== 'undefined' ? ventureDebtCohorts : []),
+        commercialDebtCohorts: deepClone(typeof commercialDebtCohorts !== 'undefined' ? commercialDebtCohorts : []),
+    };
+}
+
+function restoreState(s) {
+    modelData = deepClone(s.modelData);
+    financialResults = deepClone(s.financialResults);
+    if (typeof sinosureCohorts !== 'undefined') sinosureCohorts = deepClone(s.sinosureCohorts);
+    if (typeof ventureDebtCohorts !== 'undefined') ventureDebtCohorts = deepClone(s.ventureDebtCohorts);
+    if (typeof commercialDebtCohorts !== 'undefined') commercialDebtCohorts = deepClone(s.commercialDebtCohorts);
+}
+
+function hardResetEngine() {
+    try {
+        financialResults = { pl: [], cf: [], bs: [], niifDetails: [], tirProyecto: 0, tirCartera: 0, tirEquity: 0, roe: [], roic: [] };
+        if (typeof sinosureCohorts !== 'undefined') sinosureCohorts.length = 0;
+        if (typeof ventureDebtCohorts !== 'undefined') ventureDebtCohorts.length = 0;
+        if (typeof commercialDebtCohorts !== 'undefined') commercialDebtCohorts.length = 0;
+        log('🧼 Engine hard-reset completed');
+    } catch (e) { log('⚠️ hardResetEngine: ' + e.message); }
+}
+
+function injectInitialEquityIfMissing() {
+    try {
+        const hasEq0 = (financialResults.cf || []).some(e => e.year === 0 && ((e.partnerCapitalization || 0) + (e.seriesBNewInvestors || 0) > 0));
+        if (!hasEq0) {
+            financialResults.cf = financialResults.cf || [];
+            financialResults.cf.push({
+                year: 0,
+                partnerCapitalization: modelData.seed || 0,
+                seriesBNewInvestors: modelData.seriesA || 0,
+            });
+            log(`💡 Injected initial equity Y0: ${formatCurrency((modelData.seed || 0) + (modelData.seriesA || 0))}`);
+        }
+    } catch (e) { log('⚠️ injectInitialEquityIfMissing: ' + e.message); }
+}
+
 // ===================================================================
 // ===== FASE 1: CONFIGURACIÓN Y DATOS INICIALES (EL QUÉ) =========
 // ===================================================================
@@ -758,9 +804,9 @@ portfolioAllocationStage3: 0.08,
 // Growth Strategy
 unitsPerYear: [15, 50, 100, 180, 250], // Base scenario - Updated
 
-// Capital Structure - CORRECTED SEED + SERIES A
-seed: 5000000,     // $5M MXN - Tech inicial + 2-3 units proof (6 months)
-seriesA: 50000000, // $50M MXN - Growth capital Year 0 for scaling
+// Capital Structure
+seed: 10000000,     // Seed $10M - IA + CAPEX Piloto (pre Serie A)
+seriesA: 50000000, // Serie A $50M - capital de crecimiento
 ventureDebtLineAvailable: 100000000, 
 commercialDebtLineAvailable: 300000000, 
 ventureDebtRate: 18.0,
@@ -2323,9 +2369,13 @@ try {
     debtOptimizationHistory = [];
 
 // --- Initial state variables ---
-let cash = modelData.seriesA;
+let cash = 0; // Will be set by initial injection
 let currentProvisionsBalance = 0;
-let endOfYearEquity = modelData.seriesA;
+let endOfYearEquity = 0;
+hardResetEngine(); // Ensure clean start
+injectInitialEquityIfMissing(); // Inject Seed + Serie A into CF Year 0
+cash = (modelData.seed || 0) + (modelData.seriesA || 0);
+endOfYearEquity = cash;
 
 // --- Cohort tracking ---
 let loanCohorts = [];
@@ -2338,8 +2388,8 @@ let ventureDebtBalance = 0;
 let commercialDebtBalance = 0;
 
 // --- IRR Cash Flow arrays ---
-let equityCashFlows = [-modelData.seriesA];
-let projectCashFlows = [-modelData.seriesA];
+let equityCashFlows = [-((modelData.seed || 0) + (modelData.seriesA || 0))];
+let projectCashFlows = [-((modelData.seed || 0) + (modelData.seriesA || 0))];
 let portfolioCashFlows = [];
 log(`Initial Series A capital: ${formatCurrency(modelData.seriesA)}`);
 
@@ -3187,6 +3237,9 @@ updateValidationPanel(validations);
 updateOptimizationStatus();
 updateInvestorScore();
 updateFundingCoverageCard();
+
+    // CF-based capital analysis (SSOT)
+    try { renderCapitalAnalysisCF(); } catch (e) { log('⚠️ renderCapitalAnalysisCF: ' + e.message); }
 
 log(`✅ UI Update sequence completed.`);
 } catch (error) {
@@ -4522,6 +4575,33 @@ if (groupKey === 'riesgoYSalida') {
     });
 }
 
+// Pure, non-mutating Sweet Spot analysis
+async function runSensitivityAnalysis() {
+    const scenarios = [250, 400, 500, 600, 750, 900, 1000];
+    const baseSnap = snapshotState();
+    const results = [];
+    log('📊 Running Sweet Spot (pure simulation)...');
+
+    for (const units of scenarios) {
+        const snap = snapshotState();
+        try {
+            _applyGrowthScenario(units);
+            await new Promise(resolve => setTimeout(resolve, 400));
+
+            const irr = (financialResults?.tirEquity || 0);
+            const dscr = (financialResults?.finalDSCR || (typeof calculateFinalDSCR === 'function' ? calculateFinalDSCR() : 0));
+            const cfaf = (financialResults?.cf?.[4]?.cashAfterFinancing || 0) / 1e6;
+            results.push({ units, irr: +irr.toFixed(1), dscr: +dscr.toFixed(2), cfaf: +cfaf.toFixed(1) });
+        } finally {
+            restoreState(snap);
+        }
+    }
+
+    restoreState(baseSnap);
+    forceCalculate();
+    console.table(results);
+}
+
 log(`✅ '${groupKey}' controls configured.`);
 }
 
@@ -4741,17 +4821,65 @@ statusElement.innerHTML = `
 /**
 * Main function to set up all UI controls.
 */
-// SCENARIO EVENT LISTENERS SETUP
+// ---------- SCENARIOS (Single Source of Truth) ----------
+const SCENARIO_DEFS = {
+    250: [10, 40, 60, 65, 75],
+    500: [15, 70, 120, 150, 145],
+    750: [20, 100, 200, 220, 210],
+    1000: [25, 150, 250, 300, 275],
+};
+
+function _applyGrowthScenario(units) {
+    try {
+        const pattern = SCENARIO_DEFS[units] || SCENARIO_DEFS[500];
+        modelData.unitsPerYear = [...pattern];
+        modelData.sinosureAvailable = true; // Deterministic ON for scenarios
+
+        const scenarioName = (units === 250 ? 'Pesimista' : units === 500 ? 'Base' : units === 750 ? 'Optimista' : 'Stress');
+        localStorage.setItem('selectedScenario', JSON.stringify({ units, scenarioName }));
+        log(`🧩 Scenario set: ${scenarioName} (${units}u) → ${pattern.join('-')}`);
+
+        hardResetEngine();
+        forceCalculate(); // This already calls calculateFinancials and updateUI
+
+        setTimeout(() => {
+            const cov = ((totalFundingFromCF() / calculateTotalCapex()) * 100).toFixed(1);
+            const dscr = (financialResults?.finalDSCR || (typeof calculateFinalDSCR === 'function' ? calculateFinalDSCR() : 0)).toFixed(2);
+            log(`✅ Post-scenario: Coverage=${cov}% | DSCR=${dscr}x`);
+        }, 300);
+
+    } catch (e) {
+        console.error('❌ _applyGrowthScenario Error:', e);
+        alert('Error applying scenario: ' + e.message);
+    }
+}
+window.applyGrowthScenario = _applyGrowthScenario; // Expose globally
+
 function setupScenarioListeners() {
     try {
-        document.getElementById('scenario-pesimista')?.addEventListener('click', () => switchScenario('pesimista'));
-        document.getElementById('scenario-base')?.addEventListener('click', () => switchScenario('base'));
-        document.getElementById('scenario-optimista')?.addEventListener('click', () => switchScenario('optimista'));
-        
-        log('✅ Scenario listeners configured successfully');
-    } catch (error) {
-        log(`❌ Error setting up scenario listeners: ${error.message}`);
-    }
+        const wire = () => {
+            document.getElementById('scenario-pesimista')?.addEventListener('click', () => window.applyGrowthScenario(250));
+            document.getElementById('scenario-base')?.addEventListener('click', () => window.applyGrowthScenario(500));
+            document.getElementById('scenario-optimista')?.addEventListener('click', () => window.applyGrowthScenario(750));
+            // Ensure the stress button exists or is created
+            let stressBtn = document.getElementById('scenario-stress');
+            if (!stressBtn) {
+                 // simplified creation if missing
+                 const selector = document.querySelector('.scenario-selector .flex.gap-2');
+                 if(selector) {
+                    selector.innerHTML += `<button id="scenario-stress" class="scenario-btn px-4 py-2 bg-slate-700 text-slate-300 rounded-lg border border-slate-600 text-sm">🧪 <strong>Stress</strong><br><small class="text-xs opacity-75">1,000 units · ~$706M CAPEX</small></button>`;
+                    stressBtn = document.getElementById('scenario-stress');
+                 }
+            }
+            stressBtn?.addEventListener('click', () => window.applyGrowthScenario(1000));
+            log('✅ Scenario listeners bound successfully');
+        };
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', wire, { once: true });
+        } else {
+            wire();
+        }
+    } catch (e) { log('⚠️ setupScenarioListeners: ' + e.message); }
 }
 
 function setupControls() {
@@ -4872,7 +5000,49 @@ const totalCapex = calculateTotalCapex();
 const surplus = totalFunding - totalCapex;
 // Coverage computed from updated totals after cohorts exist
 const coverage = totalCapex > 0 ? (totalFunding / totalCapex) * 100 : 0;
+// Store DSCR for easy access by UI cards
+try { financialResults.finalDSCR = typeof calculateFinalDSCR === 'function' ? calculateFinalDSCR() : 0; } catch (e) {}
 // The visual part will be added in the next step.
+}
+
+function renderCapitalAnalysisCF() {
+    try {
+        const cardHtml = `
+        <section id="capital-analysis-card" class="mt-4 bg-slate-800 rounded-lg p-4 border border-slate-700">
+            <h3 class="text-slate-200 font-semibold text-sm mb-2">📊 Análisis de Estructura de Capital</h3>
+            <div id="cap-ssot-content" class="grid grid-cols-1 md:grid-cols-2 gap-3 text-slate-300 text-sm"></div>
+        </section>`;
+        // Simple ensureElement implementation
+        (function ensureElement(id, html, parentSelector) {
+            if (!document.getElementById(id)) {
+                const parent = document.querySelector(parentSelector);
+                if (parent) parent.insertAdjacentHTML('beforeend', html);
+            }
+        })('capital-analysis-card', cardHtml, '#matriz-financiamiento-controls');
+
+        const agg = (financialResults.cf || []).reduce((a, cf) => {
+            a.equity += Math.max(0, (cf.partnerCapitalization || 0) + (cf.seriesBNewInvestors || 0));
+            a.debt += Math.max(0, (cf.currentYearVentureDebtDraw || 0) + (cf.additionalFundingRaised || 0) + (cf.sinosureDrawn || 0));
+            return a;
+        }, { equity: (modelData.seed || 0) + (modelData.seriesA || 0), debt: 0 }); // Start with Seed+A
+
+        const capexPlan = calculateTotalCapex();
+        const content = document.getElementById('cap-ssot-content');
+        if (content) {
+            content.innerHTML = `
+                <div class="p-3 bg-slate-900 rounded-lg">
+                    <div class="font-medium text-emerald-400 mb-1">Capital de Socios (CF)</div>
+                    <div>• Plan de Inversión (CAPEX): <strong>${formatCurrency(capexPlan)}</strong></div>
+                    <div>• Total Equity Desplegado (CF): <strong>${formatCurrency(agg.equity)}</strong></div>
+                </div>
+                <div class="p-3 bg-slate-900 rounded-lg">
+                     <div class="font-medium text-sky-400 mb-1">Capital de Deuda (CF)</div>
+                     <div>• Total Deuda Desplegada (CF): <strong>${formatCurrency(agg.debt)}</strong></div>
+                     <div>• Cobertura (CF/CAPEX): <strong>${(((agg.equity + agg.debt) / capexPlan) * 100 || 0).toFixed(1)}%</strong></div>
+                     <div>• DSCR (Y5): <strong>${financialResults?.finalDSCR ? financialResults.finalDSCR.toFixed(2) + 'x' : (typeof calculateFinalDSCR === 'function' ? calculateFinalDSCR().toFixed(2) + 'x' : 'N/A')}</strong></div>
+                </div>`;
+        }
+    } catch (err) { console.error('renderCapitalAnalysisCF:', err); }
 }
 
 /**
@@ -4952,10 +5122,19 @@ setTimeout(() => {
 // --- UI calls re-enabled ---
 log('✅ UI updates enabled.');
 
-// SET DEFAULT TO BASE SCENARIO
-setTimeout(() => {
-    switchScenario('base');
-}, 100);
+// RESTORE SCENARIO ON LOAD (default to Base)
+try {
+    const s = localStorage.getItem('selectedScenario');
+    if (!s) {
+        setTimeout(() => window.applyGrowthScenario(500), 200);
+    } else {
+        const { units } = JSON.parse(s);
+        if (units) {
+            log(`💾 Restaurando escenario: ${units} unidades`);
+            setTimeout(() => window.applyGrowthScenario(units), 200);
+        }
+    }
+} catch (e) { log('⚠️ restore scenario: ' + e.message); }
 
 setTimeout(() => {
 initializeCharts();
@@ -4972,7 +5151,7 @@ try {
 }
 }, 500);
 
-log('🎉 APPLICATION READY AND RUNNING WITH CONSTRAINTS');
+ log('🎉 APPLICATION READY AND RUNNING WITH CONSTRAINTS');
 
 } catch (error) {
 log(`❌ CRITICAL ERROR DURING INITIALIZATION: ${error.message}`);
