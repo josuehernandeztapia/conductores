@@ -759,8 +759,8 @@ portfolioAllocationStage3: 0.08,
 unitsPerYear: [15, 50, 100, 180, 250], // Base scenario - Updated
 
 // Capital Structure - CORRECTED SEED + SERIES A
-seed: 5000000,     // $5M MXN - Tech inicial + 2-3 units proof (6 months)
-seriesA: 50000000, // $50M MXN - Growth capital Year 0 for scaling
+seed: 10000000,     // Seed $10M for tech + pilot (pre-Series A)
+seriesA: 50000000, // Serie A $50M for growth capital
 ventureDebtLineAvailable: 100000000, 
 commercialDebtLineAvailable: 300000000, 
 ventureDebtRate: 18.0,
@@ -2323,9 +2323,9 @@ try {
     debtOptimizationHistory = [];
 
 // --- Initial state variables ---
-let cash = modelData.seriesA;
+let cash = (modelData.seed || 0) + (modelData.seriesA || 0);
 let currentProvisionsBalance = 0;
-let endOfYearEquity = modelData.seriesA;
+let endOfYearEquity = (modelData.seed || 0) + (modelData.seriesA || 0);
 
 // --- Cohort tracking ---
 let loanCohorts = [];
@@ -2338,10 +2338,10 @@ let ventureDebtBalance = 0;
 let commercialDebtBalance = 0;
 
 // --- IRR Cash Flow arrays ---
-let equityCashFlows = [-modelData.seriesA];
-let projectCashFlows = [-modelData.seriesA];
+let equityCashFlows = [-( (modelData.seed || 0) + (modelData.seriesA || 0) )];
+let projectCashFlows = [-( (modelData.seed || 0) + (modelData.seriesA || 0) )];
 let portfolioCashFlows = [];
-log(`Initial Series A capital: ${formatCurrency(modelData.seriesA)}`);
+log(`💡 Initial Equity Injection: ${formatCurrency(cash)} (Seed + Serie A)`);
 
 // --- Main annual loop (5 years) ---
 for (let year = 0; year < 5; year++) {
