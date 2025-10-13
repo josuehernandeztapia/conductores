@@ -1344,7 +1344,7 @@ min-height: 280px;
                 </div>
                 <label class="flex items-center gap-3 text-sm font-medium text-slate-200">
                     <input type="checkbox" id="investor-eca-toggle" class="h-5 w-5 rounded border-slate-600 bg-slate-800" />
-                    <span>Añadir cobertura SINOSURE (Y2+)</span>
+                    <span>Añadir cobertura SINOSURE (Y1+)</span>
                 </label>
             </div>
         </section>
@@ -2479,8 +2479,16 @@ const sinosureConfig = {
     productionCostPercentage: 100,
     productionCostUSD: 18250,
     exchangeRate: 20,
-    availabilityMonth: 13
+    availabilityMonth: 1,
+    availabilityStartYear: 1
 };
+
+if (typeof window !== 'undefined') {
+    window.sinosureConfig = {
+        ...sinosureConfig,
+        availabilityStartYear: sinosureConfig.availabilityStartYear || Math.max(1, Math.ceil((sinosureConfig.availabilityMonth || 1) / 12))
+    };
+}
 
 // Object to store calculated financial results
 let financialResults = {
@@ -2700,7 +2708,7 @@ function calculateDynamicUnitLimit(year) {
     const maxByDSCR = Math.floor((modelData.seriesA * 2) / costPerUnit); // Conservative estimate
     
     // 3. SINOSURE boost
-    const sinosureBoost = modelData.sinosureAvailable && year >= 2 ? 
+    const sinosureBoost = modelData.sinosureAvailable && year >= 1 ? 
         Math.floor((sinosureConfig.productionCostUSD * sinosureConfig.exchangeRate * 0.3) / costPerUnit) : 0;
     
     return Math.min(maxByCapital, maxByDSCR) + sinosureBoost;
@@ -2932,7 +2940,7 @@ function allocateCapital(year, capexThisYear, capitalContext) {
     }
 
     // 2. SINOSURE (si está disponible a partir de Y2, no consume headroom)
-    if (modelData.sinosureAvailable && year >= (window.sinosureConfig?.availabilityStartYear || 2) && remaining > 0) {
+    if (modelData.sinosureAvailable && year >= (window.sinosureConfig?.availabilityStartYear || 1) && remaining > 0) {
         const productionCostPerUnit = (window.sinosureConfig?.productionCostUSD || 18250) * (window.sinosureConfig?.exchangeRate || 20);
         const sinosureLimit = modelData.unitsPerYear[year - 1] * productionCostPerUnit;
         const sinosureDraw = Math.max(0, Math.min(remaining, sinosureLimit));
@@ -2943,7 +2951,7 @@ function allocateCapital(year, capexThisYear, capitalContext) {
     }
 
     // 3. Bridge / Warehousing (disponible desde Y2 si SINOSURE no está activo)
-    const bridgeWindowActive = year >= (window.sinosureConfig?.availabilityStartYear || 2);
+    const bridgeWindowActive = year >= (window.sinosureConfig?.availabilityStartYear || 1);
     if (!modelData.sinosureAvailable && bridgeWindowActive && remaining > 0 && capitalContext.bridgeLineRemaining > 0 && modelData.bridgeDebtRate > 0) {
         const bridgeGraceMonths = modelData.bridgeGraceMonths !== undefined ? modelData.bridgeGraceMonths : (modelData.commercialGraceMonths || 0);
         const bridgeTermMonths = modelData.bridgeLoanTermMonths !== undefined ? modelData.bridgeLoanTermMonths : (modelData.commercialLoanTermMonths || 60);
