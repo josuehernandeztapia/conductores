@@ -355,10 +355,10 @@ export type OriginationEstado =
 
 export const ORIGINATION_STEPS = [
   { step: 1, name: "Crear Folio", description: "Tipo de trámite y perfil" },
-  { step: 2, name: "Datos Personales", description: "INE + CSF + Comprobante" },
-  { step: 3, name: "Documentos Taxi", description: "Concesión + Estado de cuenta + Historial" },
-  { step: 4, name: "Documentos Vehículo", description: "Factura + Membresía + INE operadores" },
-  { step: 5, name: "Verificación", description: "Selfie con INE + OTP + Fotos vehículo" },
+  { step: 2, name: "Documentos", description: "Captura de 10 documentos + selfie biométrico" },
+  { step: 3, name: "Verificación Tel.", description: "OTP de verificación de teléfono" },
+  { step: 4, name: "Revisión Docs", description: "Resumen de documentos capturados" },
+  { step: 5, name: "Vehículo", description: "Fotos del vehículo + selfie con INE" },
   { step: 6, name: "Contrato", description: "Generación de contrato PDF" },
   { step: 7, name: "Firma", description: "Firma electrónica (Mifiel)" },
 ] as const;

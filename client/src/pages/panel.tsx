@@ -31,8 +31,14 @@ import {
   ChevronDown,
   ChevronUp,
   Loader2,
+  Plus,
+  ClipboardList,
+  ArrowRight,
+  TrendingUp,
+  FileWarning,
 } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
+import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import type { Origination, VehicleInventory } from "@shared/schema";
 import { ORIGINATION_STEPS, DOCUMENT_TYPES } from "@shared/schema";
@@ -40,8 +46,9 @@ import {
   subscribe,
   apiListOriginations,
   apiListVehicles,
+  apiListEvaluations,
+  apiUpdateOrigination,
 } from "@/lib/api";
-import { updateOrigination } from "@/lib/storage";
 
 const ESTADO_CONFIG: Record<string, { label: string; color: string; icon: typeof Clock }> = {
   BORRADOR: { label: "Borrador", color: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300", icon: Clock },
@@ -104,10 +111,10 @@ function FolioDetail({ origination, onClose }: { origination: Origination; onClo
   const { toast } = useToast();
   const [isPending, setIsPending] = useState(false);
 
-  const handleAction = (action: "approve" | "reject") => {
+  const handleAction = async (action: "approve" | "reject") => {
     setIsPending(true);
     try {
-      updateOrigination(origination.id, {
+      await apiUpdateOrigination(origination.id, {
         estado: action === "approve" ? "APROBADO" : "RECHAZADO",
         rejectionReason: action === "reject" ? "Rechazado por administrador" : undefined,
       });
@@ -123,7 +130,6 @@ function FolioDetail({ origination, onClose }: { origination: Origination; onClo
   const stepInfo = ORIGINATION_STEPS.find((s) => s.step === origination.currentStep);
   const estadoCfg = ESTADO_CONFIG[origination.estado] || ESTADO_CONFIG.BORRADOR;
 
-  // Parse all stored JSON fields
   const p = (field: string | null): Record<string, any> | null => {
     if (!field) return null;
     try { return JSON.parse(field); } catch { return null; }
@@ -145,34 +151,20 @@ function FolioDetail({ origination, onClose }: { origination: Origination; onClo
   return (
     <ScrollArea className="max-h-[75vh]">
       <div className="space-y-4 pr-3">
-        {/* Header info */}
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs font-mono font-semibold">{origination.folio}</span>
-          <Badge variant="secondary" className={`text-[10px] ${estadoCfg.color}`}>
-            {estadoCfg.label}
-          </Badge>
-          <Badge variant="outline" className="text-[10px]">
-            {origination.tipo === "validacion" ? "Validación" : "Compraventa"}
-          </Badge>
+          <Badge variant="secondary" className={`text-[10px] ${estadoCfg.color}`}>{estadoCfg.label}</Badge>
+          <Badge variant="outline" className="text-[10px]">{origination.tipo === "validacion" ? "Validación" : "Compraventa"}</Badge>
           <Badge variant="outline" className="text-[10px]">Perfil {origination.perfilTipo}</Badge>
         </div>
 
-        {/* Step progress */}
         <div className="space-y-1.5">
           <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Progreso</div>
           <div className="flex gap-1">
             {ORIGINATION_STEPS.map((s) => (
-              <div
-                key={s.step}
-                className={`flex-1 h-1.5 rounded-full transition-colors ${
-                  s.step < origination.currentStep
-                    ? "bg-emerald-500"
-                    : s.step === origination.currentStep
-                    ? "bg-blue-500"
-                    : "bg-muted"
-                }`}
-                title={`Paso ${s.step}: ${s.name}`}
-              />
+              <div key={s.step} className={`flex-1 h-1.5 rounded-full transition-colors ${
+                s.step < origination.currentStep ? "bg-emerald-500" : s.step === origination.currentStep ? "bg-blue-500" : "bg-muted"
+              }`} title={`Paso ${s.step}: ${s.name}`} />
             ))}
           </div>
           <div className="text-xs text-muted-foreground">
@@ -182,7 +174,6 @@ function FolioDetail({ origination, onClose }: { origination: Origination; onClo
 
         <Separator />
 
-        {/* Extracted data sections */}
         <div className="space-y-2">
           <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Datos extraídos (OCR)</div>
           <DataSection title="INE" icon={User} data={parsedData.ine} emptyMsg="No capturada" />
@@ -197,16 +188,11 @@ function FolioDetail({ origination, onClose }: { origination: Origination; onClo
 
         <Separator />
 
-        {/* Verification status */}
         <div className="space-y-2">
           <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Verificación</div>
           <div className="flex items-center gap-3 text-xs">
             <div className="flex items-center gap-1.5">
-              {origination.otpVerified === 1 ? (
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-              ) : (
-                <XCircle className="w-3.5 h-3.5 text-red-500" />
-              )}
+              {origination.otpVerified === 1 ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> : <XCircle className="w-3.5 h-3.5 text-red-500" />}
               <span className={origination.otpVerified === 1 ? "text-emerald-700 dark:text-emerald-400" : "text-red-600"}>
                 {origination.otpVerified === 1 ? "OTP verificado" : "OTP pendiente"}
               </span>
@@ -220,20 +206,13 @@ function FolioDetail({ origination, onClose }: { origination: Origination; onClo
           </div>
           <div className="flex items-center gap-1.5 text-xs">
             {origination.selfieUrl ? (
-              <>
-                <Camera className="w-3.5 h-3.5 text-emerald-600" />
-                <span className="text-emerald-700 dark:text-emerald-400">Selfie capturada</span>
-              </>
+              <><Camera className="w-3.5 h-3.5 text-emerald-600" /><span className="text-emerald-700 dark:text-emerald-400">Selfie capturada</span></>
             ) : (
-              <>
-                <Camera className="w-3.5 h-3.5 text-muted-foreground" />
-                <span className="text-muted-foreground">Selfie pendiente</span>
-              </>
+              <><Camera className="w-3.5 h-3.5 text-muted-foreground" /><span className="text-muted-foreground">Selfie pendiente</span></>
             )}
           </div>
         </div>
 
-        {/* Contract info */}
         {origination.contractType && (
           <>
             <Separator />
@@ -245,30 +224,16 @@ function FolioDetail({ origination, onClose }: { origination: Origination; onClo
                   <div className="text-muted-foreground">Generado: {new Date(origination.contractGeneratedAt).toLocaleString("es-MX")}</div>
                 )}
                 {origination.contractUrl && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-1 text-[10px] h-7 gap-1"
-                    onClick={() => {
-                      const a = document.createElement("a");
-                      a.href = origination.contractUrl!;
-                      a.download = `${origination.folio}.pdf`;
-                      document.body.appendChild(a);
-                      a.click();
-                      document.body.removeChild(a);
-                    }}
+                  <Button variant="outline" size="sm" className="mt-1 text-[10px] h-7 gap-1"
+                    onClick={() => { const a = document.createElement("a"); a.href = origination.contractUrl!; a.download = `${origination.folio}.pdf`; document.body.appendChild(a); a.click(); document.body.removeChild(a); }}
                     data-testid="button-download-contract"
-                  >
-                    <FileText className="w-3 h-3" />
-                    Descargar PDF
-                  </Button>
+                  ><FileText className="w-3 h-3" />Descargar PDF</Button>
                 )}
               </div>
             </div>
           </>
         )}
 
-        {/* Dates */}
         <Separator />
         <div className="text-[10px] text-muted-foreground space-y-0.5">
           <div>Creado: {new Date(origination.createdAt).toLocaleString("es-MX")}</div>
@@ -278,35 +243,16 @@ function FolioDetail({ origination, onClose }: { origination: Origination; onClo
           )}
         </div>
 
-        {/* Actions */}
         {canActOnFolio && (
           <>
             <Separator />
             <div className="flex gap-2 pb-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex-1 gap-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
-                onClick={() => handleAction("reject")}
-                disabled={isPending}
-                data-testid="button-reject-folio"
-              >
-                <ThumbsDown className="w-3.5 h-3.5" />
-                Rechazar
+              <Button variant="outline" size="sm" className="flex-1 gap-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
+                onClick={() => handleAction("reject")} disabled={isPending} data-testid="button-reject-folio">
+                <ThumbsDown className="w-3.5 h-3.5" /> Rechazar
               </Button>
-              <Button
-                size="sm"
-                className="flex-1 gap-1.5"
-                onClick={() => handleAction("approve")}
-                disabled={isPending}
-                data-testid="button-approve-folio"
-              >
-                {isPending ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <ThumbsUp className="w-3.5 h-3.5" />
-                )}
-                Aprobar
+              <Button size="sm" className="flex-1 gap-1.5" onClick={() => handleAction("approve")} disabled={isPending} data-testid="button-approve-folio">
+                {isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ThumbsUp className="w-3.5 h-3.5" />} Aprobar
               </Button>
             </div>
           </>
@@ -316,65 +262,32 @@ function FolioDetail({ origination, onClose }: { origination: Origination; onClo
   );
 }
 
-/** Inline row-level approve/reject buttons */
-function InlineActions({ origination }: { origination: Origination }) {
-  const { toast } = useToast();
-  const [isPending, setIsPending] = useState(false);
-
-  const handleAction = (action: "approve" | "reject") => {
-    setIsPending(true);
-    try {
-      updateOrigination(origination.id, {
-        estado: action === "approve" ? "APROBADO" : "RECHAZADO",
-        rejectionReason: action === "reject" ? "Rechazado por administrador" : undefined,
-      });
-      toast({ title: action === "approve" ? "Aprobado" : "Rechazado" });
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
-    } finally {
-      setIsPending(false);
-    }
-  };
-
-  if (["APROBADO", "RECHAZADO"].includes(origination.estado)) return null;
-
-  return (
-    <div className="flex gap-0.5">
-      <button
-        onClick={(e) => { e.stopPropagation(); handleAction("approve"); }}
-        disabled={isPending}
-        className="p-1 rounded hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors"
-        title="Aprobar"
-        data-testid={`button-inline-approve-${origination.id}`}
-      >
-        {isPending ? (
-          <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
-        ) : (
-          <ThumbsUp className="w-3.5 h-3.5 text-emerald-600" />
-        )}
-      </button>
-      <button
-        onClick={(e) => { e.stopPropagation(); handleAction("reject"); }}
-        disabled={isPending}
-        className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
-        title="Rechazar"
-        data-testid={`button-inline-reject-${origination.id}`}
-      >
-        <ThumbsDown className="w-3.5 h-3.5 text-red-500" />
-      </button>
-    </div>
-  );
-}
-
 export default function PanelPage() {
   const [selectedFolio, setSelectedFolio] = useState<Origination | null>(null);
   const [originations, setOriginations] = useState<Origination[]>([]);
   const [vehicles, setVehicles] = useState<VehicleInventory[]>([]);
+  const [evaluations, setEvaluations] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Load data and subscribe to in-memory store changes
   useEffect(() => {
-    apiListOriginations().then(setOriginations).catch(console.error);
-    apiListVehicles().then(setVehicles).catch(console.error);
+    const loadAll = async () => {
+      setLoading(true);
+      try {
+        const [origs, vehs, evals] = await Promise.all([
+          apiListOriginations(),
+          apiListVehicles(),
+          apiListEvaluations().catch(() => []),
+        ]);
+        setOriginations(origs);
+        setVehicles(vehs);
+        setEvaluations(evals);
+      } catch (err) {
+        console.error("[Panel] Error loading data:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadAll();
 
     const unsubscribe = subscribe(() => {
       apiListOriginations().then(setOriginations).catch(console.error);
@@ -383,186 +296,247 @@ export default function PanelPage() {
     return unsubscribe;
   }, []);
 
-  // Folio KPIs
+  // KPIs
   const kpis = useMemo(() => {
+    const activos = originations.filter((o) => !["APROBADO", "RECHAZADO"].includes(o.estado));
+    const docsPendientes = originations.filter((o) => o.currentStep < 7 && !["APROBADO", "RECHAZADO"].includes(o.estado));
+    const today = new Date().toISOString().slice(0, 10);
+    const evalsHoy = evaluations.filter((e) => (e.created_at || e.createdAt || "").slice(0, 10) === today);
+
     return {
-      total: originations.length,
-      activos: originations.filter((o) => !["APROBADO", "RECHAZADO"].includes(o.estado)).length,
+      foliosActivos: activos.length,
+      docsPendientes: docsPendientes.length,
+      vehiculosDisponibles: vehicles.filter((v) => v.status === "disponible").length,
+      evaluacionesHoy: evalsHoy.length,
+      totalVehiculos: vehicles.length,
+      totalOriginations: originations.length,
       aprobados: originations.filter((o) => o.estado === "APROBADO").length,
       rechazados: originations.filter((o) => o.estado === "RECHAZADO").length,
+      vehiculosAsignados: vehicles.filter((v) => v.status === "asignado").length,
+      vehiculosReparacion: vehicles.filter((v) => v.status === "en_reparacion").length,
     };
+  }, [originations, vehicles, evaluations]);
+
+  const recentFolios = useMemo(() => {
+    return [...originations].sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || "")).slice(0, 5);
   }, [originations]);
 
-  // Vehicle KPIs
-  const vehicleKpis = useMemo(() => {
-    return {
-      total: vehicles.length,
-      disponibles: vehicles.filter((v) => v.status === "disponible").length,
-      asignados: vehicles.filter((v) => v.status === "asignado").length,
-      reparacion: vehicles.filter((v) => v.status === "en_reparacion").length,
-    };
-  }, [vehicles]);
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-2">
-        <LayoutDashboard className="w-5 h-5 text-muted-foreground" />
-        <div>
-          <h1 className="text-sm font-semibold" data-testid="text-panel-title">Panel CMU</h1>
-          <p className="text-[10px] text-muted-foreground">Dashboard administrativo — Ángeles Mireles</p>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+            <LayoutDashboard className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-base font-semibold" data-testid="text-panel-title">Panel CMU</h1>
+            <p className="text-xs text-muted-foreground">Dashboard administrativo — Ángeles Mireles</p>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Link href="/motor">
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs h-8" data-testid="btn-quick-eval">
+              <TrendingUp className="w-3.5 h-3.5" />
+              Nueva Evaluación
+            </Button>
+          </Link>
+          <Link href="/originacion">
+            <Button size="sm" className="gap-1.5 text-xs h-8" data-testid="btn-quick-folio">
+              <Plus className="w-3.5 h-3.5" />
+              Nuevo Folio
+            </Button>
+          </Link>
         </div>
       </div>
 
-      {/* KPI Cards — Row 1: Folios */}
+      {/* KPI Cards — Main Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card>
-          <CardContent className="p-3">
-            <div className="flex items-center gap-2 mb-1">
-              <FileText className="w-3.5 h-3.5 text-muted-foreground" />
-              <span className="text-[10px] text-muted-foreground">Folios Totales</span>
+        <Card className="border-l-4 border-l-blue-500">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[11px] text-muted-foreground font-medium">Folios Activos</p>
+                <p className="text-2xl font-bold tabular-nums mt-1" data-testid="kpi-folios-activos">{kpis.foliosActivos}</p>
+              </div>
+              <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                <ClipboardList className="w-5 h-5 text-blue-500" />
+              </div>
             </div>
-            <div className="text-xl font-semibold tabular-nums" data-testid="kpi-folios-total">{kpis.total}</div>
+            <p className="text-[10px] text-muted-foreground mt-2">{kpis.totalOriginations} totales</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-3">
-            <div className="flex items-center gap-2 mb-1">
-              <Clock className="w-3.5 h-3.5 text-blue-600" />
-              <span className="text-[10px] text-muted-foreground">En Proceso</span>
+
+        <Card className="border-l-4 border-l-amber-500">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[11px] text-muted-foreground font-medium">Docs Pendientes</p>
+                <p className="text-2xl font-bold tabular-nums mt-1 text-amber-600" data-testid="kpi-docs-pendientes">{kpis.docsPendientes}</p>
+              </div>
+              <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                <FileWarning className="w-5 h-5 text-amber-500" />
+              </div>
             </div>
-            <div className="text-xl font-semibold tabular-nums text-blue-600" data-testid="kpi-folios-activos">{kpis.activos}</div>
+            <p className="text-[10px] text-muted-foreground mt-2">Folios sin completar paso 7</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-3">
-            <div className="flex items-center gap-2 mb-1">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-              <span className="text-[10px] text-muted-foreground">Aprobados</span>
+
+        <Card className="border-l-4 border-l-emerald-500">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[11px] text-muted-foreground font-medium">Vehículos Disponibles</p>
+                <p className="text-2xl font-bold tabular-nums mt-1 text-emerald-600" data-testid="kpi-vehicles-disponibles">{kpis.vehiculosDisponibles}</p>
+              </div>
+              <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+                <Car className="w-5 h-5 text-emerald-500" />
+              </div>
             </div>
-            <div className="text-xl font-semibold tabular-nums text-emerald-600" data-testid="kpi-folios-aprobados">{kpis.aprobados}</div>
+            <p className="text-[10px] text-muted-foreground mt-2">{kpis.totalVehiculos} en flota</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-3">
-            <div className="flex items-center gap-2 mb-1">
-              <XCircle className="w-3.5 h-3.5 text-red-500" />
-              <span className="text-[10px] text-muted-foreground">Rechazados</span>
+
+        <Card className="border-l-4 border-l-purple-500">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[11px] text-muted-foreground font-medium">Evaluaciones Hoy</p>
+                <p className="text-2xl font-bold tabular-nums mt-1 text-purple-600" data-testid="kpi-evals-hoy">{kpis.evaluacionesHoy}</p>
+              </div>
+              <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                <TrendingUp className="w-5 h-5 text-purple-500" />
+              </div>
             </div>
-            <div className="text-xl font-semibold tabular-nums text-red-600" data-testid="kpi-folios-rechazados">{kpis.rechazados}</div>
+            <p className="text-[10px] text-muted-foreground mt-2">{evaluations.length} total histórico</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* KPI Cards — Row 2: Vehicles */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {/* Secondary KPI row */}
+      <div className="grid grid-cols-4 gap-3">
         <Card>
-          <CardContent className="p-3">
-            <div className="flex items-center gap-2 mb-1">
-              <Car className="w-3.5 h-3.5 text-muted-foreground" />
-              <span className="text-[10px] text-muted-foreground">Vehículos Total</span>
+          <CardContent className="p-3 flex items-center gap-3">
+            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+            <div>
+              <p className="text-lg font-semibold tabular-nums">{kpis.aprobados}</p>
+              <p className="text-[10px] text-muted-foreground">Aprobados</p>
             </div>
-            <div className="text-xl font-semibold tabular-nums" data-testid="kpi-vehicles-total">{vehicleKpis.total}</div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-3">
-            <div className="flex items-center gap-2 mb-1">
-              <Warehouse className="w-3.5 h-3.5 text-emerald-600" />
-              <span className="text-[10px] text-muted-foreground">Disponibles</span>
+          <CardContent className="p-3 flex items-center gap-3">
+            <XCircle className="w-4 h-4 text-red-500 shrink-0" />
+            <div>
+              <p className="text-lg font-semibold tabular-nums">{kpis.rechazados}</p>
+              <p className="text-[10px] text-muted-foreground">Rechazados</p>
             </div>
-            <div className="text-xl font-semibold tabular-nums text-emerald-600" data-testid="kpi-vehicles-disponibles">{vehicleKpis.disponibles}</div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-3">
-            <div className="flex items-center gap-2 mb-1">
-              <User className="w-3.5 h-3.5 text-blue-600" />
-              <span className="text-[10px] text-muted-foreground">Asignados</span>
+          <CardContent className="p-3 flex items-center gap-3">
+            <User className="w-4 h-4 text-blue-500 shrink-0" />
+            <div>
+              <p className="text-lg font-semibold tabular-nums">{kpis.vehiculosAsignados}</p>
+              <p className="text-[10px] text-muted-foreground">V. Asignados</p>
             </div>
-            <div className="text-xl font-semibold tabular-nums text-blue-600" data-testid="kpi-vehicles-asignados">{vehicleKpis.asignados}</div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-3">
-            <div className="flex items-center gap-2 mb-1">
-              <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
-              <span className="text-[10px] text-muted-foreground">En Reparación</span>
+          <CardContent className="p-3 flex items-center gap-3">
+            <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+            <div>
+              <p className="text-lg font-semibold tabular-nums">{kpis.vehiculosReparacion}</p>
+              <p className="text-[10px] text-muted-foreground">En Reparación</p>
             </div>
-            <div className="text-xl font-semibold tabular-nums text-amber-600" data-testid="kpi-vehicles-reparacion">{vehicleKpis.reparacion}</div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Folio table */}
+      {/* Recent Folios */}
       <div>
-        <h2 className="text-sm font-medium mb-3">Folios de Originación</h2>
-        {!originations.length ? (
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold">Últimos Folios</h2>
+          <Link href="/originacion">
+            <Button variant="ghost" size="sm" className="text-xs gap-1 h-7 text-primary" data-testid="link-ver-todos">
+              Ver todos <ArrowRight className="w-3 h-3" />
+            </Button>
+          </Link>
+        </div>
+        {!recentFolios.length ? (
           <Card>
-            <CardContent className="p-6 text-center">
-              <FileText className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+            <CardContent className="p-8 text-center">
+              <FileText className="w-10 h-10 text-muted-foreground mx-auto mb-3 opacity-50" />
               <p className="text-sm text-muted-foreground">No hay folios de originación aún</p>
-              <p className="text-[10px] text-muted-foreground mt-1">Los folios aparecerán aquí cuando la promotora los cree desde Originación</p>
+              <p className="text-[10px] text-muted-foreground mt-1 mb-4">Los folios aparecerán aquí cuando la promotora los cree desde Originación</p>
+              <Link href="/originacion">
+                <Button size="sm" className="gap-1.5">
+                  <Plus className="w-3.5 h-3.5" /> Crear primer folio
+                </Button>
+              </Link>
             </CardContent>
           </Card>
         ) : (
-          <div className="overflow-x-auto border rounded-lg">
-            <table className="w-full text-xs" data-testid="table-panel-folios">
-              <thead>
-                <tr className="border-b bg-muted/30">
-                  <th className="text-left py-2.5 px-3 font-medium">Folio</th>
-                  <th className="text-center py-2.5 px-2 font-medium">Tipo</th>
-                  <th className="text-center py-2.5 px-2 font-medium">Perfil</th>
-                  <th className="text-center py-2.5 px-2 font-medium">Estado</th>
-                  <th className="text-center py-2.5 px-2 font-medium">Paso</th>
-                  <th className="text-right py-2.5 px-2 font-medium">Fecha</th>
-                  <th className="text-center py-2.5 px-3 font-medium">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {originations.map((orig) => {
-                  const estadoCfg = ESTADO_CONFIG[orig.estado] || ESTADO_CONFIG.BORRADOR;
-                  return (
-                    <tr
-                      key={orig.id}
-                      className="border-b last:border-0 hover:bg-muted/20 transition-colors cursor-pointer"
-                      onClick={() => setSelectedFolio(orig)}
-                      data-testid={`row-folio-${orig.id}`}
-                    >
-                      <td className="py-2.5 px-3 font-mono font-medium">{orig.folio}</td>
-                      <td className="text-center py-2.5 px-2">
-                        <Badge variant="outline" className="text-[10px]">
-                          {orig.tipo === "validacion" ? "VAL" : "CPV"}
-                        </Badge>
-                      </td>
-                      <td className="text-center py-2.5 px-2">{orig.perfilTipo}</td>
-                      <td className="text-center py-2.5 px-2">
-                        <Badge variant="secondary" className={`text-[10px] ${estadoCfg.color}`}>
-                          {estadoCfg.label}
-                        </Badge>
-                      </td>
-                      <td className="text-center py-2.5 px-2 tabular-nums">{orig.currentStep}/7</td>
-                      <td className="text-right py-2.5 px-2 text-muted-foreground">
-                        {new Date(orig.createdAt).toLocaleDateString("es-MX", { day: "numeric", month: "short" })}
-                      </td>
-                      <td className="text-center py-2.5 px-3">
-                        <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
-                          <button
-                            onClick={() => setSelectedFolio(orig)}
-                            className="p-1 rounded hover:bg-muted transition-colors"
-                            title="Ver detalle"
-                            data-testid={`button-view-folio-${orig.id}`}
-                          >
-                            <Eye className="w-3.5 h-3.5 text-muted-foreground" />
-                          </button>
-                          <InlineActions origination={orig} />
+          <div className="space-y-2">
+            {recentFolios.map((orig) => {
+              const estadoCfg = ESTADO_CONFIG[orig.estado] || ESTADO_CONFIG.BORRADOR;
+              const StepIcon = estadoCfg.icon;
+              return (
+                <Card
+                  key={orig.id}
+                  className="hover:bg-muted/30 transition-colors cursor-pointer group"
+                  onClick={() => setSelectedFolio(orig)}
+                  data-testid={`row-folio-${orig.id}`}
+                >
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                        orig.estado === "APROBADO" ? "bg-emerald-500/10" :
+                        orig.estado === "RECHAZADO" ? "bg-red-500/10" :
+                        "bg-blue-500/10"
+                      }`}>
+                        <StepIcon className={`w-4 h-4 ${
+                          orig.estado === "APROBADO" ? "text-emerald-500" :
+                          orig.estado === "RECHAZADO" ? "text-red-500" :
+                          "text-blue-500"
+                        }`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-mono font-semibold">{orig.folio}</span>
+                          <Badge variant="secondary" className={`text-[9px] ${estadoCfg.color}`}>{estadoCfg.label}</Badge>
+                          <Badge variant="outline" className="text-[9px]">{orig.tipo === "validacion" ? "VAL" : "CPV"}</Badge>
                         </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        <div className="flex items-center gap-3 mt-0.5">
+                          <span className="text-[10px] text-muted-foreground">Perfil {orig.perfilTipo}</span>
+                          <span className="text-[10px] text-muted-foreground">Paso {orig.currentStep}/7</span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {new Date(orig.createdAt).toLocaleDateString("es-MX", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        </div>
+                      </div>
+                      {/* Progress mini-bar */}
+                      <div className="hidden sm:flex items-center gap-0.5">
+                        {[1,2,3,4,5,6,7].map(s => (
+                          <div key={s} className={`w-1.5 h-4 rounded-full ${
+                            s < orig.currentStep ? "bg-emerald-500" : s === orig.currentStep ? "bg-blue-500" : "bg-muted"
+                          }`} />
+                        ))}
+                      </div>
+                      <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>
