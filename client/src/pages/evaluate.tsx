@@ -42,6 +42,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { ModelOption, EvaluationResult, RepairEstimateResult } from "@shared/schema";
 import { apiGetModelOptions, apiSaveEvaluation, apiListEvaluations, apiFetchMarketPrices, apiUpdateModelCmu, subscribe } from "@/lib/api";
 import { evaluateOpportunity } from "@/lib/evaluation-engine";
+import { jsPDF } from "jspdf";
 
 function formatMXN(value: number): string {
   return `$${value.toLocaleString("es-MX")}`;
@@ -496,6 +497,129 @@ function PhotoRepairEstimate({ onEstimate }: { onEstimate: (mid: number) => void
       )}
     </div>
   );
+}
+
+// ===== PDF Export =====
+function generateEvaluationPdf(r: EvaluationResult) {
+  const doc = new jsPDF({ format: "letter", unit: "mm" });
+  const W = 215.9, ML = 18, MR = 18, CW = W - ML - MR;
+  let y = 18;
+
+  const fmtM = (n: number) => `$${n.toLocaleString("es-MX")}`;
+  const fmtP = (n: number) => `${(n * 100).toFixed(1)}%`;
+
+  // Header
+  doc.setFont("helvetica", "bold").setFontSize(12);
+  doc.text("CONDUCTORES DEL MUNDO, S.A.P.I. DE C.V.", W / 2, y, { align: "center" });
+  y += 5;
+  doc.setFont("helvetica", "normal").setFontSize(8);
+  doc.text("RFC: CMU201119DD6 — Motor CMU: Decisión de Compra", W / 2, y, { align: "center" });
+  y += 8;
+
+  // Decision banner
+  const decColor = r.decision === "COMPRAR" ? [16, 185, 129] : r.decision === "DUDOSO" ? [245, 158, 11] : [239, 68, 68];
+  doc.setFillColor(decColor[0], decColor[1], decColor[2]);
+  doc.roundedRect(ML, y, CW, 14, 2, 2, "F");
+  doc.setFont("helvetica", "bold").setFontSize(16).setTextColor(255, 255, 255);
+  doc.text(r.decision, W / 2, y + 9, { align: "center" });
+  if (r.decisionLevel !== "descartar") {
+    doc.setFontSize(8);
+    doc.text(r.decisionLevel === "optimo" ? "ÓPTIMO" : "BUENO", W / 2, y + 12.5, { align: "center" });
+  }
+  doc.setTextColor(0, 0, 0);
+  y += 18;
+
+  // Vehicle info
+  doc.setFont("helvetica", "bold").setFontSize(10);
+  doc.text(`${r.brand} ${r.model} ${r.variant || ""} ${r.year}`.trim(), ML, y);
+  y += 5;
+  doc.setFont("helvetica", "normal").setFontSize(8);
+  doc.text(r.explanation, ML, y, { maxWidth: CW });
+  const expLines = doc.splitTextToSize(r.explanation, CW);
+  y += expLines.length * 3.5 + 4;
+
+  // Financial metrics table
+  doc.setFont("helvetica", "bold").setFontSize(9);
+  doc.text("Métricas Financieras", ML, y);
+  y += 5;
+
+  const metrics = [
+    ["CMU (Valor Mercado)", fmtM(r.cmu)],
+    ["Precio Aseguradora", fmtM(r.insurerPrice)],
+    ["Reparación Estimada", fmtM(r.repairEstimate)],
+    ["Costo Total", fmtM(r.totalCost)],
+    ["% Compra vs CMU", fmtP(r.purchasePct)],
+    ["Margen Bruto", fmtM(r.margin)],
+    ["TIR Anual", fmtP(r.tirAnnual)],
+    ["MOIC", `${r.moic.toFixed(2)}x`],
+    ["Venta a Plazos (markup ×1.237)", fmtM(r.ventaPlazos)],
+    ["Mensualidad (36 meses)", `${fmtM(r.monthlyPayment)}/mes`],
+  ];
+
+  doc.setFont("helvetica", "normal").setFontSize(7.5);
+  const colW = CW / 2;
+  for (let i = 0; i < metrics.length; i++) {
+    const row = metrics[i];
+    const bgY = y - 2.5;
+    if (i % 2 === 0) {
+      doc.setFillColor(245, 245, 245);
+      doc.rect(ML, bgY, CW, 5, "F");
+    }
+    doc.setFont("helvetica", "normal");
+    doc.text(row[0], ML + 2, y);
+    doc.setFont("helvetica", "bold");
+    doc.text(row[1], ML + CW - 2, y, { align: "right" });
+    y += 5;
+  }
+  y += 4;
+
+  // Sensitivity table
+  if (r.sensitivity.length > 0) {
+    doc.setFont("helvetica", "bold").setFontSize(9);
+    doc.text("Análisis de Sensibilidad", ML, y);
+    y += 5;
+
+    doc.setFont("helvetica", "bold").setFontSize(6.5);
+    const sCols = [15, 25, 25, 22, 18, 22, 22, 30];
+    const sHeaders = ["Δ Rep.", "Reparación", "Costo Total", "% CMU", "Margen", "TIR", "MOIC", "Decisión"];
+    let sx = ML;
+    sHeaders.forEach((h, i) => { doc.text(h, sx + 1, y); sx += sCols[i]; });
+    y += 1;
+    doc.setDrawColor(180, 180, 180);
+    doc.line(ML, y, ML + CW, y);
+    y += 3;
+
+    doc.setFont("helvetica", "normal").setFontSize(6.5);
+    for (const s of r.sensitivity) {
+      sx = ML;
+      const vals = [
+        `${s.repairDelta >= 0 ? "+" : ""}${fmtM(s.repairDelta)}`,
+        fmtM(s.repair), fmtM(s.totalCost), fmtP(s.purchasePct),
+        fmtM(s.margin), fmtP(s.tirAnnual), `${s.moic.toFixed(2)}x`, s.decision,
+      ];
+      vals.forEach((v, i) => { doc.text(v, sx + 1, y); sx += sCols[i]; });
+      y += 3.5;
+      if (y > 260) { doc.addPage(); y = 18; }
+    }
+    y += 4;
+  }
+
+  // Footer
+  const pageCount = doc.getNumberOfPages();
+  const now = new Date().toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFont("helvetica", "normal").setFontSize(6).setTextColor(150, 150, 150);
+    doc.text(
+      `Motor CMU — ${r.brand} ${r.model} ${r.year} — Generado ${now} — CONDUCTORES DEL MUNDO — Pág. ${i}/${pageCount}`,
+      W / 2, 272, { align: "center" }
+    );
+    doc.setTextColor(0, 0, 0);
+  }
+
+  // Download
+  const slug = `${r.brand}-${r.model}-${r.year}`.replace(/\s+/g, "-").toLowerCase();
+  doc.save(`CMU-Evaluacion-${slug}-${r.decision}.pdf`);
 }
 
 export default function EvaluatePage() {
@@ -964,7 +1088,20 @@ export default function EvaluatePage() {
       </Card>
 
       {/* Result */}
-      {result && <DecisionCard result={result} />}
+      {result && (
+        <>
+          <DecisionCard result={result} />
+          <Button
+            variant="outline"
+            className="w-full gap-2 h-10"
+            onClick={() => generateEvaluationPdf(result)}
+            data-testid="button-download-evaluation-pdf"
+          >
+            <ArrowDown className="w-4 h-4" />
+            Descargar Evaluación PDF
+          </Button>
+        </>
+      )}
 
       {/* History */}
       {showHistory && opportunities && opportunities.length > 0 && (
