@@ -376,4 +376,165 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// ===== Neon PostgreSQL Storage =====
+import { neon } from "@neondatabase/serverless";
+
+class NeonStorage implements IStorage {
+  private sql: ReturnType<typeof neon>;
+
+  constructor(databaseUrl: string) {
+    this.sql = neon(databaseUrl);
+    console.log("[NeonStorage] Connected to Neon PostgreSQL");
+  }
+
+  async getModels(): Promise<Model[]> {
+    return this.sql`SELECT * FROM models ORDER BY brand, model, variant, year` as any;
+  }
+  async getModelOptions(): Promise<ModelOption[]> {
+    const rows = await this.sql`SELECT * FROM models ORDER BY brand, model, variant, year`;
+    return rows.map((r: any) => ({
+      id: r.id, brand: r.brand, model: r.model, variant: r.variant, year: r.year,
+      cmu: r.cmu, slug: r.slug,
+      displayName: r.variant ? `${r.model} ${r.variant}` : r.model,
+      cmuSource: r.cmu_source, cmuUpdatedAt: r.cmu_updated_at,
+      cmuMin: r.cmu_min, cmuMax: r.cmu_max, cmuMedian: r.cmu_median, cmuSampleCount: r.cmu_sample_count,
+    }));
+  }
+  async getModelBySlugYear(slug: string, year: number) {
+    const rows = await this.sql`SELECT * FROM models WHERE slug = ${slug} AND year = ${year} LIMIT 1`;
+    return rows[0] as Model | undefined;
+  }
+  async saveOpportunity(opp: Omit<Opportunity, "id" | "createdAt">) {
+    const now = new Date().toISOString();
+    const rows = await this.sql`INSERT INTO opportunities (model_id, model_slug, year, cmu_used, insurer_price, repair_estimate, total_cost, purchase_pct, margin, tir_annual, moic, decision, decision_level, explanation, city, created_at) VALUES (${(opp as any).modelId}, ${(opp as any).modelSlug}, ${(opp as any).year}, ${(opp as any).cmuUsed}, ${(opp as any).insurerPrice}, ${(opp as any).repairEstimate}, ${(opp as any).totalCost}, ${(opp as any).purchasePct}, ${(opp as any).margin}, ${(opp as any).tirAnnual}, ${(opp as any).moic}, ${(opp as any).decision}, ${(opp as any).decisionLevel}, ${(opp as any).explanation}, ${(opp as any).city}, ${now}) RETURNING *`;
+    return rows[0] as Opportunity;
+  }
+  async getOpportunities() {
+    return this.sql`SELECT * FROM opportunities ORDER BY created_at DESC` as any;
+  }
+  async updateModelCmu(id: number, cmu: number, source: string, meta?: any) {
+    const now = new Date().toISOString();
+    const rows = await this.sql`UPDATE models SET cmu = ${cmu}, cmu_source = ${source}, cmu_updated_at = ${now}, cmu_min = ${meta?.cmuMin ?? null}, cmu_max = ${meta?.cmuMax ?? null}, cmu_median = ${meta?.cmuMedian ?? null}, cmu_sample_count = ${meta?.sampleCount ?? null} WHERE id = ${id} RETURNING *`;
+    return rows[0] as Model | undefined;
+  }
+  async bulkUpdateCmu(entries: CmuBulkUpdateEntry[], source: string) {
+    let updated = 0; const notFound: string[] = [];
+    for (const e of entries) {
+      const rows = await this.sql`UPDATE models SET cmu = ${e.cmu}, cmu_source = ${source}, cmu_updated_at = ${new Date().toISOString()} WHERE slug = ${e.slug} AND year = ${e.year} RETURNING id`;
+      if (rows.length > 0) updated++; else notFound.push(`${e.slug}-${e.year}`);
+    }
+    return { updated, notFound };
+  }
+  async getPromoters() { return this.sql`SELECT * FROM promoters` as any; }
+  async getPromoterByPin(pin: string) {
+    const rows = await this.sql`SELECT * FROM promoters WHERE pin = ${pin} AND active = 1 LIMIT 1`;
+    return rows[0] as Promoter | undefined;
+  }
+  async createTaxista(data: InsertTaxista) {
+    const rows = await this.sql`INSERT INTO taxistas (folio, nombre, apellido_paterno, apellido_materno, curp, rfc, telefono, email, direccion, ciudad, estado, codigo_postal, perfil_tipo, gnv_historial_leq, gnv_meses_historial, tickets_gasolina_mensual, clabe, banco, created_at) VALUES (${data.folio}, ${data.nombre}, ${data.apellidoPaterno}, ${data.apellidoMaterno}, ${data.curp}, ${data.rfc}, ${data.telefono}, ${data.email}, ${data.direccion}, ${data.ciudad}, ${data.estado}, ${data.codigoPostal}, ${data.perfilTipo}, ${data.gnvHistorialLeq}, ${data.gnvMesesHistorial}, ${data.ticketsGasolinaMensual}, ${data.clabe}, ${data.banco}, ${data.createdAt}) RETURNING *`;
+    return rows[0] as Taxista;
+  }
+  async getTaxista(id: number) {
+    const rows = await this.sql`SELECT * FROM taxistas WHERE id = ${id} LIMIT 1`;
+    return rows[0] as Taxista | undefined;
+  }
+  async updateTaxista(id: number, data: Partial<InsertTaxista>) {
+    // Simple approach: fetch, merge, update all fields
+    const existing = await this.getTaxista(id);
+    if (!existing) return undefined;
+    const merged = { ...existing, ...data };
+    const rows = await this.sql`UPDATE taxistas SET nombre = ${merged.nombre}, apellido_paterno = ${(merged as any).apellidoPaterno ?? (merged as any).apellido_paterno}, telefono = ${merged.telefono}, curp = ${merged.curp}, rfc = ${merged.rfc} WHERE id = ${id} RETURNING *`;
+    return rows[0] as Taxista | undefined;
+  }
+  async listTaxistas() { return this.sql`SELECT * FROM taxistas ORDER BY id DESC` as any; }
+  async createOrigination(data: InsertOrigination) {
+    const rows = await this.sql`INSERT INTO originations (folio, tipo, estado, taxista_id, promoter_id, vehicle_inventory_id, perfil_tipo, current_step, otp_phone, created_at, updated_at) VALUES (${data.folio}, ${data.tipo}, ${data.estado || 'BORRADOR'}, ${data.taxistaId}, ${data.promoterId}, ${data.vehicleInventoryId}, ${data.perfilTipo}, ${data.currentStep || 1}, ${data.otpPhone}, ${data.createdAt}, ${data.updatedAt}) RETURNING *`;
+    return rows[0] as Origination;
+  }
+  async getOrigination(id: number) {
+    const rows = await this.sql`SELECT * FROM originations WHERE id = ${id} LIMIT 1`;
+    return rows[0] as Origination | undefined;
+  }
+  async getOriginationByFolio(folio: string) {
+    const rows = await this.sql`SELECT * FROM originations WHERE folio = ${folio} LIMIT 1`;
+    return rows[0] as Origination | undefined;
+  }
+  async updateOrigination(id: number, data: Partial<InsertOrigination>) {
+    const now = new Date().toISOString();
+    // Build dynamic SET clause
+    const existing = await this.getOrigination(id);
+    if (!existing) return undefined;
+    const merged: any = { ...existing, ...data, updated_at: now };
+    const rows = await this.sql`UPDATE originations SET estado = ${merged.estado ?? merged.estado}, current_step = ${merged.currentStep ?? merged.current_step ?? existing.currentStep}, otp_code = ${merged.otpCode ?? merged.otp_code ?? null}, otp_verified = ${merged.otpVerified ?? merged.otp_verified ?? 0}, otp_phone = ${merged.otpPhone ?? merged.otp_phone ?? null}, datos_ine = ${merged.datosIne ?? merged.datos_ine ?? null}, datos_csf = ${merged.datosCsf ?? merged.datos_csf ?? null}, datos_comprobante = ${merged.datosComprobante ?? merged.datos_comprobante ?? null}, datos_concesion = ${merged.datosConcesion ?? merged.datos_concesion ?? null}, datos_estado_cuenta = ${merged.datosEstadoCuenta ?? merged.datos_estado_cuenta ?? null}, datos_historial = ${merged.datosHistorial ?? merged.datos_historial ?? null}, datos_factura = ${merged.datosFactura ?? merged.datos_factura ?? null}, datos_membresia = ${merged.datosMembresia ?? merged.datos_membresia ?? null}, vehicle_inventory_id = ${merged.vehicleInventoryId ?? merged.vehicle_inventory_id ?? null}, contract_type = ${merged.contractType ?? merged.contract_type ?? null}, contract_url = ${merged.contractUrl ?? merged.contract_url ?? null}, contract_generated_at = ${merged.contractGeneratedAt ?? merged.contract_generated_at ?? null}, mifiel_document_id = ${merged.mifielDocumentId ?? merged.mifiel_document_id ?? null}, mifiel_status = ${merged.mifielStatus ?? merged.mifiel_status ?? null}, selfie_url = ${merged.selfieUrl ?? merged.selfie_url ?? null}, vehicle_photos = ${merged.vehiclePhotos ?? merged.vehicle_photos ?? null}, notes = ${merged.notes ?? null}, rejection_reason = ${merged.rejectionReason ?? merged.rejection_reason ?? null}, updated_at = ${now} WHERE id = ${id} RETURNING *`;
+    return rows[0] as Origination | undefined;
+  }
+  async listOriginations(filters?: { estado?: string; promoterId?: number }) {
+    if (filters?.estado) {
+      return this.sql`SELECT * FROM originations WHERE estado = ${filters.estado} ORDER BY created_at DESC` as any;
+    }
+    return this.sql`SELECT * FROM originations ORDER BY created_at DESC` as any;
+  }
+  async getNextFolioSequence(prefix: string, dateStr: string) {
+    const pattern = `${prefix}-${dateStr}-%`;
+    const rows = await this.sql`SELECT COUNT(*) as c FROM originations WHERE folio LIKE ${pattern}`;
+    return (parseInt(rows[0]?.c) || 0) + 1;
+  }
+  async createDocument(data: InsertDocument) {
+    const rows = await this.sql`INSERT INTO documents (origination_id, tipo, image_data, ocr_result, ocr_confidence, edited_data, status, created_at) VALUES (${data.originationId}, ${data.tipo}, ${data.imageData}, ${data.ocrResult}, ${data.ocrConfidence}, ${data.editedData}, ${data.status || 'pending'}, ${data.createdAt}) RETURNING *`;
+    return rows[0] as Document;
+  }
+  async getDocument(id: number) {
+    const rows = await this.sql`SELECT * FROM documents WHERE id = ${id} LIMIT 1`;
+    return rows[0] as Document | undefined;
+  }
+  async updateDocument(id: number, data: Partial<InsertDocument>) {
+    const existing = await this.getDocument(id);
+    if (!existing) return undefined;
+    const m: any = { ...existing, ...data };
+    const rows = await this.sql`UPDATE documents SET image_data = ${m.imageData ?? m.image_data ?? null}, ocr_result = ${m.ocrResult ?? m.ocr_result ?? null}, ocr_confidence = ${m.ocrConfidence ?? m.ocr_confidence ?? null}, edited_data = ${m.editedData ?? m.edited_data ?? null}, status = ${m.status ?? 'pending'} WHERE id = ${id} RETURNING *`;
+    return rows[0] as Document | undefined;
+  }
+  async getDocumentsByOrigination(originationId: number) {
+    return this.sql`SELECT * FROM documents WHERE origination_id = ${originationId} ORDER BY id` as any;
+  }
+  async getDocumentByOriginationAndType(originationId: number, tipo: string) {
+    const rows = await this.sql`SELECT * FROM documents WHERE origination_id = ${originationId} AND tipo = ${tipo} LIMIT 1`;
+    return rows[0] as Document | undefined;
+  }
+  async createVehicle(data: InsertVehicleInventory) {
+    const now = new Date().toISOString();
+    const rows = await this.sql`INSERT INTO vehicles_inventory (marca, modelo, variante, anio, color, niv, placas, num_serie, num_motor, cmu_valor, costo_adquisicion, costo_reparacion, status, kit_gnv_instalado, kit_gnv_costo, kit_gnv_marca, kit_gnv_serie, tanque_tipo, tanque_marca, tanque_serie, tanque_costo, notes, created_at, updated_at) VALUES (${data.marca}, ${data.modelo}, ${data.variante}, ${data.anio}, ${data.color}, ${data.niv}, ${data.placas}, ${data.numSerie}, ${data.numMotor}, ${data.cmuValor}, ${data.costoAdquisicion}, ${data.costoReparacion}, ${data.status || 'disponible'}, ${data.kitGnvInstalado || 0}, ${data.kitGnvCosto}, ${data.kitGnvMarca}, ${data.kitGnvSerie}, ${data.tanqueTipo}, ${data.tanqueMarca}, ${data.tanqueSerie}, ${data.tanqueCosto}, ${data.notes}, ${now}, ${now}) RETURNING *`;
+    return rows[0] as VehicleInventory;
+  }
+  async getVehicle(id: number) {
+    const rows = await this.sql`SELECT * FROM vehicles_inventory WHERE id = ${id} LIMIT 1`;
+    return rows[0] as VehicleInventory | undefined;
+  }
+  async updateVehicle(id: number, data: Partial<InsertVehicleInventory>) {
+    const existing = await this.getVehicle(id);
+    if (!existing) return undefined;
+    const m: any = { ...existing, ...data, updated_at: new Date().toISOString() };
+    const rows = await this.sql`UPDATE vehicles_inventory SET marca = ${m.marca}, modelo = ${m.modelo}, anio = ${m.anio}, color = ${m.color}, status = ${m.status}, notes = ${m.notes}, updated_at = ${m.updated_at} WHERE id = ${id} RETURNING *`;
+    return rows[0] as VehicleInventory | undefined;
+  }
+  async listVehicles(filters?: { status?: string }) {
+    if (filters?.status) {
+      return this.sql`SELECT * FROM vehicles_inventory WHERE status = ${filters.status} ORDER BY created_at DESC` as any;
+    }
+    return this.sql`SELECT * FROM vehicles_inventory ORDER BY created_at DESC` as any;
+  }
+  async createContract(data: InsertContract) {
+    const rows = await this.sql`INSERT INTO contracts (origination_id, tipo, folio, contract_data, status, created_at) VALUES (${data.originationId}, ${data.tipo}, ${data.folio}, ${data.contractData}, ${data.status || 'draft'}, ${data.createdAt}) RETURNING *`;
+    return rows[0] as Contract;
+  }
+  async getContractByOrigination(originationId: number) {
+    const rows = await this.sql`SELECT * FROM contracts WHERE origination_id = ${originationId} LIMIT 1`;
+    return rows[0] as Contract | undefined;
+  }
+}
+
+// ===== Export: Use Neon if DATABASE_URL is set, otherwise MemStorage =====
+const DATABASE_URL = process.env.DATABASE_URL;
+export const storage: IStorage = DATABASE_URL
+  ? new NeonStorage(DATABASE_URL)
+  : new MemStorage();
