@@ -33,19 +33,34 @@ const GNV_REVENUE = 4400; // 400 LEQ × $11/LEQ
 const PLAZOS_MARKUP = 1.237;
 
 // ===== Decision Thresholds (configurable without touching code) =====
-type Thresholds = {
+export type Thresholds = {
   optimoMarginMin: number;
   optimoTirMin: number;   // TIR annual as decimal (1.45 = 145%)
   buenoMarginMin: number;
   buenoTirMin: number;
 };
 
-const DEFAULT_THRESHOLDS: Thresholds = {
+export const DEFAULT_THRESHOLDS: Thresholds = {
   optimoMarginMin: 55000,
   optimoTirMin: 1.45,
   buenoMarginMin: 40000,
   buenoTirMin: 0.80,
 };
+
+// Mutable active thresholds — can be updated at runtime
+let activeThresholds: Thresholds = { ...DEFAULT_THRESHOLDS };
+
+export function getThresholds(): Thresholds {
+  return { ...activeThresholds };
+}
+
+export function setThresholds(t: Partial<Thresholds>) {
+  activeThresholds = { ...activeThresholds, ...t };
+}
+
+export function resetThresholds() {
+  activeThresholds = { ...DEFAULT_THRESHOLDS };
+}
 
 // ===== Cash Flow Model =====
 function buildCashFlowSchedule(cmu: number): { cashFlows: CashFlowEntry[]; ventaPlazos: number; monthlyPayment: number } {
@@ -234,7 +249,7 @@ export function evaluateOpportunity(
   const tirAnnual = calculateIRR(irrFlows, irrPeriods);
   const moic = totalInflows / totalCost;
 
-  const thresholds = DEFAULT_THRESHOLDS;
+  const thresholds = activeThresholds;
   const { decision, decisionLevel, explanation } = classify(
     margin, tirAnnual, moic, purchasePct, totalCost, cmu,
     modelData, thresholds, input.year

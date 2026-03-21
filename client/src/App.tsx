@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { PinLogin } from "@/components/pin-login";
+import { ErrorBoundary } from "@/components/error-boundary";
 import { Wifi, WifiOff } from "lucide-react";
 import EvaluatePage from "./pages/evaluate";
 import CatalogPage from "./pages/catalog";
@@ -88,7 +89,9 @@ function AuthenticatedApp({ promoter, onLogout }: {
               </div>
             </header>
             <main className="flex-1 overflow-y-auto">
-              <AppRouter />
+              <ErrorBoundary>
+                <AppRouter />
+              </ErrorBoundary>
             </main>
           </div>
         </div>
@@ -109,14 +112,16 @@ function App() {
   };
 
   return (
-    <TooltipProvider>
-      <Toaster />
-      {promoter ? (
-        <AuthenticatedApp promoter={promoter} onLogout={handleLogout} />
-      ) : (
-        <PinLogin onLogin={handleLogin} />
-      )}
-    </TooltipProvider>
+    <ErrorBoundary>
+      <TooltipProvider>
+        <Toaster />
+        {promoter ? (
+          <AuthenticatedApp promoter={promoter} onLogout={handleLogout} />
+        ) : (
+          <PinLogin onLogin={handleLogin} />
+        )}
+      </TooltipProvider>
+    </ErrorBoundary>
   );
 }
 

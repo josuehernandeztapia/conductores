@@ -41,7 +41,7 @@ import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import type { ModelOption, EvaluationResult, RepairEstimateResult } from "@shared/schema";
 import { apiGetModelOptions, apiSaveEvaluation, apiListEvaluations, apiFetchMarketPrices, apiUpdateModelCmu, subscribe } from "@/lib/api";
-import { evaluateOpportunity } from "@/lib/evaluation-engine";
+import { evaluateOpportunity, getThresholds, setThresholds, resetThresholds, type Thresholds } from "@/lib/evaluation-engine";
 import { jsPDF } from "jspdf";
 
 function formatMXN(value: number): string {
@@ -634,6 +634,12 @@ export default function EvaluatePage() {
   const [showHistory, setShowHistory] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [isFetchingPrices, setIsFetchingPrices] = useState(false);
+  const [thresholdState, setThresholdState] = useState<Thresholds>(() => getThresholds());
+  const handleThresholdChange = useCallback((partial: Partial<Thresholds>) => {
+    setThresholds(partial);
+    setThresholdState(getThresholds());
+    setResult(null); // Clear result so next eval uses new thresholds
+  }, []);
   const [marketData, setMarketData] = useState<{
     count: number; min: number | null; max: number | null; median: number | null; average: number | null;
     sources: { name: string; count: number }[];
@@ -1136,9 +1142,74 @@ export default function EvaluatePage() {
         </Card>
       )}
 
-      <p className="text-[10px] text-muted-foreground text-center pb-2">
-        Supuestos: Plazo 36 meses · Anticipo Capital $50k (mes 2) · Recaudo GNV $4,400/mes · Markup ×1.237 · Sin tanque GNV · Aguascalientes
-      </p>
+      {/* Supuestos + Threshold Config */}
+      <Card>
+        <CardContent className="p-3">
+          <p className="text-[10px] text-muted-foreground text-center">
+            Supuestos: Plazo 36 meses · Anticipo Capital $50k (mes 2) · Recaudo GNV $4,400/mes · Markup ×1.237 · Aguascalientes
+          </p>
+          <details className="mt-2">
+            <summary className="text-[10px] text-primary cursor-pointer font-medium text-center" data-testid="toggle-thresholds">
+              Configurar umbrales de decisión
+            </summary>
+            <div className="mt-3 space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[9px] text-muted-foreground">Óptimo: Margen mínimo ($)</label>
+                  <Input
+                    type="number"
+                    value={thresholdState.optimoMarginMin}
+                    onChange={(e) => handleThresholdChange({ optimoMarginMin: parseInt(e.target.value) || 0 })}
+                    className="h-7 text-xs"
+                    data-testid="input-threshold-optimo-margin"
+                  />
+                </div>
+                <div>
+                  <label className="text-[9px] text-muted-foreground">Óptimo: TIR mínima (%)</label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={Math.round(thresholdState.optimoTirMin * 100)}
+                    onChange={(e) => handleThresholdChange({ optimoTirMin: (parseInt(e.target.value) || 0) / 100 })}
+                    className="h-7 text-xs"
+                    data-testid="input-threshold-optimo-tir"
+                  />
+                </div>
+                <div>
+                  <label className="text-[9px] text-muted-foreground">Bueno: Margen mínimo ($)</label>
+                  <Input
+                    type="number"
+                    value={thresholdState.buenoMarginMin}
+                    onChange={(e) => handleThresholdChange({ buenoMarginMin: parseInt(e.target.value) || 0 })}
+                    className="h-7 text-xs"
+                    data-testid="input-threshold-bueno-margin"
+                  />
+                </div>
+                <div>
+                  <label className="text-[9px] text-muted-foreground">Bueno: TIR mínima (%)</label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={Math.round(thresholdState.buenoTirMin * 100)}
+                    onChange={(e) => handleThresholdChange({ buenoTirMin: (parseInt(e.target.value) || 0) / 100 })}
+                    className="h-7 text-xs"
+                    data-testid="input-threshold-bueno-tir"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" className="text-[10px] h-6 flex-1" onClick={() => { resetThresholds(); setThresholdState(getThresholds()); setResult(null); }}>
+                  Restaurar defaults
+                </Button>
+              </div>
+              <p className="text-[9px] text-muted-foreground text-center">
+                Margen ≥{formatMXN(thresholdState.optimoMarginMin)} AND TIR ≥{Math.round(thresholdState.optimoTirMin * 100)}% = ÓPTIMO |
+                Margen ≥{formatMXN(thresholdState.buenoMarginMin)} AND TIR ≥{Math.round(thresholdState.buenoTirMin * 100)}% = BUENO
+              </p>
+            </div>
+          </details>
+        </CardContent>
+      </Card>
     </div>
   );
 }

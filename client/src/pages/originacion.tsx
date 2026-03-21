@@ -80,8 +80,15 @@ function CreateFolioDialog({ open, onClose }: { open: boolean; onClose: () => vo
   const [telefono, setTelefono] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
+  const phoneClean = telefono.replace(/\D/g, "");
+  const phoneValid = phoneClean.length === 10;
+  const nameValid = nombre.trim().length >= 2;
+  const apellidoValid = apellidoPaterno.trim().length >= 2;
+
   const handleCreate = useCallback(async () => {
-    if (!nombre || !apellidoPaterno || !telefono) return;
+    if (!nameValid) { toast({ title: "Nombre mínimo 2 caracteres", variant: "destructive" }); return; }
+    if (!apellidoValid) { toast({ title: "Apellido mínimo 2 caracteres", variant: "destructive" }); return; }
+    if (!phoneValid) { toast({ title: "Teléfono debe ser 10 dígitos", variant: "destructive" }); return; }
     setIsCreating(true);
     try {
       const now = new Date().toISOString();
@@ -111,7 +118,7 @@ function CreateFolioDialog({ open, onClose }: { open: boolean; onClose: () => vo
     } finally {
       setIsCreating(false);
     }
-  }, [nombre, apellidoPaterno, telefono, tipo, perfilTipo, toast, onClose, setLocation]);
+  }, [nombre, apellidoPaterno, telefono, tipo, perfilTipo, nameValid, apellidoValid, phoneValid, phoneClean, toast, onClose, setLocation]);
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
@@ -154,7 +161,10 @@ function CreateFolioDialog({ open, onClose }: { open: boolean; onClose: () => vo
             </div>
             <Input value={telefono} onChange={(e) => setTelefono(e.target.value)} placeholder="Teléfono (10 dígitos)" type="tel" data-testid="input-telefono" />
           </div>
-          <Button className="w-full gap-2" onClick={handleCreate} disabled={!nombre || !apellidoPaterno || !telefono || isCreating} data-testid="button-create-folio">
+          {telefono && !phoneValid && (
+            <p className="text-[10px] text-destructive">Teléfono debe ser exactamente 10 dígitos ({phoneClean.length}/10)</p>
+          )}
+          <Button className="w-full gap-2" onClick={handleCreate} disabled={!nameValid || !apellidoValid || !phoneValid || isCreating} data-testid="button-create-folio">
             {isCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
             Crear Folio
           </Button>
