@@ -443,6 +443,9 @@ export { getNextFolioSequence } from "./storage";
 // Re-export taxista ops from storage (local for now)
 export { createTaxista, getTaxista } from "./storage";
 
+// Re-export model management ops
+export { updateModel, addModel, deleteModel } from "./storage";
+
 // ============================================================
 // NORMALIZATION HELPERS
 // ============================================================

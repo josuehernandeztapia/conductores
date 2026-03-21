@@ -164,6 +164,32 @@ export function getModelById(id: number): Model | undefined {
   return models.get(id);
 }
 
+export function updateModel(id: number, data: Partial<Model>): Model | undefined {
+  seedAll();
+  const m = models.get(id);
+  if (!m) return undefined;
+  const updated = { ...m, ...data, cmuUpdatedAt: new Date().toISOString() };
+  models.set(id, updated);
+  notify();
+  return updated;
+}
+
+export function addModel(data: Omit<Model, "id">): Model {
+  seedAll();
+  const id = modelSeq++;
+  const m: Model = { ...data, id };
+  models.set(id, m);
+  notify();
+  return m;
+}
+
+export function deleteModel(id: number): boolean {
+  seedAll();
+  const existed = models.delete(id);
+  if (existed) notify();
+  return existed;
+}
+
 // --- Opportunities ---
 export function saveOpportunity(opp: Omit<Opportunity, "id" | "createdAt">): Opportunity {
   seedAll();
