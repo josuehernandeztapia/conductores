@@ -461,6 +461,43 @@ export default function PanelPage() {
         </Card>
       </div>
 
+      {/* Origination Funnel */}
+      {originations.length > 0 && (
+        <Card>
+          <CardContent className="p-4">
+            <h3 className="text-xs font-semibold mb-3 flex items-center gap-2">
+              <TrendingUp className="w-3.5 h-3.5 text-primary" />
+              Embudo de Originación
+            </h3>
+            <div className="space-y-2">
+              {[
+                { label: "Documentos", filter: (o: Origination) => o.currentStep >= 2, color: "bg-blue-500" },
+                { label: "Verificado", filter: (o: Origination) => o.currentStep >= 3, color: "bg-cyan-500" },
+                { label: "Revisado", filter: (o: Origination) => o.currentStep >= 4, color: "bg-amber-500" },
+                { label: "Vehículo", filter: (o: Origination) => o.currentStep >= 5, color: "bg-orange-500" },
+                { label: "Contrato", filter: (o: Origination) => o.currentStep >= 6, color: "bg-purple-500" },
+                { label: "Firmado", filter: (o: Origination) => o.estado === "FIRMADO" || o.estado === "APROBADO", color: "bg-emerald-500" },
+              ].map((stage) => {
+                const count = originations.filter(stage.filter).length;
+                const pct = originations.length > 0 ? (count / originations.length) * 100 : 0;
+                return (
+                  <div key={stage.label} className="flex items-center gap-2">
+                    <span className="text-[10px] text-muted-foreground w-16 text-right">{stage.label}</span>
+                    <div className="flex-1 h-3 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${stage.color} transition-all duration-500`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <span className="text-[10px] font-medium tabular-nums w-8">{count}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Recent Folios */}
       <div>
         <div className="flex items-center justify-between mb-3">
