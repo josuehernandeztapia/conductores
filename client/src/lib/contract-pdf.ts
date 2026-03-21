@@ -463,6 +463,90 @@ export function generateContratoCompraventa(
 
   addWitnessBlock(doc, cur);
 
+  // PAGE: TABLA DE AMORTIZACIÓN
+  doc.addPage();
+  addHeader(doc, cur, "TABLA DE AMORTIZACIÓN", orig.folio);
+
+  // Summary box
+  addBoldParagraph(doc, cur, "Resumen Financiero", 9);
+  addParagraph(doc, cur,
+    `Precio de Venta: ${fmtMoney(ventaPlazos)} | Anticipo: ${fmtMoney(PLAZOS.anticipo)} (mes ${PLAZOS.mesAnticipo}) | Monto a Financiar: ${fmtMoney(montoFinanciar)}`
+  );
+  addParagraph(doc, cur,
+    `Tasa Anual: ${(PLAZOS.tasaAnual * 100).toFixed(1)}% | Plazo: ${PLAZOS.meses} meses | Mensualidad: ${fmtMoney(mensualidad)} | Total a Pagar: ${fmtMoney(totalPagar)}`
+  );
+  cur.y += 3;
+
+  // Table header
+  const colWidths = [12, 28, 28, 28, 28, 28, 24];
+  const colLabels = ["Mes", "Saldo Ini.", "Pago", "Interés", "Capital", "Saldo Fin.", "GNV"];
+  const tableX = MARGIN_L;
+  const rowH = 4;
+
+  function drawAmortRow(doc: jsPDF, cur: Cursor, vals: string[], bold = false) {
+    checkPage(doc, cur, rowH + 1);
+    doc.setFont("helvetica", bold ? "bold" : "normal");
+    doc.setFontSize(6.5);
+    let x = tableX;
+    vals.forEach((v, i) => {
+      if (i === 0) {
+        doc.text(v, x + 1, cur.y);
+      } else {
+        doc.text(v, x + colWidths[i] - 1, cur.y, { align: "right" });
+      }
+      x += colWidths[i];
+    });
+    cur.y += rowH;
+  }
+
+  // Header row
+  drawAmortRow(doc, cur, colLabels, true);
+  doc.setDrawColor(180, 180, 180);
+  doc.line(tableX, cur.y - 1, tableX + colWidths.reduce((a, b) => a + b, 0), cur.y - 1);
+  cur.y += 1;
+
+  // Amortization rows
+  let amortSaldo = montoFinanciar;
+  let totalIntereses = 0;
+  for (let m = 1; m <= PLAZOS.meses; m++) {
+    const interes = Math.round(amortSaldo * tasaMensual);
+    const capitalPago = mensualidad - interes;
+    let pagoExtra = 0;
+    if (m === PLAZOS.mesAnticipo) pagoExtra = PLAZOS.anticipo;
+    const gnvDesc = orig.perfilTipo === "A" ? PLAZOS.gnvRevenue : 0;
+    const saldoFinal = Math.max(0, amortSaldo - capitalPago - pagoExtra);
+    totalIntereses += interes;
+
+    drawAmortRow(doc, cur, [
+      m.toString() + (m === PLAZOS.mesAnticipo ? "*" : ""),
+      fmtMoney(amortSaldo),
+      fmtMoney(mensualidad),
+      fmtMoney(interes),
+      fmtMoney(capitalPago),
+      fmtMoney(saldoFinal),
+      gnvDesc > 0 ? `-${fmtMoney(gnvDesc)}` : "—",
+    ]);
+    amortSaldo = saldoFinal;
+  }
+
+  // Total row
+  doc.line(tableX, cur.y - 1, tableX + colWidths.reduce((a, b) => a + b, 0), cur.y - 1);
+  cur.y += 1;
+  drawAmortRow(doc, cur, [
+    "Total",
+    "",
+    fmtMoney(mensualidad * PLAZOS.meses),
+    fmtMoney(totalIntereses),
+    fmtMoney(montoFinanciar),
+    "",
+    orig.perfilTipo === "A" ? `-${fmtMoney(PLAZOS.gnvRevenue * PLAZOS.meses)}` : "—",
+  ], true);
+
+  if (PLAZOS.mesAnticipo > 0) {
+    cur.y += 3;
+    addParagraph(doc, cur, `* El mes ${PLAZOS.mesAnticipo} incluye anticipo a capital de ${fmtMoney(PLAZOS.anticipo)}.`, 7);
+  }
+
   // PAGE: PAGARÉ
   doc.addPage();
   addHeader(doc, cur, "PAGARÉ", `${orig.folio}-PAG`);

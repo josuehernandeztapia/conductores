@@ -28,6 +28,15 @@ import {
   Edit3,
   Car,
   Save,
+  Calculator,
+  ClipboardCheck,
+  ChevronDown,
+  ChevronUp,
+  DollarSign,
+  BadgeCheck,
+  Info,
+  Pencil,
+  Table2,
 } from "lucide-react";
 import { useState, useCallback, useRef, useEffect } from "react";
 import { Link, useParams } from "wouter";
@@ -1619,6 +1628,451 @@ function EditableOcrReview({
   );
 }
 
+// ===== Financial Constants (same as contract-pdf.ts) =====
+const PLAZOS_CONFIG = {
+  markup: 1.237,
+  tasaAnual: 0.299,
+  meses: 36,
+  anticipo: 50000,
+  mesAnticipo: 2,
+  gnvRevenue: 4400,
+  fondoInicial: 8000,
+  fondoMensual: 334,
+};
+
+function safeJsonGet(json: string | null | undefined, key: string): string {
+  if (!json) return "";
+  try {
+    const obj = JSON.parse(json);
+    return obj[key] || "";
+  } catch {
+    return "";
+  }
+}
+
+function buildFullName(json: string | null | undefined): string {
+  if (!json) return "";
+  try {
+    const obj = JSON.parse(json);
+    return [obj.nombre, obj.apellido_paterno || obj.apellidos, obj.apellido_materno].filter(Boolean).join(" ");
+  } catch {
+    return "";
+  }
+}
+
+interface ContractField {
+  label: string;
+  value: string;
+  source: string;
+  required: boolean;
+  editable?: boolean;
+}
+
+interface ContractSection {
+  title: string;
+  icon: typeof User;
+  fields: ContractField[];
+}
+
+function useContractData(origination: Origination) {
+  const taxista = origination.taxistaId ? getTaxista(origination.taxistaId) : null;
+  const vehicle = origination.vehicleInventoryId ? getVehicle(origination.vehicleInventoryId) : null;
+
+  const nombre = taxista
+    ? `${taxista.nombre} ${taxista.apellidoPaterno} ${taxista.apellidoMaterno || ""}`.trim()
+    : buildFullName(origination.datosIne);
+  const curp = taxista?.curp || safeJsonGet(origination.datosIne, "curp");
+  const rfc = taxista?.rfc || safeJsonGet(origination.datosCsf, "rfc");
+  const telefono = taxista?.telefono || origination.otpPhone || "";
+  const domicilio = taxista?.direccion || safeJsonGet(origination.datosComprobante, "direccion");
+  const concesion = safeJsonGet(origination.datosConcesion, "numero_concesion");
+  const regimenFiscal = safeJsonGet(origination.datosCsf, "regimen_fiscal");
+  const clabe = safeJsonGet(origination.datosEstadoCuenta, "clabe");
+  const banco = safeJsonGet(origination.datosEstadoCuenta, "banco");
+
+  const vMarca = vehicle?.marca || safeJsonGet(origination.datosFactura, "marca");
+  const vModelo = vehicle?.modelo || safeJsonGet(origination.datosFactura, "modelo");
+  const vAnio = vehicle?.anio?.toString() || safeJsonGet(origination.datosFactura, "anio");
+  const vSerie = vehicle?.numSerie || safeJsonGet(origination.datosFactura, "num_serie");
+  const vNiv = vehicle?.niv || safeJsonGet(origination.datosFactura, "niv");
+  const vColor = vehicle?.color || "";
+  const vMotor = vehicle?.numMotor || "";
+
+  const cmuVal = vehicle?.cmuValor || 200000;
+  const ventaPlazos = Math.round(cmuVal * PLAZOS_CONFIG.markup);
+  const montoFinanciar = ventaPlazos - PLAZOS_CONFIG.anticipo;
+  const tasaMensual = PLAZOS_CONFIG.tasaAnual / 12;
+  const mensualidad = Math.round(
+    montoFinanciar * (tasaMensual * Math.pow(1 + tasaMensual, PLAZOS_CONFIG.meses)) /
+    (Math.pow(1 + tasaMensual, PLAZOS_CONFIG.meses) - 1)
+  );
+  const totalPagar = PLAZOS_CONFIG.anticipo + (mensualidad * PLAZOS_CONFIG.meses);
+
+  // Build amortization table
+  const amortization: { mes: number; saldoInicial: number; pago: number; interes: number; capital: number; saldoFinal: number; gnv: number; pagoNeto: number }[] = [];
+  let saldo = montoFinanciar;
+  for (let m = 1; m <= PLAZOS_CONFIG.meses; m++) {
+    const interes = Math.round(saldo * tasaMensual);
+    let capitalPago = mensualidad - interes;
+    let pagoExtra = 0;
+    if (m === PLAZOS_CONFIG.mesAnticipo) {
+      pagoExtra = PLAZOS_CONFIG.anticipo;
+    }
+    const gnvDesc = origination.perfilTipo === "A" ? PLAZOS_CONFIG.gnvRevenue : 0;
+    const pagoNeto = mensualidad + PLAZOS_CONFIG.fondoMensual - gnvDesc;
+    const saldoFinal = Math.max(0, saldo - capitalPago - pagoExtra);
+    amortization.push({
+      mes: m,
+      saldoInicial: saldo,
+      pago: mensualidad,
+      interes,
+      capital: capitalPago,
+      saldoFinal,
+      gnv: gnvDesc,
+      pagoNeto,
+    });
+    saldo = saldoFinal;
+  }
+
+  const sections: ContractSection[] = [
+    {
+      title: "Datos del Operador",
+      icon: User,
+      fields: [
+        { label: "Nombre completo", value: nombre, source: "INE", required: true },
+        { label: "CURP", value: curp, source: "INE", required: true },
+        { label: "RFC", value: rfc, source: "CSF", required: true },
+        { label: "Domicilio", value: domicilio, source: "Comprobante", required: true },
+        { label: "Teléfono", value: telefono, source: "OTP", required: true },
+        { label: "Régimen Fiscal", value: regimenFiscal, source: "CSF", required: false },
+        { label: "CLABE", value: clabe, source: "Edo. Cuenta", required: false },
+        { label: "Banco", value: banco, source: "Edo. Cuenta", required: false },
+        { label: "Concesión", value: concesion, source: "Concesión", required: true },
+      ],
+    },
+    {
+      title: "Datos del Vehículo",
+      icon: Car,
+      fields: [
+        { label: "Marca", value: vMarca, source: "Factura/Inv.", required: true },
+        { label: "Modelo", value: vModelo, source: "Factura/Inv.", required: true },
+        { label: "Año", value: vAnio, source: "Factura/Inv.", required: true },
+        { label: "Num. Serie", value: vSerie, source: "Factura/Inv.", required: true },
+        { label: "NIV", value: vNiv, source: "Factura/Inv.", required: false },
+        { label: "Color", value: vColor, source: "Inventario", required: false },
+        { label: "Motor", value: vMotor, source: "Inventario", required: false },
+      ],
+    },
+    {
+      title: "Condiciones Financieras",
+      icon: DollarSign,
+      fields: [
+        { label: "Valor CMU", value: `$${cmuVal.toLocaleString("es-MX")}`, source: "Motor", required: true },
+        { label: "Precio Venta (markup ×" + PLAZOS_CONFIG.markup + ")", value: `$${ventaPlazos.toLocaleString("es-MX")}`, source: "Calculado", required: true },
+        { label: "Anticipo", value: `$${PLAZOS_CONFIG.anticipo.toLocaleString("es-MX")} (mes ${PLAZOS_CONFIG.mesAnticipo})`, source: "Config", required: true },
+        { label: "Monto a Financiar", value: `$${montoFinanciar.toLocaleString("es-MX")}`, source: "Calculado", required: true },
+        { label: "Tasa Anual", value: `${(PLAZOS_CONFIG.tasaAnual * 100).toFixed(1)}%`, source: "Config", required: true },
+        { label: "Plazo", value: `${PLAZOS_CONFIG.meses} meses`, source: "Config", required: true },
+        { label: "Mensualidad", value: `$${mensualidad.toLocaleString("es-MX")}`, source: "Calculado", required: true },
+        { label: "Fondo Garantía (inicial)", value: `$${PLAZOS_CONFIG.fondoInicial.toLocaleString("es-MX")}`, source: "Config", required: true },
+        { label: "Fondo Garantía (mensual)", value: `$${PLAZOS_CONFIG.fondoMensual.toLocaleString("es-MX")}`, source: "Config", required: true },
+        ...(origination.perfilTipo === "A" ? [{ label: "Recaudo GNV/mes", value: `$${PLAZOS_CONFIG.gnvRevenue.toLocaleString("es-MX")}`, source: "Config", required: true }] : []),
+        { label: "Total a Pagar", value: `$${totalPagar.toLocaleString("es-MX")}`, source: "Calculado", required: true },
+      ],
+    },
+  ];
+
+  const missingRequired = sections.flatMap(s => s.fields.filter(f => f.required && !f.value));
+  const isValid = missingRequired.length === 0;
+
+  return {
+    sections,
+    missingRequired,
+    isValid,
+    amortization,
+    financials: { cmuVal, ventaPlazos, montoFinanciar, mensualidad, totalPagar, tasaMensual },
+    contractType: origination.tipo === "validacion" ? "Convenio de Validación" : "Contrato de Compraventa a Plazos",
+  };
+}
+
+// ===== Step 6: Contract Preview + Validation + Amortization =====
+function ContractPreviewPanel({
+  origination,
+  docs,
+  readOnly,
+  onGenerate,
+  onDownload,
+  isGenerating,
+}: {
+  origination: Origination;
+  docs: DocType[];
+  readOnly: boolean;
+  onGenerate: () => void;
+  onDownload: () => void;
+  isGenerating: boolean;
+}) {
+  const contractData = useContractData(origination);
+  const [showAmortization, setShowAmortization] = useState(false);
+  const [showAllAmort, setShowAllAmort] = useState(false);
+  const fmtMoney = (n: number) => `$${n.toLocaleString("es-MX")}`;
+
+  const visibleAmort = showAllAmort ? contractData.amortization : contractData.amortization.slice(0, 6);
+
+  return (
+    <div className="space-y-4" data-testid="contract-preview-panel">
+      {/* Contract type header */}
+      <div className="flex items-center gap-2">
+        <FileText className="w-4 h-4 text-primary" />
+        <h3 className="text-sm font-semibold">{contractData.contractType}</h3>
+        <Badge variant="outline" className="text-[10px] ml-auto">
+          Perfil {origination.perfilTipo}
+        </Badge>
+      </div>
+
+      {/* Validation status */}
+      {!contractData.isValid && (
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-lg p-3" data-testid="contract-validation-error">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-xs font-medium text-red-700 dark:text-red-400">Datos faltantes para generar contrato</p>
+              <ul className="mt-1 space-y-0.5">
+                {contractData.missingRequired.map((f, i) => (
+                  <li key={i} className="text-[10px] text-red-600 dark:text-red-400 flex items-center gap-1">
+                    <Circle className="w-1.5 h-1.5 fill-red-400" />
+                    {f.label} <span className="text-red-400">({f.source})</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-[10px] text-red-500 mt-2">Regresa a los pasos anteriores para completar la información.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {contractData.isValid && !origination.contractUrl && (
+        <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg p-3" data-testid="contract-validation-ok">
+          <div className="flex items-center gap-2">
+            <BadgeCheck className="w-4 h-4 text-emerald-600" />
+            <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">Todos los datos requeridos están completos</p>
+          </div>
+        </div>
+      )}
+
+      {origination.contractUrl && (
+        <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg p-3" data-testid="contract-generated-badge">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            <div>
+              <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">Contrato generado exitosamente</p>
+              {origination.contractGeneratedAt && (
+                <p className="text-[10px] text-emerald-600">
+                  Generado: {formatDate(origination.contractGeneratedAt)}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Data sections */}
+      {contractData.sections.map((section, sIdx) => (
+        <Card key={sIdx} className="overflow-hidden">
+          <div className="bg-muted/50 px-3 py-2 flex items-center gap-2 border-b">
+            <section.icon className="w-3.5 h-3.5 text-muted-foreground" />
+            <span className="text-xs font-semibold">{section.title}</span>
+            {section.fields.some(f => f.required && !f.value) && (
+              <Badge variant="destructive" className="text-[9px] px-1.5 py-0 h-4 ml-auto">
+                Incompleto
+              </Badge>
+            )}
+          </div>
+          <CardContent className="p-0">
+            <div className="divide-y">
+              {section.fields.map((field, fIdx) => (
+                <div
+                  key={fIdx}
+                  className={`flex items-center px-3 py-2 text-xs gap-2 ${
+                    field.required && !field.value ? "bg-red-50/50 dark:bg-red-950/20" : ""
+                  }`}
+                  data-testid={`contract-field-${section.title.toLowerCase().replace(/\s/g, "-")}-${fIdx}`}
+                >
+                  <span className="text-muted-foreground w-28 flex-shrink-0 truncate" title={field.label}>
+                    {field.label}
+                  </span>
+                  <span className={`flex-1 font-medium truncate ${
+                    field.required && !field.value ? "text-red-500 italic" : ""
+                  }`}>
+                    {field.value || "— Sin dato —"}
+                  </span>
+                  <span className="text-[9px] text-muted-foreground/60 flex-shrink-0 w-14 text-right">
+                    {field.source}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+
+      {/* Amortization Table Toggle */}
+      {origination.tipo === "compraventa" && (
+        <Card>
+          <button
+            onClick={() => setShowAmortization(!showAmortization)}
+            className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-muted/50 transition-colors"
+            data-testid="toggle-amortization"
+          >
+            <div className="flex items-center gap-2">
+              <Table2 className="w-3.5 h-3.5 text-primary" />
+              <span className="text-xs font-semibold">Tabla de Amortización ({PLAZOS_CONFIG.meses} meses)</span>
+            </div>
+            {showAmortization ? (
+              <ChevronUp className="w-4 h-4 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="w-4 h-4 text-muted-foreground" />
+            )}
+          </button>
+
+          {showAmortization && (
+            <CardContent className="p-0 border-t">
+              {/* Summary row */}
+              <div className="grid grid-cols-3 gap-2 p-3 bg-muted/30 border-b">
+                <div className="text-center">
+                  <p className="text-[10px] text-muted-foreground">Mensualidad</p>
+                  <p className="text-sm font-bold text-primary" data-testid="amort-mensualidad">
+                    {fmtMoney(contractData.financials.mensualidad)}
+                  </p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[10px] text-muted-foreground">Total Intereses</p>
+                  <p className="text-sm font-bold text-amber-600" data-testid="amort-total-intereses">
+                    {fmtMoney(contractData.amortization.reduce((acc, r) => acc + r.interes, 0))}
+                  </p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[10px] text-muted-foreground">Total a Pagar</p>
+                  <p className="text-sm font-bold" data-testid="amort-total-pagar">
+                    {fmtMoney(contractData.financials.totalPagar)}
+                  </p>
+                </div>
+              </div>
+
+              {/* Table */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-[10px]" data-testid="amortization-table">
+                  <thead>
+                    <tr className="bg-muted/50 border-b">
+                      <th className="px-2 py-1.5 text-left font-semibold">Mes</th>
+                      <th className="px-2 py-1.5 text-right font-semibold">Saldo Ini.</th>
+                      <th className="px-2 py-1.5 text-right font-semibold">Pago</th>
+                      <th className="px-2 py-1.5 text-right font-semibold">Interés</th>
+                      <th className="px-2 py-1.5 text-right font-semibold">Capital</th>
+                      <th className="px-2 py-1.5 text-right font-semibold">Saldo Fin.</th>
+                      {origination.perfilTipo === "A" && (
+                        <th className="px-2 py-1.5 text-right font-semibold">GNV</th>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visibleAmort.map((row) => (
+                      <tr
+                        key={row.mes}
+                        className={`border-b last:border-0 ${
+                          row.mes === PLAZOS_CONFIG.mesAnticipo ? "bg-blue-50/50 dark:bg-blue-950/20" : ""
+                        }`}
+                      >
+                        <td className="px-2 py-1 font-medium">
+                          {row.mes}
+                          {row.mes === PLAZOS_CONFIG.mesAnticipo && (
+                            <span className="text-[8px] text-blue-600 ml-1">+Anticipo</span>
+                          )}
+                        </td>
+                        <td className="px-2 py-1 text-right tabular-nums">{fmtMoney(row.saldoInicial)}</td>
+                        <td className="px-2 py-1 text-right tabular-nums font-medium">{fmtMoney(row.pago)}</td>
+                        <td className="px-2 py-1 text-right tabular-nums text-amber-600">{fmtMoney(row.interes)}</td>
+                        <td className="px-2 py-1 text-right tabular-nums text-emerald-600">{fmtMoney(row.capital)}</td>
+                        <td className="px-2 py-1 text-right tabular-nums">{fmtMoney(row.saldoFinal)}</td>
+                        {origination.perfilTipo === "A" && (
+                          <td className="px-2 py-1 text-right tabular-nums text-violet-600">-{fmtMoney(row.gnv)}</td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Show more/less */}
+              {contractData.amortization.length > 6 && (
+                <button
+                  onClick={() => setShowAllAmort(!showAllAmort)}
+                  className="w-full py-2 text-[10px] text-primary font-medium hover:bg-muted/50 transition-colors border-t flex items-center justify-center gap-1"
+                  data-testid="toggle-amort-expand"
+                >
+                  {showAllAmort ? (
+                    <><ChevronUp className="w-3 h-3" /> Mostrar menos</>
+                  ) : (
+                    <><ChevronDown className="w-3 h-3" /> Ver los {PLAZOS_CONFIG.meses} meses</>
+                  )}
+                </button>
+              )}
+            </CardContent>
+          )}
+        </Card>
+      )}
+
+      {/* Action buttons */}
+      {!readOnly && (
+        <div className="space-y-2">
+          {!origination.contractUrl ? (
+            <Button
+              className="w-full gap-2 h-11"
+              onClick={onGenerate}
+              disabled={isGenerating || !contractData.isValid}
+              data-testid="button-generate-contract"
+            >
+              {isGenerating ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <FileText className="w-4 h-4" />
+              )}
+              {isGenerating ? "Generando contrato..." : "Generar Contrato PDF"}
+            </Button>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={onDownload}
+                data-testid="button-download-contract"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Descargar PDF
+              </Button>
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={onGenerate}
+                disabled={isGenerating}
+                data-testid="button-regenerate-contract"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                Regenerar
+              </Button>
+            </div>
+          )}
+
+          {!contractData.isValid && (
+            <p className="text-[10px] text-center text-muted-foreground">
+              Completa todos los datos requeridos para habilitar la generación
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ===== Step Content Renderer =====
 function StepContent({
   step,
@@ -1628,6 +2082,9 @@ function StepContent({
   refreshAll,
   onUpdate,
   onAllDocsCaptured,
+  onGenerateContract,
+  onDownloadContract,
+  isGeneratingContract,
 }: {
   step: number;
   origination: Origination;
@@ -1636,6 +2093,9 @@ function StepContent({
   refreshAll: () => void;
   onUpdate: (data: Record<string, any>) => Promise<void>;
   onAllDocsCaptured: () => void;
+  onGenerateContract: () => void;
+  onDownloadContract: () => void;
+  isGeneratingContract: boolean;
 }) {
   const getDoc = (tipo: string) => docs?.find((d) => d.tipo === tipo);
 
@@ -1801,27 +2261,14 @@ function StepContent({
 
   if (step === 6) {
     return (
-      <div className="space-y-4">
-        <h3 className="text-sm font-medium">Contrato</h3>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <FileText className="w-4 h-4 text-muted-foreground" />
-              <span className="text-xs font-medium">
-                {origination.tipo === "validacion" ? "Convenio de Validación" : "Contrato de Compraventa"}
-              </span>
-            </div>
-            {origination.contractUrl ? (
-              <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg p-3 flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">Contrato generado</span>
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground">Contrato pendiente de generación</p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      <ContractPreviewPanel
+        origination={origination}
+        docs={docs}
+        readOnly={readOnly}
+        onGenerate={onGenerateContract}
+        onDownload={onDownloadContract}
+        isGenerating={isGeneratingContract}
+      />
     );
   }
 
@@ -2076,6 +2523,9 @@ export default function OriginacionFlowPage() {
         refreshAll={refreshAll}
         onUpdate={updateOriginationData}
         onAllDocsCaptured={() => advanceStep(3)}
+        onGenerateContract={generateContract}
+        onDownloadContract={handleDownloadContract}
+        isGeneratingContract={isGenerating}
       />
 
       {/* Navigation buttons (only when viewing current step) */}
@@ -2132,51 +2582,23 @@ export default function OriginacionFlowPage() {
             </div>
           )}
 
-          {/* Step 6: Contract Generation */}
+          {/* Step 6: Contract — nav only (buttons are inside ContractPreviewPanel) */}
           {currentStep === 6 && (
-            <div className="space-y-3">
-              {!origination.contractUrl && (
-                <Button
-                  className="w-full gap-2"
-                  onClick={generateContract}
-                  disabled={isGenerating}
-                  data-testid="button-generate-contract"
-                >
-                  {isGenerating ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <FileText className="w-4 h-4" />
-                  )}
-                  Generar Contrato PDF
-                </Button>
-              )}
-              {origination.contractUrl && (
-                <Button
-                  variant="outline"
-                  className="w-full gap-2"
-                  onClick={handleDownloadContract}
-                  data-testid="button-download-contract"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  Descargar PDF
-                </Button>
-              )}
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => advanceStep(5)}>
-                  <ArrowLeft className="w-3.5 h-3.5" />
-                  Anterior
-                </Button>
-                <Button
-                  size="sm"
-                  className="gap-1.5 ml-auto"
-                  onClick={() => advanceStep(7)}
-                  disabled={!origination.contractUrl}
-                  data-testid="button-next-step"
-                >
-                  Siguiente
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </Button>
-              </div>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => advanceStep(5)}>
+                <ArrowLeft className="w-3.5 h-3.5" />
+                Anterior
+              </Button>
+              <Button
+                size="sm"
+                className="gap-1.5 ml-auto"
+                onClick={() => advanceStep(7)}
+                disabled={!origination.contractUrl}
+                data-testid="button-next-step"
+              >
+                Siguiente
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Button>
             </div>
           )}
 
