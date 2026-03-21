@@ -11,6 +11,11 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
 
+  // ===== HEALTH =====
+  app.get("/api/health", (_req, res) => {
+    res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+
   // ===== AUTH =====
   app.post("/api/auth/pin", async (req, res) => {
     try {

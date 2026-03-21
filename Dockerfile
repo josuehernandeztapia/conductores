@@ -1,36 +1,35 @@
 # === BUILD STAGE ===
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 
 WORKDIR /app
 
-# Instalar dependencias
+# Install dependencies (including dev for build)
 COPY package.json package-lock.json ./
 RUN npm ci
 
-# Copiar fuente y compilar
+# Copy source and build
 COPY . .
 RUN npm run build
 
 # === PRODUCTION STAGE ===
-FROM node:20-alpine AS production
+FROM node:20-slim AS production
 
 WORKDIR /app
 
-# Solo copiar lo necesario para producción
+# Only production dependencies
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
-# Copiar build output y servidor Fly.io
+# Copy compiled server + static frontend
 COPY --from=builder /app/dist ./dist
-COPY fly-server.js ./
 
-# Puerto de Fly.io
-ENV PORT=3000
-ENV DATABASE_URL='postgresql://neondb_owner:npg_hCtzqljdPT25@ep-rough-rain-ae4fggag-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require'
-EXPOSE 3000
+# Port — Express listens on 5000
+ENV PORT=5000
+ENV NODE_ENV=production
+EXPOSE 5000
 
-# Healthcheck
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD node -e "fetch('http://localhost:5000/api/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"
 
-CMD ["node", "fly-server.js"]
+CMD ["node", "dist/index.cjs"]
