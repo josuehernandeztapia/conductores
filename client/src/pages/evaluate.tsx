@@ -246,7 +246,9 @@ function DecisionCard({ result }: { result: EvaluationResult }) {
   );
 }
 
-// ===== Photo Repair Estimate Component (placeholder — no API) =====
+// ===== Photo Repair Estimate Component (Claude Vision via /api/estimate-repair) =====
+const API_BASE_REPAIR = "__PORT_5000__".startsWith("__") ? "" : "__PORT_5000__";
+
 function PhotoRepairEstimate({ onEstimate }: { onEstimate: (mid: number) => void }) {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -290,27 +292,49 @@ function PhotoRepairEstimate({ onEstimate }: { onEstimate: (mid: number) => void
     if (images.length === 0) return;
     setIsAnalyzing(true);
 
-    // Simulated analysis — no API call (placeholder for future AI integration)
-    await new Promise((r) => setTimeout(r, 1500));
+    try {
+      // Call the real Claude Vision endpoint
+      const res = await fetch(`${API_BASE_REPAIR}/api/estimate-repair`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ images }),
+      });
 
-    const simulatedResult: RepairEstimateResult = {
-      severity: "medio",
-      severityLabel: "Daño Medio (estimación simulada)",
-      estimatedRepairMin: 10000,
-      estimatedRepairMax: 25000,
-      estimatedRepairMid: 15000,
-      confidence: "baja",
-      details: "Estimación simulada basada en fotos. La integración con IA se activará en una futura iteración. Ajusta el slider manualmente para un valor más preciso.",
-    };
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: "Error del servidor" }));
+        throw new Error(err.message || "Error al analizar fotos");
+      }
 
-    setEstimateResult(simulatedResult);
-    onEstimate(simulatedResult.estimatedRepairMid);
-    toast({
-      title: `Estimación: ${simulatedResult.severityLabel}`,
-      description: `Rango ${formatMXN(simulatedResult.estimatedRepairMin)} – ${formatMXN(simulatedResult.estimatedRepairMax)}. Slider ajustado a ${formatMXN(simulatedResult.estimatedRepairMid)}.`,
-    });
-
-    setIsAnalyzing(false);
+      const result: RepairEstimateResult = await res.json();
+      setEstimateResult(result);
+      onEstimate(result.estimatedRepairMid);
+      toast({
+        title: `Estimación IA: ${result.severityLabel}`,
+        description: `Rango ${formatMXN(result.estimatedRepairMin)} – ${formatMXN(result.estimatedRepairMax)}. Slider ajustado a ${formatMXN(result.estimatedRepairMid)}.`,
+      });
+    } catch (err: any) {
+      console.warn("[Repair Estimate] Backend failed, using fallback:", err.message);
+      // Fallback: basic estimate based on number of photos (more photos = likely more damage)
+      const baseMid = 12000 + images.length * 3000;
+      const fallbackResult: RepairEstimateResult = {
+        severity: baseMid > 25000 ? "severo" : baseMid > 15000 ? "medio" : "leve",
+        severityLabel: `Daño ${baseMid > 25000 ? "Severo" : baseMid > 15000 ? "Medio" : "Leve"} (estimación local)`,
+        estimatedRepairMin: Math.round(baseMid * 0.6 / 1000) * 1000,
+        estimatedRepairMax: Math.round(baseMid * 1.5 / 1000) * 1000,
+        estimatedRepairMid: Math.round(baseMid / 1000) * 1000,
+        confidence: "baja",
+        details: `Sin conexión al servidor de IA. Estimación básica basada en ${images.length} foto(s). Ajusta el slider manualmente para mayor precisión.`,
+      };
+      setEstimateResult(fallbackResult);
+      onEstimate(fallbackResult.estimatedRepairMid);
+      toast({
+        title: `Estimación local: ${fallbackResult.severityLabel}`,
+        description: `Backend no disponible. Rango ${formatMXN(fallbackResult.estimatedRepairMin)} – ${formatMXN(fallbackResult.estimatedRepairMax)}.`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsAnalyzing(false);
+    }
   }, [images, onEstimate, toast]);
 
   const severityColors: Record<string, string> = {
@@ -440,7 +464,7 @@ function PhotoRepairEstimate({ onEstimate }: { onEstimate: (mid: number) => void
                 ) : (
                   <Sparkles className="w-3.5 h-3.5" />
                 )}
-                {isAnalyzing ? "Analizando daño..." : `Analizar ${images.length} foto${images.length > 1 ? "s" : ""}`}
+                {isAnalyzing ? "Analizando daño con IA..." : `Analizar ${images.length} foto${images.length > 1 ? "s" : ""} con Claude Vision`}
               </Button>
             </>
           )}
