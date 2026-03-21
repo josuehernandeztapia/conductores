@@ -613,15 +613,47 @@ Responde SOLO con JSON válido:
     }
   });
 
-  // ===== OTP =====
+  // ===== OTP (Twilio Verify — real when credentials present, simulated otherwise) =====
+  const TWILIO_SID = process.env.TWILIO_ACCOUNT_SID;
+  const TWILIO_TOKEN = process.env.TWILIO_AUTH_TOKEN;
+  const TWILIO_VERIFY_SID = process.env.TWILIO_VERIFY_SID || "VAb7b31cdc560d238ed2bd90da259b9a12";
+  const twilioEnabled = !!(TWILIO_SID && TWILIO_TOKEN);
+  if (twilioEnabled) console.log("[Twilio] Verify enabled with SID:", TWILIO_SID?.slice(0, 8) + "...");
+  else console.log("[Twilio] No credentials — OTP will be simulated");
 
   app.post("/api/originations/:id/otp/send", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      // Simulated OTP
+      const { phone } = req.body;
+      const orig = await storage.getOrigination(id).catch(() => null);
+      const phoneNumber = phone || orig?.otpPhone || "";
+      if (!phoneNumber) return res.status(400).json({ success: false, message: "Teléfono requerido" });
+
+      const clean = phoneNumber.replace(/\D/g, "");
+      const e164 = phoneNumber.startsWith("+") ? phoneNumber : `+52${clean}`;
+
+      if (twilioEnabled) {
+        const twilioRes = await fetch(`https://verify.twilio.com/v2/Services/${TWILIO_VERIFY_SID}/Verifications`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Authorization": "Basic " + Buffer.from(`${TWILIO_SID}:${TWILIO_TOKEN}`).toString("base64"),
+          },
+          body: `To=${encodeURIComponent(e164)}&Channel=sms`,
+        });
+        const data = await twilioRes.json();
+        if (data.status === "pending") {
+          await storage.updateOrigination(id, { otpPhone: phoneNumber } as any).catch(() => {});
+          return res.json({ success: true, status: "pending", message: "SMS enviado vía Twilio Verify" });
+        }
+        // Twilio failed (trial restrictions, etc.) — fall through to simulation
+        console.warn("[Twilio] Send failed:", data.message || data.code);
+      }
+
+      // Simulation fallback
       const code = String(Math.floor(100000 + Math.random() * 900000));
-      await storage.updateOrigination(id, { otpCode: code } as any);
-      return res.json({ success: true, code, message: "OTP enviado (simulado)" });
+      await storage.updateOrigination(id, { otpCode: code, otpPhone: phoneNumber } as any).catch(() => {});
+      return res.json({ success: true, code, simulated: true, message: twilioEnabled ? "Twilio error, simulando" : "OTP simulado" });
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
     }
@@ -630,14 +662,31 @@ Responde SOLO con JSON válido:
   app.post("/api/originations/:id/otp/verify", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const { code } = req.body;
+      const { code, phone } = req.body;
       if (!code || code.length !== 6) return res.status(400).json({ verified: false, message: "Código de 6 dígitos requerido" });
 
-      // Try to find origination, but don't fail if it doesn't exist server-side
-      // (frontend may use client-side storage for origination state)
       const orig = await storage.getOrigination(id).catch(() => null);
+      const phoneNumber = phone || orig?.otpPhone || "";
+      const e164 = phoneNumber.startsWith("+") ? phoneNumber : `+52${phoneNumber.replace(/\D/g, "")}`;
 
-      // Simulation mode: accept any 6-digit code
+      if (twilioEnabled && phoneNumber) {
+        const twilioRes = await fetch(`https://verify.twilio.com/v2/Services/${TWILIO_VERIFY_SID}/VerificationChecks`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Authorization": "Basic " + Buffer.from(`${TWILIO_SID}:${TWILIO_TOKEN}`).toString("base64"),
+          },
+          body: `To=${encodeURIComponent(e164)}&Code=${code}`,
+        });
+        const data = await twilioRes.json();
+        if (data.status === "approved") {
+          if (orig) await storage.updateOrigination(id, { otpVerified: 1 } as any);
+          return res.json({ verified: true, message: "Verificado vía Twilio" });
+        }
+        return res.json({ verified: false, message: data.message || "Código incorrecto o expirado" });
+      }
+
+      // Simulation: accept stored code or any 6-digit code
       if (orig) {
         const isValid = (orig.otpCode && orig.otpCode === code) || code.length === 6;
         if (isValid) {
@@ -646,8 +695,6 @@ Responde SOLO con JSON válido:
         }
         return res.json({ verified: false, message: "Código incorrecto" });
       }
-
-      // No server-side origination — simulation fallback, accept any 6-digit code
       return res.json({ verified: true, simulated: true });
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
