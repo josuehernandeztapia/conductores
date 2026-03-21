@@ -377,6 +377,52 @@ export function apiGetModels() {
   return storage.getModels();
 }
 
+// Market prices from real sources (Kavak, Autocosmos, Seminuevos)
+export async function apiFetchMarketPrices(brand: string, model: string, year: number, variant?: string | null): Promise<{
+  count: number; min: number | null; max: number | null; median: number | null; average: number | null;
+  sources: { name: string; count: number }[];
+  prices: { price: number; source: string }[];
+  errors?: string[]; message?: string;
+}> {
+  try {
+    const res = await apiFetch("/api/cmu/market-prices", {
+      method: "POST",
+      body: JSON.stringify({ brand, model, year, variant }),
+    });
+    if (!res.ok) throw new Error("Failed to fetch market prices");
+    return await res.json();
+  } catch (err: any) {
+    console.warn("[API] Market prices failed:", err.message);
+    return { count: 0, min: null, max: null, median: null, average: null, sources: [], prices: [], errors: [err.message], message: "Backend no disponible" };
+  }
+}
+
+// Update model CMU with market data
+export async function apiUpdateModelCmu(modelId: number, cmu: number, source: string, meta?: { cmuMin?: number; cmuMax?: number; cmuMedian?: number; sampleCount?: number }) {
+  try {
+    const res = await apiFetch(`/api/models/${modelId}/cmu`, {
+      method: "PUT",
+      body: JSON.stringify({ cmu, source, ...meta }),
+    });
+    if (!res.ok) throw new Error("Failed to update CMU");
+    return await res.json();
+  } catch {
+    // Fallback: update in local storage
+    const models = storage.getModels();
+    const m = models.find(m => m.id === modelId);
+    if (m) {
+      (m as any).cmu = cmu;
+      (m as any).cmuSource = source;
+      (m as any).cmuUpdatedAt = new Date().toISOString();
+      if (meta?.cmuMin) (m as any).cmuMin = meta.cmuMin;
+      if (meta?.cmuMax) (m as any).cmuMax = meta.cmuMax;
+      if (meta?.cmuMedian) (m as any).cmuMedian = meta.cmuMedian;
+      if (meta?.sampleCount) (m as any).cmuSampleCount = meta.sampleCount;
+    }
+    return { message: "CMU actualizado localmente" };
+  }
+}
+
 export function apiGetModelOptions() {
   return storage.getModelOptions();
 }

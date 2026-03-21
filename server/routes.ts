@@ -188,6 +188,150 @@ Responde SOLO con JSON válido:
     }
   });
 
+  // ===== MARKET PRICES (Real-time from Kavak, Autocosmos, Seminuevos) =====
+
+  app.post("/api/cmu/market-prices", async (req, res) => {
+    try {
+      const { brand, model, year, variant } = req.body;
+      if (!brand || !model || !year) {
+        return res.status(400).json({ message: "Se requiere brand, model, year" });
+      }
+
+      const brandSlug = brand.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const modelSlug = model.toLowerCase().replace(/[- ]/g, "-").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const prices: { price: number; source: string; detail?: string }[] = [];
+      const errors: string[] = [];
+
+      // === SOURCE 1: Kavak ===
+      try {
+        const kavakUrl = `https://www.kavak.com/mx/seminuevos/${brandSlug}/${modelSlug}/${year}`;
+        const kavakRes = await fetch(kavakUrl, {
+          headers: { "User-Agent": "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/120.0.0.0 Mobile Safari/537.36" },
+          signal: AbortSignal.timeout(10000),
+        });
+        if (kavakRes.ok) {
+          const html = await kavakRes.text();
+          // Extract prices from Kavak HTML — pattern: "Precio desde" followed by $XXX,XXX
+          const kavakPrices = html.match(/Precio\s*desde[\s\S]*?\$(\d{1,3}(?:,\d{3})*)/gi) || [];
+          for (const match of kavakPrices) {
+            const priceMatch = match.match(/\$(\d{1,3}(?:,\d{3})*)/);
+            if (priceMatch) {
+              const p = parseInt(priceMatch[1].replace(/,/g, ""));
+              if (p > 50000 && p < 1000000) {
+                // Try to detect variant from nearby text
+                const hasVariant = variant ? match.toLowerCase().includes(variant.toLowerCase()) : true;
+                prices.push({ price: p, source: "Kavak", detail: hasVariant ? undefined : "otra variante" });
+              }
+            }
+          }
+          // Also try JSON-LD structured data
+          const jsonLdMatches = html.match(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi) || [];
+          for (const jm of jsonLdMatches) {
+            try {
+              const inner = jm.replace(/<script[^>]*>/, "").replace(/<\/script>/i, "").trim();
+              const parsed = JSON.parse(inner);
+              if (parsed.offers?.price) {
+                const p = parseInt(parsed.offers.price);
+                if (p > 50000 && p < 1000000) prices.push({ price: p, source: "Kavak (LD)" });
+              }
+              if (Array.isArray(parsed)) {
+                for (const item of parsed) {
+                  if (item.offers?.price) {
+                    const p = parseInt(item.offers.price);
+                    if (p > 50000 && p < 1000000) prices.push({ price: p, source: "Kavak (LD)" });
+                  }
+                }
+              }
+            } catch {}
+          }
+        }
+      } catch (err: any) {
+        errors.push(`Kavak: ${err.message}`);
+      }
+
+      // === SOURCE 2: Autocosmos Guía de Precios ===
+      try {
+        const acUrl = `https://www.autocosmos.com.mx/guiadeprecios/${brandSlug}/${modelSlug}/${year}`;
+        const acRes = await fetch(acUrl, {
+          headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36" },
+          signal: AbortSignal.timeout(10000),
+        });
+        if (acRes.ok) {
+          const html = await acRes.text();
+          // Autocosmos shows prices in table format: $XXX,XXX
+          const acPrices = html.match(/\$(\d{1,3}(?:,\d{3})+)/g) || [];
+          for (const match of acPrices) {
+            const p = parseInt(match.replace(/[$,]/g, ""));
+            if (p > 50000 && p < 800000) {
+              prices.push({ price: p, source: "Autocosmos" });
+            }
+          }
+        }
+      } catch (err: any) {
+        errors.push(`Autocosmos: ${err.message}`);
+      }
+
+      // === SOURCE 3: Seminuevos.com ===
+      try {
+        const semUrl = `https://www.seminuevos.com/usados/${brandSlug}/${modelSlug}/${year}/autos`;
+        const semRes = await fetch(semUrl, {
+          headers: { "User-Agent": "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/120.0.0.0 Mobile Safari/537.36" },
+          signal: AbortSignal.timeout(10000),
+        });
+        if (semRes.ok) {
+          const html = await semRes.text();
+          // Seminuevos shows prices like: $XXX,XXX
+          const semPrices = html.match(/\$\s*(\d{1,3}(?:,\d{3})+)/g) || [];
+          for (const match of semPrices) {
+            const p = parseInt(match.replace(/[$,\s]/g, ""));
+            if (p > 50000 && p < 800000) {
+              prices.push({ price: p, source: "Seminuevos" });
+            }
+          }
+        }
+      } catch (err: any) {
+        errors.push(`Seminuevos: ${err.message}`);
+      }
+
+      // Deduplicate and calculate stats
+      const uniquePrices = [...new Set(prices.map(p => p.price))].sort((a, b) => a - b);
+      const count = uniquePrices.length;
+
+      if (count === 0) {
+        return res.json({
+          brand, model, year, variant,
+          prices: [], count: 0,
+          min: null, max: null, median: null, average: null,
+          sources: [], errors,
+          message: "No se encontraron precios en fuentes de mercado",
+        });
+      }
+
+      const min = uniquePrices[0];
+      const max = uniquePrices[count - 1];
+      const median = count % 2 === 0
+        ? Math.round((uniquePrices[count / 2 - 1] + uniquePrices[count / 2]) / 2)
+        : uniquePrices[Math.floor(count / 2)];
+      const average = Math.round(uniquePrices.reduce((a, b) => a + b, 0) / count);
+
+      // Source breakdown
+      const sourceCounts: Record<string, number> = {};
+      prices.forEach(p => { sourceCounts[p.source.split(" ")[0]] = (sourceCounts[p.source.split(" ")[0]] || 0) + 1; });
+
+      return res.json({
+        brand, model, year, variant,
+        prices: prices.slice(0, 30), // limit to 30 samples
+        count,
+        min, max, median, average,
+        sources: Object.entries(sourceCounts).map(([name, n]) => ({ name, count: n })),
+        errors: errors.length > 0 ? errors : undefined,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
   app.get("/api/cmu/catalog", async (_req, res) => {
     const models = await storage.getModels();
     return res.json(models.map((m) => ({

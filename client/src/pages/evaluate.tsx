@@ -30,12 +30,17 @@ import {
   X,
   FileImage,
   Sparkles,
+  Globe,
+  TrendingUp,
+  RefreshCw,
+  ArrowDown,
+  ArrowUp,
 } from "lucide-react";
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import type { ModelOption, EvaluationResult, RepairEstimateResult } from "@shared/schema";
-import { apiGetModelOptions, apiSaveEvaluation, apiListEvaluations, subscribe } from "@/lib/api";
+import { apiGetModelOptions, apiSaveEvaluation, apiListEvaluations, apiFetchMarketPrices, apiUpdateModelCmu, subscribe } from "@/lib/api";
 import { evaluateOpportunity } from "@/lib/evaluation-engine";
 
 function formatMXN(value: number): string {
@@ -480,6 +485,12 @@ export default function EvaluatePage() {
   const [result, setResult] = useState<EvaluationResult | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
+  const [isFetchingPrices, setIsFetchingPrices] = useState(false);
+  const [marketData, setMarketData] = useState<{
+    count: number; min: number | null; max: number | null; median: number | null; average: number | null;
+    sources: { name: string; count: number }[];
+    prices: { price: number; source: string }[];
+  } | null>(null);
 
   // Model options — sync from storage, reactive via subscribe
   const [modelOptions, setModelOptions] = useState<ModelOption[]>(() => apiGetModelOptions());
@@ -529,7 +540,50 @@ export default function EvaluatePage() {
       setCmuEdited(false);
     }
     setResult(null);
+    setMarketData(null);
   }, [modelOptions]);
+
+  const handleFetchMarketPrices = useCallback(async () => {
+    if (!selectedModel) return;
+    setIsFetchingPrices(true);
+    setMarketData(null);
+    try {
+      const data = await apiFetchMarketPrices(
+        selectedModel.brand,
+        selectedModel.model.replace(/ .*/, ""), // Use base model name (e.g. "March" not "March Sense")
+        selectedModel.year,
+        selectedModel.variant
+      );
+      setMarketData(data);
+      if (data.median && data.median > 0) {
+        setCmu(data.median);
+        setCmuFromCatalog(false);
+        setCmuEdited(true);
+        setResult(null);
+        // Update the model in catalog
+        await apiUpdateModelCmu(selectedModel.id, data.median, "mercado", {
+          cmuMin: data.min ?? undefined,
+          cmuMax: data.max ?? undefined,
+          cmuMedian: data.median ?? undefined,
+          sampleCount: data.count,
+        });
+        toast({
+          title: `Precio actualizado: ${formatMXN(data.median)}`,
+          description: `${data.count} muestras de ${data.sources.map(s => s.name).join(", ")}`,
+        });
+      } else {
+        toast({
+          title: "Sin resultados de mercado",
+          description: data.message || "No se encontraron precios. Intenta con otro modelo.",
+          variant: "destructive",
+        });
+      }
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setIsFetchingPrices(false);
+    }
+  }, [selectedModel, toast]);
 
   const handleEvaluate = useCallback(async () => {
     if (!selectedModel) {
@@ -729,6 +783,78 @@ export default function EvaluatePage() {
                   <span> · {selectedModel.cmuSampleCount} anuncios</span>
                 )}
               </p>
+            )}
+
+            {/* Market Prices Button + Results */}
+            {selectedModelId && (
+              <div className="mt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full gap-1.5 h-8 text-xs"
+                  onClick={handleFetchMarketPrices}
+                  disabled={isFetchingPrices}
+                  data-testid="button-fetch-market-prices"
+                >
+                  {isFetchingPrices ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Globe className="w-3.5 h-3.5" />
+                  )}
+                  {isFetchingPrices ? "Consultando Kavak, Autocosmos, Seminuevos..." : "Consultar precios de mercado"}
+                </Button>
+
+                {marketData && marketData.count > 0 && (
+                  <div className="mt-2 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg p-3" data-testid="market-prices-result">
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
+                      <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                        {marketData.count} precios encontrados
+                      </span>
+                      <span className="text-[10px] text-emerald-600 ml-auto">
+                        {marketData.sources.map(s => `${s.name} (${s.count})`).join(" · ")}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-4 gap-2 text-center">
+                      <div>
+                        <p className="text-[10px] text-muted-foreground">Mínimo</p>
+                        <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 flex items-center justify-center gap-0.5">
+                          <ArrowDown className="w-2.5 h-2.5" />
+                          {formatMXN(marketData.min!)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-muted-foreground">Mediana</p>
+                        <p className="text-xs font-bold text-emerald-800 dark:text-emerald-300">
+                          {formatMXN(marketData.median!)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-muted-foreground">Promedio</p>
+                        <p className="text-xs font-bold tabular-nums">
+                          {formatMXN(marketData.average!)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-muted-foreground">Máximo</p>
+                        <p className="text-xs font-bold text-amber-600 flex items-center justify-center gap-0.5">
+                          <ArrowUp className="w-2.5 h-2.5" />
+                          {formatMXN(marketData.max!)}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="text-[9px] text-emerald-600 dark:text-emerald-500 mt-2 text-center">
+                      CMU actualizado a mediana de mercado. Puedes editar manualmente.
+                    </p>
+                  </div>
+                )}
+
+                {marketData && marketData.count === 0 && (
+                  <p className="text-[10px] text-amber-600 mt-1">
+                    No se encontraron precios de mercado para este modelo. {marketData.message}
+                  </p>
+                )}
+              </div>
             )}
           </div>
 
