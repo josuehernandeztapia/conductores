@@ -701,6 +701,125 @@ Responde SOLO con JSON válido:
     }
   });
 
+  // ===== MIFIEL (Firma Electrónica — real when credentials present) =====
+  const MIFIEL_APP_ID = process.env.MIFIEL_APP_ID;
+  const MIFIEL_APP_SECRET = process.env.MIFIEL_APP_SECRET;
+  const MIFIEL_BASE = process.env.MIFIEL_BASE_URL || "https://app-sandbox.mifiel.com/api/v1";
+  const mifielEnabled = !!(MIFIEL_APP_ID && MIFIEL_APP_SECRET);
+  if (mifielEnabled) console.log("[Mifiel] Enabled (sandbox)");
+  else console.log("[Mifiel] No credentials — firma will be simulated");
+
+  app.post("/api/mifiel/send", async (req, res) => {
+    try {
+      const { originationId, pdfBase64, signerName, signerEmail, signerPhone } = req.body;
+      if (!originationId) return res.status(400).json({ message: "originationId requerido" });
+
+      if (mifielEnabled && pdfBase64) {
+        // Real Mifiel: create document with signers
+        const mifielAuth = Buffer.from(`${MIFIEL_APP_ID}:${MIFIEL_APP_SECRET}`).toString("base64");
+
+        // Create document via Mifiel API
+        const formData = new URLSearchParams();
+        formData.append("file_base64", pdfBase64);
+        formData.append("signatories[0][name]", signerName || "Operador");
+        formData.append("signatories[0][email]", signerEmail || "operador@cmu.mx");
+        formData.append("signatories[0][tax_id]", ""); // FESCV doesn't require RFC
+        if (signerPhone) formData.append("signatories[0][phone]", signerPhone);
+        formData.append("send_invites", "true");
+        formData.append("signatories[0][allowed_signature_methods]", "FESCV");
+
+        const mifielRes = await fetch(`${MIFIEL_BASE}/documents`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Basic ${mifielAuth}`,
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: formData.toString(),
+        });
+
+        const mifielData = await mifielRes.json();
+
+        if (mifielData.id) {
+          await storage.updateOrigination(originationId, {
+            mifielDocumentId: mifielData.id,
+            mifielStatus: "pending",
+          } as any).catch(() => {});
+
+          return res.json({
+            success: true,
+            documentId: mifielData.id,
+            widgetId: mifielData.widget_id || null,
+            status: "pending",
+            message: "Documento enviado a Mifiel para firma",
+          });
+        } else {
+          console.error("[Mifiel] Create failed:", mifielData);
+          // Fall through to simulation
+        }
+      }
+
+      // Simulation fallback
+      const simDocId = `mfl-sim-${Date.now()}`;
+      await storage.updateOrigination(originationId, {
+        mifielDocumentId: simDocId,
+        mifielStatus: "pending",
+      } as any).catch(() => {});
+      return res.json({ success: true, documentId: simDocId, simulated: true, status: "pending", message: "Firma simulada" });
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/mifiel/status/:docId", async (req, res) => {
+    try {
+      const { docId } = req.params;
+
+      if (mifielEnabled && !docId.startsWith("mfl-sim-")) {
+        const mifielAuth = Buffer.from(`${MIFIEL_APP_ID}:${MIFIEL_APP_SECRET}`).toString("base64");
+        const mifielRes = await fetch(`${MIFIEL_BASE}/documents/${docId}`, {
+          headers: { "Authorization": `Basic ${mifielAuth}` },
+        });
+        const data = await mifielRes.json();
+        return res.json({
+          documentId: docId,
+          status: data.status, // "pending", "signed", etc.
+          signedAt: data.signed_at || null,
+          signatories: data.signatories || [],
+        });
+      }
+
+      // Simulation
+      return res.json({ documentId: docId, status: "pending", simulated: true });
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Webhook for Mifiel callbacks
+  app.post("/api/mifiel/webhook", async (req, res) => {
+    try {
+      const { document_id, status, callback_type } = req.body;
+      console.log(`[Mifiel Webhook] doc=${document_id} status=${status} type=${callback_type}`);
+
+      if (status === "signed" || callback_type === "document_closed") {
+        // Find origination by mifiel document ID and update status
+        const origs = await storage.listOriginations();
+        const orig = origs.find((o: any) => (o.mifielDocumentId || o.mifiel_document_id) === document_id);
+        if (orig) {
+          await storage.updateOrigination(orig.id, {
+            mifielStatus: "signed",
+            estado: "FIRMADO",
+          } as any);
+          console.log(`[Mifiel Webhook] Origination ${orig.id} marked as FIRMADO`);
+        }
+      }
+
+      return res.json({ received: true });
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
   // ===== CONTRACT GENERATION =====
 
   app.post("/api/originations/:id/contract", async (req, res) => {

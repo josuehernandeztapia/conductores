@@ -2115,22 +2115,64 @@ function MifielSigningPanel({
     setSigningStatus("sending");
     toast({ title: "Enviando a Mifiel...", description: "Preparando documento para firma electrónica" });
 
-    // Simulate sending to Mifiel (2 second delay)
-    await new Promise(r => setTimeout(r, 2000));
-    setSigningStatus("sent");
-    await onUpdate({ mifielStatus: "pending", mifielDocumentId: `mfl-sim-${Date.now()}` });
-    toast({ title: "Documento enviado", description: "El operador recibirá una notificación para firmar" });
-    setIsSending(false);
+    try {
+      // Call the server endpoint which handles Mifiel API (or simulates)
+      const API_BASE = "__PORT_5000__".startsWith("__") ? "" : "__PORT_5000__";
+      const res = await fetch(`${API_BASE}/api/mifiel/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          originationId: origination.id,
+          pdfBase64: null, // TODO: convert contractUrl blob to base64 if available
+          signerName: operadorName,
+          signerPhone: operadorPhone,
+        }),
+      });
 
-    // Simulate the operator signing (5 second delay for demo)
-    setTimeout(async () => {
-      setSigningStatus("signing");
-      await new Promise(r => setTimeout(r, 3000));
-      setSigningStatus("signed");
-      await onUpdate({ mifielStatus: "signed", estado: "FIRMADO" });
-      toast({ title: "Documento firmado", description: "Firma electrónica completada exitosamente" });
-      refreshAll();
-    }, 5000);
+      if (res.ok) {
+        const data = await res.json();
+        setSigningStatus("sent");
+        await onUpdate({ mifielStatus: "pending", mifielDocumentId: data.documentId });
+        toast({
+          title: data.simulated ? "Documento enviado (simulación)" : "Documento enviado a Mifiel",
+          description: data.simulated
+            ? "El operador recibirá notificación para firmar (demo)"
+            : "El operador recibirá un SMS para firmar biométricamente",
+        });
+
+        if (data.simulated) {
+          // Simulate signing after delay for demo
+          setTimeout(async () => {
+            setSigningStatus("signing");
+            await new Promise(r => setTimeout(r, 3000));
+            setSigningStatus("signed");
+            await onUpdate({ mifielStatus: "signed", estado: "FIRMADO" });
+            toast({ title: "Documento firmado", description: "Firma completada (simulación)" });
+            refreshAll();
+          }, 5000);
+        }
+        // If real Mifiel, the webhook will update the status when signed
+      } else {
+        throw new Error("Error al enviar a Mifiel");
+      }
+    } catch (err: any) {
+      // Fallback: simulate locally
+      const simDocId = `mfl-sim-${Date.now()}`;
+      setSigningStatus("sent");
+      await onUpdate({ mifielStatus: "pending", mifielDocumentId: simDocId });
+      toast({ title: "Enviado (simulación local)", description: "Backend no disponible" });
+
+      setTimeout(async () => {
+        setSigningStatus("signing");
+        await new Promise(r => setTimeout(r, 3000));
+        setSigningStatus("signed");
+        await onUpdate({ mifielStatus: "signed", estado: "FIRMADO" });
+        toast({ title: "Firmado (simulación)", description: "Firma completada localmente" });
+        refreshAll();
+      }, 5000);
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const timelineSteps = [
