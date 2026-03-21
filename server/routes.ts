@@ -820,6 +820,75 @@ Responde SOLO con JSON válido:
     }
   });
 
+  // ===== CONEKTA (Pagos — anticipo y mensualidades) =====
+  const CONEKTA_PRIVATE_KEY = process.env.CONEKTA_PRIVATE_KEY;
+  const CONEKTA_PUBLIC_KEY = process.env.CONEKTA_PUBLIC_KEY;
+  const conektaEnabled = !!CONEKTA_PRIVATE_KEY;
+  if (conektaEnabled) console.log("[Conekta] Enabled (sandbox)");
+  else console.log("[Conekta] No credentials — pagos will be placeholder");
+
+  app.post("/api/payments/create-order", async (req, res) => {
+    try {
+      const { originationId, amount, concept, customerName, customerEmail, customerPhone } = req.body;
+      if (!amount || !concept) return res.status(400).json({ message: "amount y concept requeridos" });
+
+      if (conektaEnabled) {
+        // Real Conekta: create order
+        const conektaRes = await fetch("https://api.conekta.io/orders", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/vnd.conekta-v2.2.0+json",
+            "Authorization": "Basic " + Buffer.from(`${CONEKTA_PRIVATE_KEY}:`).toString("base64"),
+          },
+          body: JSON.stringify({
+            currency: "MXN",
+            customer_info: {
+              name: customerName || "Operador CMU",
+              email: customerEmail || "operador@cmu.mx",
+              phone: customerPhone || "+524491234567",
+            },
+            line_items: [{
+              name: concept,
+              unit_price: amount * 100, // Conekta uses centavos
+              quantity: 1,
+            }],
+            charges: [{
+              payment_method: { type: "default" }, // Allows all methods
+            }],
+            metadata: {
+              origination_id: String(originationId || ""),
+            },
+          }),
+        });
+
+        const data = await conektaRes.json();
+        if (data.id) {
+          return res.json({
+            success: true,
+            orderId: data.id,
+            checkoutUrl: data.checkout?.url || null,
+            status: data.payment_status,
+            message: "Orden creada en Conekta",
+          });
+        } else {
+          console.error("[Conekta] Error:", data);
+        }
+      }
+
+      // Simulation
+      return res.json({
+        success: true,
+        orderId: `ord-sim-${Date.now()}`,
+        simulated: true,
+        status: "pending",
+        message: "Pago simulado (sin credenciales Conekta)",
+      });
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
   // ===== CONTRACT GENERATION =====
 
   app.post("/api/originations/:id/contract", async (req, res) => {
