@@ -63,7 +63,7 @@ import {
   apiVerifyOtp,
   getTaxista,
 } from "@/lib/api";
-import { getVehicle } from "@/lib/storage";
+import { getVehicle, listVehicles } from "@/lib/storage";
 import {
   generateConvenioValidacion,
   generateContratoCompraventa,
@@ -2400,32 +2400,122 @@ function StepContent({
   const getDoc = (tipo: string) => docs?.find((d) => d.tipo === tipo);
 
   if (step === 1) {
+    const assignedVehicle = origination.vehicleInventoryId ? getVehicle(origination.vehicleInventoryId) : null;
+    const availableVehicles = origination.tipo === "compraventa" ? listVehicles().filter(v => v.status === "disponible") : [];
+    const fmtMoney = (n: number | null | undefined) => n ? `$${n.toLocaleString("es-MX")}` : "";
+
     return (
-      <Card className="overflow-hidden">
-        <div className="px-5 py-3 bg-muted/30 border-b">
-          <h3 className="text-sm font-semibold">Folio Creado</h3>
-        </div>
-        <CardContent className="p-5">
-          <div className="grid grid-cols-2 gap-3 text-xs">
-            <div className="space-y-0.5">
-              <span className="text-muted-foreground">Folio</span>
-              <p className="font-bold font-mono">{origination.folio}</p>
-            </div>
-            <div className="space-y-0.5">
-              <span className="text-muted-foreground">Tipo</span>
-              <p className="font-bold">{origination.tipo === "validacion" ? "Validación" : "Compraventa"}</p>
-            </div>
-            <div className="space-y-0.5">
-              <span className="text-muted-foreground">Perfil</span>
-              <p className="font-bold">{origination.perfilTipo}</p>
-            </div>
-            <div className="space-y-0.5">
-              <span className="text-muted-foreground">Creado</span>
-              <p className="font-bold">{formatDate(origination.createdAt)}</p>
-            </div>
+      <div className="space-y-4">
+        <Card className="overflow-hidden">
+          <div className="px-5 py-3 bg-muted/30 border-b">
+            <h3 className="text-sm font-semibold">Folio Creado</h3>
           </div>
-        </CardContent>
-      </Card>
+          <CardContent className="p-5">
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="space-y-0.5">
+                <span className="text-muted-foreground">Folio</span>
+                <p className="font-bold font-mono">{origination.folio}</p>
+              </div>
+              <div className="space-y-0.5">
+                <span className="text-muted-foreground">Tipo</span>
+                <p className="font-bold">{origination.tipo === "validacion" ? "Validación" : "Compraventa"}</p>
+              </div>
+              <div className="space-y-0.5">
+                <span className="text-muted-foreground">Perfil</span>
+                <p className="font-bold">{origination.perfilTipo}</p>
+              </div>
+              <div className="space-y-0.5">
+                <span className="text-muted-foreground">Creado</span>
+                <p className="font-bold">{formatDate(origination.createdAt)}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Vehicle Assignment (compraventa only) */}
+        {origination.tipo === "compraventa" && (
+          <Card className={`overflow-hidden ${assignedVehicle ? "border-emerald-200 dark:border-emerald-800" : ""}`}>
+            <div className="px-4 py-2.5 bg-muted/30 border-b flex items-center gap-2">
+              <Car className="w-4 h-4 text-muted-foreground" />
+              <h3 className="text-xs font-semibold">Vehículo Asignado</h3>
+              {assignedVehicle && (
+                <Badge variant="secondary" className="text-[9px] px-1.5 py-0 ml-auto bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">
+                  Asignado
+                </Badge>
+              )}
+            </div>
+            <CardContent className="p-4">
+              {assignedVehicle ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold">{assignedVehicle.marca} {assignedVehicle.modelo} {assignedVehicle.variante || ""} {assignedVehicle.anio}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-[10px] text-muted-foreground">
+                    <span>Color: <strong className="text-foreground">{assignedVehicle.color || "—"}</strong></span>
+                    <span>NIV: <strong className="text-foreground font-mono">{assignedVehicle.niv || "—"}</strong></span>
+                    <span>Serie: <strong className="text-foreground font-mono">{assignedVehicle.numSerie || "—"}</strong></span>
+                    <span>Placas: <strong className="text-foreground">{assignedVehicle.placas || "—"}</strong></span>
+                    <span>CMU: <strong className="text-foreground">{fmtMoney(assignedVehicle.cmuValor)}</strong></span>
+                    <span>Kit GNV: <strong className="text-foreground">{assignedVehicle.kitGnvInstalado ? "Sí" : "No"}</strong></span>
+                  </div>
+                  {!readOnly && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full gap-1.5 text-xs mt-1 text-muted-foreground"
+                      onClick={() => onUpdate({ vehicleInventoryId: null })}
+                      data-testid="button-unassign-vehicle"
+                    >
+                      <X className="w-3 h-3" />
+                      Desasignar vehículo
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {availableVehicles.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-2">
+                      No hay vehículos disponibles en inventario.
+                      Agrega uno desde el módulo de Inventario.
+                    </p>
+                  ) : (
+                    <>
+                      <p className="text-[10px] text-muted-foreground">
+                        Selecciona un vehículo del inventario para este folio. Los datos (marca, modelo, serie, NIV) se usarán en el contrato.
+                      </p>
+                      <div className="space-y-2">
+                        {availableVehicles.map((v) => (
+                          <button
+                            key={v.id}
+                            onClick={() => {
+                              if (!readOnly) {
+                                onUpdate({ vehicleInventoryId: v.id });
+                              }
+                            }}
+                            className="w-full text-left p-2.5 rounded-lg border border-border hover:border-primary/50 hover:bg-primary/5 transition-colors"
+                            data-testid={`vehicle-option-${v.id}`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-xs font-semibold">{v.marca} {v.modelo} {v.variante || ""} {v.anio}</p>
+                                <p className="text-[10px] text-muted-foreground">
+                                  {v.color} · {v.placas || "Sin placas"} · CMU {fmtMoney(v.cmuValor)}
+                                  {v.kitGnvInstalado ? " · GNV ✓" : ""}
+                                </p>
+                              </div>
+                              <ArrowRight className="w-3.5 h-3.5 text-muted-foreground" />
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+      </div>
     );
   }
 
