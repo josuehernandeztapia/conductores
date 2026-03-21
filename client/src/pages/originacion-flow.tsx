@@ -37,6 +37,15 @@ import {
   Info,
   Pencil,
   Table2,
+  Send,
+  Clock,
+  UserCheck,
+  Building2,
+  PartyPopper,
+  ExternalLink,
+  Fingerprint,
+  ShieldCheck,
+  FileCheck2,
 } from "lucide-react";
 import { useState, useCallback, useRef, useEffect } from "react";
 import { Link, useParams } from "wouter";
@@ -2073,6 +2082,297 @@ function ContractPreviewPanel({
   );
 }
 
+// ===== Step 7: Mifiel Signing Panel =====
+type SigningStatus = "pending" | "sending" | "sent" | "signing" | "signed";
+
+function MifielSigningPanel({
+  origination,
+  readOnly,
+  onUpdate,
+  onDownloadContract,
+  refreshAll,
+}: {
+  origination: Origination;
+  readOnly: boolean;
+  onUpdate: (data: Record<string, any>) => Promise<void>;
+  onDownloadContract: () => void;
+  refreshAll: () => void;
+}) {
+  const { toast } = useToast();
+  const [signingStatus, setSigningStatus] = useState<SigningStatus>(() => {
+    if (origination.mifielStatus === "signed") return "signed";
+    if (origination.mifielStatus === "pending") return "sent";
+    return "pending";
+  });
+  const [isSending, setIsSending] = useState(false);
+
+  const operadorName = buildFullName(origination.datosIne) || "Operador";
+  const operadorPhone = origination.otpPhone || "";
+  const contractType = origination.tipo === "validacion" ? "Convenio de Validación" : "Contrato de Compraventa";
+
+  const handleSendToSign = async () => {
+    setIsSending(true);
+    setSigningStatus("sending");
+    toast({ title: "Enviando a Mifiel...", description: "Preparando documento para firma electrónica" });
+
+    // Simulate sending to Mifiel (2 second delay)
+    await new Promise(r => setTimeout(r, 2000));
+    setSigningStatus("sent");
+    await onUpdate({ mifielStatus: "pending", mifielDocumentId: `mfl-sim-${Date.now()}` });
+    toast({ title: "Documento enviado", description: "El operador recibirá una notificación para firmar" });
+    setIsSending(false);
+
+    // Simulate the operator signing (5 second delay for demo)
+    setTimeout(async () => {
+      setSigningStatus("signing");
+      await new Promise(r => setTimeout(r, 3000));
+      setSigningStatus("signed");
+      await onUpdate({ mifielStatus: "signed", estado: "FIRMADO" });
+      toast({ title: "Documento firmado", description: "Firma electrónica completada exitosamente" });
+      refreshAll();
+    }, 5000);
+  };
+
+  const timelineSteps = [
+    {
+      label: "Contrato generado",
+      description: origination.contractGeneratedAt ? `Generado el ${formatDate(origination.contractGeneratedAt)}` : "PDF listo para firma",
+      icon: FileText,
+      done: !!origination.contractUrl,
+    },
+    {
+      label: "Enviado a Mifiel",
+      description: signingStatus === "sending" ? "Enviando..." : signingStatus === "pending" ? "Pendiente de envío" : "Documento recibido por Mifiel",
+      icon: Send,
+      done: ["sent", "signing", "signed"].includes(signingStatus),
+      active: signingStatus === "sending",
+    },
+    {
+      label: "Operador firma",
+      description: signingStatus === "signing" ? "Firmando..." : signingStatus === "signed" ? `${operadorName} firmó` : "Pendiente de firma del operador",
+      icon: Fingerprint,
+      done: signingStatus === "signed",
+      active: signingStatus === "signing",
+    },
+    {
+      label: "Expediente completo",
+      description: signingStatus === "signed" ? "Todas las firmas recolectadas" : "Pendiente",
+      icon: ShieldCheck,
+      done: signingStatus === "signed",
+    },
+  ];
+
+  return (
+    <div className="space-y-4" data-testid="mifiel-signing-panel">
+      {/* Header */}
+      <div className="flex items-center gap-2">
+        <Shield className="w-4 h-4 text-primary" />
+        <h3 className="text-sm font-semibold">Firma Electrónica</h3>
+        <Badge variant="outline" className="text-[10px] ml-auto">
+          Mifiel
+        </Badge>
+      </div>
+
+      {/* Expediente Completo - Final Success State */}
+      {signingStatus === "signed" && (
+        <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl p-4" data-testid="expediente-completo">
+          <div className="flex flex-col items-center text-center gap-2">
+            <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-900/60 flex items-center justify-center">
+              <PartyPopper className="w-6 h-6 text-emerald-600" />
+            </div>
+            <h4 className="text-sm font-bold text-emerald-800 dark:text-emerald-300">Expediente Completo</h4>
+            <p className="text-xs text-emerald-700 dark:text-emerald-400">
+              El {contractType.toLowerCase()} ha sido firmado electrónicamente.
+              El expediente de {operadorName} está listo.
+            </p>
+            <div className="flex gap-2 mt-2 w-full">
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 gap-1.5 border-emerald-300 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:text-emerald-400"
+                onClick={onDownloadContract}
+                data-testid="button-download-signed"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Contrato Firmado
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 gap-1.5 border-emerald-300 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:text-emerald-400"
+                onClick={onDownloadContract}
+                data-testid="button-download-expediente"
+              >
+                <FileCheck2 className="w-3.5 h-3.5" />
+                Expediente PDF
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Signing Timeline */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="space-y-0">
+            {timelineSteps.map((ts, idx) => {
+              const isLast = idx === timelineSteps.length - 1;
+              return (
+                <div key={idx} className="flex gap-3" data-testid={`timeline-step-${idx}`}>
+                  {/* Icon + Line */}
+                  <div className="flex flex-col items-center">
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-500 ${
+                      ts.done
+                        ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/60 dark:text-emerald-400"
+                        : ts.active
+                        ? "bg-primary/20 text-primary animate-pulse"
+                        : "bg-muted text-muted-foreground"
+                    }`}>
+                      {ts.done ? (
+                        <CheckCircle2 className="w-4 h-4" />
+                      ) : ts.active ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <ts.icon className="w-3.5 h-3.5" />
+                      )}
+                    </div>
+                    {!isLast && (
+                      <div className={`w-0.5 h-6 my-1 transition-colors duration-500 ${
+                        ts.done ? "bg-emerald-300 dark:bg-emerald-700" : "bg-border"
+                      }`} />
+                    )}
+                  </div>
+
+                  {/* Text */}
+                  <div className="pb-4">
+                    <p className={`text-xs font-medium ${
+                      ts.done ? "text-emerald-700 dark:text-emerald-400" : ts.active ? "text-primary" : "text-muted-foreground"
+                    }`}>
+                      {ts.label}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">{ts.description}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Signatories Info */}
+      <Card>
+        <div className="bg-muted/50 px-3 py-2 flex items-center gap-2 border-b">
+          <UserCheck className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className="text-xs font-semibold">Firmantes</span>
+        </div>
+        <CardContent className="p-0 divide-y">
+          {/* Operador */}
+          <div className="flex items-center gap-3 px-3 py-2.5">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+              signingStatus === "signed" ? "bg-emerald-100 dark:bg-emerald-900/60" : "bg-muted"
+            }`}>
+              <User className={`w-4 h-4 ${
+                signingStatus === "signed" ? "text-emerald-600" : "text-muted-foreground"
+              }`} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium truncate">{operadorName}</p>
+              <p className="text-[10px] text-muted-foreground">Operador / Comprador</p>
+            </div>
+            <Badge variant="outline" className={`text-[9px] ${
+              signingStatus === "signed"
+                ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800"
+                : signingStatus === "signing"
+                ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400"
+                : "text-muted-foreground"
+            }`}>
+              {signingStatus === "signed" ? "Firmado" : signingStatus === "signing" ? "Firmando..." : "Pendiente"}
+            </Badge>
+          </div>
+          {/* CMU */}
+          <div className="flex items-center gap-3 px-3 py-2.5">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+              signingStatus === "signed" ? "bg-emerald-100 dark:bg-emerald-900/60" : "bg-muted"
+            }`}>
+              <Building2 className={`w-4 h-4 ${
+                signingStatus === "signed" ? "text-emerald-600" : "text-muted-foreground"
+              }`} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium">CONDUCTORES DEL MUNDO, S.A.P.I. DE C.V.</p>
+              <p className="text-[10px] text-muted-foreground">Vendedor / Ángeles Mireles</p>
+            </div>
+            <Badge variant="outline" className={`text-[9px] ${
+              signingStatus === "signed"
+                ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800"
+                : "text-muted-foreground"
+            }`}>
+              {signingStatus === "signed" ? "Firmado" : "Pendiente"}
+            </Badge>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Mifiel integration note */}
+      {signingStatus === "pending" && (
+        <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+          <div className="flex items-start gap-2">
+            <Info className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-xs font-medium text-blue-700 dark:text-blue-400">Firma Electrónica Simple (FESCV)</p>
+              <p className="text-[10px] text-blue-600 dark:text-blue-500 mt-1">
+                El operador recibirá un SMS al {operadorPhone} con el enlace de firma.
+                Verificación biométrica: foto de rostro + INE frente/reverso.
+                Validez jurídica conforme al artículo 89 del Código de Comercio.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Action buttons */}
+      {!readOnly && signingStatus === "pending" && (
+        <Button
+          className="w-full gap-2 h-11"
+          onClick={handleSendToSign}
+          disabled={isSending || !origination.contractUrl}
+          data-testid="button-send-to-sign"
+        >
+          {isSending ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Send className="w-4 h-4" />
+          )}
+          {isSending ? "Enviando..." : "Enviar a Firma Electrónica"}
+        </Button>
+      )}
+
+      {!readOnly && ["sent", "signing"].includes(signingStatus) && (
+        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg p-3 flex items-center gap-2">
+          <Loader2 className="w-4 h-4 text-amber-600 animate-spin flex-shrink-0" />
+          <p className="text-xs text-amber-700 dark:text-amber-400">
+            {signingStatus === "sent" ? "Esperando que el operador firme el documento..." : "El operador está firmando el documento..."}
+          </p>
+        </div>
+      )}
+
+      {/* Manual download fallback */}
+      {!readOnly && signingStatus !== "signed" && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full gap-1.5 text-muted-foreground"
+          onClick={onDownloadContract}
+          data-testid="button-download-manual"
+        >
+          <Download className="w-3.5 h-3.5" />
+          Descargar PDF para firma manual
+        </Button>
+      )}
+    </div>
+  );
+}
+
 // ===== Step Content Renderer =====
 function StepContent({
   step,
@@ -2274,22 +2574,13 @@ function StepContent({
 
   if (step === 7) {
     return (
-      <div className="space-y-4">
-        <h3 className="text-sm font-medium">Firma Electrónica</h3>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <Shield className="w-4 h-4 text-muted-foreground" />
-              <span className="text-xs font-medium">Firma Electrónica — Mifiel</span>
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              {origination.mifielStatus === "signed"
-                ? "Documento firmado electrónicamente"
-                : "Pendiente de firma electrónica"}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      <MifielSigningPanel
+        origination={origination}
+        readOnly={readOnly}
+        onUpdate={onUpdate}
+        onDownloadContract={onDownloadContract}
+        refreshAll={refreshAll}
+      />
     );
   }
 
@@ -2602,35 +2893,20 @@ export default function OriginacionFlowPage() {
             </div>
           )}
 
-          {/* Step 7: Mifiel */}
+          {/* Step 7: Firma — nav + finalize */}
           {currentStep === 7 && (
             <div className="space-y-3">
-              <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-                <p className="text-xs text-blue-700 dark:text-blue-400">
-                  La integración con Mifiel se implementará en una futura iteración.
-                  Por ahora, descarga el PDF para firma manual o envío.
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                className="w-full gap-2"
-                onClick={handleDownloadContract}
-                data-testid="button-download-mifiel"
-              >
-                <Download className="w-4 h-4" />
-                Descargar PDF para Firma
-              </Button>
-              <a
-                href="https://app.mifiel.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block"
-              >
-                <Button variant="outline" className="w-full gap-2 text-blue-600">
-                  <Shield className="w-4 h-4" />
-                  Ir a Mifiel (firma manual)
-                </Button>
-              </a>
+              {origination.mifielStatus === "signed" && (
+                <Link href="/originacion">
+                  <Button
+                    className="w-full gap-2 h-12 bg-emerald-600 hover:bg-emerald-700"
+                    data-testid="button-finalizar-expediente"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    Finalizar Expediente
+                  </Button>
+                </Link>
+              )}
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" className="gap-1.5" onClick={() => advanceStep(6)}>
                   <ArrowLeft className="w-3.5 h-3.5" />
