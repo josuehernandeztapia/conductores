@@ -2736,24 +2736,24 @@ export default function OriginacionFlowPage() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+    <div className="max-w-2xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <Link href="/originacion" className="p-2 rounded-lg hover:bg-muted transition-colors">
+      <div className="flex items-center gap-2 sm:gap-3">
+        <Link href="/originacion" className="p-1.5 sm:p-2 rounded-lg hover:bg-muted transition-colors flex-shrink-0">
           <ArrowLeft className="w-4 h-4" />
         </Link>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-xs font-mono font-bold">{origination.folio}</span>
-            <Badge variant="outline" className="text-[10px]">
-              {origination.tipo === "validacion" ? "Validación" : "Compraventa"}
+            <Badge variant="outline" className="text-[9px] sm:text-[10px]">
+              {origination.tipo === "validacion" ? "Val" : "CPV"}
             </Badge>
-            <Badge variant="outline" className="text-[10px]">
-              Perfil {origination.perfilTipo}
+            <Badge variant="outline" className="text-[9px] sm:text-[10px]">
+              {origination.perfilTipo}
             </Badge>
           </div>
-          <p className="text-[10px] text-muted-foreground mt-0.5">
-            Creado: {formatDate(origination.createdAt)}
+          <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+            {formatDate(origination.createdAt)}
           </p>
         </div>
       </div>
@@ -2778,7 +2778,7 @@ export default function OriginacionFlowPage() {
             <button
               key={s.step}
               onClick={() => handleStepClick(s.step)}
-              className={`w-8 h-8 rounded-full text-[10px] font-medium flex items-center justify-center transition-all duration-200 ${
+              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full text-[9px] sm:text-[10px] font-medium flex items-center justify-center transition-all duration-200 ${
                 s.step < currentStep
                   ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 cursor-pointer hover:ring-2 hover:ring-emerald-400"
                   : s.step === currentStep

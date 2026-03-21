@@ -1,10 +1,10 @@
 /**
  * Service Worker — CMU Plataforma
  * Caches app shell (HTML, CSS, JS, fonts) for offline-first experience.
- * Does NOT cache API calls — those must always go to the network.
+ * API calls use network-first with offline fallback.
  */
 
-const CACHE_NAME = "cmu-v1";
+const CACHE_NAME = "cmu-v2";
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -35,36 +35,44 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-// Fetch: network-first for API, cache-first for static assets
+// Fetch: network-first for API, cache-first for assets
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
-  // Never cache API calls
-  if (url.pathname.startsWith("/api/")) {
-    event.respondWith(fetch(event.request));
+  // Skip non-GET requests
+  if (event.request.method !== "GET") return;
+
+  // API calls: network only (no caching)
+  if (url.pathname.startsWith("/api/")) return;
+
+  // Assets (JS, CSS, images): stale-while-revalidate
+  if (url.pathname.match(/\.(js|css|svg|png|jpg|jpeg|woff2?)$/)) {
+    event.respondWith(
+      caches.match(event.request).then((cached) => {
+        const fetchPromise = fetch(event.request).then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          }
+          return response;
+        }).catch(() => cached);
+
+        return cached || fetchPromise;
+      })
+    );
     return;
   }
 
-  // Cache-first for static assets
+  // HTML: network-first, fall back to cache
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request).then((response) => {
-        // Cache successful GET responses for static assets
-        if (response.ok && event.request.method === "GET") {
+    fetch(event.request)
+      .then((response) => {
+        if (response.ok) {
           const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, clone);
-          });
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
         }
         return response;
-      }).catch(() => {
-        // If offline and not in cache, return the main page for SPA routing
-        if (event.request.mode === "navigate") {
-          return caches.match("/index.html");
-        }
-        return new Response("Offline", { status: 503 });
-      });
-    })
+      })
+      .catch(() => caches.match(event.request).then((r) => r || caches.match("/index.html")))
   );
 });

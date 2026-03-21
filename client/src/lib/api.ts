@@ -14,8 +14,10 @@ let currentPromoter: { id: number; name: string } | null = null;
 // Locally (dev), __PORT_5000__ starts with "__" so we use empty string (relative).
 const API_BASE = "__PORT_5000__".startsWith("__") ? "" : "__PORT_5000__";
 
-// Track whether backend is available
+// Track whether backend is available — retries every 30 seconds after failure
 let backendAvailable: boolean | null = null; // null = unknown
+let lastBackendCheck = 0;
+const BACKEND_RETRY_MS = 30000; // retry after 30s
 
 async function apiFetch(path: string, options: RequestInit = {}): Promise<Response> {
   const headers: Record<string, string> = {
@@ -35,18 +37,25 @@ async function apiFetch(path: string, options: RequestInit = {}): Promise<Respon
 }
 
 async function tryApi<T>(apiCall: () => Promise<T>, fallback: () => T): Promise<T> {
-  // If we know backend is unavailable, skip directly to fallback
+  // If we know backend is unavailable, skip to fallback — but retry after BACKEND_RETRY_MS
   if (backendAvailable === false) {
-    return fallback();
+    const now = Date.now();
+    if (now - lastBackendCheck < BACKEND_RETRY_MS) {
+      return fallback();
+    }
+    // Enough time has passed, try the backend again
+    backendAvailable = null;
   }
 
   try {
     const result = await apiCall();
     backendAvailable = true;
+    lastBackendCheck = Date.now();
     return result;
   } catch (err) {
     console.warn("[API] Backend unavailable, using in-memory fallback:", (err as Error).message);
     backendAvailable = false;
+    lastBackendCheck = Date.now();
     return fallback();
   }
 }
