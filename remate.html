@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CMU — Evaluador de Remate v3</title>
+<style>
+:root{
+  --azul:#0D2B4E;--cyan:#00AEEF;--verde:#00C48C;--rojo:#E84855;
+  --amber:#F59E0B;--gris:#64748B;--bg:#F1F5F9;--card:#fff;--border:#E2E8F0;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#1E293B;font-size:14px}
+header{background:var(--azul);padding:13px 20px;display:flex;align-items:center;justify-content:space-between}
+header h1{color:#fff;font-size:16px;font-weight:700}
+header small{color:var(--cyan);font-size:11px}
+.tabs{display:flex;gap:4px;background:#0a2040;padding:8px 20px}
+.tab{padding:8px 18px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;color:#94A3B8;transition:.15s}
+.tab.active{background:var(--cyan);color:#fff}
+.tab:hover:not(.active){background:#1e3a5f;color:#fff}
+.panel{display:none;padding:16px;max-width:1500px;margin:0 auto}
+.panel.active{display:block}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px}
+.card h2{font-size:11px;font-weight:700;color:var(--azul);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;border-bottom:2px solid var(--cyan);padding-bottom:6px}
+.field{margin-bottom:11px}
+.field label{display:block;font-size:11px;font-weight:600;color:var(--gris);margin-bottom:3px}
+.field input,.field select{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:#F8FAFC;transition:border .15s}
+.field input:focus,.field select:focus{outline:none;border-color:var(--cyan);background:#fff}
+.hint{font-size:10px;color:#94A3B8;margin-top:2px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+
+/* OFERTA */
+.oferta-box{background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;padding:11px;margin-bottom:11px}
+.oferta-box label{font-size:11px;font-weight:700;color:var(--azul);display:block;margin-bottom:3px}
+.oferta-box input{width:100%;padding:10px 12px;border:2px solid var(--cyan);border-radius:8px;font-size:16px;font-weight:700;background:#fff}
+.oferta-result{margin-top:6px;font-size:12px}
+
+/* VEREDICTO */
+.veredicto{border-radius:10px;padding:14px;text-align:center;margin-bottom:14px}
+.veredicto.ok{background:#ECFDF5;border:2px solid var(--verde)}
+.veredicto.warn{background:#FFFBEB;border:2px solid var(--amber)}
+.veredicto.fail{background:#FEF2F2;border:2px solid var(--rojo)}
+.veredicto .label{font-size:22px;font-weight:800}
+.veredicto .sub{font-size:12px;margin-top:4px;color:#475569}
+
+/* TIR HERO */
+.tir-hero{background:var(--azul);border-radius:12px;padding:20px;text-align:center;margin-bottom:14px}
+.tir-hero .tir-val{font-size:52px;font-weight:900;color:var(--cyan);line-height:1}
+.tir-hero .tir-lbl{color:#94A3B8;font-size:12px;margin-top:4px;text-transform:uppercase;letter-spacing:.08em}
+.tir-hero .tir-sub{color:#E2E8F0;font-size:12px;margin-top:8px}
+
+/* METRICS */
+.metrics5{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px}
+.metric{background:#F8FAFC;border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center}
+.metric .val{font-size:18px;font-weight:800;color:var(--azul)}
+.metric .lbl{font-size:10px;color:var(--gris);margin-top:1px}
+.metric .sub{font-size:9px;color:#94A3B8;margin-top:1px}
+.metric.pass .val{color:var(--verde)}
+.metric.fail .val{color:var(--rojo)}
+.metric.warn .val{color:var(--amber)}
+
+/* FILTROS */
+.filtros{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+.filtro{background:#F8FAFC;border:1px solid var(--border);border-radius:8px;padding:8px 10px;display:flex;align-items:center;justify-content:space-between}
+.filtro .fl{font-size:10px;color:#475569}
+.filtro .fv{font-size:12px;font-weight:700}
+.filtro.pass{border-color:var(--verde);background:#ECFDF5}
+.filtro.fail{border-color:var(--rojo);background:#FEF2F2}
+
+/* ESCENARIOS */
+.esc-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+.esc-card{border-radius:10px;padding:14px;border:1px solid var(--border)}
+.esc-card h3{font-size:11px;font-weight:700;color:var(--azul);margin-bottom:10px;text-transform:uppercase}
+.esc-tir{font-size:28px;font-weight:800;margin-bottom:4px}
+.esc-delta{font-size:12px;font-weight:600}
+
+/* STACK BAR */
+.stack-chart{display:flex;height:18px;border-radius:6px;overflow:hidden;margin:6px 0}
+.stack-label{display:flex;gap:10px;font-size:10px;color:#475569;flex-wrap:wrap;margin-top:4px}
+.stack-dot{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:2px}
+
+/* VPN BAR */
+.vpn-bar{height:10px;border-radius:5px;background:#E2E8F0;overflow:hidden;margin:6px 0}
+.vpn-fill{height:100%;border-radius:5px;background:var(--verde);transition:width .4s}
+
+/* RIESGO */
+.riesgo-wrap{background:#F8FAFC;border:1px solid var(--border);border-radius:8px;padding:12px}
+
+/* AMORT */
+.amort-wrap{overflow:auto;max-height:260px;border-radius:8px;border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;font-size:11px}
+thead th{background:var(--azul);color:#fff;padding:6px 8px;text-align:right;position:sticky;top:0;font-weight:600;font-size:10px}
+thead th:first-child{text-align:center}
+tbody tr:nth-child(even){background:#F8FAFC}
+tbody tr.ant td{background:#FFF3E0}
+tbody tr.cov td{background:#ECFDF5}
+tbody td{padding:4px 8px;text-align:right;border-bottom:1px solid #F1F5F9;font-size:11px}
+tbody td:first-child{text-align:center;font-weight:700;color:var(--azul)}
+
+/* COMPARADOR */
+.comp-layout{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.comp-card{background:var(--card);border:2px solid var(--border);border-radius:12px;padding:14px}
+.comp-card.winner{border-color:var(--verde)}
+.comp-row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #F1F5F9;font-size:12px}
+.comp-row:last-child{border:none}
+.comp-row .k{color:#64748B}
+
+/* EXPORT */
+.export-pre{background:#1E293B;border-radius:10px;padding:14px;font-family:monospace;font-size:12px;color:#E2E8F0;white-space:pre-wrap;margin:12px 0;max-height:380px;overflow-y:auto;display:none}
+.btn{width:100%;padding:11px;background:var(--cyan);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;transition:opacity .2s;margin-top:6px}
+.btn:hover{opacity:.88}
+.btn.sec{background:var(--azul)}
+.btn.grn{background:var(--verde)}
+.ml-ref{background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;padding:7px 11px;margin-bottom:10px;font-size:11px}
+.sep{height:1px;background:var(--border);margin:11px 0}
+.main-layout{display:grid;grid-template-columns:300px 1fr;gap:14px}
+/* ── RESPONSIVE ── */
+@media(max-width:1100px){
+  .main-layout{grid-template-columns:280px 1fr}
+  .metrics5{grid-template-columns:repeat(3,1fr)}
+}
+@media(max-width:860px){
+  .main-layout{grid-template-columns:1fr}
+  .comp-layout{grid-template-columns:1fr}
+  .metrics5{grid-template-columns:repeat(3,1fr)}
+  .filtros{grid-template-columns:1fr 1fr}
+  .esc-grid{grid-template-columns:1fr}
+  .tir-hero .tir-val{font-size:44px}
+  header{flex-direction:column;align-items:flex-start;gap:4px}
+}
+@media(max-width:540px){
+  .tabs{overflow-x:auto;padding:6px 10px;gap:3px}
+  .tab{padding:7px 12px;font-size:11px;white-space:nowrap}
+  .panel{padding:10px}
+  .card{padding:12px}
+  .metrics5{grid-template-columns:1fr 1fr}
+  .filtros{grid-template-columns:1fr 1fr}
+  .row2{grid-template-columns:1fr}
+  .row3{grid-template-columns:1fr}
+  .tir-hero{padding:14px}
+  .tir-hero .tir-val{font-size:38px}
+  .tir-hero .tir-sub{font-size:10px}
+  .esc-grid{grid-template-columns:1fr}
+  .esc-tir{font-size:22px}
+  .amort-wrap{font-size:10px}
+  thead th{padding:5px 5px;font-size:9px}
+  tbody td{padding:3px 5px;font-size:10px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div><h1>CMU · Evaluador de Remate</h1><small>v3 · Programa Renovación Taxi</small></div>
+  <small style="color:#64748B">Datos ML · Marzo 2026</small>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab('eval',this)">📊 Evaluador</div>
+  <div class="tab" onclick="showTab('comp',this)">⚖️ Comparador</div>
+  <div class="tab" onclick="showTab('export',this)">📤 Exportar</div>
+</div>
+
+<!-- ═══ TAB 1: EVALUADOR ═══ -->
+<div class="panel active" id="tab-eval">
+  <div class="main-layout">
+
+    <div><!-- INPUTS -->
+      <div class="card">
+        <h2>🚗 Vehículo</h2>
+        <div class="field">
+          <label>Modelo</label>
+          <select id="modelo" onchange="onModelChange()">
+            <optgroup label="AVEO">
+              <option value="Aveo 2021">Aveo 2021</option>
+              <option value="Aveo 2022" selected>Aveo 2022</option>
+              <option value="Aveo 2023">Aveo 2023</option>
+              <option value="Aveo 2024">Aveo 2024</option>
+              <option value="Aveo 2025">Aveo 2025</option>
+            </optgroup>
+            <optgroup label="MARCH">
+              <option value="March 2021">March 2021</option>
+              <option value="March 2022">March 2022</option>
+              <option value="March 2023">March 2023</option>
+              <option value="March 2024">March 2024</option>
+              <option value="March 2025">March 2025</option>
+            </optgroup>
+            <optgroup label="V-DRIVE">
+              <option value="V-Drive 2021">V-Drive 2021</option>
+              <option value="V-Drive 2022">V-Drive 2022</option>
+              <option value="V-Drive 2023">V-Drive 2023</option>
+              <option value="V-Drive 2024">V-Drive 2024</option>
+              <option value="V-Drive 2025">V-Drive 2025</option>
+              <option value="V-Drive 2026">V-Drive 2026</option>
+            </optgroup>
+          </select>
+        </div>
+        <div id="ml-ref" class="ml-ref">—</div>
+
+        <div class="oferta-box">
+          <label>💰 Oferta aseguradora $</label>
+          <input type="number" id="oferta" placeholder="¿Cuánto pide?" step="1000" oninput="onOfertaChange()">
+          <div id="oferta-res" class="oferta-result"></div>
+        </div>
+
+        <div class="row2">
+          <div class="field">
+            <label>Reparación estimada $</label>
+            <input type="number" id="rep" value="15000" step="1000" oninput="calc()">
+            <div class="hint">Leve $8-12k · Mod $15-22k · Alta $22-28k</div>
+          </div>
+          <div class="field">
+            <label>Precio venta CMU $</label>
+            <input type="number" id="pv" step="1000" oninput="calc()">
+            <div class="hint">Default ML × 0.95</div>
+          </div>
+        </div>
+
+        <div class="sep"></div>
+        <h2 style="margin-bottom:10px">⚙️ Parámetros del programa</h2>
+        <div class="row2">
+          <div class="field">
+            <label>Anticipo día 56 $</label>
+            <input type="number" id="anticipo" value="50000" step="1000" oninput="calc()">
+          </div>
+          <div class="field">
+            <label>Recaudo GNV $/mes</label>
+            <input type="number" id="recaudo" value="4400" step="100" oninput="calc()">
+            <div class="hint">400 LEQ × $11</div>
+          </div>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label>Gasto gasolina taxista $</label>
+            <input type="number" id="gas" value="7000" step="500" oninput="calc()">
+          </div>
+          <div class="field">
+            <label>Capital CMU disponible $</label>
+            <input type="number" id="capital" value="500000" step="50000" oninput="calc()">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div><!-- RESULTADOS -->
+
+      <!-- VEREDICTO -->
+      <div id="v-box" class="veredicto ok"></div>
+
+      <!-- TIR HERO -->
+      <div class="tir-hero" id="tir-hero">
+        <div class="tir-val" id="tir-val">—</div>
+        <div class="tir-lbl">TIR del Proyecto</div>
+        <div class="tir-sub" id="tir-sub">Flujos reales: día 0 sale rep+kit · mes 2 sale compra (Amex) + entra anticipo · meses 1-36 cuotas</div>
+      </div>
+
+      <!-- MÉTRICAS COMPLEMENTARIAS -->
+      <div class="card">
+        <h2>Métricas complementarias</h2>
+        <div class="metrics5" id="metrics5"></div>
+
+        <div style="background:#F1F5F9;border-radius:8px;padding:10px">
+          <div style="font-size:11px;font-weight:700;color:var(--azul);margin-bottom:6px">Estructura del precio de venta</div>
+          <div id="stack-bar" class="stack-chart"></div>
+          <div id="stack-legend" class="stack-label"></div>
+        </div>
+      </div>
+
+      <!-- ESCENARIOS -->
+      <div class="card">
+        <h2>Escenarios de sensibilidad</h2>
+        <div class="esc-grid" id="esc-grid">
+          <div class="esc-card" id="esc-sin-anticipo" style="background:#FFFBEB;border-color:var(--amber)">
+            <h3>¿Y si el taxista no paga el anticipo?</h3>
+            <div class="esc-tir" id="esc-tir-a">—</div>
+            <div class="esc-delta" id="esc-delta-a"></div>
+            <div id="esc-text-a" style="font-size:11px;color:#64748B;margin-top:6px"></div>
+          </div>
+          <div class="esc-card" id="esc-sin-amex" style="background:#EFF6FF;border-color:#BFDBFE">
+            <h3>¿Y si no tienes Amex disponible?</h3>
+            <div class="esc-tir" id="esc-tir-m">—</div>
+            <div class="esc-delta" id="esc-delta-m"></div>
+            <div id="esc-text-m" style="font-size:11px;color:#64748B;margin-top:6px"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- GUARDRAILS -->
+      <div class="card">
+        <h2>Guardrails de riesgo (8 filtros binarios)</h2>
+        <div class="filtros" id="filtros"></div>
+      </div>
+
+      <!-- RIESGO CLIENTE -->
+      <div class="card">
+        <h2>Riesgo cliente</h2>
+        <div class="riesgo-wrap" id="riesgo"></div>
+      </div>
+
+      <!-- AMORT -->
+      <div class="card">
+        <h2>Calendario de pagos</h2>
+        <div class="amort-wrap">
+          <table>
+            <thead><tr>
+              <th style="text-align:center">Mes</th>
+              <th>Saldo</th><th>Principal</th><th>Comp.precio</th>
+              <th>Cuota</th><th>Recaudo</th><th>Diferencial</th><th>FG acum.</th>
+            </tr></thead>
+            <tbody id="amort"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ TAB 2: COMPARADOR ═══ -->
+<div class="panel" id="tab-comp">
+  <div class="comp-layout">
+    <div class="comp-card" id="cardA">
+      <h3 style="font-size:13px;font-weight:700;color:var(--azul);margin-bottom:12px">Unidad A</h3>
+      <div class="field"><label>Modelo</label>
+        <select id="cA_mod" onchange="cModelChange('A')">
+          <optgroup label="AVEO"><option value="Aveo 2022" selected>Aveo 2022</option><option value="Aveo 2021">Aveo 2021</option><option value="Aveo 2023">Aveo 2023</option><option value="Aveo 2024">Aveo 2024</option><option value="Aveo 2025">Aveo 2025</option></optgroup>
+          <optgroup label="MARCH"><option value="March 2021">March 2021</option><option value="March 2022">March 2022</option><option value="March 2023">March 2023</option><option value="March 2024">March 2024</option><option value="March 2025">March 2025</option></optgroup>
+          <optgroup label="V-DRIVE"><option value="V-Drive 2021">V-Drive 2021</option><option value="V-Drive 2022">V-Drive 2022</option><option value="V-Drive 2023">V-Drive 2023</option><option value="V-Drive 2024">V-Drive 2024</option><option value="V-Drive 2025">V-Drive 2025</option><option value="V-Drive 2026">V-Drive 2026</option></optgroup>
+        </select>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Compra $</label><input type="number" id="cA_c" value="100000" step="1000" oninput="compCalc()"></div>
+        <div class="field"><label>Reparación $</label><input type="number" id="cA_r" value="15000" step="1000" oninput="compCalc()"></div>
+      </div>
+      <div class="field"><label>PV CMU $</label><input type="number" id="cA_pv" step="1000" oninput="compCalc()"></div>
+      <div id="cA_ml" class="ml-ref" style="margin-bottom:8px"></div>
+      <div id="cA_res"></div>
+    </div>
+    <div class="comp-card" id="cardB">
+      <h3 style="font-size:13px;font-weight:700;color:var(--azul);margin-bottom:12px">Unidad B</h3>
+      <div class="field"><label>Modelo</label>
+        <select id="cB_mod" onchange="cModelChange('B')">
+          <optgroup label="AVEO"><option value="Aveo 2022">Aveo 2022</option><option value="Aveo 2021">Aveo 2021</option><option value="Aveo 2023">Aveo 2023</option><option value="Aveo 2024">Aveo 2024</option><option value="Aveo 2025">Aveo 2025</option></optgroup>
+          <optgroup label="MARCH"><option value="March 2021">March 2021</option><option value="March 2022">March 2022</option><option value="March 2023" selected>March 2023</option><option value="March 2024">March 2024</option><option value="March 2025">March 2025</option></optgroup>
+          <optgroup label="V-DRIVE"><option value="V-Drive 2021">V-Drive 2021</option><option value="V-Drive 2022">V-Drive 2022</option><option value="V-Drive 2023">V-Drive 2023</option><option value="V-Drive 2024">V-Drive 2024</option><option value="V-Drive 2025">V-Drive 2025</option><option value="V-Drive 2026">V-Drive 2026</option></optgroup>
+        </select>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Compra $</label><input type="number" id="cB_c" value="115000" step="1000" oninput="compCalc()"></div>
+        <div class="field"><label>Reparación $</label><input type="number" id="cB_r" value="15000" step="1000" oninput="compCalc()"></div>
+      </div>
+      <div class="field"><label>PV CMU $</label><input type="number" id="cB_pv" step="1000" oninput="compCalc()"></div>
+      <div id="cB_ml" class="ml-ref" style="margin-bottom:8px"></div>
+      <div id="cB_res"></div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:14px">
+    <h2>Comparación directa</h2>
+    <div id="comp-table"></div>
+  </div>
+</div>
+
+<!-- ═══ TAB 3: EXPORTAR ═══ -->
+<div class="panel" id="tab-export">
+  <div class="card" style="max-width:680px;margin:0 auto">
+    <h2>📤 Exportar decisión</h2>
+    <p style="font-size:12px;color:#64748B;margin-bottom:12px">Resumen listo para WhatsApp o expediente. Usa los datos del Evaluador.</p>
+    <div class="row2">
+      <div class="field"><label>Vendedor / subasta</label><input type="text" id="exp_v" placeholder="Ej: Quálitas AGS"></div>
+      <div class="field"><label>Fecha</label><input type="date" id="exp_f"></div>
+    </div>
+    <div class="field"><label>Observaciones en campo</label><input type="text" id="exp_o" placeholder="Color, odómetro, daño, airbags, motor, etc."></div>
+    <button class="btn" onclick="genExport()">Generar</button>
+    <button class="btn sec" style="margin-top:6px" onclick="copyExport()">Copiar al portapapeles</button>
+    <button class="btn grn" style="margin-top:6px" onclick="waExport()">Abrir en WhatsApp</button>
+    <div id="exp-pre" class="export-pre"></div>
+  </div>
+</div>
+
+<script>
+// ─── ML DATA ───
+const ML={
+  "Aveo 2021":185000,"Aveo 2022":200000,"Aveo 2023":215000,"Aveo 2024":232000,"Aveo 2025":250000,
+  "March 2021":205000,"March 2022":215000,"March 2023":225000,"March 2024":255000,"March 2025":270000,
+  "V-Drive 2021":220000,"V-Drive 2022":230000,"V-Drive 2023":245000,"V-Drive 2024":265000,"V-Drive 2025":280000,"V-Drive 2026":300000,
+};
+const ML_SRC={
+  "Aveo 2022":"✓ 53 listings ML","March 2021":"✓ validado ML","March 2022":"✓ 54+ listings",
+  "March 2023":"✓ 54 listings ML","March 2024":"✓ 40 listings ML","V-Drive 2021":"✓ $225k/$199k/$226k",
+  "V-Drive 2022":"✓ $217k-$225k","V-Drive 2023":"✓ $240k (18k km)","V-Drive 2025":"✓ $265,900 (1k km)",
+};
+
+const KIT=18000,N=36,FGI=8000,FGM=334,FGT=20000;
+const fmt=n=>'$'+Math.round(n).toLocaleString('es-MX');
+const p1=n=>(n*100).toFixed(1)+'%';
+
+// ─── AMORT ───
+function amort(pv,ant,rec){
+  let P=pv/N,s=pv,rows=[];
+  for(let m=1;m<=N;m++){
+    const i=s*(0.299/12),c=P+i,dif=Math.max(0,c-rec);
+    rows.push({m,s,P,i,c,dif});
+    s-=P;
+    if(m===2){s-=ant;P=s/(N-2);}
+  }
+  return rows;
+}
+
+// ─── IRR ───
+function irr(cfs){
+  let r=0.05;
+  for(let k=0;k<300;k++){
+    let npv=0,d=0;
+    cfs.forEach((c,t)=>{npv+=c/Math.pow(1+r,t);d-=t*c/Math.pow(1+r,t+1);});
+    if(Math.abs(d)<1e-12)break;
+    const nr=r-npv/d;
+    if(Math.abs(nr-r)<1e-9){r=nr;break;}
+    r=nr;
+  }
+  return Math.pow(1+r,12)-1;
+}
+
+// ─── NPV ───
+function npv(cfs,rate){
+  const mr=Math.pow(1+rate,1/12)-1;
+  return cfs.reduce((a,c,t)=>a+c/Math.pow(1+mr,t),0);
+}
+
+// ─── CORE COMPUTE ───
+function compute(compra,rep,pv,ant,rec,gas,cap){
+  const ct=compra+rep+KIT;
+  const rows=amort(pv,ant,rec);
+  const totC=rows.reduce((a,r)=>a+r.c,0);
+
+  // TIR PROYECTO — flujos reales
+  // t=0: -(rep+kit)  t=2: -compra+ant+cuota_m2  t=1: cuota_m1  t=3..36: cuotas
+  const cfP=new Array(40).fill(0);
+  cfP[0]=-(rep+KIT);
+  rows.forEach(r=>cfP[r.m]+=r.c);
+  cfP[2]+=(ant-compra); // anticipo entra, compra sale en mes 2 (Amex vence)
+  const tirP=irr(cfP);
+
+  // Escenario: sin anticipo (taxista no paga)
+  const cfSA=new Array(40).fill(0);
+  cfSA[0]=-(rep+KIT);
+  cfSA[2]-=compra; // Amex vence en mes 2, sin anticipo
+  rows.forEach(r=>cfSA[r.m]+=r.c);
+  const tirSA=irr(cfSA);
+
+  // Escenario: sin Amex (CMU pone todo día 0)
+  const cfSM=new Array(40).fill(0);
+  cfSM[0]=-ct;
+  rows.forEach(r=>cfSM[r.m]+=r.c);
+  cfSM[2]+=ant;
+  const tirSM=irr(cfSM);
+
+  // Complementarias
+  const moic=(totC+ant)/ct;
+  const margen=pv-ct;
+  const pctCMU=ct/pv*100;
+  const vpnVal=npv(cfP,0.299);
+  let acum=0,payback=null;
+  cfP.forEach((c,t)=>{acum+=c;if(acum>=0&&!payback&&t>0)payback=t;});
+
+  const dif_m1=rows[0].dif, dif_m3=rows[2].dif;
+  const mc=rows.find(r=>r.dif===0);
+  const repPct=rep/compra*100;
+  const concPct=ct/cap*100;
+  const difGasPct=dif_m3/gas*100;
+
+  return{ct,pv,margen,pctCMU,moic,vpnVal,payback,
+    tirP,tirSA,tirSM,
+    dif_m1,dif_m3,mc,repPct,concPct,difGasPct,rows,totC};
+}
+
+function pvMin(compra,rep,ant,rec){
+  const ct=compra+rep+KIT;let lo=ct,hi=ct*2.5;
+  for(let i=0;i<80;i++){
+    const mid=(lo+hi)/2,m=compute(compra,rep,mid,ant||50000,rec||4400,7000,500000);
+    (m.tirP>=0.60&&m.pctCMU<=82)?hi=mid:lo=mid;
+  }
+  return Math.round(hi/1000)*1000;
+}
+
+// ─── STATE ───
+let lastM=null,lastI={};
+
+// ─── TABS ───
+function showTab(id,el){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  el.classList.add('active');
+  if(id==='comp')compCalc();
+  if(id==='export')genExport();
+}
+
+// ─── EVALUADOR ───
+function onModelChange(){
+  const mod=document.getElementById('modelo').value;
+  const ml=ML[mod];
+  const src=ML_SRC[mod]||'estimado';
+  document.getElementById('pv').value=Math.round(ml*0.95/1000)*1000;
+  document.getElementById('ml-ref').innerHTML=`<strong>ML referencia:</strong> ${fmt(ml)} &nbsp;·&nbsp; <span style="color:#64748B">${src}</span>`;
+  // Only clear oferta when user actively changes model (not on init)
+  const ofEl=document.getElementById('oferta');
+  if(ofEl._modelChanged){
+    ofEl.value='';
+    document.getElementById('oferta-res').innerHTML='';
+  }
+  ofEl._modelChanged=true;
+  calc();
+}
+
+function onOfertaChange(){
+  const oferta=+document.getElementById('oferta').value||0;
+  if(!oferta){document.getElementById('oferta-res').innerHTML='';return;}
+  const rep=+document.getElementById('rep').value||0;
+  const ant=+document.getElementById('anticipo').value||50000;
+  const rec=+document.getElementById('recaudo').value||4400;
+  const pvm=pvMin(oferta,rep,ant,rec);
+  const pv=+document.getElementById('pv').value||0;
+  const ok=pv>=pvm;
+  document.getElementById('oferta-res').innerHTML=`
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:4px">
+      <span>Costo total: <strong>${fmt(oferta+rep+KIT)}</strong></span>
+      <span>PV mínimo: <strong style="color:${ok?'#059669':'#DC2626'}">${fmt(pvm)}</strong></span>
+      <span style="font-weight:700;color:${ok?'#059669':'#DC2626'}">${ok?'✅ Oferta viable':'❌ Baja la compra o sube el PV'}</span>
+    </div>`;
+  calc();
+}
+
+function calc(){
+  const compra=+document.getElementById('oferta').value||0;
+  if(!compra){
+    document.getElementById('v-box').className='veredicto warn';
+    document.getElementById('v-box').innerHTML='<div class="label" style="color:#D97706;font-size:15px">Ingresa la oferta de la aseguradora para evaluar</div>';
+    return;
+  }
+  const rep=+document.getElementById('rep').value||0;
+  const pv=+document.getElementById('pv').value||0;
+  const ant=+document.getElementById('anticipo').value||50000;
+  const rec=+document.getElementById('recaudo').value||4400;
+  const gas=+document.getElementById('gas').value||7000;
+  const cap=+document.getElementById('capital').value||500000;
+  const mod=document.getElementById('modelo').value;
+  if(!pv) return;
+
+  const m=compute(compra,rep,pv,ant,rec,gas,cap);
+  const pvm=pvMin(compra,rep,ant,rec);
+  lastM=m; lastI={mod,compra,rep,pv,ant,rec,gas,cap,pvm};
+
+  // TIR hero
+  const tirColor=m.tirP>=1.0?'#00C48C':m.tirP>=0.60?'#00AEEF':m.tirP>=0.299?'#F59E0B':'#E84855';
+  document.getElementById('tir-val').style.color=tirColor;
+  document.getElementById('tir-val').textContent=p1(m.tirP);
+  document.getElementById('tir-sub').textContent=
+    `TIR Proyecto: flujos reales con Amex float · PV mínimo requerido: ${fmt(pvm)} · Descuento de referencia: 29.9%`;
+
+  // Guardrails
+  const filters=[
+    {l:'TIR Proyecto',v:p1(m.tirP),u:'≥60%',ok:m.tirP>=0.60},
+    {l:'%CMU',v:m.pctCMU.toFixed(1)+'%',u:'≤82%',ok:m.pctCMU<=82},
+    {l:'MOIC',v:m.moic.toFixed(2)+'x',u:'≥1.4x',ok:m.moic>=1.4},
+    {l:'VPN',v:fmt(m.vpnVal),u:'> 0',ok:m.vpnVal>0},
+    {l:'PV ≥ mínimo',v:fmt(pv),u:`mín ${fmt(pvm)}`,ok:pv>=pvm},
+    {l:'Rep/Compra',v:m.repPct.toFixed(0)+'%',u:'≤25%',ok:m.repPct<=25},
+    {l:'Dif m3 vs gas',v:fmt(m.dif_m3),u:'≤gasto gas',ok:m.dif_m3<=gas},
+    {l:'Concentración',v:m.concPct.toFixed(0)+'%',u:'≤35%',ok:m.concPct<=35},
+  ];
+  const passed=filters.filter(f=>f.ok).length;
+  const bad=filters.filter(f=>!f.ok).map(f=>f.l).join(', ');
+
+  // Veredicto
+  const vb=document.getElementById('v-box');
+  if(passed===8){
+    vb.className='veredicto ok';
+    vb.innerHTML=`<div class="label" style="color:#059669">✅ COMPRAR</div>
+      <div class="sub">Todos los guardrails pasan · TIR ${p1(m.tirP)} · MOIC ${m.moic.toFixed(2)}x · PV mín ${fmt(pvm)}</div>`;
+  } else if(passed>=6){
+    vb.className='veredicto warn';
+    vb.innerHTML=`<div class="label" style="color:#D97706">⚠️ CONDICIONAL</div><div class="sub">Falla: ${bad}</div>`;
+  } else {
+    vb.className='veredicto fail';
+    vb.innerHTML=`<div class="label" style="color:#DC2626">❌ NO COMPRAR</div><div class="sub">Falla: ${bad}</div>`;
+  }
+
+  // Métricas complementarias
+  const met5=[
+    {v:m.moic.toFixed(2)+'x',l:'MOIC',s:'múltiplo capital',c:m.moic>=1.8?'pass':m.moic>=1.4?'warn':'fail'},
+    {v:fmt(m.margen),l:'Margen bruto',s:'pv − costo total',c:m.margen>40000?'pass':m.margen>20000?'warn':'fail'},
+    {v:m.pctCMU.toFixed(1)+'%',l:'%CMU',s:'costo / precio venta',c:m.pctCMU<=75?'pass':m.pctCMU<=82?'warn':'fail'},
+    {v:m.payback?`Mes ${m.payback}`:'N/A',l:'Payback',s:'flujo acumulado > 0',c:m.payback&&m.payback<=18?'pass':m.payback&&m.payback<=24?'warn':'fail'},
+    {v:fmt(m.vpnVal),l:'VPN',s:'a tasa 29.9%',c:m.vpnVal>30000?'pass':m.vpnVal>0?'warn':'fail'},
+  ];
+  document.getElementById('metrics5').innerHTML=met5.map(x=>
+    `<div class="metric ${x.c}"><div class="val">${x.v}</div><div class="lbl">${x.l}</div><div class="sub">${x.s}</div></div>`
+  ).join('');
+
+  // Stack bar
+  const cP=compra/pv*100, rP=rep/pv*100, kP=KIT/pv*100, mP=Math.max(0,m.margen)/pv*100;
+  document.getElementById('stack-bar').innerHTML=`
+    <div style="width:${cP}%;background:#0D2B4E"></div>
+    <div style="width:${rP}%;background:#00AEEF"></div>
+    <div style="width:${kP}%;background:#7C3AED"></div>
+    <div style="width:${mP}%;background:#00C48C"></div>`;
+  document.getElementById('stack-legend').innerHTML=`
+    <span><span class="stack-dot" style="background:#0D2B4E"></span>Compra ${fmt(compra)} (${cP.toFixed(0)}%)</span>
+    <span><span class="stack-dot" style="background:#00AEEF"></span>Rep ${fmt(rep)} (${rP.toFixed(0)}%)</span>
+    <span><span class="stack-dot" style="background:#7C3AED"></span>Kit $18k (${kP.toFixed(0)}%)</span>
+    <span><span class="stack-dot" style="background:#00C48C"></span>Margen ${fmt(Math.max(0,m.margen))} (${mP.toFixed(0)}%)</span>`;
+
+  // Escenarios
+  const dA=m.tirSA-m.tirP, dM=m.tirSM-m.tirP;
+  const signA=dA>=0?'+':'', signM=dM>=0?'+':'';
+  document.getElementById('esc-tir-a').style.color=m.tirSA>=0.60?'#059669':m.tirSA>=0.299?'#D97706':'#DC2626';
+  document.getElementById('esc-tir-a').textContent=p1(m.tirSA);
+  document.getElementById('esc-delta-a').style.color=dA>=0?'#059669':'#DC2626';
+  document.getElementById('esc-delta-a').textContent=`${signA}${p1(dA)} vs escenario base`;
+  document.getElementById('esc-text-a').textContent=
+    m.tirSA>=0.60?'✅ El deal sigue siendo viable sin el anticipo — la TIR lo soporta.':
+    m.tirSA>=0.299?'⚠️ Sin anticipo el deal se deteriora pero puede sostenerse si el taxista paga los diferenciales puntualmente.':
+    '❌ Sin anticipo el deal no justifica la inversión. El anticipo es condición necesaria.';
+
+  document.getElementById('esc-tir-m').style.color=m.tirSM>=0.60?'#059669':m.tirSM>=0.299?'#D97706':'#DC2626';
+  document.getElementById('esc-tir-m').textContent=p1(m.tirSM);
+  document.getElementById('esc-delta-m').style.color=dM>=0?'#059669':'#DC2626';
+  document.getElementById('esc-delta-m').textContent=`${signM}${p1(dM)} vs escenario base`;
+  document.getElementById('esc-text-m').textContent=
+    m.tirSM>=0.60?'✅ Sin Amex la TIR baja pero el deal sigue siendo sólido.':
+    m.tirSM>=0.299?'⚠️ Sin Amex la rentabilidad se comprime. Priorizar usar el float cuando está disponible.':
+    '❌ Sin Amex la TIR cae por debajo del mínimo. Este deal requiere el float de la tarjeta.';
+
+  // Guardrails render
+  document.getElementById('filtros').innerHTML=filters.map(f=>`
+    <div class="filtro ${f.ok?'pass':'fail'}">
+      <div><div class="fl">${f.l} <span style="color:#94A3B8">${f.u}</span></div>
+      <div class="fv" style="color:${f.ok?'#059669':'#DC2626'}">${f.v}</div></div>
+      <span>${f.ok?'✅':'❌'}</span></div>`).join('');
+
+  // Riesgo
+  const rC=m.difGasPct<60?'#059669':m.difGasPct<90?'#D97706':'#DC2626';
+  const rL=m.difGasPct<60?'BAJO':m.difGasPct<90?'MEDIO':'ALTO';
+  document.getElementById('riesgo').innerHTML=`
+    <div class="row3" style="gap:10px;margin-bottom:10px">
+      <div class="metric ${m.difGasPct<60?'pass':m.difGasPct<90?'warn':'fail'}">
+        <div class="val">${fmt(m.dif_m1)}</div><div class="lbl">Diferencial mes 1</div></div>
+      <div class="metric ${m.difGasPct<60?'pass':m.difGasPct<90?'warn':'fail'}">
+        <div class="val">${fmt(m.dif_m3)}</div><div class="lbl">Diferencial mes 3</div></div>
+      <div class="metric ${m.difGasPct<60?'pass':m.difGasPct<90?'warn':'fail'}">
+        <div class="val" style="color:${rC}">${rL}</div><div class="lbl">Riesgo cliente</div></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+      <span>Gasto gasolina: <strong>${fmt(gas)}</strong></span>
+      <span>Recaudo automático: <strong style="color:#059669">−${fmt(rec)}</strong></span>
+      <span>Diferencial en efectivo: <strong style="color:${rC}">${fmt(m.dif_m3)}</strong></span>
+    </div>
+    <div class="vpn-bar"><div class="vpn-fill" style="background:${rC};width:${Math.min(m.difGasPct,100)}%"></div></div>
+    <div style="display:flex;justify-content:space-between;font-size:10px;color:#64748B;margin-top:2px">
+      <span>0%</span>
+      <span>Diferencial = <strong>${m.difGasPct.toFixed(0)}%</strong> del gasto de gasolina</span>
+      <span>100%</span>
+    </div>
+    <div style="margin-top:8px;font-size:11px">
+      ${m.mc?`✅ GNV cubre la cuota completa desde <strong>mes ${m.mc.m}</strong>`
+        :'⚠️ GNV no cubre la cuota completa en ningún mes — taxista paga diferencial todo el plazo.'}
+    </div>`;
+
+  // Amort
+  const showMs=new Set([1,2,3,4,5,6,7,8,9,10,11,12,24,36]);
+  let fg=FGI, html='';
+  m.rows.forEach(r=>{
+    fg=Math.min(fg+FGM,FGT);
+    if(!showMs.has(r.m))return;
+    const cls=r.m===2?'ant':r.dif===0?'cov':'';
+    html+=`<tr class="${cls}">
+      <td>${r.m}${r.m===2?' ✦':''}</td>
+      <td>${fmt(r.s)}</td><td>${fmt(r.P)}</td><td>${fmt(r.i)}</td>
+      <td><strong>${fmt(r.c)}</strong></td>
+      <td style="color:#059669">${fmt(rec)}</td>
+      <td style="color:${r.dif>0?'#DC2626':'#059669'}">${r.dif>0?fmt(r.dif):'—'}</td>
+      <td>${fmt(fg)}</td></tr>`;
+  });
+  document.getElementById('amort').innerHTML=html;
+}
+
+// ─── COMPARADOR ───
+function cModelChange(s){
+  const mod=document.getElementById(`c${s}_mod`).value;
+  const ml=ML[mod], src=ML_SRC[mod]||'estimado';
+  document.getElementById(`c${s}_pv`).value=Math.round(ml*0.95/1000)*1000;
+  document.getElementById(`c${s}_ml`).innerHTML=`<strong>ML:</strong> ${fmt(ml)} · ${src}`;
+  compCalc();
+}
+
+function compCalc(){
+  ['A','B'].forEach(s=>{
+    const mod=document.getElementById(`c${s}_mod`).value;
+    if(!document.getElementById(`c${s}_pv`).value)
+      document.getElementById(`c${s}_pv`).value=Math.round(ML[mod]*0.95/1000)*1000;
+    const src=ML_SRC[mod]||'estimado';
+    document.getElementById(`c${s}_ml`).innerHTML=`<strong>ML:</strong> ${fmt(ML[mod])} · ${src}`;
+  });
+
+  const gA=getCI('A'), gB=getCI('B');
+  if(!gA||!gB) return;
+  const mA=compute(gA.c,gA.r,gA.pv,50000,4400,7000,500000);
+  const mB=compute(gB.c,gB.r,gB.pv,50000,4400,7000,500000);
+  const pvmA=pvMin(gA.c,gA.r,50000,4400);
+  const pvmB=pvMin(gB.c,gB.r,50000,4400);
+
+  ['A','B'].forEach((s,idx)=>{
+    const m=idx===0?mA:mB, pvm=idx===0?pvmA:pvmB, pv=idx===0?gA.pv:gB.pv;
+    const ok=pv>=pvm&&m.tirP>=0.60&&m.pctCMU<=82&&m.moic>=1.4;
+    const warn=pv>=pvm&&m.tirP>=0.299;
+    document.getElementById(`c${s}_res`).innerHTML=`
+      <div style="background:${ok?'#ECFDF5':warn?'#FFFBEB':'#FEF2F2'};border-radius:8px;padding:10px;text-align:center;font-weight:700;font-size:15px;color:${ok?'#059669':warn?'#D97706':'#DC2626'};margin-bottom:10px">
+        ${ok?'✅ VIABLE':warn?'⚠️ REVISAR':'❌ NO VIABLE'}
+      </div>
+      ${[['TIR Proyecto',p1(m.tirP),m.tirP>=0.60?'#059669':'#DC2626'],
+         ['MOIC',m.moic.toFixed(2)+'x',m.moic>=1.4?'#059669':'#DC2626'],
+         ['%CMU',m.pctCMU.toFixed(1)+'%',m.pctCMU<=82?'#059669':'#DC2626'],
+         ['Margen',fmt(m.margen),'#1E293B'],
+         ['VPN',fmt(m.vpnVal),m.vpnVal>0?'#059669':'#DC2626'],
+         ['Payback',m.payback?`Mes ${m.payback}`:'N/A','#1E293B'],
+         ['Dif m3',fmt(m.dif_m3),'#1E293B'],
+         ['PV mín',fmt(pvm),pv>=pvm?'#059669':'#DC2626']
+        ].map(([k,v,c])=>`<div class="comp-row"><span class="k">${k}</span><span style="font-weight:700;color:${c}">${v}</span></div>`).join('')}`;
+  });
+
+  // Tabla comparativa
+  const rows=[
+    ['TIR Proyecto',p1(mA.tirP),p1(mB.tirP),mA.tirP,mB.tirP,(a,b)=>a>b],
+    ['MOIC',mA.moic.toFixed(2)+'x',mB.moic.toFixed(2)+'x',mA.moic,mB.moic,(a,b)=>a>b],
+    ['%CMU',mA.pctCMU.toFixed(1)+'%',mB.pctCMU.toFixed(1)+'%',mA.pctCMU,mB.pctCMU,(a,b)=>a<b],
+    ['Margen bruto',fmt(mA.margen),fmt(mB.margen),mA.margen,mB.margen,(a,b)=>a>b],
+    ['VPN',fmt(mA.vpnVal),fmt(mB.vpnVal),mA.vpnVal,mB.vpnVal,(a,b)=>a>b],
+    ['Payback',mA.payback?`Mes ${mA.payback}`:'N/A',mB.payback?`Mes ${mB.payback}`:'N/A',mA.payback||99,mB.payback||99,(a,b)=>a<b],
+    ['Diferencial m3',fmt(mA.dif_m3),fmt(mB.dif_m3),mA.dif_m3,mB.dif_m3,(a,b)=>a<b],
+    ['Concentración capital',mA.concPct.toFixed(0)+'%',mB.concPct.toFixed(0)+'%',mA.concPct,mB.concPct,(a,b)=>a<b],
+  ];
+  let aW=0,bW=0;
+  const trs=rows.map(([lbl,vA,vB,rA,rB,better])=>{
+    const ab=better(rA,rB),bb=better(rB,rA);
+    if(ab)aW++;if(bb)bW++;
+    return `<div class="comp-row">
+      <span class="k">${lbl}</span>
+      <span style="display:flex;gap:16px">
+        <span style="font-weight:700;color:${ab?'#059669':'#475569'};min-width:90px;text-align:right">${vA}${ab?' ↑':''}</span>
+        <span style="font-weight:700;color:${bb?'#059669':'#475569'};min-width:90px;text-align:right">${vB}${bb?' ↑':''}</span>
+      </span></div>`;
+  }).join('');
+  const win=aW>bW?'A':bW>aW?'B':'empate';
+  document.getElementById('cardA').className=`comp-card${win==='A'?' winner':''}`;
+  document.getElementById('cardB').className=`comp-card${win==='B'?' winner':''}`;
+  document.getElementById('comp-table').innerHTML=`
+    <div style="display:flex;justify-content:flex-end;gap:16px;font-size:11px;font-weight:700;margin-bottom:6px;padding-right:4px">
+      <span style="min-width:90px;text-align:right;color:var(--azul)">Unidad A</span>
+      <span style="min-width:90px;text-align:right;color:var(--azul)">Unidad B</span>
+    </div>${trs}
+    <div style="margin-top:12px;padding:10px;background:${win==='empate'?'#F1F5F9':win==='A'?'#ECFDF5':'#EFF6FF'};border-radius:8px;text-align:center;font-weight:700;font-size:13px">
+      ${win==='empate'?'⚖️ Empate técnico':win==='A'?`✅ Unidad A gana ${aW}/${rows.length} métricas`:`✅ Unidad B gana ${bW}/${rows.length} métricas`}
+    </div>`;
+}
+
+function getCI(s){
+  const c=+document.getElementById(`c${s}_c`).value||0;
+  const r=+document.getElementById(`c${s}_r`).value||0;
+  const pv=+document.getElementById(`c${s}_pv`).value||0;
+  if(!c||!pv) return null;
+  return{c,r,pv};
+}
+
+// ─── EXPORT ───
+let expTxt='';
+function genExport(){
+  if(!lastM||!lastI.mod) return;
+  const m=lastM,i=lastI;
+  const f=document.getElementById('exp_f').value||new Date().toLocaleDateString('es-MX');
+  const v=document.getElementById('exp_v').value||'(aseguradora)';
+  const o=document.getElementById('exp_o').value||'(sin observaciones)';
+  const passed=[m.tirP>=0.60,m.pctCMU<=82,m.moic>=1.4,m.vpnVal>0,
+    i.pv>=i.pvm,m.repPct<=25,m.dif_m3<=i.gas,m.concPct<=35].filter(Boolean).length;
+  const verdict=passed===8?'✅ COMPRAR':passed>=6?'⚠️ CONDICIONAL':'❌ NO COMPRAR';
+  const rL=m.difGasPct<60?'BAJO':m.difGasPct<90?'MEDIO':'ALTO';
+
+  expTxt=`╔══════════════════════════════════╗
+║  CMU · DECISIÓN DE COMPRA        ║
+╚══════════════════════════════════╝
+
+📅 ${f}  |  🏢 ${v}
+🚗 ${i.mod}
+
+VEREDICTO: ${verdict}
+(${passed}/8 guardrails pasan)
+
+─── ESTRUCTURA DEL DEAL ───
+Compra aseguradora:  ${fmt(i.compra)}
+Reparación est.:     ${fmt(i.rep)}
+Kit GNV:             ${fmt(KIT)}
+Costo total CMU:     ${fmt(m.ct)}
+Precio venta CMU:    ${fmt(i.pv)}
+Margen bruto:        ${fmt(m.margen)}
+%CMU:                ${m.pctCMU.toFixed(1)}%
+
+─── MÉTRICAS FINANCIERAS ───
+TIR Proyecto:   ${p1(m.tirP)}  (mín 60%)
+MOIC:           ${m.moic.toFixed(2)}x
+Margen bruto:   ${fmt(m.margen)}
+%CMU:           ${m.pctCMU.toFixed(1)}%  (máx 82%)
+Payback:        ${m.payback?'Mes '+m.payback:'N/A'}
+VPN (29.9%):    ${fmt(m.vpnVal)}
+
+─── ESCENARIOS ───
+Sin anticipo:  ${p1(m.tirSA)}  (Δ ${m.tirSA>=m.tirP?'+':''}${p1(m.tirSA-m.tirP)})
+Sin Amex:      ${p1(m.tirSM)}  (Δ ${m.tirSM>=m.tirP?'+':''}${p1(m.tirSM-m.tirP)})
+
+─── RIESGO CLIENTE ───
+Diferencial m3:  ${fmt(m.dif_m3)}/mes
+vs gasto gas:    ${m.difGasPct.toFixed(0)}% — riesgo ${rL}
+${m.mc?`GNV cubre desde mes ${m.mc.m}`:'GNV no cubre completo en ningún mes'}
+
+─── OBSERVACIONES EN CAMPO ───
+${o}
+
+─── REF ML ───
+ML ${i.mod}: ${fmt(ML[i.mod])} · PV = ML×0.95 = ${fmt(Math.round(ML[i.mod]*0.95/1000)*1000)}
+PV mínimo requerido: ${fmt(i.pvm)}
+
+CMU Evaluador de Remate v3`;
+
+  const el=document.getElementById('exp-pre');
+  el.style.display='block'; el.textContent=expTxt;
+}
+
+function copyExport(){
+  genExport();
+  if(!expTxt) return;
+  navigator.clipboard.writeText(expTxt).then(()=>{
+    const b=event.target; b.textContent='✅ Copiado!';
+    setTimeout(()=>b.textContent='Copiar al portapapeles',2000);
+  });
+}
+function waExport(){
+  genExport();
+  if(!expTxt) return;
+  window.open(`https://wa.me/?text=${encodeURIComponent(expTxt)}`,'_blank');
+}
+
+// ─── INIT ───
+document.getElementById('exp_f').value=new Date().toISOString().split('T')[0];
+onModelChange();           // sets PV, marks _modelChanged=false for first run
+document.getElementById('oferta').value=100000;
+onOfertaChange();          // triggers inline check + calc() with oferta populated
+cModelChange('A'); cModelChange('B');
+</script>
+</body>
+</html>
