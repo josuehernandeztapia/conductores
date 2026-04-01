@@ -335,6 +335,7 @@ function VehicleForm({ vehicle, onClose, onSaved }: {
     setIsSaving(true);
     try {
       const now = new Date().toISOString();
+      // Send BOTH camelCase and snake_case to ensure storage UPDATE picks them up
       const payload: any = {
         marca: form.marca,
         modelo: form.modelo,
@@ -343,41 +344,37 @@ function VehicleForm({ vehicle, onClose, onSaved }: {
         color: form.color || null,
         niv: form.niv || null,
         placas: form.placas || null,
-        numSerie: form.numSerie || null,
-        numMotor: form.numMotor || null,
-        cmuValor: form.cmuValor || null,
-        costoAdquisicion: form.costoAdquisicion || null,
-        costoReparacion: repairForCalc || form.costoReparacion || null,
-        precioAseguradora: form.precioAseguradora || null,
-        reparacionEstimada: form.reparacionEstimada || null,
-        reparacionReal: form.reparacionReal || null,
-        conTanque: form.conTanque,
-        margenEstimado: marginCalc || null,
-        tirBaseEstimada: null, // Will be recalculated if needed
+        num_serie: form.numSerie || null,
+        num_motor: form.numMotor || null,
+        // Financial — send snake_case (DB column names)
+        cmu_valor: form.cmuValor || null,
+        costo_adquisicion: form.costoAdquisicion || form.precioAseguradora || null,
+        costo_reparacion: repairForCalc || form.costoReparacion || null,
+        precio_aseguradora: form.precioAseguradora || null,
+        reparacion_estimada: form.reparacionEstimada || null,
+        reparacion_real: form.reparacionReal || null,
+        con_tanque: form.conTanque,
+        margen_estimado: marginCalc || null,
         status: form.status,
-        assignedOriginationId: null,
-        assignedTaxistaId: null,
-        kitGnvInstalado: form.kitGnvInstalado,
-        kitGnvCosto: form.kitGnvCosto || null,
-        kitGnvMarca: form.kitGnvMarca || null,
-        kitGnvSerie: form.kitGnvSerie || null,
-        tanqueTipo: form.tanqueTipo || null,
-        tanqueMarca: form.tanqueMarca || null,
-        tanqueSerie: form.tanqueSerie || null,
-        tanqueCosto: form.tanqueCosto || null,
-        gnvModalidad: form.gnvModalidad || "kit_tanque",
-        descuentoGnv: form.descuentoGnv || null,
-        fotos: null,
+        kit_gnv_instalado: form.kitGnvInstalado,
+        kit_gnv_costo: form.kitGnvCosto || null,
+        kit_gnv_marca: form.kitGnvMarca || null,
+        kit_gnv_serie: form.kitGnvSerie || null,
+        tanque_tipo: form.tanqueTipo || null,
+        tanque_marca: form.tanqueMarca || null,
+        tanque_serie: form.tanqueSerie || null,
+        tanque_costo: form.tanqueCosto || null,
+        gnv_modalidad: form.gnvModalidad || "kit_tanque",
+        descuento_gnv: form.descuentoGnv || null,
         notes: form.notes || null,
-        createdAt: now,
-        updatedAt: now,
+        updated_at: now,
       };
 
       if (vehicle) {
         await apiUpdateVehicle(vehicle.id, payload);
         toast({ title: "Vehículo actualizado" });
       } else {
-        await apiCreateVehicle(payload);
+        await apiCreateVehicle({ ...payload, created_at: now });
         toast({ title: "Vehículo agregado" });
       }
       onSaved();
