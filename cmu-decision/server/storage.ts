@@ -683,6 +683,7 @@ class NeonStorage implements IStorage {
     const existing = await this.getVehicle(id);
     if (!existing) return undefined;
     const m: any = { ...existing, ...data, updated_at: new Date().toISOString() };
+    console.log(`[Storage] updateVehicle(${id}): keys=${Object.keys(data).join(',')}, precio_aseg=${m.precio_aseguradora}, rep_real=${m.reparacion_real}, gnv_mod=${m.gnv_modalidad}`);
     const rows = await this.sql`UPDATE vehicles_inventory SET 
       marca = ${m.marca}, modelo = ${m.modelo}, variante = ${m.variante || null}, anio = ${m.anio}, 
       color = ${m.color || null}, niv = ${m.niv || null}, placas = ${m.placas || null},

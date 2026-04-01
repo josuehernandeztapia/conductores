@@ -120,9 +120,10 @@ export async function registerRoutes(
 
   // Migration: add GNV modalidad columns to vehicles_inventory
   try {
-    if (sql) {
-      await sql`ALTER TABLE vehicles_inventory ADD COLUMN IF NOT EXISTS gnv_modalidad TEXT`;
-      await sql`ALTER TABLE vehicles_inventory ADD COLUMN IF NOT EXISTS descuento_gnv INTEGER`;
+    const sql2 = (storage as any).sql;
+    if (sql2) {
+      await sql2`ALTER TABLE vehicles_inventory ADD COLUMN IF NOT EXISTS gnv_modalidad TEXT`;
+      await sql2`ALTER TABLE vehicles_inventory ADD COLUMN IF NOT EXISTS descuento_gnv INTEGER`;
       console.log("[DB] gnv_modalidad columns ensured");
     }
   } catch (err: any) {
