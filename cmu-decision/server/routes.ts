@@ -118,6 +118,17 @@ export async function registerRoutes(
     console.warn("[DB] folio index migration:", err.message);
   }
 
+  // Migration: add GNV modalidad columns to vehicles_inventory
+  try {
+    if (sql) {
+      await sql`ALTER TABLE vehicles_inventory ADD COLUMN IF NOT EXISTS gnv_modalidad TEXT`;
+      await sql`ALTER TABLE vehicles_inventory ADD COLUMN IF NOT EXISTS descuento_gnv INTEGER`;
+      console.log("[DB] gnv_modalidad columns ensured");
+    }
+  } catch (err: any) {
+    console.warn("[DB] gnv_modalidad migration:", err.message);
+  }
+
   // ===== HEALTH =====
   app.get("/api/health", async (_req, res) => {
     const mlToken = await getMLToken().catch(() => null);

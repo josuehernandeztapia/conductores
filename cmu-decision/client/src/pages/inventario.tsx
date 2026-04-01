@@ -43,6 +43,7 @@ import {
   subscribe,
 } from "@/lib/api";
 import { updateVehicle } from "@/lib/storage";
+import { apiUpdateVehicle } from "@/lib/api";
 import { evaluateOpportunity } from "@/lib/evaluation-engine";
 import { STANDARD } from "@/lib/cmu-standard";
 import { jsPDF } from "jspdf";
@@ -290,6 +291,8 @@ function VehicleForm({ vehicle, onClose, onSaved }: {
     tanqueMarca: vAny?.tanqueMarca || "",
     tanqueSerie: vAny?.tanqueSerie || "",
     tanqueCosto: vAny?.tanqueCosto || 0,
+    gnvModalidad: vAny?.gnvModalidad || vAny?.gnv_modalidad || "kit_tanque",
+    descuentoGnv: vAny?.descuentoGnv || vAny?.descuento_gnv || 0,
     notes: vehicle?.notes || "",
   });
 
@@ -318,12 +321,15 @@ function VehicleForm({ vehicle, onClose, onSaved }: {
     }
   };
 
-  // Live recalculation
+  // Live recalculation with GNV modalidad
   const repairForCalc = form.reparacionReal ?? form.reparacionEstimada ?? form.costoReparacion;
-  const kitGnv = form.conTanque === 1 ? 18000 : 27400;
-  const precioContado = form.conTanque === 1 ? (form.cmuValor || 0) : (form.cmuValor || 0) + 9400;
-  const totalCostCalc = (form.precioAseguradora || form.costoAdquisicion || 0) + (repairForCalc || 0) + kitGnv;
-  const marginCalc = precioContado - totalCostCalc;
+  const gnvBase = (form.kitGnvCosto || 18000) + (form.tanqueCosto || 9400);
+  const gnvEffective = form.gnvModalidad === "incluido" ? gnvBase  // CMU absorbs but it's still a cost
+    : form.gnvModalidad === "kit_reusado" ? (form.kitGnvCosto || 18000)
+    : form.gnvModalidad === "descuento" ? Math.max(0, gnvBase - (form.descuentoGnv || 0))
+    : gnvBase; // kit_tanque (default)
+  const totalCostCalc = (form.precioAseguradora || form.costoAdquisicion || 0) + (repairForCalc || 0) + gnvEffective;
+  const marginCalc = (form.cmuValor || 0) - totalCostCalc;
 
   const handleSave = useCallback(async () => {
     setIsSaving(true);
@@ -359,6 +365,8 @@ function VehicleForm({ vehicle, onClose, onSaved }: {
         tanqueMarca: form.tanqueMarca || null,
         tanqueSerie: form.tanqueSerie || null,
         tanqueCosto: form.tanqueCosto || null,
+        gnvModalidad: form.gnvModalidad || "kit_tanque",
+        descuentoGnv: form.descuentoGnv || null,
         fotos: null,
         notes: form.notes || null,
         createdAt: now,
@@ -366,7 +374,7 @@ function VehicleForm({ vehicle, onClose, onSaved }: {
       };
 
       if (vehicle) {
-        updateVehicle(vehicle.id, payload);
+        await apiUpdateVehicle(vehicle.id, payload);
         toast({ title: "Vehículo actualizado" });
       } else {
         await apiCreateVehicle(payload);
@@ -476,13 +484,28 @@ function VehicleForm({ vehicle, onClose, onSaved }: {
           </div>
         </div>
 
-        {/* Tank toggle */}
-        <div className="flex items-center justify-between mt-3 p-2 rounded-lg border bg-muted/20">
-          <div className="flex items-center gap-2">
+        {/* GNV Modalidad (HU-4) */}
+        <div className="mt-3 p-3 rounded-lg border bg-muted/20 space-y-2">
+          <div className="flex items-center gap-2 mb-2">
             <Fuel className="w-3.5 h-3.5 text-muted-foreground" />
-            <span className="text-xs">{form.conTanque === 1 ? "Con tanque" : "Sin tanque"} — Kit: {formatMXN(kitGnv)}</span>
+            <span className="text-xs font-medium">Modalidad GNV</span>
+            <span className="text-[10px] text-muted-foreground ml-auto">Costo GNV: {formatMXN(gnvEffective)}</span>
           </div>
-          <Switch checked={form.conTanque === 1} onCheckedChange={(v) => update("conTanque", v ? 1 : 0)} />
+          <Select value={form.gnvModalidad} onValueChange={(v) => update("gnvModalidad", v)}>
+            <SelectTrigger className="text-xs h-8"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="kit_tanque">Kit + Tanque nuevo ({formatMXN(gnvBase)})</SelectItem>
+              <SelectItem value="kit_reusado">Kit solo — entrega cilindro ({formatMXN(form.kitGnvCosto || 18000)})</SelectItem>
+              <SelectItem value="incluido">GNV incluido en PV (CMU absorbe)</SelectItem>
+              <SelectItem value="descuento">Descuento custom</SelectItem>
+            </SelectContent>
+          </Select>
+          {form.gnvModalidad === "descuento" && (
+            <div>
+              <label className="text-[10px] text-muted-foreground">Monto descuento GNV</label>
+              <Input type="number" value={form.descuentoGnv || ""} onChange={(e) => update("descuentoGnv", parseInt(e.target.value) || 0)} className="h-8 text-xs" placeholder="Ej: 9400" />
+            </div>
+          )}
         </div>
 
         {/* Live recalculation preview */}

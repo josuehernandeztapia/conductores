@@ -335,6 +335,32 @@ export async function apiCreateVehicle(data: Record<string, any>) {
   );
 }
 
+export async function apiUpdateVehicle(id: number, data: Record<string, any>) {
+  return tryApi(
+    async () => {
+      const res = await apiFetch(`/api/vehicles/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("Failed to update vehicle");
+      const result = await res.json();
+      return normalizeVehicle(result);
+    },
+    () => storage.updateVehicle(id, data as any)
+  );
+}
+
+export async function apiDeleteVehicle(id: number) {
+  return tryApi(
+    async () => {
+      const res = await apiFetch(`/api/vehicles/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete vehicle");
+      return res.json();
+    },
+    () => { /* no local fallback */ }
+  );
+}
+
 // ============================================================
 // EVALUATIONS
 // ============================================================

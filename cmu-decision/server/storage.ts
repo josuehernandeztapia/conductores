@@ -696,6 +696,8 @@ class NeonStorage implements IStorage {
       kit_gnv_instalado = ${m.kit_gnv_instalado ?? m.kitGnvInstalado ?? 0},
       kit_gnv_costo = ${m.kit_gnv_costo ?? m.kitGnvCosto ?? null},
       tanque_costo = ${m.tanque_costo ?? m.tanqueCosto ?? null},
+      gnv_modalidad = ${m.gnv_modalidad ?? m.gnvModalidad ?? null},
+      descuento_gnv = ${m.descuento_gnv ?? m.descuentoGnv ?? null},
       status = ${m.status}, notes = ${m.notes || null}, updated_at = ${m.updated_at}
     WHERE id = ${id} RETURNING *`;
     return rows[0] as VehicleInventory | undefined;

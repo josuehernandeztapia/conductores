@@ -214,6 +214,9 @@ export const vehiclesInventory = pgTable("vehicles_inventory", {
   tanqueMarca: text("tanque_marca"),
   tanqueSerie: text("tanque_serie"),
   tanqueCosto: integer("tanque_costo"),
+  // GNV Pricing Modality (HU-4)
+  gnvModalidad: text("gnv_modalidad"), // "kit_tanque" | "kit_reusado" | "incluido" | "descuento"
+  descuentoGnv: integer("descuento_gnv"), // discount amount when gnvModalidad = "descuento" or "kit_reusado"
   fotos: text("fotos"), // JSON array of image URLs
   notes: text("notes"),
   createdAt: text("created_at").notNull(),
