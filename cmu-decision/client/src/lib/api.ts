@@ -336,17 +336,27 @@ export async function apiCreateVehicle(data: Record<string, any>) {
 }
 
 export async function apiUpdateVehicle(id: number, data: Record<string, any>) {
+  console.log(`[apiUpdateVehicle] id=${id}, keys=${Object.keys(data).join(',')}, precio_aseg=${data.precio_aseguradora}, rep_real=${data.reparacion_real}`);
   return tryApi(
     async () => {
+      console.log(`[apiUpdateVehicle] Calling PATCH /api/vehicles/${id}`);
       const res = await apiFetch(`/api/vehicles/${id}`, {
         method: "PATCH",
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error("Failed to update vehicle");
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error(`[apiUpdateVehicle] PATCH failed: ${res.status} ${errText}`);
+        throw new Error("Failed to update vehicle");
+      }
       const result = await res.json();
+      console.log(`[apiUpdateVehicle] PATCH success, precio_aseg=${result.precio_aseguradora}`);
       return normalizeVehicle(result);
     },
-    () => storage.updateVehicle(id, data as any)
+    () => {
+      console.warn(`[apiUpdateVehicle] FALLBACK to local storage!`);
+      return storage.updateVehicle(id, data as any);
+    }
   );
 }
 

@@ -1100,6 +1100,8 @@ Responde SOLO con JSON válido:
   app.patch("/api/vehicles/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      console.log(`[PATCH /api/vehicles/${id}] Body keys: ${Object.keys(req.body).join(', ')}`);
+      console.log(`[PATCH /api/vehicles/${id}] precio_aseguradora=${req.body.precio_aseguradora}, reparacion_real=${req.body.reparacion_real}, gnv_modalidad=${req.body.gnv_modalidad}, cmu_valor=${req.body.cmu_valor}`);
       const updated = await storage.updateVehicle(id, req.body);
       if (!updated) return res.status(404).json({ message: "Vehículo no encontrado" });
       return res.json(updated);
