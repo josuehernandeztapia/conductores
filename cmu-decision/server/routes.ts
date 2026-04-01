@@ -1100,9 +1100,38 @@ Responde SOLO con JSON válido:
   app.patch("/api/vehicles/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      console.log(`[PATCH /api/vehicles/${id}] Body keys: ${Object.keys(req.body).join(', ')}`);
-      console.log(`[PATCH /api/vehicles/${id}] precio_aseguradora=${req.body.precio_aseguradora}, reparacion_real=${req.body.reparacion_real}, gnv_modalidad=${req.body.gnv_modalidad}, cmu_valor=${req.body.cmu_valor}`);
-      const updated = await storage.updateVehicle(id, req.body);
+      // Normalize camelCase → snake_case for all financial fields
+      const b = req.body;
+      const normalized: any = { ...b };
+      const map: Record<string, string> = {
+        precioAseguradora: "precio_aseguradora",
+        reparacionEstimada: "reparacion_estimada",
+        reparacionReal: "reparacion_real",
+        conTanque: "con_tanque",
+        margenEstimado: "margen_estimado",
+        cmuValor: "cmu_valor",
+        costoAdquisicion: "costo_adquisicion",
+        costoReparacion: "costo_reparacion",
+        kitGnvInstalado: "kit_gnv_instalado",
+        kitGnvCosto: "kit_gnv_costo",
+        kitGnvMarca: "kit_gnv_marca",
+        kitGnvSerie: "kit_gnv_serie",
+        tanqueTipo: "tanque_tipo",
+        tanqueMarca: "tanque_marca",
+        tanqueSerie: "tanque_serie",
+        tanqueCosto: "tanque_costo",
+        gnvModalidad: "gnv_modalidad",
+        descuentoGnv: "descuento_gnv",
+        numSerie: "num_serie",
+        numMotor: "num_motor",
+      };
+      for (const [camel, snake] of Object.entries(map)) {
+        if (b[camel] !== undefined && b[snake] === undefined) {
+          normalized[snake] = b[camel];
+        }
+      }
+      console.log(`[PATCH /api/vehicles/${id}] precio_aseg=${normalized.precio_aseguradora}, rep_real=${normalized.reparacion_real}, gnv_mod=${normalized.gnv_modalidad}, cmu=${normalized.cmu_valor}`);
+      const updated = await storage.updateVehicle(id, normalized);
       if (!updated) return res.status(404).json({ message: "Vehículo no encontrado" });
       return res.json(updated);
     } catch (err: any) {
