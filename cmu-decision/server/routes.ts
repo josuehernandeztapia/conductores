@@ -10,7 +10,7 @@ import { exchangeCode, searchML, getMLAuthUrl, isMLConfigured, getMLToken } from
 import type { EvaluationInput, RepairEstimateResult, CmuBulkUpdateRequest } from "@shared/schema";
 import Anthropic from "@anthropic-ai/sdk";
 import { runAllProactiveChecks } from "./proactive-agent";
-import { ejecutarCierreMensual, aplicarFGDia6, revisarMoraDiaria, registrarPago, formatCierreResumenDirector, formatFGResumen, formatMoraResumen } from "./cierre-mensual";
+import { ejecutarCierreMensual, recordatorioDia3, recordatorioDia5, aplicarFGDia6, revisarMoraDiaria, registrarPago, formatCierreResumenDirector, formatFGResumen, formatMoraResumen } from "./cierre-mensual";
 import { crearLigaPago, cancelarLiga, parseConektaWebhook, isConektaEnabled } from "./conekta-client";
 import { cierreMensual, processNatgasCsv, processNatgasMultiProduct, parseNatgasExcel, parseNatgasCsv as parseNatgasCsvRows, formatRecaudoSummary, formatCierreReport, isDuplicateFile, markFileProcessed } from "./recaudo-engine";
 
@@ -57,10 +57,13 @@ const PUBLIC_PATHS = [
   "/api/mifiel/webhook",
   "/api/business-config",
   "/api/cierre/ejecutar",
+  "/api/cierre/recordatorio3",
+  "/api/cierre/recordatorio5",
   "/api/cierre/fg",
   "/api/cierre/mora",
   "/api/cierre/pago",
   "/api/conekta/webhook",
+  "/api/conekta/crear-liga",
 ];
 
 function authMiddleware(req: Request, res: Response, next: NextFunction) {
@@ -1166,6 +1169,26 @@ Responde SOLO con JSON válido:
       return res.json({ success: true, result, formatted });
     } catch (err: any) {
       console.error("[Cierre API] Error:", err);
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  // POST /api/cierre/recordatorio3 — Day 3 reminder
+  app.post("/api/cierre/recordatorio3", async (_req, res) => {
+    try {
+      const msgs = await recordatorioDia3();
+      return res.json({ success: true, sent: msgs.length, msgs });
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  // POST /api/cierre/recordatorio5 — Day 5 last warning before FG
+  app.post("/api/cierre/recordatorio5", async (_req, res) => {
+    try {
+      const msgs = await recordatorioDia5();
+      return res.json({ success: true, sent: msgs.length, msgs });
+    } catch (err: any) {
       return res.status(500).json({ message: err.message });
     }
   });

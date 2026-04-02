@@ -16,8 +16,12 @@
  * Day 30: recovery process
  */
 
+import { crearLigaPago, cancelarLiga, isConektaEnabled } from "./conekta-client";
+
 const AIRTABLE_PAT = () => process.env.AIRTABLE_PAT || "";
 const AIRTABLE_BASE = "appXxbjjGzXFiX7gk";
+const JOSUE_PHONE = "5214422022540";
+const WA_SEND_URL = "https://cmu-originacion.fly.dev/api/whatsapp/send-outbound";
 
 // Table IDs
 const TABLE_CREDITOS = "tblA62WNhSb4xYfYv";
@@ -68,6 +72,21 @@ async function atUpdate(tableId: string, recordId: string, fields: Record<string
     body: JSON.stringify({ fields }),
     signal: AbortSignal.timeout(15000),
   });
+}
+
+// ===== WHATSAPP HELPER =====
+
+async function sendWA(to: string, body: string): Promise<void> {
+  try {
+    await fetch(WA_SEND_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ to, body }),
+      signal: AbortSignal.timeout(10000),
+    });
+  } catch (e: any) {
+    console.error(`[Cierre] WhatsApp send error (${to}):`, e.message);
+  }
 }
 
 // ===== AMORTIZATION (German) =====
@@ -182,7 +201,21 @@ export async function ejecutarCierreMensual(): Promise<CierreResult> {
     // 6. Total link = diferencial + FG aportación
     const totalLink = diferencial + cobroFG;
 
-    // 7. Create Cierre record
+    // 7. Generate Conekta payment link
+    let linkUrl = "";
+    let linkVigencia = fechaLimite;
+    if (isConektaEnabled() && totalLink > 0) {
+      const liga = await crearLigaPago({
+        folio, mes: mesCredito, taxista, telefono,
+        diferencial, cobroFG, vigenciaDias: 5,
+      });
+      if (liga.success && liga.url) {
+        linkUrl = liga.url;
+        linkVigencia = liga.expiresAt || fechaLimite;
+      }
+    }
+
+    // 8. Create Cierre record
     await atCreate(TABLE_CIERRES, {
       "Folio": folio,
       "Mes": mesCredito,
@@ -196,14 +229,33 @@ export async function ejecutarCierreMensual(): Promise<CierreResult> {
       "Estatus": "Pendiente Pago",
       "Fecha Cierre": fechaCierre,
       "Fecha Limite": fechaLimite,
+      "Link Conekta": linkUrl,
+      "Link Vigencia": linkVigencia,
       "Dias Atraso": 0,
       "Notas": `Cierre automático. Recaudo de ${recaudoRows.length} registros.`,
     });
 
-    // 8. Update credit: advance Mes Actual
+    // 9. Update credit: advance Mes Actual
     await atUpdate(TABLE_CREDITOS, credito._id, {
       "Mes Actual": mesCredito,
     });
+
+    // 10. Send WhatsApp to taxista
+    if (telefono && totalLink > 0) {
+      const msg = [
+        `*Cierre mes ${mesCredito}* — ${taxista}`,
+        ``,
+        `Tu recaudo GNV cubrio $${recaudo.toLocaleString()} de tu cuota de $${cuota.toLocaleString()}.`,
+        `Diferencial: $${diferencial.toLocaleString()}`,
+        cobroFG > 0 ? `Fondo de Garantia: $${cobroFG}` : "",
+        `*Total: $${totalLink.toLocaleString()}*`,
+        ``,
+        linkUrl ? `Paga aqui: ${linkUrl}` : `CLABE Bancrea: 152680120000787681 (Ref: ${folio})`,
+        `Fecha limite: dia 5 del mes.`,
+        linkUrl ? `Metodos: tarjeta, OXXO, SPEI, tiendas.` : "",
+      ].filter(Boolean).join("\n");
+      await sendWA(telefono, msg);
+    }
 
     result.creditosProcesados++;
     result.detalle.push({
@@ -212,10 +264,57 @@ export async function ejecutarCierreMensual(): Promise<CierreResult> {
       saldoFG,
     });
 
-    console.log(`[Cierre] ${folio} mes ${mesCredito}: cuota $${cuota}, recaudo $${recaudo}, dif $${diferencial}, link $${totalLink}`);
+    console.log(`[Cierre] ${folio} mes ${mesCredito}: cuota $${cuota}, recaudo $${recaudo}, dif $${diferencial}, link $${totalLink} ${linkUrl ? '(Conekta)' : '(CLABE)'}`);
+  }
+
+  // Notify director
+  if (result.creditosProcesados > 0) {
+    await sendWA(JOSUE_PHONE, formatCierreResumenDirector(result));
   }
 
   return result;
+}
+
+// ===== DAY 3 REMINDER =====
+
+/**
+ * Day 3 reminder for unpaid cierres.
+ */
+export async function recordatorioDia3(): Promise<string[]> {
+  const pendientes = await atFetch(TABLE_CIERRES, { filterByFormula: `{Estatus}="Pendiente Pago"` });
+  const msgs: string[] = [];
+  for (const c of pendientes) {
+    const folio = c.Folio;
+    const creditos = await atFetch(TABLE_CREDITOS, { filterByFormula: `{Folio}="${folio}"`, maxRecords: "1" });
+    const telefono = creditos[0]?.Telefono || "";
+    const linkUrl = c["Link Conekta"] || "";
+    if (telefono) {
+      await sendWA(telefono, `Recordatorio: tu diferencial de $${(c["Total Link"] || 0).toLocaleString()} vence el dia 5.\n${linkUrl ? `Paga aqui: ${linkUrl}` : `CLABE: 152680120000787681 (Ref: ${folio})`}`);
+      msgs.push(`${folio}: recordatorio enviado`);
+    }
+  }
+  return msgs;
+}
+
+// ===== DAY 5 REMINDER (before FG) =====
+
+/**
+ * Day 5 last warning — tomorrow FG kicks in.
+ */
+export async function recordatorioDia5(): Promise<string[]> {
+  const pendientes = await atFetch(TABLE_CIERRES, { filterByFormula: `{Estatus}="Pendiente Pago"` });
+  const msgs: string[] = [];
+  for (const c of pendientes) {
+    const folio = c.Folio;
+    const creditos = await atFetch(TABLE_CREDITOS, { filterByFormula: `{Folio}="${folio}"`, maxRecords: "1" });
+    const telefono = creditos[0]?.Telefono || "";
+    const linkUrl = c["Link Conekta"] || "";
+    if (telefono) {
+      await sendWA(telefono, `Manana se aplica tu Fondo de Garantia por $${(c.Diferencial || 0).toLocaleString()}.\nAun puedes pagar: ${linkUrl || `CLABE: 152680120000787681 (Ref: ${folio})`}`);
+      msgs.push(`${folio}: aviso FG enviado`);
+    }
+  }
+  return msgs;
 }
 
 // ===== FG APPLICATION (Day 6) =====
@@ -276,6 +375,9 @@ export async function aplicarFGDia6(): Promise<FGResult> {
         "Saldo FG": nuevoFG,
         "Dias Atraso": 0,
       });
+      // WhatsApp: FG covered everything
+      if (telefono) await sendWA(telefono, `Se aplico tu Fondo de Garantia por $${diferencial.toLocaleString()}.\nSaldo FG: $${nuevoFG.toLocaleString()} de $${FG_TECHO.toLocaleString()}.\nNo caes en mora.`);
+      await sendWA(JOSUE_PHONE, `[FG] ${taxista} (${folio}): FG cubrio $${diferencial.toLocaleString()}. Saldo FG: $${nuevoFG.toLocaleString()}`);
       result.fgAplicados++;
       result.detalle.push({ folio, taxista, telefono, diferencial, fgDisponible: saldoFG, fgAplicado: diferencial, deudaRestante: 0, accion: `FG cubrió $${diferencial}. Saldo FG: $${nuevoFG}` });
     } else {
@@ -292,6 +394,18 @@ export async function aplicarFGDia6(): Promise<FGResult> {
         "Dias Atraso": 1,
         "Estatus": "Mora Leve",
       });
+      // Generate new Conekta link for remaining debt
+      let moraLinkUrl = "";
+      if (isConektaEnabled() && deudaRestante > 0) {
+        const liga = await crearLigaPago({ folio, mes: cierre.Mes, taxista, telefono, diferencial: deudaRestante, cobroFG: 0, vigenciaDias: 2 });
+        if (liga.success && liga.url) moraLinkUrl = liga.url;
+      }
+      // WhatsApp: FG partial or zero, MORA
+      const msgMora = fgAplicado > 0
+        ? `Tu FG cubrio $${fgAplicado.toLocaleString()} pero faltaron $${deudaRestante.toLocaleString()}.\n${moraLinkUrl ? `Paga aqui: ${moraLinkUrl}` : `CLABE: 152680120000787681 (Ref: ${folio})`}\nTienes hasta el dia 8.`
+        : `Tu FG esta agotado. Deuda pendiente: $${deudaRestante.toLocaleString()}.\n${moraLinkUrl ? `Paga aqui: ${moraLinkUrl}` : `CLABE: 152680120000787681 (Ref: ${folio})`}\nTienes hasta el dia 8.`;
+      if (telefono) await sendWA(telefono, msgMora);
+      await sendWA(JOSUE_PHONE, `[MORA] ${taxista} (${folio}): FG $${fgAplicado.toLocaleString()}, deuda $${deudaRestante.toLocaleString()}`);
       result.moraActivada++;
       result.detalle.push({ folio, taxista, telefono, diferencial, fgDisponible: saldoFG, fgAplicado, deudaRestante, accion: `FG cubrió $${fgAplicado}. MORA: $${deudaRestante} pendiente` });
     }
@@ -350,15 +464,29 @@ export async function revisarMoraDiaria(): Promise<MoraCheckResult> {
     const taxista = credito.Taxista || "?";
     const telefono = credito.Telefono || "";
 
-    // Determine action based on days
+    // Determine action + send WhatsApp based on days
     let accion = "";
     if (diasAtraso === 3) {
-      accion = `Recargo aplicado: $${MORA_FEE} + 2% = $${recargos}. Generar liga 3: $${deudaTotal}`;
+      // Day 8: recargo applied, new liga
+      recargos = MORA_FEE + Math.round(deudaBase * MORA_PCT);
+      let liga3Url = "";
+      if (isConektaEnabled()) {
+        const liga = await crearLigaPago({ folio, mes: cierre.Mes || 0, taxista, telefono, diferencial: deudaTotal, cobroFG: 0, vigenciaDias: 7 });
+        if (liga.success && liga.url) liga3Url = liga.url;
+      }
+      if (telefono) await sendWA(telefono, `Recargo por atraso: $${MORA_FEE} + 2% = $${recargos.toLocaleString()}.\nTotal: $${deudaTotal.toLocaleString()}.\n${liga3Url ? `Paga aqui: ${liga3Url}` : `CLABE: 152680120000787681 (Ref: ${folio})`}`);
+      accion = `Recargo $${recargos}. Liga 3: $${deudaTotal}`;
     } else if (diasAtraso === 5) {
-      accion = "Último aviso antes de notificar a dirección";
+      // Day 10: last warning
+      if (telefono) await sendWA(telefono, `Ultimo aviso. Si no pagas manana, se notifica a direccion.\nDeuda: $${deudaTotal.toLocaleString()}.`);
+      accion = "Último aviso antes de dirección";
     } else if (diasAtraso === 10) {
-      accion = "ESCALAR A JOSUÉ — 15 días de mora";
+      // Day 15: escalate to Josué
+      await sendWA(JOSUE_PHONE, `*MORA 15 DIAS*\n${taxista} (${folio})\nDeuda: $${deudaTotal.toLocaleString()} (dif $${deudaBase.toLocaleString()} + recargos $${recargos.toLocaleString()})`);
+      if (telefono) await sendWA(telefono, `Tu cuenta tiene 15 dias de atraso. Direccion ha sido notificada.\nDeuda total: $${deudaTotal.toLocaleString()}.`);
+      accion = "ESCALADO A JOSUÉ — 15 días";
     } else if (diasAtraso >= 25) {
+      await sendWA(JOSUE_PHONE, `*MORA 30+ DIAS — PROCESO RECUPERACION*\n${taxista} (${folio})\nDeuda: $${deudaTotal.toLocaleString()}`);
       accion = "PROCESO DE RECUPERACIÓN — 30+ días";
     }
 
