@@ -68,8 +68,26 @@ export type NatgasRow = {
  * Real format: Row 1 = title, Row 3 = headers, Row 4+ = data.
  */
 export function parseNatgasExcel(buffer: Buffer): NatgasRow[] {
-  const wb = XLSX.read(buffer, { type: "buffer" });
+  if (!buffer || buffer.length < 10) {
+    console.error(`[Recaudo] parseNatgasExcel: buffer too small (${buffer?.length || 0} bytes)`);
+    return [];
+  }
+  let wb: XLSX.WorkBook;
+  try {
+    wb = XLSX.read(buffer, { type: "buffer" });
+  } catch (e: any) {
+    console.error(`[Recaudo] parseNatgasExcel: XLSX.read failed: ${e.message}`);
+    return [];
+  }
+  if (!wb.SheetNames || wb.SheetNames.length === 0) {
+    console.error(`[Recaudo] parseNatgasExcel: No sheets found in workbook`);
+    return [];
+  }
   const ws = wb.Sheets[wb.SheetNames[0]];
+  if (!ws) {
+    console.error(`[Recaudo] parseNatgasExcel: Sheet '${wb.SheetNames[0]}' is empty`);
+    return [];
+  }
   const allRows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
 
   // Find the header row (contains "Placa" and "Financiera")

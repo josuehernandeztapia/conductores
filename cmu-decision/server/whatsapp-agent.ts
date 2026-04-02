@@ -2104,13 +2104,20 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
           // Excel file
           if ((media as any)._isExcel && (media as any)._excelBuffer) {
             const buf = (media as any)._excelBuffer as Buffer;
+            console.log(`[Proveedor] Excel buffer: ${buf.length} bytes, magic: ${buf.slice(0, 4).toString('hex')}`);
             if (isDuplicateFile(buf)) {
               return await respond("Este archivo ya fue procesado. No se volvio a sumar.");
             }
             const rows = parseNatgasExcel(buf);
+            console.log(`[Proveedor] Parsed ${rows.length} rows from Excel`);
             if (rows.length > 0) {
               const summary = await processNatgasMultiProduct(rows);
               markFileProcessed(buf);
+              // Notify Josue too
+              try {
+                const josuePhone = "5214422022540";
+                await this.sendWhatsApp(josuePhone, `(Lilia via WhatsApp) ${formatRecaudoSummary(summary)}`);
+              } catch (notifyErr) { /* silent */ }
               return await respond(formatRecaudoSummary(summary));
             }
             return await respond("Recibi el Excel pero no encontre datos de CONDUCTORES DEL MUNDO. Verifica el archivo.");
@@ -2118,6 +2125,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
           
           return await respond("Recibi tu archivo. Para procesarlo, envialo como CSV o Excel (.xlsx).");
         } catch (e: any) {
+          console.error(`[Proveedor] Media processing error:`, e.message, e.stack?.slice(0, 300));
           return await respond(`Error al procesar archivo: ${e.message}`);
         }
       }
