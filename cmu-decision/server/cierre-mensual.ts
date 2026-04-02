@@ -152,7 +152,17 @@ export async function ejecutarCierreMensual(): Promise<CierreResult> {
 
   for (const credito of creditos) {
     const folio = credito.Folio;
-    const mesCredito = (credito["Mes Actual"] || 0) + 1; // advance to next month
+    const mesCredito = (credito["Mes Actual"] || 0) + 1; // next month to close
+    
+    // Dedup: check if this month was already closed for this folio
+    const yaExiste = await atFetch(TABLE_CIERRES, {
+      filterByFormula: `AND({Folio}="${folio}",{Mes}=${mesCredito})`,
+      maxRecords: "1",
+    });
+    if (yaExiste.length > 0) {
+      console.log(`[Cierre] ${folio} mes ${mesCredito} ya cerrado — skip`);
+      continue;
+    }
     const telefono = credito.Telefono || "";
     const taxista = credito.Taxista || "?";
     const saldoFG = credito["Saldo FG"] || 0;
@@ -160,16 +170,6 @@ export async function ejecutarCierreMensual(): Promise<CierreResult> {
     const precioPlazos = credito["Precio Plazos"] || credito["Precio Contado"] || 0;
     const plazo = 36;
     const tasaAnual = credito["Tasa Anual"] || 0.24; // 24% default
-
-    // Check if cierre already exists for this folio+mes
-    const existingCierre = await atFetch(TABLE_CIERRES, {
-      filterByFormula: `AND({Folio}="${folio}",{Mes}=${mesCredito})`,
-      maxRecords: "1",
-    });
-    if (existingCierre.length > 0) {
-      console.log(`[Cierre] ${folio} mes ${mesCredito} already closed — skipping`);
-      continue;
-    }
 
     // 2. Calculate cuota (German amortization)
     let { cuota } = calcCuotaAlemana(precioPlazos, plazo, tasaAnual, mesCredito);
