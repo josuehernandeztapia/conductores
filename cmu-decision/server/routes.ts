@@ -64,6 +64,7 @@ const PUBLIC_PATHS = [
   "/api/cierre/pago",
   "/api/cierre/reporte-semanal",
   "/api/conekta/webhook",
+  "/api/webhooks/conekta",
   "/api/conekta/crear-liga",
 ];
 
@@ -1249,8 +1250,9 @@ Responde SOLO con JSON válido:
 
   // ===== CONEKTA WEBHOOK (COB-02) =====
 
-  // POST /api/conekta/webhook — Receives payment confirmations from Conekta
-  app.post("/api/conekta/webhook", async (req, res) => {
+  // POST /api/conekta/webhook AND /api/webhooks/conekta — Receives payment confirmations from Conekta
+  // (Both paths supported: /api/conekta/webhook is internal, /api/webhooks/conekta is configured in Conekta panel)
+  const conektaWebhookHandler = async (req: any, res: any) => {
     try {
       const event = parseConektaWebhook(req.body);
       if (!event) {
@@ -1274,7 +1276,9 @@ Responde SOLO con JSON válido:
       console.error("[Conekta Webhook] Error:", err.message);
       return res.json({ received: true, error: err.message }); // Always return 200 to Conekta
     }
-  });
+  };
+  app.post("/api/conekta/webhook", conektaWebhookHandler);
+  app.post("/api/webhooks/conekta", conektaWebhookHandler);
 
   // POST /api/conekta/crear-liga — Create a payment link (internal use)
   app.post("/api/conekta/crear-liga", async (req, res) => {
