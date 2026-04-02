@@ -10,6 +10,7 @@ import { exchangeCode, searchML, getMLAuthUrl, isMLConfigured, getMLToken } from
 import type { EvaluationInput, RepairEstimateResult, CmuBulkUpdateRequest } from "@shared/schema";
 import Anthropic from "@anthropic-ai/sdk";
 import { runAllProactiveChecks } from "./proactive-agent";
+import { ejecutarCierreMensual, aplicarFGDia6, revisarMoraDiaria, registrarPago, formatCierreResumenDirector, formatFGResumen, formatMoraResumen } from "./cierre-mensual";
 import { cierreMensual, processNatgasCsv, processNatgasMultiProduct, parseNatgasExcel, parseNatgasCsv as parseNatgasCsvRows, formatRecaudoSummary, formatCierreReport, isDuplicateFile, markFileProcessed } from "./recaudo-engine";
 
 // ===== SESSION TOKEN (HMAC-signed) =====
@@ -54,6 +55,11 @@ const PUBLIC_PATHS = [
   "/api/recaudo/process",
   "/api/mifiel/webhook",
   "/api/business-config",
+  "/api/cierre/ejecutar",
+  "/api/cierre/fg",
+  "/api/cierre/mora",
+  "/api/cierre/pago",
+  "/api/conekta/webhook",
 ];
 
 function authMiddleware(req: Request, res: Response, next: NextFunction) {
@@ -1145,6 +1151,57 @@ Responde SOLO con JSON válido:
       await storage.deleteVehicle(id);
       return res.json({ success: true, id });
     } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ===== CIERRE MENSUAL / COBRANZA (COB-01 to COB-05) =====
+
+  // POST /api/cierre/ejecutar — Run monthly close (day 1 cron)
+  app.post("/api/cierre/ejecutar", async (_req, res) => {
+    try {
+      const result = await ejecutarCierreMensual();
+      const formatted = formatCierreResumenDirector(result);
+      return res.json({ success: true, result, formatted });
+    } catch (err: any) {
+      console.error("[Cierre API] Error:", err);
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  // POST /api/cierre/fg — Apply FG for unpaid (day 6 cron)
+  app.post("/api/cierre/fg", async (_req, res) => {
+    try {
+      const result = await aplicarFGDia6();
+      const formatted = formatFGResumen(result);
+      return res.json({ success: true, result, formatted });
+    } catch (err: any) {
+      console.error("[FG API] Error:", err);
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  // POST /api/cierre/mora — Daily mora check
+  app.post("/api/cierre/mora", async (_req, res) => {
+    try {
+      const result = await revisarMoraDiaria();
+      const formatted = formatMoraResumen(result);
+      return res.json({ success: true, result, formatted });
+    } catch (err: any) {
+      console.error("[Mora API] Error:", err);
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  // POST /api/cierre/pago — Register payment (from Conekta webhook or manual)
+  app.post("/api/cierre/pago", async (req, res) => {
+    try {
+      const { folio, mes, monto, metodo } = req.body;
+      if (!folio || !mes || !monto) return res.status(400).json({ message: "folio, mes, monto required" });
+      const result = await registrarPago(folio, mes, monto, metodo || "Manual");
+      return res.json(result);
+    } catch (err: any) {
+      console.error("[Pago API] Error:", err);
       return res.status(500).json({ message: err.message });
     }
   });
