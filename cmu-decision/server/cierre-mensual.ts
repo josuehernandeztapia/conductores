@@ -242,10 +242,8 @@ export async function ejecutarCierreMensual(): Promise<CierreResult> {
       "Notas": `Cierre automático. Recaudo de ${recaudoRows.length} registros.`,
     });
 
-    // 9. Update credit: advance Mes Actual
-    await atUpdate(TABLE_CREDITOS, credito._id, {
-      "Mes Actual": mesCredito,
-    });
+    // 9. Do NOT advance Mes Actual here — it advances when payment is confirmed
+    // This prevents double-execution from creating cierres for future months
 
     // 10. Send WhatsApp to taxista
     if (telefono && totalLink > 0) {
@@ -378,7 +376,9 @@ export async function aplicarFGDia6(): Promise<FGResult> {
         "Metodo Pago": "FG",
         "Fecha Pago": new Date().toISOString().slice(0, 10),
       });
+      const nuevoMesFG = Math.max(credito["Mes Actual"] || 0, cierre.Mes || 0); // advance on FG cover
       await atUpdate(TABLE_CREDITOS, credito._id, {
+        "Mes Actual": nuevoMesFG,
         "Saldo FG": nuevoFG,
         "Dias Atraso": 0,
       });
@@ -558,7 +558,9 @@ export async function registrarPago(folio: string, mes: number, monto: number, m
   if (creditos.length > 0) {
     const credito = creditos[0];
     const nuevoFG = Math.min(FG_TECHO, (credito["Saldo FG"] || 0) + cobroFG);
+    const nuevoMes = Math.max(credito["Mes Actual"] || 0, mes); // advance Mes Actual on payment
     await atUpdate(TABLE_CREDITOS, credito._id, {
+      "Mes Actual": nuevoMes,
       "Saldo FG": nuevoFG,
       "Dias Atraso": 0,
       "Estatus": "Activo",
