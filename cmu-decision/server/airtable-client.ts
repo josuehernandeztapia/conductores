@@ -388,6 +388,89 @@ export async function buildCarteraDashboard(): Promise<string> {
   return lines.join("\n");
 }
 
+// ===== ESTADO DE CUENTA (COB-06) =====
+
+/**
+ * Build detailed estado de cuenta for a taxi credit client.
+ * Shows weekly recaudo breakdown, estimated diferencial, FG, and history.
+ */
+export async function buildEstadoCuenta(phone: string): Promise<string | null> {
+  const TABLE_CIERRES = "tblVFP0kXEmvD6EZS";
+  const TABLE_RECAUDO_GNV = "tblSUWmIE8Ma5be9u";
+  
+  // Find credit by phone
+  const credito = await findCreditByPhone(phone);
+  if (!credito) return null;
+  
+  const folio = credito.Folio;
+  const mesActual = credito["Mes Actual"] || 1;
+  const saldoCapital = credito["Saldo Capital"] || 0;
+  const cuotaActual = credito["Cuota Actual"] || 0;
+  const saldoFG = credito["Saldo FG"] || 0;
+  const diasAtraso = credito["Dias Atraso"] || 0;
+  const taxista = credito.Taxista || "Cliente";
+  
+  // Get recaudo for current month
+  const recaudoRows = await airtableFetch(TABLE_RECAUDO_GNV, {
+    filterByFormula: `AND({Folio}="${folio}",{Mes}=${mesActual})`,
+  });
+  const recaudoAcum = recaudoRows.reduce((s: number, r: any) => s + (r.Recaudo || 0), 0);
+  const semanasProc = recaudoRows.length;
+  const estimadoMes = semanasProc > 0 ? Math.round((recaudoAcum / semanasProc) * 4) : 0;
+  const difEstimado = Math.max(0, cuotaActual - estimadoMes);
+  
+  // Get last 3 cierres
+  const cierres = await airtableFetch(TABLE_CIERRES, {
+    filterByFormula: `{Folio}="${folio}"`,
+    "sort[0][field]": "Mes",
+    "sort[0][direction]": "desc",
+    maxRecords: "3",
+  });
+  
+  const now = new Date();
+  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const proximoCorte = `${nextMonth.getDate()} de ${["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"][nextMonth.getMonth()]}`.replace(/^1 de/, "1 de");
+  
+  const lines = [
+    `*Estado de cuenta* — ${taxista}`,
+    `Folio ${folio} | Mes ${mesActual} de 36`,
+    `Proximo corte: 1 de ${["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"][nextMonth.getMonth()]}`,
+    ``,
+    `*RECAUDO DEL MES* (${semanasProc} de ~4 semanas)`,
+  ];
+  
+  for (const r of recaudoRows) {
+    lines.push(`  Semana: $${(r.Recaudo || 0).toLocaleString()} (${r.LEQ || 0} LEQ)`);
+  }
+  lines.push(`  Acumulado: $${recaudoAcum.toLocaleString()} | Estimado mes: ~$${estimadoMes.toLocaleString()}`);
+  
+  lines.push(
+    ``,
+    `*CUOTA Y DIFERENCIAL*`,
+    `  Cuota mes ${mesActual}: $${cuotaActual.toLocaleString()}`,
+    `  Diferencial estimado: ~$${difEstimado.toLocaleString()}`,
+    `  + FG $334`,
+    `  Link estimado: ~$${(difEstimado + 334).toLocaleString()}`,
+    ``,
+    `*SALDOS*`,
+    `  Capital pendiente: $${saldoCapital.toLocaleString()}`,
+    `  Fondo de Garantia: $${saldoFG.toLocaleString()} de $20,000`,
+    `  Dias atraso: ${diasAtraso}`,
+  );
+  
+  if (cierres.length > 0) {
+    lines.push(``, `*ULTIMOS MESES*`);
+    for (const c of cierres) {
+      const est = c.Estatus === "Pagado" ? "Pagado ✅" : c.Estatus === "FG Aplicado" ? "FG ✅" : c.Estatus;
+      lines.push(`  Mes ${c.Mes}: cuota $${(c.Cuota || 0).toLocaleString()} | GNV $${(c["Recaudo GNV"] || 0).toLocaleString()} | dif $${(c.Diferencial || 0).toLocaleString()} → ${est}`);
+    }
+  }
+  
+  lines.push(``, `Necesitas tu liga de pago o tienes alguna duda?`);
+  
+  return lines.join("\n");
+}
+
 /**
  * Check if Airtable is configured
  */

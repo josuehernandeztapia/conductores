@@ -24,7 +24,7 @@ import { evaluateOpportunity } from "./evaluation-engine";
 import type { EvaluationInput, EvaluationResult, Model } from "@shared/schema";
 import { buildKnowledgeBase, buildClientKnowledge } from "./cmu-knowledge";
 import { getBusinessRules, ruleNum, buildRulesContext, getThresholds } from "./business-rules";
-import { buildClientCarteraContext, buildCarteraDashboard, isAirtableEnabled, findCreditByPhone, findProductsByPhone, getPaymentsByFolio, getRecaudoByFolio } from "./airtable-client";
+import { buildClientCarteraContext, buildCarteraDashboard, buildEstadoCuenta, isAirtableEnabled, findCreditByPhone, findProductsByPhone, getPaymentsByFolio, getRecaudoByFolio } from "./airtable-client";
 import { processPdf, isPdf } from "./pdf-handler";
 import { processNatgasCsv, processNatgasMultiProduct, parseNatgasExcel, parseNatgasCsv as parseNatgasCsvRows, formatRecaudoSummary, cierreMensual, formatCierreReport, isDuplicateFile, markFileProcessed } from "./recaudo-engine";
 import { createFolioFromWhatsApp, associateDocIntelligently } from "./folio-manager";
@@ -1174,6 +1174,45 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
       return `Editar *${vv.marca} ${vv.modelo} ${vv.anio}*:\n${description}\n\nPara confirmar, dime la clave de director:`;
     }
 
+    // ===== MANUAL PAYMENT CONFIRMATION (COB-05) =====
+    // Director: "confirmar pago folio 001" or "pago folio 001 3134" or "pago efectivo folio 001 2800"
+    const pagoMatch = lower.match(/(?:confirmar\s+)?pago\s+(?:efectivo\s+|spei\s+|transferencia\s+)?(?:folio\s+)?([a-z0-9-]+)\s+(\d[\d,.]*k?)$/i)
+      || lower.match(/(?:confirmar\s+pago)\s+(?:folio\s+)?([a-z0-9-]+)$/i);
+    if (pagoMatch) {
+      const folioHint = pagoMatch[1];
+      const montoStr = pagoMatch[2] || "";
+      const monto = montoStr ? parseFloat(montoStr.replace(/,/g, "").replace(/k$/i, "")) * (montoStr.toLowerCase().endsWith("k") ? 1000 : 1) : 0;
+      const metodo = /efectivo/.test(lower) ? "Efectivo" : /spei|transferencia/.test(lower) ? "SPEI Bancrea" : "Manual";
+      
+      // Find the folio (partial match)
+      const { registrarPago } = await import("./cierre-mensual");
+      
+      // If no amount, ask for it
+      if (!monto) {
+        return `Para confirmar el pago de ${folioHint}, dime el monto. Ej: "pago folio ${folioHint} 3134"`;
+      }
+      
+      // Find active cierre for this folio
+      const token = process.env.AIRTABLE_PAT;
+      if (token) {
+        const cierreRes = await fetch(`https://api.airtable.com/v0/appXxbjjGzXFiX7gk/tblVFP0kXEmvD6EZS?filterByFormula=AND(SEARCH("${folioHint.toUpperCase()}",{Folio}),OR({Estatus}="Pendiente Pago",{Estatus}="Mora"))&maxRecords=1`, {
+          headers: { "Authorization": `Bearer ${token}` },
+        });
+        const cierreData = await cierreRes.json();
+        const cierre = cierreData.records?.[0];
+        if (cierre) {
+          const folio = cierre.fields.Folio;
+          const mes = cierre.fields.Mes;
+          const result = await registrarPago(folio, mes, monto, metodo);
+          return result.success 
+            ? `Pago registrado: *$${monto.toLocaleString()}* (${metodo}) para ${folio} mes ${mes}. ${result.message}`
+            : `Error: ${result.message}`;
+        }
+        return `No encontre cierre pendiente para "${folioHint}". Verifica el folio.`;
+      }
+      return "Airtable no configurado.";
+    }
+
     // Folios
     if (lower === "folios") {
       const origs = await this.storage.listOriginations();
@@ -2071,6 +2110,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         /recaudo|natgas|csv/i.test(lower) ||
         /cierre/i.test(lower) ||
         /cartera|cobranza|mora|contratos/i.test(lower) ||
+        /pago\s+(?:folio|efectivo|spei|transferencia)|confirmar\s+pago/i.test(lower) ||
         /alta|iniciar proceso|registrar cliente|nuevo cliente|proceso de alta/i.test(lower);
 
       if (isCanalCDirect || isCsvOrExcelMedia || (!mediaUrl && !originationId)) {
