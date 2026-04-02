@@ -154,13 +154,14 @@ export async function ejecutarCierreMensual(): Promise<CierreResult> {
     const folio = credito.Folio;
     const mesCredito = (credito["Mes Actual"] || 0) + 1; // next month to close
     
-    // Dedup: check if this month was already closed for this folio
-    const yaExiste = await atFetch(TABLE_CIERRES, {
-      filterByFormula: `AND({Folio}="${folio}",{Mes}=${mesCredito})`,
+    // Guard: only ONE cierre per folio per calendar month
+    // Check by Fecha Cierre (calendar month) AND by Mes (credit month)
+    const cierresExistentes = await atFetch(TABLE_CIERRES, {
+      filterByFormula: `OR(AND({Folio}="${folio}",{Fecha Cierre}="${fechaCierre}"),AND({Folio}="${folio}",{Mes}=${mesCredito}))`,
       maxRecords: "1",
     });
-    if (yaExiste.length > 0) {
-      console.log(`[Cierre] ${folio} mes ${mesCredito} ya cerrado — skip`);
+    if (cierresExistentes.length > 0) {
+      console.log(`[Cierre] ${folio} ya tiene cierre para ${fechaCierre} o mes ${mesCredito} — skip`);
       continue;
     }
     const telefono = credito.Telefono || "";
