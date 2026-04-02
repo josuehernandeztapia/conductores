@@ -10,7 +10,7 @@ import { exchangeCode, searchML, getMLAuthUrl, isMLConfigured, getMLToken } from
 import type { EvaluationInput, RepairEstimateResult, CmuBulkUpdateRequest } from "@shared/schema";
 import Anthropic from "@anthropic-ai/sdk";
 import { runAllProactiveChecks } from "./proactive-agent";
-import { ejecutarCierreMensual, recordatorioDia3, recordatorioDia5, aplicarFGDia6, revisarMoraDiaria, registrarPago, formatCierreResumenDirector, formatFGResumen, formatMoraResumen } from "./cierre-mensual";
+import { ejecutarCierreMensual, recordatorioDia3, recordatorioDia5, aplicarFGDia6, revisarMoraDiaria, registrarPago, generarReporteSemanal, formatCierreResumenDirector, formatFGResumen, formatMoraResumen } from "./cierre-mensual";
 import { crearLigaPago, cancelarLiga, parseConektaWebhook, isConektaEnabled } from "./conekta-client";
 import { cierreMensual, processNatgasCsv, processNatgasMultiProduct, parseNatgasExcel, parseNatgasCsv as parseNatgasCsvRows, formatRecaudoSummary, formatCierreReport, isDuplicateFile, markFileProcessed } from "./recaudo-engine";
 
@@ -62,6 +62,7 @@ const PUBLIC_PATHS = [
   "/api/cierre/fg",
   "/api/cierre/mora",
   "/api/cierre/pago",
+  "/api/cierre/reporte-semanal",
   "/api/conekta/webhook",
   "/api/conekta/crear-liga",
 ];
@@ -1226,6 +1227,22 @@ Responde SOLO con JSON válido:
       return res.json(result);
     } catch (err: any) {
       console.error("[Pago API] Error:", err);
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  // POST /api/cierre/reporte-semanal — Weekly cartera report (Wednesday cron)
+  app.post("/api/cierre/reporte-semanal", async (_req, res) => {
+    try {
+      const report = await generarReporteSemanal();
+      // Send to Josué via WhatsApp
+      await fetch("https://cmu-originacion.fly.dev/api/whatsapp/send-outbound", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to: "5214422022540", body: report }),
+      }).catch(() => {});
+      return res.json({ success: true, report });
+    } catch (err: any) {
       return res.status(500).json({ message: err.message });
     }
   });

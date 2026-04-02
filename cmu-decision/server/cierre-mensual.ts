@@ -630,6 +630,86 @@ export function formatFGResumen(result: FGResult): string {
   return lines.join("\n");
 }
 
+// ===== WEEKLY CARTERA REPORT (COB-07) =====
+
+/**
+ * Generate weekly cartera report with semaphore.
+ * Called by cron every Wednesday 10:00 AM CST.
+ */
+export async function generarReporteSemanal(): Promise<string> {
+  const TABLE_AHORRO = "tblUjkOQ2rWvBRRmw";
+  const TABLE_KIT = "tbletXmlYRwisBcaO";
+
+  // Taxi credits
+  const creditos = await atFetch(TABLE_CREDITOS, {
+    filterByFormula: `OR({Estatus}="Activo",{Estatus}="Mora Leve")`,
+  });
+  
+  // Joylong
+  const joylong = await atFetch(TABLE_AHORRO);
+  
+  // Kit
+  const kits = await atFetch(TABLE_KIT);
+
+  const now = new Date();
+  const weekNum = Math.ceil((now.getTime() - new Date(now.getFullYear(), 0, 1).getTime()) / (7 * 24 * 60 * 60 * 1000));
+  
+  const lines = [`*CARTERA CMU* \u2014 Semana ${weekNum} (${now.toISOString().slice(0, 10)})\n`];
+
+  // Semaphore for taxi credits
+  if (creditos.length > 0) {
+    lines.push(`*SEMAFORO*`);
+    for (const c of creditos) {
+      const diasAtraso = c["Dias Atraso"] || 0;
+      const saldoFG = c["Saldo FG"] || 0;
+      let semaforo = "\ud83d\udfe2"; // green
+      if (diasAtraso > 0) semaforo = "\ud83d\udd34"; // red
+      else if (saldoFG < 5000) semaforo = "\ud83d\udfe1"; // yellow (FG low)
+      lines.push(`  ${semaforo} ${c.Taxista} (${c.Folio}) \u2014 FG $${saldoFG.toLocaleString()}${diasAtraso > 0 ? ` | ${diasAtraso}d atraso` : ""}`);
+    }
+    
+    lines.push(`\n*CREDITOS TAXI* (${creditos.length})`);
+    let totalCuotas = 0, totalFG = 0;
+    for (const c of creditos) {
+      const mes = c["Mes Actual"] || 0;
+      const cuota = c["Cuota Actual"] || 0;
+      const fg = c["Saldo FG"] || 0;
+      totalCuotas += cuota;
+      totalFG += fg;
+      lines.push(`  ${c.Taxista} | mes ${mes}/36 | cuota $${cuota.toLocaleString()} | FG $${fg.toLocaleString()}`);
+    }
+    const enMora = creditos.filter(c => (c["Dias Atraso"] || 0) > 0).length;
+    lines.push(`  Cuotas: $${totalCuotas.toLocaleString()} | Mora: ${enMora} | Morosidad: ${creditos.length > 0 ? Math.round(enMora / creditos.length * 100) : 0}%`);
+  }
+
+  // Joylong
+  if (joylong.length > 0) {
+    const totalAhorro = joylong.reduce((s: number, j: any) => s + (j["Ahorro Acumulado"] || 0), 0);
+    lines.push(`\n*AHORRO JOYLONG* (${joylong.length})`);
+    for (const j of joylong) {
+      const ahorro = j["Ahorro Acumulado"] || 0;
+      const precio = j["Precio Vehiculo"] || 799000;
+      const pct = ((ahorro / precio) * 100).toFixed(1);
+      lines.push(`  ${j.Cliente} (${j.Folio}): $${ahorro.toLocaleString()} (${pct}%)`);
+    }
+    lines.push(`  Total: $${totalAhorro.toLocaleString()}`);
+  }
+
+  // Kit
+  if (kits.length > 0) {
+    lines.push(`\n*KIT CONVERSION* (${kits.length})`);
+    for (const k of kits) {
+      const saldo = k["Saldo Pendiente"] || 0;
+      lines.push(`  ${k.Cliente} (${k.Folio}): saldo $${saldo.toLocaleString()} | mes ${k["Mes Actual"] || 1}/${k.Parcialidades || 12}`);
+    }
+  }
+
+  // Inventory
+  // TODO: add inventory summary from Neon
+
+  return lines.join("\n");
+}
+
 export function formatMoraResumen(result: MoraCheckResult): string {
   if (result.enMora === 0) return "";
   
