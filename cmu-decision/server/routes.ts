@@ -11,6 +11,7 @@ import type { EvaluationInput, RepairEstimateResult, CmuBulkUpdateRequest } from
 import Anthropic from "@anthropic-ai/sdk";
 import { runAllProactiveChecks } from "./proactive-agent";
 import { ejecutarCierreMensual, aplicarFGDia6, revisarMoraDiaria, registrarPago, formatCierreResumenDirector, formatFGResumen, formatMoraResumen } from "./cierre-mensual";
+import { crearLigaPago, cancelarLiga, parseConektaWebhook, isConektaEnabled } from "./conekta-client";
 import { cierreMensual, processNatgasCsv, processNatgasMultiProduct, parseNatgasExcel, parseNatgasCsv as parseNatgasCsvRows, formatRecaudoSummary, formatCierreReport, isDuplicateFile, markFileProcessed } from "./recaudo-engine";
 
 // ===== SESSION TOKEN (HMAC-signed) =====
@@ -1203,6 +1204,45 @@ Responde SOLO con JSON válido:
     } catch (err: any) {
       console.error("[Pago API] Error:", err);
       return res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ===== CONEKTA WEBHOOK (COB-02) =====
+
+  // POST /api/conekta/webhook — Receives payment confirmations from Conekta
+  app.post("/api/conekta/webhook", async (req, res) => {
+    try {
+      const event = parseConektaWebhook(req.body);
+      if (!event) {
+        console.log("[Conekta Webhook] Unrecognized event");
+        return res.json({ received: true });
+      }
+
+      console.log(`[Conekta Webhook] ${event.type} | folio=${event.folio} mes=${event.mes} | $${event.monto} via ${event.metodoPago}`);
+
+      if (event.type === "order.paid" && event.folio && event.mes > 0) {
+        // Register the payment
+        const result = await registrarPago(event.folio, event.mes, event.monto, event.metodoPago);
+        console.log(`[Conekta Webhook] Payment registered: ${result.message}`);
+
+        // TODO: Send WhatsApp confirmation to taxista
+        // TODO: Notify Josué if was in mora
+      }
+
+      return res.json({ received: true, processed: event.type });
+    } catch (err: any) {
+      console.error("[Conekta Webhook] Error:", err.message);
+      return res.json({ received: true, error: err.message }); // Always return 200 to Conekta
+    }
+  });
+
+  // POST /api/conekta/crear-liga — Create a payment link (internal use)
+  app.post("/api/conekta/crear-liga", async (req, res) => {
+    try {
+      const result = await crearLigaPago(req.body);
+      return res.json(result);
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err.message });
     }
   });
 
