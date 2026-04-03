@@ -17,6 +17,7 @@
  */
 
 import { crearLigaPago, cancelarLiga, isConektaEnabled } from "./conekta-client";
+import { sendTemplate, sendFreeform, TEMPLATES } from "./whatsapp-templates";
 
 const AIRTABLE_PAT = () => process.env.AIRTABLE_PAT || "";
 const AIRTABLE_BASE = "appXxbjjGzXFiX7gk";
@@ -245,21 +246,18 @@ export async function ejecutarCierreMensual(): Promise<CierreResult> {
     // 9. Do NOT advance Mes Actual here — it advances when payment is confirmed
     // This prevents double-execution from creating cierres for future months
 
-    // 10. Send WhatsApp to taxista
+    // 10. Send WhatsApp to taxista via template
     if (telefono && totalLink > 0) {
-      const msg = [
-        `*Cierre mes ${mesCredito}* — ${taxista}`,
-        ``,
-        `Tu recaudo GNV cubrio $${recaudo.toLocaleString()} de tu cuota de $${cuota.toLocaleString()}.`,
-        `Diferencial: $${diferencial.toLocaleString()}`,
-        cobroFG > 0 ? `Fondo de Garantia: $${cobroFG}` : "",
-        `*Total: $${totalLink.toLocaleString()}*`,
-        ``,
-        linkUrl ? `Paga aqui: ${linkUrl}` : `CLABE Bancrea: 152680120000787681 (Ref: ${folio})`,
-        `Fecha limite: dia 5 del mes.`,
-        linkUrl ? `Metodos: tarjeta, OXXO, SPEI, tiendas.` : "",
-      ].filter(Boolean).join("\n");
-      await sendWA(telefono, msg);
+      await sendTemplate(telefono, "cierre_mensual", {
+        "1": String(mesCredito),
+        "2": taxista,
+        "3": recaudo.toLocaleString(),
+        "4": cuota.toLocaleString(),
+        "5": diferencial.toLocaleString(),
+        "6": String(cobroFG),
+        "7": totalLink.toLocaleString(),
+        "8": linkUrl || `CLABE: 152680120000787681 (Ref: ${folio})`,
+      }, `Cierre mes ${mesCredito}: cuota $${cuota.toLocaleString()}, GNV $${recaudo.toLocaleString()}, diferencial $${diferencial.toLocaleString()}. Total: $${totalLink.toLocaleString()}. ${linkUrl || 'CLABE: 152680120000787681'}`);
     }
 
     result.creditosProcesados++;
@@ -272,9 +270,17 @@ export async function ejecutarCierreMensual(): Promise<CierreResult> {
     console.log(`[Cierre] ${folio} mes ${mesCredito}: cuota $${cuota}, recaudo $${recaudo}, dif $${diferencial}, link $${totalLink} ${linkUrl ? '(Conekta)' : '(CLABE)'}`);
   }
 
-  // Notify director
+  // Notify director via template
   if (result.creditosProcesados > 0) {
-    await sendWA(JOSUE_PHONE, formatCierreResumenDirector(result));
+    const resumen = formatCierreResumenDirector(result);
+    await sendTemplate(JOSUE_PHONE, "cierre_resumen_director", {
+      "1": String(result.creditosProcesados),
+      "2": result.detalle.map(d => `${d.taxista}: cuota $${d.cuota.toLocaleString()}, dif $${d.diferencial.toLocaleString()}`).join(" | "),
+      "3": result.detalle.reduce((s, d) => s + d.cuota, 0).toLocaleString(),
+      "4": result.detalle.reduce((s, d) => s + d.recaudo, 0).toLocaleString(),
+      "5": result.detalle.reduce((s, d) => s + d.diferencial, 0).toLocaleString(),
+      "6": result.detalle.reduce((s, d) => s + d.totalLink, 0).toLocaleString(),
+    }, resumen);
   }
 
   return result;
@@ -294,7 +300,10 @@ export async function recordatorioDia3(): Promise<string[]> {
     const telefono = creditos[0]?.Telefono || "";
     const linkUrl = c["Link Conekta"] || "";
     if (telefono) {
-      await sendWA(telefono, `Recordatorio: tu diferencial de $${(c["Total Link"] || 0).toLocaleString()} vence el dia 5.\n${linkUrl ? `Paga aqui: ${linkUrl}` : `CLABE: 152680120000787681 (Ref: ${folio})`}`);
+      await sendTemplate(telefono, "recordatorio_pago_dia3", {
+        "1": (c["Total Link"] || 0).toLocaleString(),
+        "2": linkUrl || `CLABE: 152680120000787681 (Ref: ${folio})`,
+      });
       msgs.push(`${folio}: recordatorio enviado`);
     }
   }
@@ -315,7 +324,10 @@ export async function recordatorioDia5(): Promise<string[]> {
     const telefono = creditos[0]?.Telefono || "";
     const linkUrl = c["Link Conekta"] || "";
     if (telefono) {
-      await sendWA(telefono, `Manana se aplica tu Fondo de Garantia por $${(c.Diferencial || 0).toLocaleString()}.\nAun puedes pagar: ${linkUrl || `CLABE: 152680120000787681 (Ref: ${folio})`}`);
+      await sendTemplate(telefono, "aviso_fg_dia5", {
+        "1": (c.Diferencial || 0).toLocaleString(),
+        "2": linkUrl || `CLABE: 152680120000787681 (Ref: ${folio})`,
+      });
       msgs.push(`${folio}: aviso FG enviado`);
     }
   }
@@ -383,8 +395,11 @@ export async function aplicarFGDia6(): Promise<FGResult> {
         "Dias Atraso": 0,
       });
       // WhatsApp: FG covered everything
-      if (telefono) await sendWA(telefono, `Se aplico tu Fondo de Garantia por $${diferencial.toLocaleString()}.\nSaldo FG: $${nuevoFG.toLocaleString()} de $${FG_TECHO.toLocaleString()}.\nNo caes en mora.`);
-      await sendWA(JOSUE_PHONE, `[FG] ${taxista} (${folio}): FG cubrio $${diferencial.toLocaleString()}. Saldo FG: $${nuevoFG.toLocaleString()}`);
+      if (telefono) await sendTemplate(telefono, "fg_aplicado", {
+        "1": diferencial.toLocaleString(),
+        "2": nuevoFG.toLocaleString(),
+      });
+      await sendFreeform(JOSUE_PHONE, `[FG] ${taxista} (${folio}): FG cubrio $${diferencial.toLocaleString()}. Saldo FG: $${nuevoFG.toLocaleString()}`);
       result.fgAplicados++;
       result.detalle.push({ folio, taxista, telefono, diferencial, fgDisponible: saldoFG, fgAplicado: diferencial, deudaRestante: 0, accion: `FG cubrió $${diferencial}. Saldo FG: $${nuevoFG}` });
     } else {
@@ -411,8 +426,12 @@ export async function aplicarFGDia6(): Promise<FGResult> {
       const msgMora = fgAplicado > 0
         ? `Tu FG cubrio $${fgAplicado.toLocaleString()} pero faltaron $${deudaRestante.toLocaleString()}.\n${moraLinkUrl ? `Paga aqui: ${moraLinkUrl}` : `CLABE: 152680120000787681 (Ref: ${folio})`}\nTienes hasta el dia 8.`
         : `Tu FG esta agotado. Deuda pendiente: $${deudaRestante.toLocaleString()}.\n${moraLinkUrl ? `Paga aqui: ${moraLinkUrl}` : `CLABE: 152680120000787681 (Ref: ${folio})`}\nTienes hasta el dia 8.`;
-      if (telefono) await sendWA(telefono, msgMora);
-      await sendWA(JOSUE_PHONE, `[MORA] ${taxista} (${folio}): FG $${fgAplicado.toLocaleString()}, deuda $${deudaRestante.toLocaleString()}`);
+      if (telefono) await sendTemplate(telefono, "mora_activa", {
+        "1": "1",
+        "2": deudaRestante.toLocaleString(),
+        "3": moraLinkUrl || `CLABE: 152680120000787681 (Ref: ${folio})`,
+      }, msgMora);
+      await sendFreeform(JOSUE_PHONE, `[MORA] ${taxista} (${folio}): FG $${fgAplicado.toLocaleString()}, deuda $${deudaRestante.toLocaleString()}`);
       result.moraActivada++;
       result.detalle.push({ folio, taxista, telefono, diferencial, fgDisponible: saldoFG, fgAplicado, deudaRestante, accion: `FG cubrió $${fgAplicado}. MORA: $${deudaRestante} pendiente` });
     }
@@ -481,19 +500,39 @@ export async function revisarMoraDiaria(): Promise<MoraCheckResult> {
         const liga = await crearLigaPago({ folio, mes: cierre.Mes || 0, taxista, telefono, diferencial: deudaTotal, cobroFG: 0, vigenciaDias: 7 });
         if (liga.success && liga.url) liga3Url = liga.url;
       }
-      if (telefono) await sendWA(telefono, `Recargo por atraso: $${MORA_FEE} + 2% = $${recargos.toLocaleString()}.\nTotal: $${deudaTotal.toLocaleString()}.\n${liga3Url ? `Paga aqui: ${liga3Url}` : `CLABE: 152680120000787681 (Ref: ${folio})`}`);
+      if (telefono) await sendTemplate(telefono, "recargo_mora", {
+        "1": recargos.toLocaleString(),
+        "2": deudaTotal.toLocaleString(),
+        "3": liga3Url || `CLABE: 152680120000787681 (Ref: ${folio})`,
+      });
       accion = `Recargo $${recargos}. Liga 3: $${deudaTotal}`;
     } else if (diasAtraso === 5) {
       // Day 10: last warning
-      if (telefono) await sendWA(telefono, `Ultimo aviso. Si no pagas manana, se notifica a direccion.\nDeuda: $${deudaTotal.toLocaleString()}.`);
+      if (telefono) await sendTemplate(telefono, "ultimo_aviso", {
+        "1": deudaTotal.toLocaleString(),
+      }, `Ultimo aviso. Deuda: $${deudaTotal.toLocaleString()}.`);
       accion = "Último aviso antes de dirección";
     } else if (diasAtraso === 10) {
       // Day 15: escalate to Josué
-      await sendWA(JOSUE_PHONE, `*MORA 15 DIAS*\n${taxista} (${folio})\nDeuda: $${deudaTotal.toLocaleString()} (dif $${deudaBase.toLocaleString()} + recargos $${recargos.toLocaleString()})`);
-      if (telefono) await sendWA(telefono, `Tu cuenta tiene 15 dias de atraso. Direccion ha sido notificada.\nDeuda total: $${deudaTotal.toLocaleString()}.`);
+      await sendTemplate(JOSUE_PHONE, "mora_15_dias", {
+        "1": "15",
+        "2": taxista,
+        "3": folio,
+        "4": deudaTotal.toLocaleString(),
+      }, `MORA 15 DIAS: ${taxista} (${folio}) deuda $${deudaTotal.toLocaleString()}`);
+      if (telefono) await sendTemplate(telefono, "mora_activa", {
+        "1": "15",
+        "2": deudaTotal.toLocaleString(),
+        "3": "",
+      }, `Tu cuenta tiene 15 dias de atraso. Deuda: $${deudaTotal.toLocaleString()}.`);
       accion = "ESCALADO A JOSUÉ — 15 días";
     } else if (diasAtraso >= 25) {
-      await sendWA(JOSUE_PHONE, `*MORA 30+ DIAS — PROCESO RECUPERACION*\n${taxista} (${folio})\nDeuda: $${deudaTotal.toLocaleString()}`);
+      await sendTemplate(JOSUE_PHONE, "mora_30_dias", {
+        "1": String(diasAtraso),
+        "2": taxista,
+        "3": folio,
+        "4": deudaTotal.toLocaleString(),
+      }, `MORA 30+ DIAS: ${taxista} (${folio}) deuda $${deudaTotal.toLocaleString()}`);
       accion = "PROCESO DE RECUPERACIÓN — 30+ días";
     }
 
