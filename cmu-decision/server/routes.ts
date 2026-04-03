@@ -14,6 +14,7 @@ import { ejecutarCierreMensual, recordatorioDia3, recordatorioDia5, aplicarFGDia
 import { crearLigaPago, cancelarLiga, parseConektaWebhook, isConektaEnabled } from "./conekta-client";
 import { cierreMensual, processNatgasCsv, processNatgasMultiProduct, parseNatgasExcel, parseNatgasCsv as parseNatgasCsvRows, formatRecaudoSummary, formatCierreReport, isDuplicateFile, markFileProcessed } from "./recaudo-engine";
 import evaluacionRoutes from "./evaluacion-routes";
+import { logAudit, initAuditTable, getAuditLog } from "./audit-trail";
 
 // ===== SESSION TOKEN (HMAC-signed) =====
 const SESSION_SECRET = process.env.SESSION_SECRET || "cmu-internal-2026";
@@ -376,11 +377,13 @@ export async function registerRoutes(
       const promoter = await storage.getPromoterByPin(pin);
       if (!promoter) {
         recordFailedAttempt(ip);
+        logAudit({ action: "LOGIN_FAILED", actor: "unknown", role: "unknown", ip, details: `PIN: ${pin.substring(0,2)}****` });
         const attEntry = loginAttempts.get(ip);
         const attLeft = MAX_ATTEMPTS - (attEntry?.count || 0);
         return res.status(401).json({ success: false, message: attLeft > 0 ? `PIN incorrecto. ${attLeft} intento(s) restante(s).` : `PIN incorrecto. Espera 30 segundos.` });
       }
       clearAttempts(ip);
+      logAudit({ action: "LOGIN", actor: promoter.name, role: (promoter as any).role || "promotora", ip });
       const token = createSessionToken(promoter.id, promoter.name);
       return res.json({
         success: true,
@@ -1189,6 +1192,7 @@ Responde SOLO con JSON válido:
       console.log(`[PATCH /api/vehicles/${id}] precio_aseg=${normalized.precio_aseguradora}, rep_real=${normalized.reparacion_real}, gnv_mod=${normalized.gnv_modalidad}, cmu=${normalized.cmu_valor}`);
       const updated = await storage.updateVehicle(id, normalized);
       if (!updated) return res.status(404).json({ message: "Vehículo no encontrado" });
+      logAudit({ action: "VEHICLE_UPDATED", actor: "director", role: "director", target_type: "vehicle", target_id: String(id), details: JSON.stringify({ cmu: normalized.cmu_valor, status: normalized.status }) });
       return res.json(updated);
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
@@ -1425,6 +1429,7 @@ Responde SOLO con JSON válido:
       // Update taxista with folio
       await storage.updateTaxista(finalTaxistaId, { folio });
 
+      logAudit({ action: "FOLIO_CREATED", actor: "promotora", role: "promotora", target_type: "folio", target_id: folio, details: `Tipo: ${tipo}, Perfil: ${perfilTipo}` });
       return res.json({ ...origination, taxistaId: finalTaxistaId });
     } catch (err: any) {
       console.error("Create origination error:", err);
@@ -1438,6 +1443,7 @@ Responde SOLO con JSON válido:
       const updates = req.body;
       const updated = await storage.updateOrigination(id, updates);
       if (!updated) return res.status(404).json({ message: "Folio no encontrado" });
+      if (updates.currentStep) logAudit({ action: "FOLIO_STEP_ADVANCED", actor: "system", role: "system", target_type: "folio", target_id: String(id), details: `Step: ${updates.currentStep}` });
       // When a vehicle is assigned to this origination, update vehicle status
       if (updates.vehicleInventoryId) {
         try {
@@ -2661,6 +2667,25 @@ Responde SOLO con JSON válido:
 
   // ===== EVALUACIÓN RÁPIDA TAXI =====
   app.use("/api/evaluacion", evaluacionRoutes);
+
+  // ===== AUDIT TRAIL =====
+  initAuditTable().catch((e) => console.error("[Audit] Init failed:", e.message));
+
+  app.get("/api/audit", async (req, res) => {
+    try {
+      const { action, actor, target_type, target_id, limit } = req.query;
+      const logs = await getAuditLog({
+        action: action as string,
+        actor: actor as string,
+        target_type: target_type as string,
+        target_id: target_id as string,
+        limit: limit ? parseInt(limit as string) : 100,
+      });
+      res.json({ success: true, logs });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
 
   return httpServer;
 }
