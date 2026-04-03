@@ -83,7 +83,11 @@ export async function apiLogin(pin: string): Promise<{ id: number; name: string;
         method: "POST",
         body: JSON.stringify({ pin }),
       });
-      if (!res.ok) return null;
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        if (errData.message) throw new Error(errData.message);
+        return null;
+      }
       const data = await res.json();
       authToken = data.token;
       currentPromoter = data.promoter;
