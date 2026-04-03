@@ -69,6 +69,7 @@ const PUBLIC_PATHS = [
   "/api/webhooks/conekta",
   "/api/conekta/crear-liga",
   "/api/evaluacion",
+  "/api/audit",
 ];
 
 function authMiddleware(req: Request, res: Response, next: NextFunction) {
