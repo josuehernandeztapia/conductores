@@ -66,7 +66,7 @@ async function tryApi<T>(apiCall: () => Promise<T>, fallback: () => T): Promise<
       backendAvailable = true;
       // Rate limiting or auth errors: re-throw so caller sees the message
       if (msg.includes("intento") || msg.includes("Espera") || msg.includes("Demasiados")) {
-        throw err;
+        throw new Error(msg);
       }
     }
     return fallback();
