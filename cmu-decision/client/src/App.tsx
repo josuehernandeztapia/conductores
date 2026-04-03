@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Switch, Route, Router, Redirect } from "wouter";
 import { useHashLocation } from "wouter/use-hash-location";
 import { Toaster } from "@/components/ui/toaster";
@@ -172,6 +172,33 @@ function PromotoraApp({ promoter, onLogout }: {
   );
 }
 
+// ===== Idle timeout hook =====
+const IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+
+function useIdleTimeout(onTimeout: () => void, enabled: boolean) {
+  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  
+  const resetTimer = useCallback(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(onTimeout, IDLE_TIMEOUT_MS);
+  }, [onTimeout]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    
+    const events = ["mousedown", "keydown", "touchstart", "scroll", "mousemove"];
+    const handler = () => resetTimer();
+    
+    events.forEach((e) => window.addEventListener(e, handler, { passive: true }));
+    resetTimer(); // Start the timer
+    
+    return () => {
+      events.forEach((e) => window.removeEventListener(e, handler));
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [enabled, resetTimer]);
+}
+
 function App() {
   const [promoter, setPromoter] = useState<{ id: number; name: string; role: string } | null>(null);
 
@@ -179,9 +206,12 @@ function App() {
     setPromoter(p);
   };
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     setPromoter(null);
-  };
+  }, []);
+
+  // Auto-logout after 30 min of inactivity
+  useIdleTimeout(handleLogout, !!promoter);
 
   return (
     <ErrorBoundary>
