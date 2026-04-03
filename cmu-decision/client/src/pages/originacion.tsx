@@ -401,9 +401,12 @@ export default function OriginacionPage() {
           {filtered.map((orig) => {
             const estadoCfg = ESTADO_CONFIG[orig.estado] || ESTADO_CONFIG.BORRADOR;
             const stepInfo = ORIGINATION_STEPS.find((s) => s.step === orig.currentStep);
-            const progress = ((orig.currentStep - 1) / 6) * 100;
+            const progress = ((orig.currentStep - 1) / 7) * 100;
             const operadorName = getOperadorName(orig);
             const isSigned = orig.estado === "FIRMADO" || orig.estado === "APROBADO";
+            const lastUpdate = new Date(orig.updatedAt || orig.createdAt).getTime();
+            const daysSinceUpdate = Math.floor((Date.now() - lastUpdate) / (1000 * 60 * 60 * 24));
+            const isStale = !isSigned && daysSinceUpdate >= 3;
 
             return (
               <Card
@@ -423,7 +426,7 @@ export default function OriginacionPage() {
                       {isSigned ? (
                         <CheckCircle2 className="w-5 h-5" />
                       ) : (
-                        <span className="text-[9px]">P{orig.currentStep}/7</span>
+                        <span className="text-[9px]">P{orig.currentStep}/8</span>
                       )}
                     </div>
 
@@ -454,6 +457,11 @@ export default function OriginacionPage() {
                         <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5">
                           {orig.tipo === "validacion" ? "Val" : "CPV"}
                         </Badge>
+                        {isStale && (
+                          <Badge variant="destructive" className="text-[9px] px-1 py-0 h-3.5 animate-pulse">
+                            {daysSinceUpdate}d sin avance
+                          </Badge>
+                        )}
                       </div>
 
                       {/* Progress bar */}
