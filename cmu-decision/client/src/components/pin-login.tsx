@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiLogin, initStore } from "@/lib/api";
 
 type PinLoginProps = {
-  onLogin: (promoter: { id: number; name: string }) => void;
+  onLogin: (promoter: { id: number; name: string; role: string }) => void;
 };
 
 export function PinLogin({ onLogin }: PinLoginProps) {
@@ -71,7 +71,7 @@ export function PinLogin({ onLogin }: PinLoginProps) {
       const promoter = await apiLogin(pinStr);
 
       if (promoter) {
-        onLogin({ id: promoter.id, name: promoter.name });
+        onLogin({ id: promoter.id, name: promoter.name, role: promoter.role || "promotora" });
       } else {
         toast({ title: "PIN incorrecto", description: "Verifica tu PIN e intenta de nuevo", variant: "destructive" });
         setPin(["", "", "", "", "", ""]);
@@ -144,7 +144,7 @@ export function PinLogin({ onLogin }: PinLoginProps) {
             </Button>
 
             <p className="text-[10px] text-muted-foreground text-center">
-              Acceso exclusivo para promotoras CMU
+              Acceso con PIN de 6 dígitos
             </p>
           </CardContent>
         </Card>
