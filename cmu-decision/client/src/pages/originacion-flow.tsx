@@ -2901,6 +2901,10 @@ export default function OriginacionFlowPage() {
         </Link>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
+            <Link href="/originacion" className="text-[10px] text-muted-foreground hover:text-foreground transition-colors">
+              Originación
+            </Link>
+            <span className="text-[10px] text-muted-foreground">›</span>
             <span className="text-xs font-mono font-bold">{origination.folio}</span>
             <Badge variant="outline" className="text-[9px] sm:text-[10px]">
               {origination.tipo === "validacion" ? "Val" : "CPV"}
