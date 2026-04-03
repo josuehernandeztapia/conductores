@@ -359,7 +359,7 @@ export default function PanelPage() {
           </div>
           <div>
             <h1 className="text-base font-semibold" data-testid="text-panel-title">Panel CMU</h1>
-            <p className="text-xs text-muted-foreground">Dashboard administrativo — Ángeles Mireles</p>
+            <p className="text-xs text-muted-foreground">Dashboard administrativo — Conductores del Mundo</p>
           </div>
         </div>
         <div className="flex gap-2">
