@@ -110,13 +110,24 @@ function seedAll() {
     });
   }
 
-  // Seed promoter
-  const pId = promoterSeq++;
-  promoters.set(pId, {
-    id: pId,
+  // Seed promoters
+  const pId1 = promoterSeq++;
+  promoters.set(pId1, {
+    id: pId1,
     name: "Ángeles Mireles",
     pin: "123456",
     phone: "+524491234567",
+    role: "promotora",
+    active: 1,
+    createdAt: seedDate,
+  });
+  const pId2 = promoterSeq++;
+  promoters.set(pId2, {
+    id: pId2,
+    name: "Josué Hernández",
+    pin: "654321",
+    phone: "+5214422022540",
+    role: "director",
     active: 1,
     createdAt: seedDate,
   });
