@@ -182,6 +182,20 @@ router.post("/completa", async (req: Request, res: Response) => {
   }
 });
 
+// ===== GET /api/evaluacion/lista =====
+router.get("/lista", async (_req: Request, res: Response) => {
+  try {
+    const { neon: neonFn } = await import("@neondatabase/serverless");
+    const sql = neonFn(process.env.DATABASE_URL!);
+    const rows = await sql`
+      SELECT * FROM evaluaciones_taxi ORDER BY created_at DESC LIMIT 100
+    `;
+    res.json({ success: true, evaluaciones: rows });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ===== GET /api/evaluacion/:folioId =====
 router.get("/:folioId", async (req: Request, res: Response) => {
   try {
