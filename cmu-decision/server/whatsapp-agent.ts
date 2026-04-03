@@ -2348,31 +2348,92 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
     // ===== PROSPECT: Registration intent =====
     if (body && role === "prospecto") {
       const lower = body.toLowerCase();
-      const wantsToRegister = lower.includes("quiero registrarme") || lower.includes("cómo me registro")
+      const prospectState = await this.getConvState(phone);
+      
+      // Step 4: OTP verification
+      if (prospectState.state === "awaiting_otp") {
+        const code = body.trim().replace(/\s/g, "");
+        if (/^\d{4,6}$/.test(code)) {
+          const { checkOTP } = await import("./twilio-verify");
+          const result = await checkOTP(prospectState.context.verifyPhone || phone, code);
+          if (result.valid) {
+            // OTP verified — create folio
+            const nombre = prospectState.context.nombre || "Prospecto";
+            const tel = prospectState.context.verifyPhone || phone;
+            const folioResult = await createFolioFromWhatsApp(this.storage, phone, nombre, tel);
+            await this.updateState(phone, { state: "idle", context: {} });
+            
+            // Notify Ángeles + Josué
+            const notifyMsg = `*Nuevo registro verificado*\n\nNombre: ${nombre}\nTel: ${tel}\nFolio: ${folioResult.folio || "?"}\nVerificado por OTP`;
+            fetch("http://localhost:5000/api/whatsapp/send-outbound", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ to: "whatsapp:+5214493845228", body: notifyMsg }),
+            }).catch(() => {});
+            fetch("http://localhost:5000/api/whatsapp/send-outbound", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ to: "whatsapp:+5214422022540", body: notifyMsg }),
+            }).catch(() => {});
+            
+            return await respond(`Numero verificado.\n\nTu folio es *${folioResult.folio}*.\nTu asesora *Angeles* te contactara para continuar con tu expediente.\n\nDocumentos que necesitaras:\n- INE (frente y reverso)\n- Tarjeta de circulacion\n- Concesion vigente\n- Comprobante de domicilio\n- Tickets de carga GNV`);
+          } else {
+            return await respond("Codigo incorrecto. Intenta de nuevo o escribe *reenviar* para recibir otro codigo.");
+          }
+        } else if (lower === "reenviar" || lower === "reenviar codigo") {
+          const { sendOTP } = await import("./twilio-verify");
+          await sendOTP(prospectState.context.verifyPhone || phone);
+          return await respond("Reenviado. Revisa tu WhatsApp y escribeme el codigo de 6 digitos.");
+        } else {
+          return await respond("Escribeme el codigo de 6 digitos que recibiste por WhatsApp.");
+        }
+      }
+      
+      // Step 3: Capture phone number and send OTP
+      if (prospectState.state === "awaiting_phone") {
+        const phoneDigits = body.replace(/\D/g, "");
+        if (phoneDigits.length >= 10) {
+          const { sendOTP, isVerifyEnabled } = await import("./twilio-verify");
+          if (isVerifyEnabled()) {
+            const otpResult = await sendOTP(phoneDigits);
+            if (otpResult.success) {
+              await this.updateState(phone, {
+                state: "awaiting_otp",
+                context: { ...prospectState.context, verifyPhone: phoneDigits },
+              });
+              return await respond(`Te enviamos un codigo de verificacion por ${otpResult.channel === "whatsapp" ? "WhatsApp" : "SMS"} al ${phoneDigits}.\n\nEscribeme el codigo de 6 digitos:`);
+            }
+          }
+          // Fallback if Verify not available: skip OTP, create folio directly
+          const nombre = prospectState.context.nombre || "Prospecto";
+          const folioResult = await createFolioFromWhatsApp(this.storage, phone, nombre, phoneDigits);
+          await this.updateState(phone, { state: "idle", context: {} });
+          return await respond(`Registrado.\n\nTu folio es *${folioResult.folio}*.\nTu asesora *Angeles* te contactara pronto.`);
+        } else {
+          return await respond("Necesito tu numero de celular a 10 digitos. Ejemplo: 4491234567");
+        }
+      }
+      
+      // Step 2: Capture name
+      if (prospectState.state === "awaiting_name") {
+        const nombre = body.trim();
+        if (nombre.length >= 3 && nombre.split(/\s+/).length >= 2) {
+          await this.updateState(phone, {
+            state: "awaiting_phone",
+            context: { nombre },
+          });
+          return await respond(`Gracias, ${nombre.split(" ")[0]}.\n\nAhora dame tu numero de celular (10 digitos):`);
+        } else {
+          return await respond("Necesito tu nombre completo (nombre y apellido). Ejemplo: Juan Perez Lopez");
+        }
+      }
+      
+      // Step 1: Detect registration intent
+      const wantsToRegister = lower.includes("quiero registrarme") || lower.includes("c\u00f3mo me registro")
         || lower.includes("como me registro") || lower.includes("quiero aplicar")
-        || lower.includes("me interesa registrarme") || lower.includes("quiero entrar al programa");
+        || lower.includes("me interesa registrarme") || lower.includes("quiero entrar al programa")
+        || lower.includes("registrarme") || lower.includes("inscribirme");
       if (wantsToRegister) {
-        // QW-3: Send real WhatsApp notification to Ángeles + Josué
-        const notifyMsg = `🔔 *Nuevo prospecto interesado*\n\nNombre: ${roleName || profileName || "?"}\nTel: ${phone}\n\nDijo: "${body.substring(0, 100)}"`;
-        const ANGELES_WA = "whatsapp:+5214493845228";
-        const JOSUE_WA = "whatsapp:+5214422022540";
-        try {
-          // Fire and forget — don't block the response to the prospect
-          fetch("http://localhost:5000/api/whatsapp/send-outbound", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ to: ANGELES_WA, body: notifyMsg }),
-            signal: AbortSignal.timeout(5000),
-          }).catch(e => console.error("[Agent] Failed to notify Ángeles:", e.message));
-          fetch("http://localhost:5000/api/whatsapp/send-outbound", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ to: JOSUE_WA, body: notifyMsg }),
-            signal: AbortSignal.timeout(5000),
-          }).catch(e => console.error("[Agent] Failed to notify Josué:", e.message));
-          console.log(`[Agent] Prospect ${phone} wants to register. Notified Ángeles + Josué.`);
-        } catch (e: any) { console.error("[Agent] Notification error:", e.message); }
-        return await respond(`¡Excelente! 🎉 Tu asesora *Ángeles* te contactará pronto para iniciar tu proceso.\n\nMientras, ¿tienes alguna pregunta sobre el programa?`);
+        await this.updateState(phone, { state: "awaiting_name", context: {} });
+        return await respond("Para registrarte necesito algunos datos.\n\nPrimero, dime tu *nombre completo*:");
       }
     }
 
