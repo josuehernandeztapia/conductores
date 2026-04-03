@@ -32,6 +32,7 @@ import {
   ArrowUp,
   ChevronDown,
   ChevronUp,
+  Search,
 } from "lucide-react";
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -619,6 +620,7 @@ export default function InventarioPage() {
   const [vehicles, setVehicles] = useState<VehicleInventory[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     apiListVehicles().then(setVehicles).catch(console.error);
@@ -628,7 +630,20 @@ export default function InventarioPage() {
     return unsubscribe;
   }, [refreshKey]);
 
-  const filtered = vehicles?.filter((v) => statusFilter === "todos" || v.status === statusFilter) || [];
+  const filtered = (vehicles || []).filter((v) => {
+    if (statusFilter !== "todos" && v.status !== statusFilter) return false;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const text = `${v.marca} ${v.modelo} ${v.variante || ""} ${v.anio} ${v.placas || ""} ${v.niv || ""}`.toLowerCase();
+      const price = v.cmuValor || 0;
+      const margin = (v as any).margenEstimado || 0;
+      if (text.includes(q)) return true;
+      if (q.startsWith(">") && price > parseInt(q.slice(1))) return true;
+      if (q.startsWith("<") && price < parseInt(q.slice(1))) return true;
+      return false;
+    }
+    return true;
+  });
 
   const statusCounts = vehicles?.reduce<Record<string, number>>((acc, v) => {
     acc[v.status] = (acc[v.status] || 0) + 1;
@@ -660,6 +675,18 @@ export default function InventarioPage() {
           <Plus className="w-3.5 h-3.5" />
           Agregar
         </Button>
+      </div>
+
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+        <Input
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Buscar por marca, modelo, placas, año..."
+          className="pl-8 h-8 text-xs"
+          data-testid="input-search-inventory"
+        />
       </div>
 
       {/* Status counters */}
