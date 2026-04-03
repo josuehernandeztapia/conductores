@@ -403,11 +403,12 @@ export type OriginationEstado =
 export const ORIGINATION_STEPS = [
   { step: 1, name: "Crear Folio", description: "Tipo de trámite y perfil" },
   { step: 2, name: "Documentos", description: "Captura de documentos requeridos + selfie biométrico" },
-  { step: 3, name: "Verificación Tel.", description: "OTP de verificación de teléfono" },
-  { step: 4, name: "Revisión Docs", description: "Resumen de documentos capturados" },
-  { step: 5, name: "Vehículo", description: "Fotos del vehículo + selfie con INE" },
-  { step: 6, name: "Contrato", description: "Generación de contrato PDF" },
-  { step: 7, name: "Firma", description: "Firma electrónica (Mifiel)" },
+  { step: 3, name: "Entrevista", description: "Evaluación rápida — 8 preguntas por voz" },
+  { step: 4, name: "Verificación Tel.", description: "OTP de verificación de teléfono" },
+  { step: 5, name: "Revisión Docs", description: "Resumen de documentos capturados" },
+  { step: 6, name: "Vehículo", description: "Fotos del vehículo + selfie con INE" },
+  { step: 7, name: "Contrato", description: "Generación de contrato PDF" },
+  { step: 8, name: "Firma", description: "Firma electrónica (Mifiel)" },
 ] as const;
 
 export const DOCUMENT_TYPES = {
