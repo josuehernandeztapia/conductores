@@ -69,6 +69,7 @@ export const promoters = pgTable("promoters", {
   name: text("name").notNull(),
   pin: text("pin").notNull(), // 6-digit PIN
   phone: text("phone"),
+  role: text("role").notNull().default("promotora"), // "promotora" | "director"
   active: integer("active").notNull().default(1), // 1=true, 0=false (SQLite compat)
   createdAt: text("created_at").notNull(),
 });
