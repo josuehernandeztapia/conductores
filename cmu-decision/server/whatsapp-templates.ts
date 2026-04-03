@@ -26,10 +26,10 @@ export const TEMPLATES = {
   mora_30_dias: "HX102c66bf85600796846ed36782e4ac54",
   // Operaciones
   natgas_recaudo_reminder: "HX30f7eca14d0980a1600676ea9b4df267",
-  recaudo_procesado: "HX6aa2fadf0cfb6d9e2ef7ae07630f7a1b",
+  recaudo_procesado: "HX1205b2bbdc23a958f63eae9324c744a7",
   // Director
   reporte_semanal: "HX76daa53bdc44699b7a3dd4dbc520e6e3",
-  cierre_resumen_director: "HX5e192285fa901e5b352ec64a2830717c",
+  cierre_resumen_director: "HX852a058d0ef4dfdd33f07b3b664d22d3",
 } as const;
 
 // WhatsApp sender number (the one that's ONLINE in Twilio)
