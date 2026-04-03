@@ -12,6 +12,7 @@
  */
 
 import { Router, Request, Response } from "express";
+import { logAudit } from "./audit-trail";
 const multer = require("multer");
 import {
   PREGUNTAS_TAXI,
@@ -226,6 +227,7 @@ router.patch("/:folioId/override", async (req: Request, res: Response) => {
       WHERE folio_id = ${req.params.folioId as string}
     `;
     
+    logAudit({ action: decision === "GO" ? "EVAL_APPROVED" : "EVAL_REJECTED", actor: "director", role: "director", target_type: "evaluacion", target_id: req.params.folioId as string, details: motivo || "" });
     res.json({ success: true, folio_id: req.params.folioId as string, override: decision, motivo });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
