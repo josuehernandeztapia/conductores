@@ -14,6 +14,7 @@ import InventarioPage from "./pages/inventario";
 import OriginacionPage from "./pages/originacion";
 import OriginacionFlowPage from "./pages/originacion-flow";
 import PanelPage from "./pages/panel";
+import EvaluacionesPage from "./pages/evaluaciones";
 import NotFound from "./pages/not-found";
 
 function AppRouter() {
@@ -28,6 +29,7 @@ function AppRouter() {
       <Route path="/originacion/:id" component={OriginacionFlowPage} />
       <Route path="/inventario" component={InventarioPage} />
       <Route path="/panel" component={PanelPage} />
+      <Route path="/evaluaciones" component={EvaluacionesPage} />
       <Route component={NotFound} />
     </Switch>
   );
