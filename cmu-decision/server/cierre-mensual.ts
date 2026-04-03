@@ -275,11 +275,9 @@ export async function ejecutarCierreMensual(): Promise<CierreResult> {
     const resumen = formatCierreResumenDirector(result);
     await sendTemplate(JOSUE_PHONE, "cierre_resumen_director", {
       "1": String(result.creditosProcesados),
-      "2": result.detalle.map(d => `${d.taxista}: cuota $${d.cuota.toLocaleString()}, dif $${d.diferencial.toLocaleString()}`).join(" | "),
+      "2": result.detalle.map(d => `${d.taxista} (${d.folio}) mes ${d.mes}: Cuota $${d.cuota.toLocaleString()} | GNV $${d.recaudo.toLocaleString()}`).join("\n"),
       "3": result.detalle.reduce((s, d) => s + d.cuota, 0).toLocaleString(),
       "4": result.detalle.reduce((s, d) => s + d.recaudo, 0).toLocaleString(),
-      "5": result.detalle.reduce((s, d) => s + d.diferencial, 0).toLocaleString(),
-      "6": result.detalle.reduce((s, d) => s + d.totalLink, 0).toLocaleString(),
     }, resumen);
   }
 
