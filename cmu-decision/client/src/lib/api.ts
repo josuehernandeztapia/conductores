@@ -73,7 +73,7 @@ async function tryApi<T>(apiCall: () => Promise<T>, fallback: () => T): Promise<
 // AUTH
 // ============================================================
 
-export async function apiLogin(pin: string): Promise<{ id: number; name: string } | null> {
+export async function apiLogin(pin: string): Promise<{ id: number; name: string; role: string } | null> {
   // Reset backend state on login so we always try the real API first
   backendAvailable = null;
   lastBackendCheck = 0;
@@ -90,13 +90,13 @@ export async function apiLogin(pin: string): Promise<{ id: number; name: string 
       backendAvailable = true; // explicitly mark backend as available after successful login
       // Sync models from Neon (non-blocking)
       syncModelsFromApi().catch(() => {});
-      return data.promoter;
+      return { ...data.promoter, role: data.promoter.role || "promotora" };
     },
     () => {
       const promoter = storage.getPromoterByPin(pin);
       if (!promoter) return null;
       currentPromoter = { id: promoter.id, name: promoter.name };
-      return currentPromoter;
+      return { ...currentPromoter, role: (promoter as any).role || "promotora" };
     }
   );
 }
