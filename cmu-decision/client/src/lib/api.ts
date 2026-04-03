@@ -62,8 +62,12 @@ async function tryApi<T>(apiCall: () => Promise<T>, fallback: () => T): Promise<
       lastBackendCheck = Date.now();
     } else {
       // Application error (4xx, parsing error, etc.) → backend is reachable
-      console.warn("[API] API error, using fallback:", msg);
+      console.warn("[API] API error:", msg);
       backendAvailable = true;
+      // Rate limiting or auth errors: re-throw so caller sees the message
+      if (msg.includes("intento") || msg.includes("Espera") || msg.includes("Demasiados")) {
+        throw err;
+      }
     }
     return fallback();
   }
