@@ -343,7 +343,7 @@ export async function registerRoutes(
       return res.json({
         success: true,
         token,
-        promoter: { id: promoter.id, name: promoter.name },
+        promoter: { id: promoter.id, name: promoter.name, role: (promoter as any).role || "promotora" },
       });
     } catch (err: any) {
       return res.status(500).json({ success: false, message: err.message });
@@ -365,7 +365,7 @@ export async function registerRoutes(
       return res.json({
         success: true,
         token,
-        promoter: { id: promoter.id, name: promoter.name },
+        promoter: { id: promoter.id, name: promoter.name, role: (promoter as any).role || "promotora" },
       });
     } catch (err: any) {
       return res.status(500).json({ success: false, message: err.message });
