@@ -1,4 +1,4 @@
-import { Car, FileText, Warehouse, LayoutDashboard, LogOut } from "lucide-react";
+import { Car, FileText, Warehouse, LayoutDashboard, LogOut, ClipboardCheck } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -19,6 +19,7 @@ const navItems = [
   { title: "Originación", url: "/originacion", icon: FileText, description: "Alta de taxistas" },
   { title: "Inventario", url: "/inventario", icon: Warehouse, description: "Vehículos en flota" },
   { title: "Panel CMU", url: "/panel", icon: LayoutDashboard, description: "Dashboard admin" },
+  { title: "Evaluaciones", url: "/evaluaciones", icon: ClipboardCheck, description: "Evaluación rápida taxi" },
 ];
 
 export function AppSidebar({ promoterName, onLogout }: { promoterName: string; onLogout: () => void }) {
