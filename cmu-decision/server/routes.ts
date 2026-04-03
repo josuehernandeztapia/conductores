@@ -13,6 +13,7 @@ import { runAllProactiveChecks } from "./proactive-agent";
 import { ejecutarCierreMensual, recordatorioDia3, recordatorioDia5, aplicarFGDia6, revisarMoraDiaria, registrarPago, generarReporteSemanal, formatCierreResumenDirector, formatFGResumen, formatMoraResumen } from "./cierre-mensual";
 import { crearLigaPago, cancelarLiga, parseConektaWebhook, isConektaEnabled } from "./conekta-client";
 import { cierreMensual, processNatgasCsv, processNatgasMultiProduct, parseNatgasExcel, parseNatgasCsv as parseNatgasCsvRows, formatRecaudoSummary, formatCierreReport, isDuplicateFile, markFileProcessed } from "./recaudo-engine";
+import evaluacionRoutes from "./evaluacion-routes";
 
 // ===== SESSION TOKEN (HMAC-signed) =====
 const SESSION_SECRET = process.env.SESSION_SECRET || "cmu-internal-2026";
@@ -66,6 +67,7 @@ const PUBLIC_PATHS = [
   "/api/conekta/webhook",
   "/api/webhooks/conekta",
   "/api/conekta/crear-liga",
+  "/api/evaluacion",
 ];
 
 function authMiddleware(req: Request, res: Response, next: NextFunction) {
@@ -2614,6 +2616,9 @@ Responde SOLO con JSON válido:
       return res.status(500).json({ message: err.message });
     }
   });
+
+  // ===== EVALUACIÓN RÁPIDA TAXI =====
+  app.use("/api/evaluacion", evaluacionRoutes);
 
   return httpServer;
 }
