@@ -14,15 +14,30 @@ import {
 } from "@/components/ui/sidebar";
 import { PerplexityAttribution } from "@/components/PerplexityAttribution";
 
-const navItems = [
-  { title: "Motor CMU", url: "/motor", icon: Car, description: "Decisión de compra" },
-  { title: "Originación", url: "/originacion", icon: FileText, description: "Alta de taxistas" },
-  { title: "Inventario", url: "/inventario", icon: Warehouse, description: "Vehículos en flota" },
-  { title: "Panel CMU", url: "/panel", icon: LayoutDashboard, description: "Dashboard admin" },
-  { title: "Evaluaciones", url: "/evaluaciones", icon: ClipboardCheck, description: "Evaluación rápida taxi" },
+const navGroups = [
+  {
+    label: "Compras",
+    items: [
+      { title: "Motor CMU", url: "/motor", icon: Car, description: "Decisión de compra" },
+      { title: "Inventario", url: "/inventario", icon: Warehouse, description: "Vehículos en flota" },
+    ],
+  },
+  {
+    label: "Originación",
+    items: [
+      { title: "Folios", url: "/originacion", icon: FileText, description: "Alta de taxistas" },
+      { title: "Evaluaciones", url: "/evaluaciones", icon: ClipboardCheck, description: "Scoring entrevistas" },
+    ],
+  },
+  {
+    label: "Cartera",
+    items: [
+      { title: "Panel CMU", url: "/panel", icon: LayoutDashboard, description: "Créditos y cobranza" },
+    ],
+  },
 ];
 
-export function AppSidebar({ promoterName, onLogout }: { promoterName: string; onLogout: () => void }) {
+export function AppSidebar({ promoterName, role, onLogout }: { promoterName: string; role: string; onLogout: () => void }) {
   const [location] = useLocation();
 
   return (
@@ -44,31 +59,33 @@ export function AppSidebar({ promoterName, onLogout }: { promoterName: string; o
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Módulos</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {navItems.map((item) => {
-                const isActive = location === item.url || 
-                  (item.url !== "/" && location.startsWith(item.url));
-                return (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={isActive}
-                      tooltip={item.description}
-                    >
-                      <Link href={item.url}>
-                        <item.icon />
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {navGroups.map((group) => (
+          <SidebarGroup key={group.label}>
+            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {group.items.map((item) => {
+                  const isActive = location === item.url || 
+                    (item.url !== "/" && location.startsWith(item.url));
+                  return (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={isActive}
+                        tooltip={item.description}
+                      >
+                        <Link href={item.url}>
+                          <item.icon />
+                          <span>{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
 
       <SidebarFooter className="p-3 border-t border-sidebar-border">
@@ -78,7 +95,7 @@ export function AppSidebar({ promoterName, onLogout }: { promoterName: string; o
               {promoterName}
             </span>
             <span className="text-[10px] text-muted-foreground">
-              Promotora
+              {role === "director" ? "Director" : "Promotora"}
             </span>
           </div>
           <button
