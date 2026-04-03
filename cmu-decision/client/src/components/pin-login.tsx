@@ -77,8 +77,9 @@ export function PinLogin({ onLogin }: PinLoginProps) {
         setPin(["", "", "", "", "", ""]);
         inputRefs.current[0]?.focus();
       }
-    } catch {
-      toast({ title: "Error", description: "No se pudo verificar el PIN", variant: "destructive" });
+    } catch (err: any) {
+      const msg = err?.message || "No se pudo verificar el PIN";
+      toast({ title: msg.includes("intento") || msg.includes("Espera") ? "Acceso bloqueado" : "Error", description: msg, variant: "destructive" });
       setPin(["", "", "", "", "", ""]);
       inputRefs.current[0]?.focus();
     } finally {
