@@ -12,7 +12,7 @@
  */
 
 import { Router, Request, Response } from "express";
-import * as multer from "multer";
+const multer = require("multer");
 import {
   PREGUNTAS_TAXI,
   calcularCoherencia,
