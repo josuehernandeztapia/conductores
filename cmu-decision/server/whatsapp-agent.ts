@@ -1174,6 +1174,47 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
       return `Editar *${vv.marca} ${vv.modelo} ${vv.anio}*:\n${description}\n\nPara confirmar, dime la clave de director:`;
     }
 
+    // ===== FIRMA DIGITAL — MIFIEL (firmar folio X) =====
+    const firmaMatch = lower.match(/^firmar\s+(?:folio\s+)?(.+)/i);
+    if (firmaMatch) {
+      const folioHint = firmaMatch[1].trim();
+      // Find origination
+      const origs = await this.storage.listOriginations();
+      const orig = origs.find((o: any) => {
+        const folio = (o.folio || "").toLowerCase();
+        const nombre = (o.taxistaNombre || o.taxista_nombre || "").toLowerCase();
+        return folio.includes(folioHint.toLowerCase()) || nombre.includes(folioHint.toLowerCase());
+      });
+      if (!orig) return `No encontre folio "${folioHint}". Usa: firmar folio [numero o nombre]`;
+      
+      const o = orig as any;
+      const nombre = o.taxistaNombre || o.taxista_nombre || "Cliente";
+      const tel = o.taxistaTelefono || o.taxista_telefono || "";
+      const folio = o.folio || "";
+      
+      // Call mifiel/send endpoint
+      try {
+        const res = await fetch("http://localhost:5000/api/mifiel/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            originationId: o.id,
+            signerName: nombre,
+            signerEmail: "firma@conductores.lat",
+            signerPhone: tel,
+          }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          const linkInfo = data.signingUrl ? `\nLink: ${data.signingUrl}` : "";
+          return `Contrato enviado para firma.\n${folio} — ${nombre}${linkInfo}\n${data.simulated ? "(Simulado — Mifiel sandbox)" : "Link enviado por WhatsApp al taxista."}`;
+        }
+        return `Error al enviar firma: ${data.message}`;
+      } catch (e: any) {
+        return `Error: ${e.message}`;
+      }
+    }
+
     // ===== MANUAL PAYMENT CONFIRMATION (COB-05) =====
     // Director: "confirmar pago folio 001" or "pago folio 001 3134" or "pago efectivo folio 001 2800"
     const pagoMatch = lower.match(/(?:confirmar\s+)?pago\s+(?:efectivo\s+|spei\s+|transferencia\s+)?(?:folio\s+)?([a-z0-9-]+)\s+(\d[\d,.]*k?)$/i)

@@ -1684,17 +1684,44 @@ Responde SOLO con JSON válido:
         const mifielData = await mifielRes.json();
 
         if (mifielData.id) {
+          const docId = mifielData.id;
+          const widgetId = mifielData.widget_id || null;
+          
+          // Build signing URL for the first signatory
+          const signers = mifielData.signatories || [];
+          const signerWidget = signers[0]?.widget_id || widgetId;
+          const signingUrl = signerWidget 
+            ? `${MIFIEL_BASE.replace('/api/v1', '')}/sign/${signerWidget}`
+            : null;
+          
           await storage.updateOrigination(originationId, {
-            mifielDocumentId: mifielData.id,
+            mifielDocumentId: docId,
             mifielStatus: "pending",
           } as any).catch(() => {});
 
+          // Send signing link via WhatsApp to taxista
+          if (signingUrl && signerPhone) {
+            const waMsg = `*Firma de contrato CMU*\n\nPara firmar tu contrato necesitas:\n1. Tu INE (frente y reverso)\n2. Una selfie (prueba de vida)\n\nAbre este link y sigue las instrucciones:\n${signingUrl}\n\nNo necesitas e.firma ni archivos especiales.`;
+            fetch("http://localhost:5000/api/whatsapp/send-outbound", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ to: signerPhone, body: waMsg }),
+            }).catch(e => console.error("[Mifiel] WA send error:", e.message));
+            console.log(`[Mifiel] Signing link sent to ${signerPhone}: ${signingUrl}`);
+          }
+
+          // Notify director
+          fetch("http://localhost:5000/api/whatsapp/send-outbound", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ to: "5214422022540", body: `[Mifiel] Contrato enviado para firma.\nFolio: ${originationId}\nFirmante: ${signerName}\n${signingUrl ? `Link: ${signingUrl}` : ""}` }),
+          }).catch(() => {});
+
           return res.json({
             success: true,
-            documentId: mifielData.id,
-            widgetId: mifielData.widget_id || null,
+            documentId: docId,
+            widgetId,
+            signingUrl,
             status: "pending",
-            message: "Documento enviado a Mifiel para firma",
+            message: "Contrato enviado para firma" + (signingUrl ? " — link enviado por WhatsApp" : ""),
           });
         } else {
           console.error("[Mifiel] Create failed:", mifielData);
@@ -1755,6 +1782,21 @@ Responde SOLO con JSON válido:
             estado: "FIRMADO",
           } as any);
           console.log(`[Mifiel Webhook] Origination ${orig.id} marked as FIRMADO`);
+          
+          // Notify taxista + director via WhatsApp
+          const taxistaPhone = (orig as any).taxistaTelefono || (orig as any).taxista_telefono;
+          const taxistaNombre = (orig as any).taxistaNombre || (orig as any).taxista_nombre || "";
+          const folio = (orig as any).folio || "";
+          if (taxistaPhone) {
+            fetch("http://localhost:5000/api/whatsapp/send-outbound", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ to: taxistaPhone, body: `Tu contrato ha sido firmado exitosamente.\nFolio: ${folio}\n\nTu asesora Angeles te contactara para los siguientes pasos.` }),
+            }).catch(() => {});
+          }
+          fetch("http://localhost:5000/api/whatsapp/send-outbound", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ to: "5214422022540", body: `[Mifiel] *Contrato firmado*\nFolio: ${folio}\nCliente: ${taxistaNombre}\nEstado: FIRMADO` }),
+          }).catch(() => {});
         }
       }
 

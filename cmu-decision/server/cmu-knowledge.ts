@@ -245,7 +245,7 @@ const SSOT_FIRMA_MIFIEL = `--- FIRMA DE CONTRATOS — MIFIEL (CMU-OPS-FIRMA-001)
 
 QUE ES: Mifiel es el servicio de firma electronica que usa CMU. El taxista firma el Contrato de Compraventa y el Pagare de Anticipo de forma digital, sin papel. La firma tiene validez legal completa.
 
-TIPO DE FIRMA: Firma Electronica Simple con Consentimiento Verificable (FESCV). NO requiere e.firma del SAT ni archivos .cer/.key. Solo firma con el dedo en pantalla.
+TIPO DE FIRMA: Firma Electronica Simple con Consentimiento Verificable (FESCV). NO requiere e.firma del SAT ni archivos .cer/.key. Verificacion biometrica: foto INE frente/reverso + selfie (prueba de vida). Mifiel valida identidad automaticamente.
 
 DOCUMENTOS QUE SE FIRMAN:
 1. Contrato de Compraventa a Plazos con Reserva de Dominio
@@ -255,10 +255,10 @@ Ambos se firman en una sola sesion.
 FLUJO PRINCIPAL — WIDGET EN TABLETA DEL PROMOTOR:
 1. El promotor abre el folio en la PWA (estado GENERADO = contratos listos)
 2. Click en "Firmar contrato"
-3. Se abre la pantalla de firma de Mifiel dentro de la PWA
-4. El taxista revisa el documento en pantalla
-5. El taxista firma con el dedo directamente en la tableta
-6. Mifiel sella el documento con fecha, hora y evidencia
+3. Se abre la pantalla de verificacion de Mifiel dentro de la PWA
+4. El taxista sube foto de INE (frente y reverso)
+5. El taxista se toma una selfie (prueba de vida)
+6. Mifiel valida identidad biometrica y sella el documento con fecha, hora y evidencia
 7. El folio pasa automaticamente a estado FIRMADO
 8. El promotor y el taxista reciben confirmacion
 
@@ -267,7 +267,7 @@ Cuando el promotor no esta fisicamente con el taxista:
 1. El sistema genera un link de firma de Mifiel
 2. Se envia por WhatsApp al numero del taxista
 3. El taxista abre el link en su celular
-4. Ve el contrato, lo revisa, y firma con el dedo
+4. Sube foto de INE, se toma selfie, Mifiel valida y firma
 5. El folio pasa a FIRMADO automaticamente
 NOTA: Este link tambien se puede enviar al promotor para que el lo comparta.
 
