@@ -407,11 +407,12 @@ function VehicleForm({ vehicle, onClose, onSaved }: {
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="text-xs font-medium text-muted-foreground mb-1 block">Marca</label>
-          <Select value={form.marca} onValueChange={(v) => update("marca", v)}>
+          <Select value={form.marca} onValueChange={(v) => { update("marca", v); update("modelo", ""); }}>
             <SelectTrigger><SelectValue placeholder="Marca" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="Nissan">Nissan</SelectItem>
-              <SelectItem value="Chevrolet">Chevrolet</SelectItem>
+              {Array.from(new Set(catalogEntries.map((m) => m.brand))).sort().map((brand) => (
+                <SelectItem key={brand} value={brand}>{brand}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -420,9 +421,9 @@ function VehicleForm({ vehicle, onClose, onSaved }: {
           <Select value={form.modelo} onValueChange={(v) => update("modelo", v)}>
             <SelectTrigger><SelectValue placeholder="Modelo" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="March">March</SelectItem>
-              <SelectItem value="V-Drive">V-Drive</SelectItem>
-              <SelectItem value="Aveo">Aveo</SelectItem>
+              {Array.from(new Set(catalogEntries.filter((m) => !form.marca || m.brand === form.marca).map((m) => m.model))).sort().map((model) => (
+                <SelectItem key={model} value={model}>{model}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
