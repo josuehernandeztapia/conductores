@@ -1382,7 +1382,7 @@ export default function EvaluatePage() {
                 {cmu > STANDARD.cmuMaximo && (
                   <div className="flex items-center gap-1.5 text-red-600 text-[10px] font-medium mt-1 pt-1 border-t border-red-200">
                     <AlertTriangle className="w-3.5 h-3.5" />
-                    CMU excede tope de ${STANDARD.cmuMaximo.toLocaleString()}. Depósito mes 3+ sería ${guideDepositoMes3.toLocaleString()} (máx ${STANDARD.depositoMaxMes3.toLocaleString()}).
+                    <span>Valor de mercado ({formatMXN(cmu)}) excede tope del programa ({formatMXN(STANDARD.cmuMaximo)}). Depósito mes 3+: {formatMXN(guideDepositoMes3)} (máx {formatMXN(STANDARD.depositoMaxMes3)}).</span>
                   </div>
                 )}
               </CardContent>
