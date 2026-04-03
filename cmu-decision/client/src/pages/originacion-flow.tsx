@@ -1,3 +1,4 @@
+import EvaluacionWizard from "./evaluacion-wizard";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -2586,14 +2587,37 @@ function StepContent({
     );
   }
 
-  // Steps 3 & 4: Summary of documents captured in Step 2 wizard
+  // Step 3: Entrevista (Evaluación Rápida)
   if (step === 3) {
+    if (readOnly) {
+      return (
+        <div className="space-y-3">
+          <h3 className="text-sm font-medium">Entrevista Completada</h3>
+          <p className="text-xs text-muted-foreground">La evaluación fue enviada para revisión del director.</p>
+        </div>
+      );
+    }
+    return (
+      <EvaluacionWizard
+        folioId={origination.folio || `FOL-${origination.id}`}
+        cuotaCmuMensual={5500}
+        onComplete={() => {
+          onUpdate({ currentStep: 4 });
+          refreshAll();
+        }}
+        onBack={() => onUpdate({ currentStep: 2 })}
+      />
+    );
+  }
+
+  // Step 4: OTP Verification
+  if (step === 4) {
     return (
       <div className="space-y-4">
         <OtpVerification
           origination={origination}
           onVerified={() => {
-            onUpdate({ currentStep: 4 });
+            onUpdate({ currentStep: 5 });
             refreshAll();
           }}
           readOnly={readOnly}
@@ -2604,8 +2628,8 @@ function StepContent({
     );
   }
 
-  if (step === 4) {
-    // Step 4: Editable OCR data review organized by document
+  if (step === 5) {
+    // Step 5: Editable OCR data review organized by document
     const allDocKeys = [
       "ine_frente", "ine_reverso", "csf", "comprobante_domicilio",
       "concesion", "estado_cuenta",
@@ -2625,7 +2649,7 @@ function StepContent({
     );
   }
 
-  if (step === 5) {
+  if (step === 6) {
     const vehiclePhotos: DocumentType[] = ["vehiculo_frente", "vehiculo_trasera", "vehiculo_lateral_izq", "vehiculo_lateral_der"];
     const selfieDoc = getDoc("selfie_ine");
     const vehiclePhotosCaptured = vehiclePhotos.filter((vp) => !!getDoc(vp)).length;
@@ -2692,7 +2716,7 @@ function StepContent({
     );
   }
 
-  if (step === 6) {
+  if (step === 7) {
     return (
       <ContractPreviewPanel
         origination={origination}
@@ -2705,7 +2729,7 @@ function StepContent({
     );
   }
 
-  if (step === 7) {
+  if (step === 8) {
     return (
       <MifielSigningPanel
         origination={origination}
@@ -2805,10 +2829,10 @@ export default function OriginacionFlowPage() {
   const currentStep = origination.currentStep;
   const activeStep = viewingStep ?? currentStep;
   const isViewingPast = viewingStep !== null && viewingStep < currentStep;
-  const progress = ((currentStep - 1) / 6) * 100;
+  const progress = ((currentStep - 1) / 7) * 100;
 
   const advanceStep = async (step: number) => {
-    const estado = step <= 4 ? "CAPTURANDO" : step === 5 ? "VALIDADO" : step === 6 ? "GENERADO" : "FIRMADO";
+    const estado = step <= 5 ? "CAPTURANDO" : step === 6 ? "VALIDADO" : step === 7 ? "GENERADO" : "FIRMADO";
     const updated = await apiUpdateOrigination(originationId, { currentStep: step, estado });
     if (updated) setOrigination(updated);
     setViewingStep(null);
@@ -2900,7 +2924,7 @@ export default function OriginacionFlowPage() {
                 Viendo paso {activeStep}: {ORIGINATION_STEPS.find((s) => s.step === activeStep)?.name} (solo lectura)
               </span>
             ) : (
-              <>Paso {currentStep} de 7: {ORIGINATION_STEPS.find((s) => s.step === currentStep)?.name}</>
+              <>Paso {currentStep} de 8: {ORIGINATION_STEPS.find((s) => s.step === currentStep)?.name}</>
             )}
           </span>
           <span className="text-muted-foreground tabular-nums font-semibold">{Math.round(progress)}%</span>
@@ -2968,8 +2992,8 @@ export default function OriginacionFlowPage() {
             </Button>
           )}
 
-          {/* Steps 3 & 4: Next/Prev — Step 2 advances itself via onAllDocsCaptured */}
-          {(currentStep === 3 || currentStep === 4) && (
+          {/* Steps 4 & 5: Next/Prev — Step 2 advances itself via onAllDocsCaptured, Step 3 is Entrevista wizard */}
+          {(currentStep === 4 || currentStep === 5) && (
             <div className="flex gap-2">
               <Button variant="outline" size="sm" className="gap-1.5" onClick={() => advanceStep(currentStep - 1)}>
                 <ArrowLeft className="w-3.5 h-3.5" />
@@ -2987,26 +3011,7 @@ export default function OriginacionFlowPage() {
             </div>
           )}
 
-          {/* Step 5: Verification nav */}
-          {currentStep === 5 && (
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => advanceStep(4)}>
-                <ArrowLeft className="w-3.5 h-3.5" />
-                Anterior
-              </Button>
-              <Button
-                size="sm"
-                className="gap-1.5 ml-auto"
-                onClick={() => advanceStep(6)}
-                data-testid="button-next-step"
-              >
-                Siguiente
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Button>
-            </div>
-          )}
-
-          {/* Step 6: Contract — nav only (buttons are inside ContractPreviewPanel) */}
+          {/* Step 6: Vehicle photos nav */}
           {currentStep === 6 && (
             <div className="flex gap-2">
               <Button variant="outline" size="sm" className="gap-1.5" onClick={() => advanceStep(5)}>
@@ -3017,6 +3022,25 @@ export default function OriginacionFlowPage() {
                 size="sm"
                 className="gap-1.5 ml-auto"
                 onClick={() => advanceStep(7)}
+                data-testid="button-next-step"
+              >
+                Siguiente
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+          )}
+
+          {/* Step 7: Contract — nav only (buttons are inside ContractPreviewPanel) */}
+          {currentStep === 7 && (
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => advanceStep(6)}>
+                <ArrowLeft className="w-3.5 h-3.5" />
+                Anterior
+              </Button>
+              <Button
+                size="sm"
+                className="gap-1.5 ml-auto"
+                onClick={() => advanceStep(8)}
                 disabled={!origination.contractUrl}
                 data-testid="button-next-step"
               >
@@ -3026,8 +3050,8 @@ export default function OriginacionFlowPage() {
             </div>
           )}
 
-          {/* Step 7: Firma — nav + finalize */}
-          {currentStep === 7 && (
+          {/* Step 8: Firma — nav + finalize */}
+          {currentStep === 8 && (
             <div className="space-y-3">
               {origination.mifielStatus === "signed" && (
                 <Link href="/originacion">
@@ -3041,7 +3065,7 @@ export default function OriginacionFlowPage() {
                 </Link>
               )}
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => advanceStep(6)}>
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => advanceStep(7)}>
                   <ArrowLeft className="w-3.5 h-3.5" />
                   Anterior
                 </Button>
