@@ -328,17 +328,59 @@ export async function registerRoutes(
   });
 
   // ===== AUTH =====
+  // Rate limiting: 3 failed attempts per IP → 30s cooldown
+  const loginAttempts = new Map<string, { count: number; lastAttempt: number }>();
+  const MAX_ATTEMPTS = 3;
+  const COOLDOWN_MS = 30_000; // 30 seconds
+
+  function checkRateLimit(ip: string): { blocked: boolean; remaining?: number } {
+    const now = Date.now();
+    const entry = loginAttempts.get(ip);
+    if (!entry) return { blocked: false };
+    if (now - entry.lastAttempt > COOLDOWN_MS) {
+      loginAttempts.delete(ip);
+      return { blocked: false };
+    }
+    if (entry.count >= MAX_ATTEMPTS) {
+      const remaining = Math.ceil((COOLDOWN_MS - (now - entry.lastAttempt)) / 1000);
+      return { blocked: true, remaining };
+    }
+    return { blocked: false };
+  }
+
+  function recordFailedAttempt(ip: string) {
+    const entry = loginAttempts.get(ip) || { count: 0, lastAttempt: 0 };
+    entry.count++;
+    entry.lastAttempt = Date.now();
+    loginAttempts.set(ip, entry);
+    console.log(`[Auth] Failed login from ${ip} (attempt ${entry.count}/${MAX_ATTEMPTS})`);
+  }
+
+  function clearAttempts(ip: string) {
+    loginAttempts.delete(ip);
+  }
+
   // Login via PIN — returns signed session token (24h TTL)
   app.post("/api/auth/login", async (req, res) => {
     try {
+      const ip = req.ip || req.socket.remoteAddress || "unknown";
+      const rl = checkRateLimit(ip);
+      if (rl.blocked) {
+        return res.status(429).json({ success: false, message: `Demasiados intentos. Espera ${rl.remaining}s.`, retryAfter: rl.remaining });
+      }
+
       const { pin } = req.body;
       if (!pin || typeof pin !== "string") {
         return res.status(400).json({ success: false, message: "PIN requerido" });
       }
       const promoter = await storage.getPromoterByPin(pin);
       if (!promoter) {
-        return res.status(401).json({ success: false, message: "PIN incorrecto" });
+        recordFailedAttempt(ip);
+        const attEntry = loginAttempts.get(ip);
+        const attLeft = MAX_ATTEMPTS - (attEntry?.count || 0);
+        return res.status(401).json({ success: false, message: attLeft > 0 ? `PIN incorrecto. ${attLeft} intento(s) restante(s).` : `PIN incorrecto. Espera 30 segundos.` });
       }
+      clearAttempts(ip);
       const token = createSessionToken(promoter.id, promoter.name);
       return res.json({
         success: true,
