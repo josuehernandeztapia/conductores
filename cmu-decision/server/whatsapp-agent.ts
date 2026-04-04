@@ -164,7 +164,8 @@ Eres su copiloto rápido. La promotora maneja múltiples folios y necesita respu
 - Eficiente, directa, sin rodeos. La promotora no tiene tiempo para menús.
 - SIGUIENTE ACCIÓN: siempre dile qué sigue en el flujo:
   - Docs incompletos → "Le falta [doc]. ¿Quieres que le mande un recordatorio?"
-  - Docs completos, paso 2 → "Docs completos. Falta la entrevista. ¿Le mando mensaje para agendar?"
+  - Docs completos, paso 2 → "Docs completos. Falta la entrevista. ¿Le mando mensaje para agendar o quieres iniciar entrevista por WhatsApp?"
+  - Para iniciar entrevista por WhatsApp escribe "iniciar entrevista" cuando estés en el folio del taxista.
   - Entrevista hecha, paso 3+ → "Pendiente verificación OTP / asignación de vehículo."
 - Si la promotora dice "sí" o "mándale" después de que sugieras enviar mensaje al taxista, envía el mensaje al taxista vía el folio vinculado.
 
@@ -2336,6 +2337,64 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
       } catch (err: any) {
         console.error(`[Agent] Voice transcription error:`, err.message);
         return await respond("Hubo un problema al procesar tu nota de voz. Int\u00e9ntalo de nuevo o escr\u00edbeme.");
+      }
+    }
+
+    // ===== WHATSAPP INTERVIEW (voice notes) =====
+    if (body && (role === "cliente" || role === "promotora")) {
+      const interviewState = await this.getConvState(phone);
+      
+      // Check if we're in an active interview
+      if (interviewState.state?.startsWith("interview_q")) {
+        const { processAnswer, InterviewState } = await import("./entrevista-whatsapp");
+        const iState: any = interviewState.context?.interview;
+        if (iState) {
+          const result = await processAnswer(
+            iState,
+            body, // already transcribed if voice note
+            0,
+            (msgs, maxT) => this.llm(msgs, maxT),
+          );
+
+          if (result.isComplete) {
+            await this.updateState(phone, { state: "idle", context: {} });
+            // Notify director
+            const { DIRECTOR } = await import("./team-config");
+            const notifMsg = `*Entrevista completada por WhatsApp*\nFolio: ${iState.folioId}\nDecisi\u00f3n motor: ${result.evaluation?.coherencia?.decision}\nScore: ${result.evaluation?.coherencia?.score_coherencia}\nFlujo libre: $${Math.round(result.evaluation?.coherencia?.flujo_libre_mes || 0).toLocaleString()}\n\nRevisa en el panel de Evaluaciones.`;
+            fetch("http://localhost:5000/api/whatsapp/send-outbound", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ to: `whatsapp:+${DIRECTOR.phone}`, body: notifMsg }),
+            }).catch(() => {});
+            return await respond(result.reply);
+          } else {
+            await this.updateState(phone, {
+              state: `interview_q${result.newState.currentQuestion}`,
+              context: { interview: result.newState },
+            });
+            return await respond(result.reply);
+          }
+        }
+      }
+
+      // Trigger interview if docs_completo and promotora/agent says to start
+      const wantsInterview = /iniciar entrevista|empezar entrevista|hacer entrevista|entrevista.*whatsapp|evaluar.*whatsapp/i.test(body.toLowerCase());
+      if (wantsInterview && originationId) {
+        const orig = await this.storage.getOrigination(originationId);
+        const folioStr = (orig as any)?.folio || `FOL-${originationId}`;
+        const { getInterviewWelcome, getCurrentQuestion } = await import("./entrevista-whatsapp");
+        const iState = {
+          folioId: folioStr,
+          currentQuestion: 0,
+          answers: {},
+          transcripts: [],
+        };
+        await this.updateState(phone, {
+          state: "interview_q0",
+          context: { interview: iState },
+        });
+        const welcome = getInterviewWelcome();
+        const q1 = getCurrentQuestion(iState);
+        return await respond(`${welcome}\n\n${q1}`);
       }
     }
 
