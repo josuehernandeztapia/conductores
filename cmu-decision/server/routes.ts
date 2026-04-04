@@ -16,6 +16,7 @@ import { cierreMensual, processNatgasCsv, processNatgasMultiProduct, parseNatgas
 import evaluacionRoutes from "./evaluacion-routes";
 import { logAudit, initAuditTable, getAuditLog } from "./audit-trail";
 import { detectCanal, upsertProspect, updateProspectStatus, getPipelineStats, getPipelineList, getCanales, getProspectsNeedingFollowup, markFollowupSent, generateWhatsAppLink } from "./pipeline-ventas";
+import { getPromotor, DIRECTOR, PROMOTOR_LABEL } from "./team-config";
 
 // ===== SESSION TOKEN (HMAC-signed) =====
 const SESSION_SECRET = process.env.SESSION_SECRET || "cmu-internal-2026";
@@ -2747,7 +2748,7 @@ Responde SOLO con JSON válido:
         } catch (e) { /* non-blocking */ }
       }
 
-      // 5-day registered without docs — remind prospect + notify Ángeles with detail
+      // 5-day registered without docs — remind prospect + notify promotor with detail
       for (const p of followups.sin_docs_5d) {
         // Get pending docs from folio if exists
         let pendingDocs = "INE, comprobante de domicilio, concesi\u00f3n";
@@ -2765,10 +2766,10 @@ Responde SOLO con JSON válido:
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ to: `whatsapp:+${p.phone.replace(/\D/g, "")}`, body: msgProspect }),
           });
-          // Notify Ángeles
+          // Notify promotor
           await fetch("http://localhost:5000/api/whatsapp/send-outbound", {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ to: "whatsapp:+5214493845228", body: msgAngeles }),
+            body: JSON.stringify({ to: "whatsapp:+" + (getPromotor()?.phone || "5214493845228"), body: msgAngeles }),
           });
           await markFollowupSent(p.phone);
           sent++;
@@ -2776,13 +2777,13 @@ Responde SOLO con JSON válido:
         } catch (e) { /* non-blocking */ }
       }
 
-      // 7-day incomplete docs — notify Ángeles + Josu\u00e9 with specific missing docs
+      // 7-day incomplete docs — notify promotor + Josu\u00e9 with specific missing docs
       for (const p of followups.incompletos_7d) {
         const msg = `\u26a0\ufe0f *Prospecto 7d sin completar docs*\n*${p.nombre || "Sin nombre"}* (${p.phone})\nCanal: ${p.canal_origen}\nFolio: ${p.folio_id || "sin folio"}\nDocs: *${p.docs_completados} de ${p.docs_total}*\nFaltan: ${p.docs_total - p.docs_completados} documentos\n\nContactar para completar expediente.`;
         try {
           await fetch("http://localhost:5000/api/whatsapp/send-outbound", {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ to: "whatsapp:+5214493845228", body: msg }),
+            body: JSON.stringify({ to: "whatsapp:+" + (getPromotor()?.phone || "5214493845228"), body: msg }),
           });
           await fetch("http://localhost:5000/api/whatsapp/send-outbound", {
             method: "POST", headers: { "Content-Type": "application/json" },
