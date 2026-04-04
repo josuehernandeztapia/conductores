@@ -15,6 +15,7 @@ import { crearLigaPago, cancelarLiga, parseConektaWebhook, isConektaEnabled } fr
 import { cierreMensual, processNatgasCsv, processNatgasMultiProduct, parseNatgasExcel, parseNatgasCsv as parseNatgasCsvRows, formatRecaudoSummary, formatCierreReport, isDuplicateFile, markFileProcessed } from "./recaudo-engine";
 import evaluacionRoutes from "./evaluacion-routes";
 import { logAudit, initAuditTable, getAuditLog } from "./audit-trail";
+import { detectCanal, upsertProspect, updateProspectStatus, getPipelineStats, getPipelineList, getCanales, getProspectsNeedingFollowup, markFollowupSent, generateWhatsAppLink } from "./pipeline-ventas";
 
 // ===== SESSION TOKEN (HMAC-signed) =====
 const SESSION_SECRET = process.env.SESSION_SECRET || "cmu-internal-2026";
@@ -70,6 +71,7 @@ const PUBLIC_PATHS = [
   "/api/conekta/crear-liga",
   "/api/evaluacion",
   "/api/audit",
+  "/api/pipeline",
 ];
 
 function authMiddleware(req: Request, res: Response, next: NextFunction) {
@@ -2668,6 +2670,61 @@ Responde SOLO con JSON válido:
 
   // ===== EVALUACIÓN RÁPIDA TAXI =====
   app.use("/api/evaluacion", evaluacionRoutes);
+
+  // ===== PIPELINE DE VENTAS =====
+  app.get("/api/pipeline/stats", async (_req, res) => {
+    try {
+      const stats = await getPipelineStats();
+      res.json({ success: true, ...stats });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get("/api/pipeline/list", async (req, res) => {
+    try {
+      const { canal, status, limit } = req.query;
+      const prospects = await getPipelineList({
+        canal: canal as string,
+        status: status as string,
+        limit: limit ? parseInt(limit as string) : 100,
+      });
+      res.json({ success: true, prospects });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get("/api/pipeline/canales", async (_req, res) => {
+    try {
+      const canales = await getCanales();
+      res.json({ success: true, canales });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get("/api/pipeline/followup", async (_req, res) => {
+    try {
+      const followups = await getProspectsNeedingFollowup();
+      res.json({ success: true, ...followups });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get("/api/pipeline/qr/:canalCode", async (req, res) => {
+    try {
+      const canales = await getCanales();
+      const canal = canales.find((c: any) => c.codigo === req.params.canalCode);
+      if (!canal) return res.status(404).json({ error: "Canal no encontrado" });
+      const waNumber = "5214463293102"; // CMU WhatsApp number without +
+      const link = generateWhatsAppLink(waNumber, canal.codigo, canal.qr_mensaje);
+      res.json({ success: true, canal: canal.codigo, nombre: canal.nombre, whatsapp_link: link, qr_mensaje: canal.qr_mensaje });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
 
   // ===== AUDIT TRAIL =====
   initAuditTable().catch((e) => console.error("[Audit] Init failed:", e.message));
