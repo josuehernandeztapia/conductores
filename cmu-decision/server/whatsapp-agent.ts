@@ -2497,17 +2497,17 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         const numMatch = lower.match(/(\d{2,4})/);
         if (numMatch) {
           const leq = parseInt(numMatch[1]);
-          const ahorro = Math.round(leq * fuel.ahorroPerLeq);
-          const diferencialBajo = 2000;
-          const diferencialAlto = 4000;
-          await this.updateState(phone, { state: "prospect_interest", context: { fuelType: "gnv", leqMes: leq, ahorroMes: ahorro } });
-          await upsertProspect({ phone, status: "interesado", fuel_type: "gnv", consumo_mensual: leq, ahorro_estimado: ahorro }).catch(() => {});
-          // Notify Josué + Ángeles of new interested prospect
+          const recaudo = Math.round(leq * 11); // $11/LEQ sobreprecio
+          // Skip "interest" step — go straight to model selection
+          await this.updateState(phone, { state: "prospect_select_model", context: { fuelType: "gnv", leqMes: leq, ahorroMes: recaudo, canal: prospectState.context?.canal } });
+          await upsertProspect({ phone, status: "interesado", fuel_type: "gnv", consumo_mensual: leq, ahorro_estimado: recaudo }).catch(() => {});
+          // Notify Josué + Ángeles
           const canalCtx = prospectState.context?.canal || "ORGANICO";
-          const notifInteresado = `*Nuevo prospecto interesado* \u2705\nCanal: ${canalCtx}\nTel: ${phone}\nCombustible: GNV\nConsumo: ${leq} LEQ/mes\nAhorro: $${ahorro.toLocaleString()}/mes\nPendiente de registro.`;
+          const notifInteresado = `*Nuevo prospecto interesado* \u2705\nCanal: ${canalCtx}\nTel: ${phone}\nCombustible: GNV\nConsumo: ${leq} LEQ/mes\nRecaudo: $${recaudo.toLocaleString()}/mes\nPendiente de registro.`;
           fetch("http://localhost:5000/api/whatsapp/send-outbound", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: "whatsapp:+5214422022540", body: notifInteresado }) }).catch(() => {});
           fetch("http://localhost:5000/api/whatsapp/send-outbound", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: "whatsapp:+5214493845228", body: notifInteresado }) }).catch(() => {});
-          return await respond(`Con ${leq} LEQ/mes tu ahorro en GNV cubre unos *$${ahorro.toLocaleString()}/mes* de la cuota del taxi.\n\nEl pago extra de tu bolsillo ser\u00eda entre *$${diferencialBajo.toLocaleString()}* y *$${diferencialAlto.toLocaleString()}/mes* por un taxi seminuevo (March, Aveo, i10).\n\n\u00bfTe interesa saber m\u00e1s del programa?`);
+          const modelos = getModelosDisponiblesText();
+          return await respond(`Con ${leq} LEQ/mes, tu recaudo GNV cubre *$${recaudo.toLocaleString()}/mes* de la cuota.\n\n\u00bfQu\u00e9 modelo te interesa? Te doy los n\u00fameros exactos.\n\n${modelos}`);
         }
       }
 
@@ -2519,14 +2519,15 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
           const ltGasolina = Math.round(gastoGasolina / fuel.gasolinaPrice);
           const gastoGNV = Math.round(ltGasolina * fuel.gnvPrice);
           const ahorro = gastoGasolina - gastoGNV;
-          await this.updateState(phone, { state: "prospect_interest", context: { fuelType: "gasolina", gastoGasolina, ahorroMes: ahorro, leqEquiv: ltGasolina } });
-          await upsertProspect({ phone, status: "interesado", fuel_type: "gasolina", consumo_mensual: ltGasolina, ahorro_estimado: ahorro }).catch(() => {});
-          // Notify Josué + Ángeles of new interested prospect
+          const recaudoEquiv = Math.round(ltGasolina * 11); // $11/LEQ sobreprecio
+          await this.updateState(phone, { state: "prospect_select_model", context: { fuelType: "gasolina", gastoGasolina, ahorroMes: recaudoEquiv, leqEquiv: ltGasolina, canal: prospectState.context?.canal } });
+          await upsertProspect({ phone, status: "interesado", fuel_type: "gasolina", consumo_mensual: ltGasolina, ahorro_estimado: recaudoEquiv }).catch(() => {});
           const canalCtxG = prospectState.context?.canal || "ORGANICO";
-          const notifInteresadoG = `*Nuevo prospecto interesado* \u2705\nCanal: ${canalCtxG}\nTel: ${phone}\nCombustible: Gasolina\nGasto actual: $${gastoGasolina.toLocaleString()}/mes\nAhorro potencial: $${ahorro.toLocaleString()}/mes\nPendiente de registro.`;
+          const notifInteresadoG = `*Nuevo prospecto interesado* \u2705\nCanal: ${canalCtxG}\nTel: ${phone}\nCombustible: Gasolina\nGasto actual: $${gastoGasolina.toLocaleString()}/mes\nRecaudo equiv: $${recaudoEquiv.toLocaleString()}/mes\nPendiente de registro.`;
           fetch("http://localhost:5000/api/whatsapp/send-outbound", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: "whatsapp:+5214422022540", body: notifInteresadoG }) }).catch(() => {});
           fetch("http://localhost:5000/api/whatsapp/send-outbound", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: "whatsapp:+5214493845228", body: notifInteresadoG }) }).catch(() => {});
-          return await respond(`Gastas *$${gastoGasolina.toLocaleString()}/mes* en gasolina. Con gas natural gastar\u00edas *$${gastoGNV.toLocaleString()}*. Eso es un ahorro de *$${ahorro.toLocaleString()}/mes*.\n\nCon ese ahorro podr\u00edas cubrir gran parte de la mensualidad de un taxi seminuevo. Tu pago extra ser\u00eda entre $2,000 y $4,000/mes.\n\n\u00bfQuieres que te explique c\u00f3mo funciona?`);
+          const modelosG = getModelosDisponiblesText();
+          return await respond(`Gastas *$${gastoGasolina.toLocaleString()}/mes* en gasolina. Con GNV gastar\u00edas *$${gastoGNV.toLocaleString()}*. Ahorro: *$${ahorro.toLocaleString()}/mes*.\n\nCon GNV tu recaudo cubrir\u00eda *$${recaudoEquiv.toLocaleString()}/mes* de la cuota. \u00bfQu\u00e9 modelo te interesa?\n\n${modelosG}`);
         }
       }
 
