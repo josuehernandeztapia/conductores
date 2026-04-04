@@ -1,4 +1,4 @@
-import { Car, FileText, Warehouse, LayoutDashboard, LogOut, ClipboardCheck } from "lucide-react";
+import { Car, FileText, Warehouse, LayoutDashboard, LogOut, ClipboardCheck, Users } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -27,6 +27,12 @@ const navGroups = [
     items: [
       { title: "Folios", url: "/originacion", icon: FileText, description: "Alta de taxistas" },
       { title: "Evaluaciones", url: "/evaluaciones", icon: ClipboardCheck, description: "Scoring entrevistas" },
+    ],
+  },
+  {
+    label: "Ventas",
+    items: [
+      { title: "Pipeline", url: "/pipeline", icon: Users, description: "Prospectos por canal" },
     ],
   },
   {
