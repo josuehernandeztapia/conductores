@@ -2095,7 +2095,21 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
       if (role === "promotora") {
         const origs = await this.storage.listOriginations();
         const activos = origs.filter((o: any) => !["RECHAZADO", "COMPLETADO"].includes(o.estado));
-        return await respond(`${timeGreet} ${name}. Tienes *${activos.length} folios activos*.\n\nComandos r\u00e1pidos:\n\u2022 *folios* \u2014 ver mis folios\n\u2022 *nuevo folio [nombre] [tel]* \u2014 crear folio\n\u2022 *status* \u2014 pendientes del folio actual\n\u2022 Enviar foto de documento \u2014 captura OCR\n\u2022 *[nombre taxista]* \u2014 buscar folio\n\n\u00bfCon qu\u00e9 folio trabajamos hoy?`);
+        // Show stale folios (>3 days without update)
+        const stale = activos.filter((o: any) => {
+          const updated = new Date(o.updatedAt || o.createdAt).getTime();
+          return (Date.now() - updated) > 3 * 24 * 60 * 60 * 1000;
+        });
+        let greeting = `${timeGreet} ${name}. Tienes *${activos.length} folios activos*.`;
+        if (stale.length > 0) {
+          greeting += `\n\n\u26a0\ufe0f *${stale.length} sin avance* (3+ d\u00edas):`;
+          for (const s of stale.slice(0, 3)) {
+            const days = Math.floor((Date.now() - new Date(s.updatedAt || s.createdAt).getTime()) / (1000*60*60*24));
+            greeting += `\n- ${(s as any).folio}: paso ${(s as any).currentStep}/8 (${days}d)`;
+          }
+        }
+        greeting += `\n\n\u00bfCon qu\u00e9 folio trabajamos? Dime el nombre o n\u00famero.`;
+        return await respond(greeting);
       }
       if (role === "cliente") {
         // Multi-product greeting
@@ -2118,7 +2132,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
               greetLines.push(`Tu cr\u00e9dito taxi (${p.folio}): mes *${mes} de 36*.`);
             }
           }
-          greetLines.push(`\nPregunta lo que quieras sobre tu estado de cuenta, pagos o el programa CMU.`);
+          greetLines.push(`\n\u00bfAlguna duda sobre tu cuenta o pagos?`);
           return await respond(greetLines.join("\n"));
         }
         // Cliente with folio: show status + next action
