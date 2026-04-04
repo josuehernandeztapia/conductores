@@ -2176,6 +2176,51 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         mediaType.includes("ms-excel") || mediaType.includes("octet-stream")
       );
       
+      // ===== VEHICLE ASSIGNMENT (director only) =====
+      const asignaMatch = lower.match(/asign[ao]\s+(.+?)\s+(?:a|al|para)\s+(.+)/i);
+      if (asignaMatch) {
+        const vehicleQuery = asignaMatch[1].trim();
+        const folioQuery = asignaMatch[2].trim();
+        try {
+          // Find vehicle in inventory
+          const allVehicles = await this.storage.listVehicles();
+          const available = allVehicles.filter((v: any) => v.status === "disponible");
+          const matchedVehicle = available.find((v: any) => {
+            const vText = `${v.marca} ${v.modelo} ${v.variante || ""} ${v.anio}`.toLowerCase();
+            return vehicleQuery.split(/\s+/).every((w: string) => vText.includes(w.toLowerCase()));
+          });
+          if (!matchedVehicle) {
+            const availList = available.map((v: any) => `- ${v.marca} ${v.modelo} ${v.anio} (ID ${v.id})`).join("\n");
+            return await respond(`No encontr\u00e9 veh\u00edculo disponible con "${vehicleQuery}".\n\nDisponibles:\n${availList}`);
+          }
+
+          // Find folio
+          const folio = await this.storage.findFolioFlexible(folioQuery);
+          if (!folio) {
+            return await respond(`No encontr\u00e9 folio para "${folioQuery}". Verifica el nombre o n\u00famero.`);
+          }
+          if (Array.isArray(folio)) {
+            return await respond(`Encontr\u00e9 ${folio.length} folios. S\u00e9 m\u00e1s espec\u00edfico:\n${folio.map((f: any) => `- ${f.folio}: ${f.taxistaName || "?"}`).join("\n")}`);
+          }
+
+          const f = folio as any;
+          if (f.vehicleInventoryId) {
+            return await respond(`El folio ${f.folio} ya tiene veh\u00edculo asignado (ID ${f.vehicleInventoryId}). \u00bfQuieres reasignar?`);
+          }
+
+          // Execute assignment
+          await this.storage.updateOrigination(f.id, { vehicleInventoryId: matchedVehicle.id });
+          await this.storage.updateVehicle(matchedVehicle.id, { status: "asignado" });
+
+          const { logAudit } = await import("./audit-trail");
+          logAudit({ action: "VEHICLE_UPDATED", actor: "director", role: "director", target_type: "vehicle", target_id: String(matchedVehicle.id), details: `Asignado a folio ${f.folio}` }).catch(() => {});
+
+          return await respond(`Asignado:\n*${matchedVehicle.marca} ${matchedVehicle.modelo} ${matchedVehicle.anio}* (ID ${matchedVehicle.id})\n\u2192 Folio *${f.folio}* (${f.taxistaName || "?"})\n\nVeh\u00edculo marcado como "asignado". El folio puede avanzar al paso de contrato.`);
+        } catch (err: any) {
+          return await respond(`Error al asignar: ${err.message}`);
+        }
+      }
+
       // Direct Canal C commands (eval, market, dashboard, inventory, folios, corrida)
       // Also includes client name lookups for multi-product cartera
       const clientNames = ["capetillo", "obed", "elvira", "zavala", "mauricio", "hector", "h\u00e9ctor", "manuel", "flores", "l\u00f3pez", "lopez"];
