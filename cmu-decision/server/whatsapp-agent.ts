@@ -28,6 +28,7 @@ import { buildClientCarteraContext, buildCarteraDashboard, buildEstadoCuenta, is
 import { processPdf, isPdf } from "./pdf-handler";
 import { detectCanal, upsertProspect, updateProspectStatus } from "./pipeline-ventas";
 import { generarCorridaEstimada, getModelosDisponiblesText, MODELOS_PROSPECTO } from "./corrida-estimada";
+import { getPromotor, DIRECTOR, PROMOTOR_LABEL } from "./team-config";
 import { processNatgasCsv, processNatgasMultiProduct, parseNatgasExcel, parseNatgasCsv as parseNatgasCsvRows, formatRecaudoSummary, cierreMensual, formatCierreReport, isDuplicateFile, markFileProcessed } from "./recaudo-engine";
 import { createFolioFromWhatsApp, associateDocIntelligently } from "./folio-manager";
 import {
@@ -154,18 +155,18 @@ Eres su guía de trámite. Tu trabajo es que complete su expediente lo más ráp
 - Si pregunta sobre pagos/cuotas: da su estado de cuenta y explica el diferencial.
 - NUNCA respondas con menú de opciones. Lee su contexto y responde directo.
 
-PROMOTORA (Ángeles):
-Eres su copiloto rápido. Ángeles maneja múltiples folios y necesita respuestas inmediatas.
+PROMOTORA:
+Eres su copiloto rápido. La promotora maneja múltiples folios y necesita respuestas inmediatas.
 - Si dice un nombre/apellido: busca el folio y da status completo (paso, docs pendientes, último movimiento).
 - Si manda foto: procésala y dile qué sigue ("Procesé la INE de Pérez. Ahora falta el reverso.").
 - Si pregunta "pendientes" o "cuántos tengo": lista de folios activos con status cada uno.
 - Si pregunta sobre el programa: responde como experta que es, sin explicar lo básico.
-- Eficiente, directa, sin rodeos. Ángeles no tiene tiempo para menús.
+- Eficiente, directa, sin rodeos. La promotora no tiene tiempo para menús.
 - SIGUIENTE ACCIÓN: siempre dile qué sigue en el flujo:
   - Docs incompletos → "Le falta [doc]. ¿Quieres que le mande un recordatorio?"
   - Docs completos, paso 2 → "Docs completos. Falta la entrevista. ¿Le mando mensaje para agendar?"
   - Entrevista hecha, paso 3+ → "Pendiente verificación OTP / asignación de vehículo."
-- Si Ángeles dice "sí" o "mándale" después de que sugieras enviar mensaje al taxista, envía el mensaje al taxista vía el folio vinculado.
+- Si la promotora dice "sí" o "mándale" después de que sugieras enviar mensaje al taxista, envía el mensaje al taxista vía el folio vinculado.
 
 === REGLAS CRÍTICAS ===
 1. DIFERENCIAL: cuota - recaudo GNV + $334 FG = lo que paga de su bolsillo. Siempre explícalo.
@@ -2266,7 +2267,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
 
     // ===== PERMISSION CHECK: Prospecto cannot send docs =====
     if (role === "prospecto" && mediaUrl) {
-      return await respond("Para enviar documentos necesitas un folio activo. Tu asesora Ángeles te lo puede crear. ¿Quieres saber más sobre el programa CMU primero?", null, null);
+      return await respond("Para enviar documentos necesitas un folio activo. Tu asesor(a) CMU te lo puede crear. ¿Quieres saber más sobre el programa CMU primero?", null, null);
     }
 
     // ===== CANAL A/B SHARED LOGIC =====
@@ -2505,7 +2506,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
           const canalCtx = prospectState.context?.canal || "ORGANICO";
           const notifInteresado = `*Nuevo prospecto interesado* \u2705\nCanal: ${canalCtx}\nTel: ${phone}\nCombustible: GNV\nConsumo: ${leq} LEQ/mes\nRecaudo: $${recaudo.toLocaleString()}/mes\nPendiente de registro.`;
           fetch("http://localhost:5000/api/whatsapp/send-outbound", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: "whatsapp:+5214422022540", body: notifInteresado }) }).catch(() => {});
-          fetch("http://localhost:5000/api/whatsapp/send-outbound", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: "whatsapp:+5214493845228", body: notifInteresado }) }).catch(() => {});
+          fetch("http://localhost:5000/api/whatsapp/send-outbound", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: `whatsapp:+${getPromotor()?.phone || "5214493845228"}`, body: notifInteresado }) }).catch(() => {});
           const modelos = getModelosDisponiblesText();
           return await respond(`Con ${leq} LEQ/mes, tu recaudo GNV cubre *$${recaudo.toLocaleString()}/mes* de la cuota.\n\n\u00bfQu\u00e9 modelo te interesa? Te doy los n\u00fameros exactos.\n\n${modelos}`);
         }
@@ -2525,7 +2526,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
           const canalCtxG = prospectState.context?.canal || "ORGANICO";
           const notifInteresadoG = `*Nuevo prospecto interesado* \u2705\nCanal: ${canalCtxG}\nTel: ${phone}\nCombustible: Gasolina\nGasto actual: $${gastoGasolina.toLocaleString()}/mes\nRecaudo equiv: $${recaudoEquiv.toLocaleString()}/mes\nPendiente de registro.`;
           fetch("http://localhost:5000/api/whatsapp/send-outbound", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: "whatsapp:+5214422022540", body: notifInteresadoG }) }).catch(() => {});
-          fetch("http://localhost:5000/api/whatsapp/send-outbound", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: "whatsapp:+5214493845228", body: notifInteresadoG }) }).catch(() => {});
+          fetch("http://localhost:5000/api/whatsapp/send-outbound", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: `whatsapp:+${getPromotor()?.phone || "5214493845228"}`, body: notifInteresadoG }) }).catch(() => {});
           const modelosG = getModelosDisponiblesText();
           return await respond(`Gastas *$${gastoGasolina.toLocaleString()}/mes* en gasolina. Con GNV gastar\u00edas *$${gastoGNV.toLocaleString()}*. Ahorro: *$${ahorro.toLocaleString()}/mes*.\n\nCon GNV tu recaudo cubrir\u00eda *$${recaudoEquiv.toLocaleString()}/mes* de la cuota. \u00bfQu\u00e9 modelo te interesa?\n\n${modelosG}`);
         }
@@ -2642,14 +2643,14 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
             const notifyMsg = `*Nuevo registro verificado*\n\nNombre: ${nombre}\nTel: ${tel}\nFolio: ${folioResult.folio || "?"}\nVerificado por OTP`;
             fetch("http://localhost:5000/api/whatsapp/send-outbound", {
               method: "POST", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ to: "whatsapp:+5214493845228", body: notifyMsg }),
+              body: JSON.stringify({ to: `whatsapp:+${getPromotor()?.phone || "5214493845228"}`, body: notifyMsg }),
             }).catch(() => {});
             fetch("http://localhost:5000/api/whatsapp/send-outbound", {
               method: "POST", headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ to: "whatsapp:+5214422022540", body: notifyMsg }),
             }).catch(() => {});
             
-            return await respond(`Numero verificado.\n\nTu folio es *${folioResult.folio}*.\nTu asesora *Angeles* te contactara para continuar con tu expediente.\n\nDocumentos que necesitaras:\n- INE (frente y reverso)\n- Tarjeta de circulacion\n- Concesion vigente\n- Comprobante de domicilio\n- Tickets de carga GNV`);
+            return await respond(`Numero verificado.\n\nTu folio es *${folioResult.folio}*.\nTu asesor(a) CMU te contactara para continuar con tu expediente.\n\nDocumentos que necesitaras:\n- INE (frente y reverso)\n- Tarjeta de circulacion\n- Concesion vigente\n- Comprobante de domicilio\n- Tickets de carga GNV`);
           } else {
             return await respond("Codigo incorrecto. Intenta de nuevo o escribe *reenviar* para recibir otro codigo.");
           }
@@ -2682,7 +2683,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
           const folioResult = await createFolioFromWhatsApp(this.storage, phone, nombre, phoneDigits);
           await this.updateState(phone, { state: "idle", context: {} });
           await upsertProspect({ phone, nombre, status: "registrado", folio_id: folioResult.folio }).catch(() => {});
-          return await respond(`Registrado.\n\nTu folio es *${folioResult.folio}*.\nTu asesora *Angeles* te contactara pronto.`);
+          return await respond(`Registrado.\n\nTu folio es *${folioResult.folio}*.\nTu asesor(a) CMU te contactara pronto.`);
         } else {
           return await respond("Necesito tu numero de celular a 10 digitos. Ejemplo: 4491234567");
         }
