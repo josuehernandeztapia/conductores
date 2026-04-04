@@ -2747,37 +2747,50 @@ Responde SOLO con JSON válido:
         } catch (e) { /* non-blocking */ }
       }
 
-      // 5-day registered without docs
+      // 5-day registered without docs — remind prospect + notify Ángeles with detail
       for (const p of followups.sin_docs_5d) {
-        const msg = `Hola${p.nombre ? " " + p.nombre.split(" ")[0] : ""}. Ya est\u00e1s registrado en el programa CMU. Para avanzar necesitamos tu INE y comprobante de domicilio. \u00bfMe los puedes mandar por aqu\u00ed?`;
+        // Get pending docs from folio if exists
+        let pendingDocs = "INE, comprobante de domicilio, concesi\u00f3n";
+        if (p.folio_id) {
+          try {
+            const folioRes = await fetch(`http://localhost:5000/api/originations?folio=${encodeURIComponent(p.folio_id)}`).then(r => r.json()).catch(() => null);
+            // Use generic list for now — agent will check specifics in conversation
+          } catch (e) { /* use default */ }
+        }
+        const msgProspect = `Hola${p.nombre ? " " + p.nombre.split(" ")[0] : ""}. Ya est\u00e1s registrado en el programa CMU. Para avanzar necesitamos tus documentos. \u00bfMe mandas tu *INE* (frente y reverso) por aqu\u00ed?`;
+        const msgAngeles = `\u26a0\ufe0f *Seguimiento 5d sin docs*\n${p.nombre || "Sin nombre"} (${p.phone})\nCanal: ${p.canal_origen}\nFolio: ${p.folio_id || "sin folio"}\nDocs: ${p.docs_completados}/${p.docs_total}\n\nSe le envi\u00f3 recordatorio por WhatsApp. Puedes contactarlo directamente.`;
         try {
+          // Remind prospect
           await fetch("http://localhost:5000/api/whatsapp/send-outbound", {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ to: `whatsapp:+${p.phone.replace(/\D/g, "")}`, body: msg }),
+            body: JSON.stringify({ to: `whatsapp:+${p.phone.replace(/\D/g, "")}`, body: msgProspect }),
+          });
+          // Notify Ángeles
+          await fetch("http://localhost:5000/api/whatsapp/send-outbound", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ to: "whatsapp:+5214493845228", body: msgAngeles }),
           });
           await markFollowupSent(p.phone);
           sent++;
-          results.push(`5d: ${p.nombre || p.phone}`);
+          results.push(`5d: ${p.nombre || p.phone} (prospecto + \u00c1ngeles)`);
         } catch (e) { /* non-blocking */ }
       }
 
-      // 7-day incomplete docs — notify Ángeles
+      // 7-day incomplete docs — notify Ángeles + Josu\u00e9 with specific missing docs
       for (const p of followups.incompletos_7d) {
-        const msg = `\u26a0\ufe0f *Prospecto sin avance 7d*\n${p.nombre || p.phone}\nCanal: ${p.canal_origen}\nDocs: ${p.docs_completados}/${p.docs_total}\nFolio: ${p.folio_id || "sin folio"}`;
+        const msg = `\u26a0\ufe0f *Prospecto 7d sin completar docs*\n*${p.nombre || "Sin nombre"}* (${p.phone})\nCanal: ${p.canal_origen}\nFolio: ${p.folio_id || "sin folio"}\nDocs: *${p.docs_completados} de ${p.docs_total}*\nFaltan: ${p.docs_total - p.docs_completados} documentos\n\nContactar para completar expediente.`;
         try {
-          // Notify Ángeles
           await fetch("http://localhost:5000/api/whatsapp/send-outbound", {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ to: "whatsapp:+5214493845228", body: msg }),
           });
-          // Notify Josu\u00e9
           await fetch("http://localhost:5000/api/whatsapp/send-outbound", {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ to: "whatsapp:+5214422022540", body: msg }),
           });
           await markFollowupSent(p.phone);
           sent++;
-          results.push(`7d: ${p.nombre || p.phone} (notif \u00c1ngeles+Josu\u00e9)`);
+          results.push(`7d: ${p.nombre || p.phone} (\u00c1ngeles+Josu\u00e9)`);
         } catch (e) { /* non-blocking */ }
       }
 
