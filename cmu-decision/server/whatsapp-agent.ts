@@ -64,6 +64,9 @@ function calcFuelContext(fp: FuelPrices) {
   const ahorroMes = gastoGasolinaMes - recaudoMes;
   return {
     gnvPrecioLeq: gnvPrecio,
+    gnvPrice: gnvPrecio,
+    gasolinaPrice: magnaPrecio,
+    ahorroPerLeq: magnaPrecio - gnvPrecio,
     gnvRevenueMes: recaudoMes,
     gastoGasolinaMes,
     ahorroMes,
@@ -109,14 +112,14 @@ DOC_ORDER.forEach(d => { DOC_LABELS[d.key] = d.label; });
 // ===== System Prompts (v9 — state-aware + SSOT) =====
 
 const SYSTEM_PROMPT_AB = `Eres "CMU Asistente" de Conductores del Mundo (CMU). NUNCA digas que eres IA/bot/GPT.
-Filosofía: "El humano toma fotos, el agente hace todo lo demás."
+Filosofía: TU GUÍAS LA CONVERSACIÓN. No esperes a que el usuario adivine qué decir. Haz UNA pregunta a la vez y avanza.
 NUNCA pidas datos largos (CURP, RFC, CLABE). Extráelos de fotos. Acepta nombre/parcial/"el último" para folios.
-Español mexicano coloquial. Respuestas cortas (3-4 líneas max en WhatsApp). No uses emojis excesivos. Maximo 1 emoji por mensaje. Tono profesional y directo.
+Español mexicano coloquial. Respuestas cortas (3-4 líneas max en WhatsApp). Maximo 1 emoji por mensaje. Tono profesional y cálido.
 
 IMPORTANTE: SÍ puedes recibir fotos, imágenes Y PDFs por WhatsApp. NUNCA digas que no puedes recibir PDFs.
 Cuando el usuario pregunte por datos que ya extrajiste de un documento (nombre, CURP, número INE, CLABE), respóndelos directamente de los datos que tienes.
 
-Eres EXPERTO en el programa CMU. Puedes responder CUALQUIER duda sobre el programa, vehículos, pagos, proceso, documentos, fondo de garantía, etc. Usa la siguiente base de conocimiento:
+Eres EXPERTO en el programa CMU. Usa la siguiente base de conocimiento:
 
 {knowledgeBase}
 
@@ -127,39 +130,46 @@ INE = FUENTE DE VERDAD.
 
 {fuelContext}
 
-COMPORTAMIENTO SEGUN ROL:
-- prospecto (sin registro): eres VENDEDOR CONSULTIVO HONESTO. Pregunta cuantos litros consume al mes. Calcula ahorro real con precios vigentes. Explica el DIFERENCIAL: cuota - recaudo GNV = lo que paga de su bolsillo + $334 FG. NUNCA digas que "no lo va a sentir". Si muestra interes: "Cuando estes listo, escribe 'quiero registrarme'."
-- cliente (con folio): guia en captura de documentos, responde dudas, da status de su expediente. Siempre explica el diferencial de pago si pregunta sobre cuotas.
-- promotora: eficiente, multi-folio, cross-check, status. Sabe explicar el flujo de pago y diferencial al taxista.
+=== COMPORTAMIENTO POR ROL (TÚ GUÍAS, ELLOS RESPONDEN) ===
 
-REGLA CRITICA: Siempre explica el DIFERENCIAL cuando hables de pagos. El taxista debe saber cuanto paga de su bolsillo: diferencial = cuota - recaudo GNV + $334 FG.
-Cuando el taxista pregunte sobre requisitos, documentos o condiciones del credito, menciona las obligaciones legales: concesion vigente durante los 36 meses, seguro vehicular vigente, licencia de conducir vigente (propia o del operador autorizado), alta en SAT con actividad de transporte, y no ceder derechos del contrato sin autorizacion de CMU.
+PROSPECTO (sin registro):
+Eres un vendedor consultivo honesto. Tu trabajo es llevar al taxista de "¿qué es esto?" a "¿cuánto pagaría?" en 3-4 mensajes.
+- SIEMPRE pregunta primero: "¿Tu taxi ya usa gas natural o gasolina?"
+- Si GNV: pregunta cuántos litros carga al mes y calcula su diferencial real
+- Si gasolina: pregunta cuánto gasta de gasolina al mes, calcula cuánto ahorraría con GNV
+- Después de calcular: dile cuánto pagaría de más al mes por un taxi seminuevo (rango $2,000-$4,000 según consumo)
+- NUNCA digas "no lo va a sentir" ni "se paga solo". Sé honesto: "Tu ahorro cubre parte de la cuota. El resto, unos $X/mes, sale de tu bolsilla."
+- Si muestra interés ("va", "sí", "me interesa", "le entro", "dime más", "cómo le hago", "qué necesito"): ofrécele apuntarse en la lista. NO pidas "escribe quiero registrarme" — detecta la intención.
+- Manejamos March, Aveo, i10 seminuevos. NO muestres inventario real ni unidades específicas.
+- NUNCA muestres menús de opciones ("escribe 1 para..."). Solo conversa natural.
+
+CLIENTE (con folio):
+Eres su guía de trámite. Tu trabajo es que complete su expediente lo más rápido posible.
+- Al saludar: dile su status PRIMERO. "Hola [nombre], tu folio va en paso X. Te falta: [documento]. ¿Me lo mandas?"
+- Cuando mande un documento: confirma y pide el siguiente. "Listo, ya tengo tu INE. Ahora necesito tu comprobante de domicilio."
+- Si pregunta "qué me falta": lista exacta de documentos pendientes, no un menú genérico.
+- Si pregunta sobre pagos/cuotas: da su estado de cuenta y explica el diferencial.
+- NUNCA respondas con menú de opciones. Lee su contexto y responde directo.
+
+PROMOTORA (Ángeles):
+Eres su copiloto rápido. Ángeles maneja múltiples folios y necesita respuestas inmediatas.
+- Si dice un nombre/apellido: busca el folio y da status completo (paso, docs pendientes, último movimiento).
+- Si manda foto: procésala y dile qué sigue ("Procesé la INE de Pérez. Ahora falta el reverso.").
+- Si pregunta "pendientes" o "cuántos tengo": lista de folios activos con status cada uno.
+- Si pregunta sobre el programa: responde como experta que es, sin explicar lo básico.
+- Eficiente, directa, sin rodeos. Ángeles no tiene tiempo para menús.
+
+=== REGLAS CRÍTICAS ===
+1. DIFERENCIAL: cuota - recaudo GNV + $334 FG = lo que paga de su bolsillo. Siempre explícalo.
+2. Obligaciones legales: concesión vigente 36 meses, seguro, licencia, alta SAT transporte.
+3. NUNCA muestres menús tipo "escribe 1, 2, 3" ni listas de opciones. Conversa natural.
+4. Si no entiendes algo, pregunta. No asumas.
 
 === PRODUCTOS CMU (3 tipos) ===
-CMU tiene 3 productos distintos. El contexto de cartera te dira cual tiene este cliente.
-
-1. JOYLONG AHORRO (Promesa de Compraventa — Ahorro Individual):
-   - El cliente ahorra para comprar un autobus Joylong M6 de $799,000.
-   - Ahorra via sobreprecio en carga de GNV. Sin plazo fijo. Sin cuota mensual. Sin mora.
-   - Cuando su ahorro llega al 50% ($399,500 = "gatillo"), CMU pide el autobus a China (3-4 meses de entrega).
-   - Preguntas tipicas: "cuanto llevo?", "cuanto me falta?", "cuando llego al gatillo?"
-   - Responde con: ahorro acumulado, % avance, cuanto falta para el gatillo.
-   - NUNCA hables de cuotas mensuales, mora, ni diferencial. Esto NO es un credito — es ahorro.
-
-2. KIT CONVERSION GNV (Compraventa a Plazos):
-   - El cliente compro un kit de conversion GNV ($55,500) a 12 meses ($4,625/mes).
-   - Paga via sobreprecio en carga de GNV ($10/LEQ). Meta: 500 LEQ/mes = $5,000 (cubre cuota + FG).
-   - Tiene Fondo de Garantia ($375/mes, max $4,500) que cubre si un mes no carga suficiente.
-   - Preguntas tipicas: "cuanto debo?", "cuanto me falta?", "ya se reflejo mi pago?"
-   - Responde con: saldo pendiente, mes actual, parcialidades restantes.
-
-3. TAXI RENOVACION (Credito a Plazos, 36 meses):
-   - CMU compra taxi, le pone GNV, lo vende a plazos al taxista.
-   - 36 meses, amortizacion alemana, diferencial = cuota - recaudo GNV.
-   - Tiene FG ($334/mes, max $20,000).
-   - Preguntas tipicas: "cuanto debo?", "cuanto llevo pagado?", "cuanto es mi cuota?"
-
-IDENTIFICA EL PRODUCTO por el contexto de cartera que se te inyecta. Si dice "AHORRO JOYLONG" habla de ahorro. Si dice "KIT CONVERSION" habla de parcialidades. Si dice "CREDITO TAXI" habla de cuotas y mora.
+1. JOYLONG AHORRO: Ahorro para autobús $799k. Sin cuota, sin mora. Pregunta típica: "cuánto llevo?"
+2. KIT CONVERSION: Kit GNV $55,500 a 12 meses. Paga vía sobreprecio GNV ($10/LEQ). Pregunta: "cuánto debo?"
+3. TAXI RENOVACION: Taxi seminuevo a 36 meses, amortización alemana. Pregunta: "cuánto es mi cuota?"
+Identifica el producto por el contexto de cartera inyectado.
 
 === ESTADO DE LA CONVERSACIÓN ===
 {stateContext}
@@ -171,7 +181,7 @@ INSTRUCCIONES DE CONTINUIDAD:
 - Si el estado dice VEHÍCULO EN DISCUSIÓN, asume ese vehículo si el usuario no menciona otro.
 - Si el estado dice FOLIO ACTIVO, responde en contexto de ese folio sin preguntar.
 - Si el estado dice EVALUACIÓN EN CURSO, continúa con esos datos.
-- Si no hay estado previo, funciona como antes.
+- Si no hay estado previo, guía desde el inicio según el rol.
 
 Responde SOLO el mensaje de WhatsApp. Corto y directo (3-4 lineas max).`;
 
@@ -2111,10 +2121,19 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
           greetLines.push(`\nPregunta lo que quieras sobre tu estado de cuenta, pagos o el programa CMU.`);
           return await respond(greetLines.join("\n"));
         }
-        return await respond(`${timeGreet} ${name}. Soy el asistente de Conductores del Mundo.\n\nPuedes:\n\u2022 *mis pagos* \u2014 estado de cuenta\n\u2022 Enviar documento \u2014 para tu expediente\n\u2022 Preguntar sobre el programa CMU\n\n\u00bfEn qu\u00e9 te ayudo?`);
+        // Cliente with folio: show status + next action
+        const orig = originationId ? await this.storage.getOrigination(originationId) : null;
+        if (orig) {
+          const o = orig as any;
+          const pI = await this.getPendingInfo(originationId!);
+          return await respond(`${timeGreet} ${name}. Tu folio *${o.folio}* va en paso ${o.currentStep} de 8.\n\n${pI.count > 0 ? `Te falta: *${pI.text}*. \u00bfMe lo mandas?` : `Tu expediente est\u00e1 completo. \u00bfAlguna duda sobre tu tr\u00e1mite?`}`);
+        }
+        return await respond(`${timeGreet} ${name}. Soy el asistente de Conductores del Mundo. \u00bfEn qu\u00e9 te ayudo? Puedes enviarme documentos, preguntar sobre tu tr\u00e1mite o consultar tu estado de cuenta.`);
       }
       if (role === "prospecto") {
-        return await respond(`${timeGreet}${name ? " " + name : ""}. Soy el asistente digital de *Conductores del Mundo*.\n\nTe ayudo con informaci\u00f3n sobre nuestro programa de veh\u00edculos con Gas Natural (GNV) para taxistas en Aguascalientes.\n\n\u00bfTe gustar\u00eda saber c\u00f3mo funciona? Solo dime:\n\u2022 *Cu\u00e1nto ahorro* con GNV\n\u2022 *Qu\u00e9 carros tienen* disponibles\n\u2022 *C\u00f3mo funciona* el programa\n\u2022 *Quiero registrarme*\n\nO pregunta lo que quieras.`);
+        // Prospecto: guide to fuel type question
+        await this.updateState(phone, { state: "prospect_fuel_type", context: {} });
+        return await respond(`${timeGreet}${name ? " " + name : ""}. Soy el asistente de *Conductores del Mundo*. Tenemos un programa donde puedes estrenar taxi seminuevo y cubrir gran parte del pago con tu ahorro en gas natural.\n\n\u00bfTu taxi ya usa *gas natural* o est\u00e1s con *gasolina*?`);
       }
       // proveedor greeting already handled in its own flow
     }
@@ -2386,11 +2405,66 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
       }
     }
 
-    // ===== PROSPECT: Registration intent =====
+    // ===== PROSPECT: Guided state machine =====
     if (body && role === "prospecto") {
       const lower = body.toLowerCase();
       const prospectState = await this.getConvState(phone);
-      
+      const fuel = await this.getFuel();
+
+      // State: prospect_fuel_type — waiting for GNV or gasolina answer
+      if (prospectState.state === "prospect_fuel_type") {
+        const isGNV = /gas\s*natural|gnv|gas$|ya.*gas|s[ií].*gas|con gas/i.test(lower);
+        const isGasolina = /gasolina|magna|premium|normal|no.*gas|sin gas/i.test(lower);
+        if (isGNV) {
+          await this.updateState(phone, { state: "prospect_gnv_consumo", context: { fuelType: "gnv" } });
+          return await respond("Perfecto, ya est\u00e1s con gas natural. \u00bfM\u00e1s o menos cu\u00e1ntos litros cargas al mes? Un aproximado est\u00e1 bien.");
+        } else if (isGasolina) {
+          await this.updateState(phone, { state: "prospect_gasolina_gasto", context: { fuelType: "gasolina" } });
+          return await respond("\u00bfCu\u00e1nto gastas de gasolina al mes, m\u00e1s o menos? Con eso te calculo cu\u00e1nto ahorrar\u00edas con gas natural.");
+        }
+        // Didn't understand — let LLM handle but keep state
+      }
+
+      // State: prospect_gnv_consumo — waiting for LEQ/month
+      if (prospectState.state === "prospect_gnv_consumo") {
+        const numMatch = lower.match(/(\d{2,4})/);
+        if (numMatch) {
+          const leq = parseInt(numMatch[1]);
+          const ahorro = Math.round(leq * fuel.ahorroPerLeq);
+          const diferencialBajo = 2000;
+          const diferencialAlto = 4000;
+          await this.updateState(phone, { state: "prospect_interest", context: { fuelType: "gnv", leqMes: leq, ahorroMes: ahorro } });
+          return await respond(`Con ${leq} LEQ/mes tu ahorro en GNV cubre unos *$${ahorro.toLocaleString()}/mes* de la cuota del taxi.\n\nEl pago extra de tu bolsillo ser\u00eda entre *$${diferencialBajo.toLocaleString()}* y *$${diferencialAlto.toLocaleString()}/mes* por un taxi seminuevo (March, Aveo, i10).\n\n\u00bfTe interesa saber m\u00e1s del programa?`);
+        }
+      }
+
+      // State: prospect_gasolina_gasto — waiting for monthly gas spend
+      if (prospectState.state === "prospect_gasolina_gasto") {
+        const numMatch = lower.match(/(\d{3,5})/);
+        if (numMatch) {
+          const gastoGasolina = parseInt(numMatch[1]);
+          const ltGasolina = Math.round(gastoGasolina / fuel.gasolinaPrice);
+          const gastoGNV = Math.round(ltGasolina * fuel.gnvPrice);
+          const ahorro = gastoGasolina - gastoGNV;
+          await this.updateState(phone, { state: "prospect_interest", context: { fuelType: "gasolina", gastoGasolina, ahorroMes: ahorro, leqEquiv: ltGasolina } });
+          return await respond(`Gastas *$${gastoGasolina.toLocaleString()}/mes* en gasolina. Con gas natural gastar\u00edas *$${gastoGNV.toLocaleString()}*. Eso es un ahorro de *$${ahorro.toLocaleString()}/mes*.\n\nCon ese ahorro podr\u00edas cubrir gran parte de la mensualidad de un taxi seminuevo. Tu pago extra ser\u00eda entre $2,000 y $4,000/mes.\n\n\u00bfQuieres que te explique c\u00f3mo funciona?`);
+        }
+      }
+
+      // State: prospect_interest — waiting for yes/no
+      if (prospectState.state === "prospect_interest") {
+        const isPositive = /s[ií]|va|dale|le entro|me interesa|claro|por\s*supuesto|\u00f3rale|orale|dime|quer[ií]a|quiero|c[oó]mo le hago|qu[eé] necesito|qu[eé] hago|adelante|ok|va pues/i.test(lower);
+        const isNegative = /no|nel|nah|luego|despu[eé]s|lo pienso|ahorita no|quiz[aá]s/i.test(lower);
+        if (isPositive) {
+          await this.updateState(phone, { state: "awaiting_name", context: prospectState.context });
+          return await respond("Qu\u00e9 bueno. Para apuntarte en la lista necesito unos datos.\n\nPrimero, \u00bfc\u00f3mo te llamas? (nombre completo)");
+        } else if (isNegative) {
+          await this.updateState(phone, { state: "prospect_cold", context: prospectState.context });
+          return await respond("Sin problema. Si m\u00e1s adelante te interesa, escr\u00edbeme y retomamos. El programa sigue abierto.");
+        }
+        // Ambiguous — let LLM handle with full context
+      }
+
       // Step 4: OTP verification
       if (prospectState.state === "awaiting_otp") {
         const code = body.trim().replace(/\s/g, "");
@@ -2467,11 +2541,8 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         }
       }
       
-      // Step 1: Detect registration intent
-      const wantsToRegister = lower.includes("quiero registrarme") || lower.includes("c\u00f3mo me registro")
-        || lower.includes("como me registro") || lower.includes("quiero aplicar")
-        || lower.includes("me interesa registrarme") || lower.includes("quiero entrar al programa")
-        || lower.includes("registrarme") || lower.includes("inscribirme");
+      // Step 1: Detect registration intent (broad — catches "va", "le entro", "me interesa", etc.)
+      const wantsToRegister = /quiero registrarme|c[oó]mo me registro|quiero aplicar|me interesa|quiero entrar|registrarme|inscribirme|le entro|me apunto|s[ií].*quiero|va.*programa|d[oó]nde me anoto|qu[eé] necesito para entrar|c[oó]mo le hago para entrar/i.test(lower);
       if (wantsToRegister) {
         await this.updateState(phone, { state: "awaiting_name", context: {} });
         return await respond("Para registrarte necesito algunos datos.\n\nPrimero, dime tu *nombre completo*:");
