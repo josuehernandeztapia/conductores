@@ -2265,9 +2265,38 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
       return await respond(reply);
     }
 
+    // ===== VOICE NOTE: Transcribe with Whisper and treat as text =====
+    if (mediaUrl && mediaType && (mediaType.includes("audio") || mediaType.includes("ogg") || mediaType.includes("opus"))) {
+      try {
+        const SID = process.env.TWILIO_ACCOUNT_SID;
+        const TOK = process.env.TWILIO_AUTH_TOKEN;
+        const audioResp = await fetch(mediaUrl, {
+          headers: SID && TOK ? { "Authorization": "Basic " + Buffer.from(`${SID}:${TOK}`).toString("base64") } : {},
+        });
+        const audioBuf = Buffer.from(await audioResp.arrayBuffer());
+        console.log(`[Agent] Voice note received: ${(audioBuf.length / 1024).toFixed(1)}KB, type=${mediaType}`);
+
+        const { transcribirAudio } = await import("./evaluacion-taxi");
+        const result = await transcribirAudio(audioBuf, "whatsapp-voice");
+
+        if (result.transcript && result.transcript.trim().length > 0) {
+          console.log(`[Agent] Whisper transcript: "${result.transcript.substring(0, 100)}"`);
+          body = result.transcript;
+          mediaUrl = null;
+          mediaType = null;
+          // Fall through to normal text handling below
+        } else {
+          return await respond("No pude entender el audio. \u00bfPuedes repetir o escribir tu mensaje?");
+        }
+      } catch (err: any) {
+        console.error(`[Agent] Voice transcription error:`, err.message);
+        return await respond("Hubo un problema al procesar tu nota de voz. Int\u00e9ntalo de nuevo o escr\u00edbeme.");
+      }
+    }
+
     // ===== PERMISSION CHECK: Prospecto cannot send docs =====
     if (role === "prospecto" && mediaUrl) {
-      return await respond("Para enviar documentos necesitas un folio activo. Tu asesor(a) CMU te lo puede crear. ¿Quieres saber más sobre el programa CMU primero?", null, null);
+      return await respond("Para enviar documentos necesitas un folio activo. Tu asesor(a) CMU te lo puede crear. \u00bfQuieres saber m\u00e1s sobre el programa CMU primero?", null, null);
     }
 
     // ===== CANAL A/B SHARED LOGIC =====
