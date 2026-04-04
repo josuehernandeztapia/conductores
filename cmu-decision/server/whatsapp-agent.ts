@@ -352,7 +352,7 @@ export class WhatsAppAgent {
   }
 
   // ===== Conversation State Management (v9 — DB-backed) =====
-  private async getConvState(phone: string): Promise<ConvSession> {
+  async getConvState(phone: string): Promise<ConvSession> {
     return getConvSession(phone);
   }
 
