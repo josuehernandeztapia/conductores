@@ -2726,6 +2726,67 @@ Responde SOLO con JSON válido:
     }
   });
 
+  // ===== PIPELINE FOLLOWUP =====
+  app.post("/api/pipeline/run-followup", async (_req, res) => {
+    try {
+      const followups = await getProspectsNeedingFollowup();
+      let sent = 0;
+      const results: string[] = [];
+
+      // 3-day cold prospects
+      for (const p of followups.frios_3d) {
+        const msg = `Hola${p.nombre ? " " + p.nombre.split(" ")[0] : ""}. La otra vez preguntaste por nuestro programa de taxis con gas natural. \u00bfTe interesa que te platique c\u00f3mo funciona?`;
+        try {
+          await fetch("http://localhost:5000/api/whatsapp/send-outbound", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ to: `whatsapp:+${p.phone.replace(/\D/g, "")}`, body: msg }),
+          });
+          await markFollowupSent(p.phone);
+          sent++;
+          results.push(`3d: ${p.nombre || p.phone}`);
+        } catch (e) { /* non-blocking */ }
+      }
+
+      // 5-day registered without docs
+      for (const p of followups.sin_docs_5d) {
+        const msg = `Hola${p.nombre ? " " + p.nombre.split(" ")[0] : ""}. Ya est\u00e1s registrado en el programa CMU. Para avanzar necesitamos tu INE y comprobante de domicilio. \u00bfMe los puedes mandar por aqu\u00ed?`;
+        try {
+          await fetch("http://localhost:5000/api/whatsapp/send-outbound", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ to: `whatsapp:+${p.phone.replace(/\D/g, "")}`, body: msg }),
+          });
+          await markFollowupSent(p.phone);
+          sent++;
+          results.push(`5d: ${p.nombre || p.phone}`);
+        } catch (e) { /* non-blocking */ }
+      }
+
+      // 7-day incomplete docs — notify Ángeles
+      for (const p of followups.incompletos_7d) {
+        const msg = `\u26a0\ufe0f *Prospecto sin avance 7d*\n${p.nombre || p.phone}\nCanal: ${p.canal_origen}\nDocs: ${p.docs_completados}/${p.docs_total}\nFolio: ${p.folio_id || "sin folio"}`;
+        try {
+          // Notify Ángeles
+          await fetch("http://localhost:5000/api/whatsapp/send-outbound", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ to: "whatsapp:+5214493845228", body: msg }),
+          });
+          // Notify Josu\u00e9
+          await fetch("http://localhost:5000/api/whatsapp/send-outbound", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ to: "whatsapp:+5214422022540", body: msg }),
+          });
+          await markFollowupSent(p.phone);
+          sent++;
+          results.push(`7d: ${p.nombre || p.phone} (notif \u00c1ngeles+Josu\u00e9)`);
+        } catch (e) { /* non-blocking */ }
+      }
+
+      res.json({ success: true, sent, results, summary: `${followups.frios_3d.length} fr\u00edos 3d, ${followups.sin_docs_5d.length} sin docs 5d, ${followups.incompletos_7d.length} incompletos 7d` });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // ===== AUDIT TRAIL =====
   initAuditTable().catch((e) => console.error("[Audit] Init failed:", e.message));
 
