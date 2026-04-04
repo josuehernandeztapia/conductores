@@ -2707,6 +2707,9 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
             },
           },
         });
+        // Update pipeline with doc progress
+        const { updateProspectDocs } = await import("./pipeline-ventas");
+        updateProspectDocs(phone, capturedList.length, DOC_ORDER.length).catch(() => {});
       }
     } else if (mediaUrl && !originationId) { visionNote = "Imagen sin folio vinculado."; }
 
