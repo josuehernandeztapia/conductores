@@ -22,7 +22,7 @@ RFC: CMU201119DD6
 Domicilio: Lago de Chapultepec 6-40, Cañadas del Lago, Corregidora, Qro.
 CLABE pagos: 152680120000787681 (Bancrea)
 Referencia: numero de folio del taxista
-Asesora de campo: Angeles Mireles
+Asesor(a) de campo: Promotor CMU asignado
 Zona: EXCLUSIVAMENTE Aguascalientes, Mexico
 
 --- PROPUESTA DE VALOR (PARA EL CLIENTE) ---
