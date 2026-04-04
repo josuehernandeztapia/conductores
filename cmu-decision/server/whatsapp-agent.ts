@@ -159,6 +159,11 @@ Eres su copiloto rápido. Ángeles maneja múltiples folios y necesita respuesta
 - Si pregunta "pendientes" o "cuántos tengo": lista de folios activos con status cada uno.
 - Si pregunta sobre el programa: responde como experta que es, sin explicar lo básico.
 - Eficiente, directa, sin rodeos. Ángeles no tiene tiempo para menús.
+- SIGUIENTE ACCIÓN: siempre dile qué sigue en el flujo:
+  - Docs incompletos → "Le falta [doc]. ¿Quieres que le mande un recordatorio?"
+  - Docs completos, paso 2 → "Docs completos. Falta la entrevista. ¿Le mando mensaje para agendar?"
+  - Entrevista hecha, paso 3+ → "Pendiente verificación OTP / asignación de vehículo."
+- Si Ángeles dice "sí" o "mándale" después de que sugieras enviar mensaje al taxista, envía el mensaje al taxista vía el folio vinculado.
 
 === REGLAS CRÍTICAS ===
 1. DIFERENCIAL: cuota - recaudo GNV + $334 FG = lo que paga de su bolsillo. Siempre explícalo.
@@ -2336,6 +2341,47 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
           return await respond(`✅ *Folio creado:* ${result.folio}\n\nTaxista: ${taxistaName}\nTel: ${taxistaPhone}\n\nYa puedes enviar documentos para este folio.\nPrimero: *INE (frente y vuelta)*`, result.originationId);
         } catch (e: any) {
           return await respond(`❌ Error al crear folio: ${e.message}`);
+        }
+      }
+
+      // Send message to taxista from promotor ("mándale", "sí", "dale", "agendar")
+      const wantsToMessage = /^(s[ií]|dale|m[aá]ndale|env[ií]ale|agendar|recordar|manda|s[ií].*m[aá]nda)/i.test(lower);
+      if (wantsToMessage && originationId) {
+        try {
+          const orig = await this.storage.getOrigination(originationId);
+          if (orig) {
+            const o = orig as any;
+            const tid = o.taxistaId || o.taxista_id;
+            const taxista = tid ? await this.storage.getTaxista(tid) : null;
+            const taxistaPhone = taxista ? (taxista as any).telefono || (taxista as any).phone : null;
+            const taxistaName = taxista ? (taxista as any).nombre : "taxista";
+            if (taxistaPhone) {
+              const step = o.currentStep || 1;
+              let msgToClient = "";
+              if (step <= 2) {
+                // Needs docs
+                const allDocs = await this.storage.getDocumentsByOrigination(originationId);
+                const captured = new Set(allDocs.filter((d: any) => d.imageData || d.image_data).map((d: any) => d.tipo));
+                const pending = DOC_ORDER.filter(d => !captured.has(d.key)).slice(0, 3).map(d => d.label);
+                msgToClient = `Hola ${taxistaName.split(" ")[0]}. Para avanzar con tu tr\u00e1mite en CMU necesitamos: *${pending.join(", ")}*. \u00bfMe los puedes mandar por aqu\u00ed?`;
+              } else if (step === 2 || step === 3) {
+                // Needs interview
+                msgToClient = `Hola ${taxistaName.split(" ")[0]}. Tu expediente va bien. Para continuar necesitamos una entrevista presencial con tu asesora \u00c1ngeles. \u00bfQu\u00e9 d\u00eda te queda bien esta semana?`;
+              } else {
+                msgToClient = `Hola ${taxistaName.split(" ")[0]}. Tu tr\u00e1mite en CMU va en paso ${step} de 8. \u00bfTienes alguna duda?`;
+              }
+              const cleanPhone = taxistaPhone.replace(/\D/g, "");
+              await fetch("http://localhost:5000/api/whatsapp/send-outbound", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ to: `whatsapp:+${cleanPhone}`, body: msgToClient }),
+              });
+              return await respond(`Listo, le mand\u00e9 mensaje a ${taxistaName} (${cleanPhone}).`);
+            } else {
+              return await respond(`No tengo el tel\u00e9fono del taxista de este folio.`);
+            }
+          }
+        } catch (e: any) {
+          return await respond(`Error al enviar: ${e.message}`);
         }
       }
 
