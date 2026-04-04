@@ -16,6 +16,7 @@ import OriginacionFlowPage from "./pages/originacion-flow";
 import PanelPage from "./pages/panel";
 import EvaluacionesPage from "./pages/evaluaciones";
 import PipelinePage from "./pages/pipeline";
+import SandboxPage from "./pages/sandbox";
 import NotFound from "./pages/not-found";
 
 // ===== Director Router (full access) =====
@@ -37,6 +38,31 @@ function DirectorRouter() {
       <Route path="/pipeline" component={PipelinePage} />
       {/* Cartera */}
       <Route path="/panel" component={PanelPage} />
+      {/* Dev Tools */}
+      <Route path="/sandbox">{() => <SandboxPage showDebug={false} />}</Route>
+      <Route component={NotFound} />
+    </Switch>
+  );
+}
+
+// ===== Dev Router (everything + debug tools) =====
+function DevRouter() {
+  return (
+    <Switch>
+      <Route path="/">
+        <Redirect to="/sandbox" />
+      </Route>
+      {/* All director routes */}
+      <Route path="/motor" component={EvaluatePage} />
+      <Route path="/motor/catalog" component={CatalogPage} />
+      <Route path="/inventario" component={InventarioPage} />
+      <Route path="/originacion" component={OriginacionPage} />
+      <Route path="/originacion/:id" component={OriginacionFlowPage} />
+      <Route path="/evaluaciones" component={EvaluacionesPage} />
+      <Route path="/pipeline" component={PipelinePage} />
+      <Route path="/panel" component={PanelPage} />
+      {/* Dev Tools */}
+      <Route path="/sandbox">{() => <SandboxPage showDebug={true} />}</Route>
       <Route component={NotFound} />
     </Switch>
   );
@@ -74,9 +100,10 @@ function useOnlineStatus() {
 }
 
 // ===== Director view (sidebar + full nav) =====
-function DirectorApp({ promoter, onLogout }: {
+function DirectorApp({ promoter, onLogout, routerOverride }: {
   promoter: { id: number; name: string; role: string };
   onLogout: () => void;
+  routerOverride?: React.ReactNode;
 }) {
   const isOnline = useOnlineStatus();
   const sidebarStyle = {
@@ -115,7 +142,7 @@ function DirectorApp({ promoter, onLogout }: {
             </header>
             <main className="flex-1 overflow-y-auto">
               <ErrorBoundary>
-                <DirectorRouter />
+                {routerOverride || <DirectorRouter />}
               </ErrorBoundary>
             </main>
           </div>
@@ -222,6 +249,8 @@ function App() {
         <Toaster />
         {!promoter ? (
           <PinLogin onLogin={handleLogin} />
+        ) : promoter.role === "dev" ? (
+          <DirectorApp promoter={promoter} onLogout={handleLogout} routerOverride={<DevRouter />} />
         ) : promoter.role === "director" ? (
           <DirectorApp promoter={promoter} onLogout={handleLogout} />
         ) : (
