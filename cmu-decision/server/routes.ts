@@ -73,6 +73,7 @@ const PUBLIC_PATHS = [
   "/api/evaluacion",
   "/api/audit",
   "/api/pipeline",
+  "/api/agent/sandbox",
 ];
 
 function authMiddleware(req: Request, res: Response, next: NextFunction) {
@@ -2671,6 +2672,66 @@ Responde SOLO con JSON válido:
 
   // ===== EVALUACIÓN RÁPIDA TAXI =====
   app.use("/api/evaluacion", evaluacionRoutes);
+
+  // ===== AGENT SANDBOX =====
+  app.post("/api/agent/sandbox", async (req, res) => {
+    try {
+      const { message, simulateRole, sessionId } = req.body;
+      if (!message) return res.status(400).json({ error: "message required" });
+
+      const role = simulateRole || "prospecto";
+      const sandboxPhone = `sandbox_${sessionId || "default"}_${role}`;
+
+      // Map role to a fake phone context
+      const roleMap: Record<string, { role: string; name: string | null }> = {
+        prospecto: { role: "prospecto", name: null },
+        cliente: { role: "cliente", name: "Cliente Test" },
+        promotora: { role: "promotora", name: getPromotor()?.nombre || "Promotor CMU" },
+        director: { role: "director", name: DIRECTOR.nombre },
+      };
+      const simRole = roleMap[role] || roleMap.prospecto;
+
+      // Collect debug info
+      const debugLog: string[] = [];
+      const startTime = Date.now();
+      debugLog.push(`[Sandbox] Role: ${simRole.role}, Phone: ${sandboxPhone}`);
+
+      // Get conversation state for debug
+      const convStateBefore = await agent.getConvState(sandboxPhone);
+      debugLog.push(`[State Before] ${JSON.stringify(convStateBefore.state || "idle")}`);
+
+      // Call the actual agent handler
+      const result = await agent.handleMessage(
+        sandboxPhone, message, null, null,
+        null, // no origination ID
+        simRole.role, simRole.name, [],
+      );
+
+      const convStateAfter = await agent.getConvState(sandboxPhone);
+      const elapsed = Date.now() - startTime;
+      debugLog.push(`[State After] ${JSON.stringify(convStateAfter.state || "idle")}`);
+      debugLog.push(`[Context] ${JSON.stringify(convStateAfter.context || {})}`);
+      debugLog.push(`[Latency] ${elapsed}ms`);
+
+      res.json({
+        success: true,
+        reply: result.reply,
+        debug: {
+          role: simRole.role,
+          phone: sandboxPhone,
+          stateBefore: convStateBefore.state || "idle",
+          stateAfter: convStateAfter.state || "idle",
+          context: convStateAfter.context || {},
+          latencyMs: elapsed,
+          logs: debugLog,
+          documentSaved: result.documentSaved,
+          newOriginationId: result.newOriginationId,
+        },
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
 
   // ===== PIPELINE DE VENTAS =====
   app.get("/api/pipeline/stats", async (_req, res) => {
