@@ -1,7 +1,7 @@
 /**
  * Team Configuration — Central reference for all team members
  * 
- * Change here when adding promotoras or updating contact info.
+ * Change here when adding team members or updating contact info.
  * All other files reference this config instead of hardcoding names/phones.
  */
 
@@ -21,15 +21,36 @@ export const PROMOTORES = [
     role: "promotora" as const,
     activo: true,
   },
-  // Add more promotores here:
-  // {
-  //   id: "promotor_2",
-  //   nombre: "...",
-  //   phone: "...",
-  //   pin: "...",
-  //   role: "promotora" as const,
-  //   activo: true,
-  // },
+];
+
+export const DEVS = [
+  {
+    id: "dev_1",
+    nombre: "Pablo Prado",
+    phone: "524433570533",
+    pin: "111111",
+    role: "dev" as const,
+    activo: true,
+  },
+  {
+    id: "dev_2",
+    nombre: "Dagoberto Prado",
+    phone: "524433181417",
+    pin: "111111",
+    role: "dev" as const,
+    activo: true,
+  },
+];
+
+export const PROVEEDORES = [
+  {
+    id: "proveedor_1",
+    nombre: "Lilia Plata",
+    phone: "524421146330",
+    empresa: "NATGAS",
+    role: "proveedor" as const,
+    activo: true,
+  },
 ];
 
 // Helper: get active promotor (for now just the first one)
