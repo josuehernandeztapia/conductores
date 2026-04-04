@@ -27,6 +27,7 @@ import { getBusinessRules, ruleNum, buildRulesContext, getThresholds } from "./b
 import { buildClientCarteraContext, buildCarteraDashboard, buildEstadoCuenta, isAirtableEnabled, findCreditByPhone, findProductsByPhone, getPaymentsByFolio, getRecaudoByFolio } from "./airtable-client";
 import { processPdf, isPdf } from "./pdf-handler";
 import { detectCanal, upsertProspect, updateProspectStatus } from "./pipeline-ventas";
+import { generarCorridaEstimada, getModelosDisponiblesText, MODELOS_PROSPECTO } from "./corrida-estimada";
 import { processNatgasCsv, processNatgasMultiProduct, parseNatgasExcel, parseNatgasCsv as parseNatgasCsvRows, formatRecaudoSummary, cierreMensual, formatCierreReport, isDuplicateFile, markFileProcessed } from "./recaudo-engine";
 import { createFolioFromWhatsApp, associateDocIntelligently } from "./folio-manager";
 import {
@@ -2529,19 +2530,97 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         }
       }
 
-      // State: prospect_interest — waiting for yes/no
+      // State: prospect_interest — waiting for yes/no → offer corrida
       if (prospectState.state === "prospect_interest") {
         const isPositive = /s[ií]|va|dale|le entro|me interesa|claro|por\s*supuesto|\u00f3rale|orale|dime|quer[ií]a|quiero|c[oó]mo le hago|qu[eé] necesito|qu[eé] hago|adelante|ok|va pues/i.test(lower);
         const isNegative = /no|nel|nah|luego|despu[eé]s|lo pienso|ahorita no|quiz[aá]s/i.test(lower);
         if (isPositive) {
-          await this.updateState(phone, { state: "awaiting_name", context: prospectState.context });
+          await this.updateState(phone, { state: "prospect_select_model", context: prospectState.context });
           await updateProspectStatus(phone, "interesado").catch(() => {});
-          return await respond("Qu\u00e9 bueno. Para apuntarte en la lista necesito unos datos.\n\nPrimero, \u00bfc\u00f3mo te llamas? (nombre completo)");
+          const modelos = getModelosDisponiblesText();
+          return await respond(`Te muestro cu\u00e1nto pagar\u00edas al mes. \u00bfQu\u00e9 modelo te interesa?\n\n${modelos}`);
         } else if (isNegative) {
           await this.updateState(phone, { state: "prospect_cold", context: prospectState.context });
           return await respond("Sin problema. Si m\u00e1s adelante te interesa, escr\u00edbeme y retomamos. El programa sigue abierto.");
         }
-        // Ambiguous — let LLM handle with full context
+      }
+
+      // State: prospect_select_model — waiting for model selection
+      if (prospectState.state === "prospect_select_model") {
+        // Match model from message
+        let matched: { marca: string; modelo: string; anio: number } | null = null;
+        for (const m of MODELOS_PROSPECTO) {
+          const modelLower = m.modelo.toLowerCase();
+          const marcaLower = m.marca.toLowerCase();
+          if (lower.includes(modelLower) || lower.includes(marcaLower)) {
+            // Check if they specified a year
+            const yearMatch = lower.match(/(202[0-9])/);
+            const anio = yearMatch ? parseInt(yearMatch[1]) : m.anios[0];
+            const validAnio = m.anios.includes(anio) ? anio : m.anios[0];
+            matched = { marca: m.marca, modelo: m.modelo, anio: validAnio };
+            break;
+          }
+        }
+        // Also match simple terms
+        if (!matched) {
+          if (/march.*sense|sense/i.test(lower)) matched = { marca: "Nissan", modelo: "March Sense", anio: 2022 };
+          else if (/march.*advance|advance/i.test(lower)) matched = { marca: "Nissan", modelo: "March Advance", anio: 2022 };
+          else if (/aveo/i.test(lower)) matched = { marca: "Chevrolet", modelo: "Aveo", anio: 2022 };
+          else if (/i10|i 10|grand/i.test(lower)) matched = { marca: "Hyundai", modelo: "i10", anio: 2022 };
+          else if (/kwid/i.test(lower)) matched = { marca: "Renault", modelo: "Kwid", anio: 2024 };
+        }
+
+        if (matched) {
+          // Get PV from catalog (use market-validated price)
+          const fuel = await this.getFuel();
+          const consumo = prospectState.context?.leqMes || prospectState.context?.leqEquiv || 400;
+          // Query catalog for this model
+          try {
+            const { neon: neonFn } = await import("@neondatabase/serverless");
+            const sql = neonFn(process.env.DATABASE_URL!);
+            const rows = await sql`SELECT cmu, cmu_median FROM models WHERE LOWER(brand || ' ' || model) LIKE ${`%${matched.modelo.toLowerCase()}%`} AND year = ${matched.anio} LIMIT 1`;
+            let pv = rows.length > 0 ? (rows[0].cmu_median || rows[0].cmu) : 200000;
+            
+            const corrida = generarCorridaEstimada(
+              `${matched.marca} ${matched.modelo}`,
+              matched.anio,
+              pv,
+              consumo,
+              fuel.gnvPrecioLeq,
+            );
+
+            await this.updateState(phone, { state: "prospect_post_corrida", context: { ...prospectState.context, modelo: matched } });
+            return await respond(corrida.resumenWhatsApp);
+          } catch (e) {
+            // Fallback with default PV
+            const corrida = generarCorridaEstimada(
+              `${matched.marca} ${matched.modelo}`,
+              matched.anio,
+              200000,
+              consumo,
+              fuel.gnvPrecioLeq,
+            );
+            await this.updateState(phone, { state: "prospect_post_corrida", context: { ...prospectState.context, modelo: matched } });
+            return await respond(corrida.resumenWhatsApp);
+          }
+        }
+        // Didn't match — let LLM handle
+      }
+
+      // State: prospect_post_corrida — after seeing the corrida, offer registration
+      if (prospectState.state === "prospect_post_corrida") {
+        const isPositive = /s[ií]|va|dale|le entro|me interesa|me apunto|quiero|inscri|registr|adelante|ok|va pues|c[oó]mo/i.test(lower);
+        const wantsOther = /otro|diferente|cambiar|ver otro|march|aveo|i10|kwid|advance|sense/i.test(lower);
+        if (wantsOther) {
+          // Let them pick another model
+          await this.updateState(phone, { state: "prospect_select_model", context: prospectState.context });
+          const modelos = getModelosDisponiblesText();
+          return await respond(`Claro, \u00bfcu\u00e1l otro modelo quieres ver?\n\n${modelos}`);
+        } else if (isPositive) {
+          await this.updateState(phone, { state: "awaiting_name", context: prospectState.context });
+          return await respond("Para apuntarte en la lista necesito unos datos.\n\nPrimero, \u00bfc\u00f3mo te llamas? (nombre completo)");
+        }
+        // Questions about the corrida — let LLM answer with context
       }
 
       // Step 4: OTP verification
