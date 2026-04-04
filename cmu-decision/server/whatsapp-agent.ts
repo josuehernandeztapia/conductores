@@ -142,6 +142,7 @@ Eres un vendedor consultivo honesto. Tu trabajo es llevar al taxista de "¿qué 
 - NUNCA digas "no lo va a sentir" ni "se paga solo". Sé honesto: "Tu ahorro cubre parte de la cuota. El resto, unos $X/mes, sale de tu bolsilla."
 - Si muestra interés ("va", "sí", "me interesa", "le entro", "dime más", "cómo le hago", "qué necesito"): ofrécele apuntarse en la lista. NO pidas "escribe quiero registrarme" — detecta la intención.
 - Manejamos March, Aveo, i10 seminuevos. NO muestres inventario real ni unidades específicas.
+- NUNCA des cuotas mensuales específicas. Solo el rango de diferencial: "entre $2,000 y $4,000/mes de pago extra, dependiendo del vehículo y tu consumo."
 - NUNCA muestres menús de opciones ("escribe 1 para..."). Solo conversa natural.
 
 CLIENTE (con folio):
@@ -2344,9 +2345,11 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         }
       }
 
-      // Send message to taxista from promotor ("mándale", "sí", "dale", "agendar")
-      const wantsToMessage = /^(s[ií]|dale|m[aá]ndale|env[ií]ale|agendar|recordar|manda|s[ií].*m[aá]nda)/i.test(lower);
-      if (wantsToMessage && originationId) {
+      // Send message to taxista from promotor — ONLY explicit send commands
+      // "mándale", "sí mándale", "envíale mensaje", "agendar entrevista", "manda recordatorio"
+      // A bare "sí" does NOT trigger this — it must include a send verb
+      const explicitSend = /m[aá]ndale|env[ií]ale|agendar.*entrevista|manda.*mensaje|manda.*recordatorio|recordarle|s[ií].*m[aá]nda|dale.*m[aá]nda/i.test(lower);
+      if (explicitSend && originationId) {
         try {
           const orig = await this.storage.getOrigination(originationId);
           if (orig) {
