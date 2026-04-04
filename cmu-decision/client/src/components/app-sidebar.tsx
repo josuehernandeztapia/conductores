@@ -1,4 +1,4 @@
-import { Car, FileText, Warehouse, LayoutDashboard, LogOut, ClipboardCheck, Users } from "lucide-react";
+import { Car, FileText, Warehouse, LayoutDashboard, LogOut, ClipboardCheck, Users, Bot } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -43,8 +43,18 @@ const navGroups = [
   },
 ];
 
+const devGroup = {
+  label: "Dev Tools",
+  items: [
+    { title: "Sandbox", url: "/sandbox", icon: Bot, description: "Simulador del agente WhatsApp" },
+  ],
+};
+
 export function AppSidebar({ promoterName, role, onLogout }: { promoterName: string; role: string; onLogout: () => void }) {
   const [location] = useLocation();
+  const groups = role === "dev" ? [...navGroups, devGroup] : 
+                 role === "director" ? [...navGroups, { label: "Dev Tools", items: [{ title: "Sandbox", url: "/sandbox", icon: Bot, description: "Simulador del agente" }] }] :
+                 navGroups;
 
   return (
     <Sidebar>
@@ -65,7 +75,7 @@ export function AppSidebar({ promoterName, role, onLogout }: { promoterName: str
       </SidebarHeader>
 
       <SidebarContent>
-        {navGroups.map((group) => (
+        {groups.map((group) => (
           <SidebarGroup key={group.label}>
             <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
             <SidebarGroupContent>
