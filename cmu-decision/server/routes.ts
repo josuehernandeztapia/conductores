@@ -2718,7 +2718,7 @@ Responde SOLO con JSON válido:
       const canales = await getCanales();
       const canal = canales.find((c: any) => c.codigo === req.params.canalCode);
       if (!canal) return res.status(404).json({ error: "Canal no encontrado" });
-      const waNumber = "5214463293102"; // CMU WhatsApp number without +
+      const waNumber = "524463293102"; // CMU WhatsApp number for wa.me (52 + 10 digits, no '1')
       const link = generateWhatsAppLink(waNumber, canal.codigo, canal.qr_mensaje);
       res.json({ success: true, canal: canal.codigo, nombre: canal.nombre, whatsapp_link: link, qr_mensaje: canal.qr_mensaje });
     } catch (err: any) {
