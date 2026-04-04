@@ -36,15 +36,17 @@ export interface CorridaEstimada {
   resumenWhatsApp: string;
 }
 
+const SOBREPRECIO_GNV = 11; // $11/LEQ — the actual CMU revenue per liter
+
 export function generarCorridaEstimada(
   modelo: string,
   anio: number,
   pvEstimado: number,
   consumoLeqMes: number,
-  precioGnvLeq: number,
+  _precioGnvLeq?: number, // ignored — we use sobreprecio
 ): CorridaEstimada {
   const ventaPlazos = Math.round(pvEstimado * MARKUP);
-  const recaudoMensual = Math.round(consumoLeqMes * precioGnvLeq);
+  const recaudoMensual = Math.round(consumoLeqMes * SOBREPRECIO_GNV);
   
   // Build amortization with anticipo
   const capitalOriginal = Math.round(ventaPlazos / PLAZO);
