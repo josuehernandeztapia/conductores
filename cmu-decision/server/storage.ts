@@ -181,6 +181,26 @@ export class MemStorage implements IStorage {
       active: 1,
       createdAt: new Date().toISOString(),
     });
+    const id3 = this.promoterSeq++;
+    this.promotersMap.set(id3, {
+      id: id3,
+      name: "Pablo Prado",
+      pin: "111111",
+      phone: "+524433570533",
+      role: "dev",
+      active: 1,
+      createdAt: new Date().toISOString(),
+    });
+    const id4 = this.promoterSeq++;
+    this.promotersMap.set(id4, {
+      id: id4,
+      name: "Dagoberto Prado",
+      pin: "111111",
+      phone: "+524433181417",
+      role: "dev",
+      active: 1,
+      createdAt: new Date().toISOString(),
+    });
   }
 
   private seedVehicles() {
