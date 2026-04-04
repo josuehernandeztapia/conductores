@@ -26,6 +26,7 @@ import { buildKnowledgeBase, buildClientKnowledge } from "./cmu-knowledge";
 import { getBusinessRules, ruleNum, buildRulesContext, getThresholds } from "./business-rules";
 import { buildClientCarteraContext, buildCarteraDashboard, buildEstadoCuenta, isAirtableEnabled, findCreditByPhone, findProductsByPhone, getPaymentsByFolio, getRecaudoByFolio } from "./airtable-client";
 import { processPdf, isPdf } from "./pdf-handler";
+import { detectCanal, upsertProspect, updateProspectStatus } from "./pipeline-ventas";
 import { processNatgasCsv, processNatgasMultiProduct, parseNatgasExcel, parseNatgasCsv as parseNatgasCsvRows, formatRecaudoSummary, cierreMensual, formatCierreReport, isDuplicateFile, markFileProcessed } from "./recaudo-engine";
 import { createFolioFromWhatsApp, associateDocIntelligently } from "./folio-manager";
 import {
@@ -2145,8 +2146,10 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         return await respond(`${timeGreet} ${name}. Soy el asistente de Conductores del Mundo. \u00bfEn qu\u00e9 te ayudo? Puedes enviarme documentos, preguntar sobre tu tr\u00e1mite o consultar tu estado de cuenta.`);
       }
       if (role === "prospecto") {
-        // Prospecto: guide to fuel type question
-        await this.updateState(phone, { state: "prospect_fuel_type", context: {} });
+        // Prospecto: guide to fuel type question + track in pipeline
+        const canal = detectCanal(body);
+        await upsertProspect({ phone, canal_origen: canal, status: "curioso" }).catch(() => {});
+        await this.updateState(phone, { state: "prospect_fuel_type", context: { canal } });
         return await respond(`${timeGreet}${name ? " " + name : ""}. Soy el asistente de *Conductores del Mundo*. Tenemos un programa donde puedes estrenar taxi seminuevo y cubrir gran parte del pago con tu ahorro en gas natural.\n\n\u00bfTu taxi ya usa *gas natural* o est\u00e1s con *gasolina*?`);
       }
       // proveedor greeting already handled in its own flow
@@ -2448,6 +2451,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
           const diferencialBajo = 2000;
           const diferencialAlto = 4000;
           await this.updateState(phone, { state: "prospect_interest", context: { fuelType: "gnv", leqMes: leq, ahorroMes: ahorro } });
+          await upsertProspect({ phone, status: "interesado", fuel_type: "gnv", consumo_mensual: leq, ahorro_estimado: ahorro }).catch(() => {});
           return await respond(`Con ${leq} LEQ/mes tu ahorro en GNV cubre unos *$${ahorro.toLocaleString()}/mes* de la cuota del taxi.\n\nEl pago extra de tu bolsillo ser\u00eda entre *$${diferencialBajo.toLocaleString()}* y *$${diferencialAlto.toLocaleString()}/mes* por un taxi seminuevo (March, Aveo, i10).\n\n\u00bfTe interesa saber m\u00e1s del programa?`);
         }
       }
@@ -2461,6 +2465,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
           const gastoGNV = Math.round(ltGasolina * fuel.gnvPrice);
           const ahorro = gastoGasolina - gastoGNV;
           await this.updateState(phone, { state: "prospect_interest", context: { fuelType: "gasolina", gastoGasolina, ahorroMes: ahorro, leqEquiv: ltGasolina } });
+          await upsertProspect({ phone, status: "interesado", fuel_type: "gasolina", consumo_mensual: ltGasolina, ahorro_estimado: ahorro }).catch(() => {});
           return await respond(`Gastas *$${gastoGasolina.toLocaleString()}/mes* en gasolina. Con gas natural gastar\u00edas *$${gastoGNV.toLocaleString()}*. Eso es un ahorro de *$${ahorro.toLocaleString()}/mes*.\n\nCon ese ahorro podr\u00edas cubrir gran parte de la mensualidad de un taxi seminuevo. Tu pago extra ser\u00eda entre $2,000 y $4,000/mes.\n\n\u00bfQuieres que te explique c\u00f3mo funciona?`);
         }
       }
@@ -2471,6 +2476,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         const isNegative = /no|nel|nah|luego|despu[eé]s|lo pienso|ahorita no|quiz[aá]s/i.test(lower);
         if (isPositive) {
           await this.updateState(phone, { state: "awaiting_name", context: prospectState.context });
+          await updateProspectStatus(phone, "interesado").catch(() => {});
           return await respond("Qu\u00e9 bueno. Para apuntarte en la lista necesito unos datos.\n\nPrimero, \u00bfc\u00f3mo te llamas? (nombre completo)");
         } else if (isNegative) {
           await this.updateState(phone, { state: "prospect_cold", context: prospectState.context });
@@ -2491,6 +2497,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
             const tel = prospectState.context.verifyPhone || phone;
             const folioResult = await createFolioFromWhatsApp(this.storage, phone, nombre, tel);
             await this.updateState(phone, { state: "idle", context: {} });
+            await upsertProspect({ phone, nombre, status: "registrado", folio_id: folioResult.folio }).catch(() => {});
             
             // Notify Ángeles + Josué
             const notifyMsg = `*Nuevo registro verificado*\n\nNombre: ${nombre}\nTel: ${tel}\nFolio: ${folioResult.folio || "?"}\nVerificado por OTP`;
@@ -2535,6 +2542,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
           const nombre = prospectState.context.nombre || "Prospecto";
           const folioResult = await createFolioFromWhatsApp(this.storage, phone, nombre, phoneDigits);
           await this.updateState(phone, { state: "idle", context: {} });
+          await upsertProspect({ phone, nombre, status: "registrado", folio_id: folioResult.folio }).catch(() => {});
           return await respond(`Registrado.\n\nTu folio es *${folioResult.folio}*.\nTu asesora *Angeles* te contactara pronto.`);
         } else {
           return await respond("Necesito tu numero de celular a 10 digitos. Ejemplo: 4491234567");
