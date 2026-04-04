@@ -24,7 +24,9 @@ import { isAirtableEnabled, getAllCredits } from "./airtable-client";
 type SendWaFn = (to: string, body: string) => Promise<any>;
 
 // ===== Known phones =====
-const ANGELES_PHONE = "5214493845228";
+import { getPromotor, DIRECTOR } from "./team-config";
+const PROMOTOR_1 = getPromotor();
+const PROMOTOR_1_PHONE = PROMOTOR_1?.phone || "5214493845228";
 const JOSUE_PHONE = "5214422022540";
 
 // ===== Helpers =====
@@ -77,7 +79,7 @@ async function wasMessageSentRecently(
 
 /**
  * Find originations stuck in CAPTURANDO/BORRADOR for 3+ days.
- * Send reminder to promotor (Ángeles). If > 7 days, also remind taxista.
+ * Send reminder to promotor. If > 7 days, also remind taxista.
  */
 export async function checkStaleExpedientes(
   storage: IStorage,
@@ -105,14 +107,14 @@ export async function checkStaleExpedientes(
       const taxistaName = [orig.nombre, orig.apellido_paterno].filter(Boolean).join(" ") || "taxista";
       const daysSince = Math.floor((Date.now() - new Date(orig.updated_at).getTime()) / (1000 * 60 * 60 * 24));
 
-      // Always remind promotor (Ángeles) — max once per 24h per folio
+      // Always remind promotor — max once per 24h per folio
       const promotorKey = `stale_promotor_${folio}`;
-      const alreadySentPromotor = await wasMessageSentRecently(ANGELES_PHONE, promotorKey, 24);
+      const alreadySentPromotor = await wasMessageSentRecently(PROMOTOR_1_PHONE, promotorKey, 24);
       if (!alreadySentPromotor) {
         const msg = `📋 *Recordatorio: Expediente pendiente*\n\nFolio: *${folio}*\nNombre: ${taxistaName}\nEstado: ${orig.estado}\nÚltima actividad: hace ${daysSince} días\n\n¿Necesitas ayuda para completar los documentos?`;
         try {
-          await sendWa(`whatsapp:+${ANGELES_PHONE}`, msg);
-          await logProactiveMessage(ANGELES_PHONE, promotorKey, folio, msg);
+          await sendWa(`whatsapp:+${PROMOTOR_1_PHONE}`, msg);
+          await logProactiveMessage(PROMOTOR_1_PHONE, promotorKey, folio, msg);
           reminded++;
         } catch (e: any) {
           errors.push(`promotor ${folio}: ${e.message}`);
@@ -127,7 +129,7 @@ export async function checkStaleExpedientes(
           const taxistaKey = `stale_taxista_${folio}`;
           const alreadySentTaxista = await wasMessageSentRecently(cleanPhone, taxistaKey, 48);
           if (!alreadySentTaxista) {
-            const msg = `👋 Hola ${taxistaName}, soy el asistente de CMU.\n\nTu expediente *${folio}* tiene documentos pendientes. ¿Necesitas ayuda?\n\nPuedes enviarme los documentos faltantes por aquí o contactar a tu asesora Ángeles.`;
+            const msg = `👋 Hola ${taxistaName}, soy el asistente de CMU.\n\nTu expediente *${folio}* tiene documentos pendientes. ¿Necesitas ayuda?\n\nPuedes enviarme los documentos faltantes por aquí o contactar a tu asesora promotor.`;
             try {
               await sendWa(`whatsapp:+${cleanPhone}`, msg);
               await logProactiveMessage(cleanPhone, taxistaKey, folio, msg);
@@ -284,14 +286,14 @@ export async function checkUpcomingDeadlines(
 
       // Also notify promotor
       const promKey = `anticipo_promotor_${folio}`;
-      const alreadySentProm = await wasMessageSentRecently(ANGELES_PHONE, promKey, 24);
+      const alreadySentProm = await wasMessageSentRecently(PROMOTOR_1_PHONE, promKey, 24);
       if (!alreadySentProm) {
         const daysSince = Math.floor((Date.now() - new Date(orig.contract_generated_at).getTime()) / (1000 * 60 * 60 * 24));
         const daysLeft = Math.max(0, 56 - daysSince);
         const promMsg = `⏰ Anticipo pendiente: *${folio}* (${taxistaName}) — ${daysLeft} días restantes.`;
         try {
-          await sendWa(`whatsapp:+${ANGELES_PHONE}`, promMsg);
-          await logProactiveMessage(ANGELES_PHONE, promKey, folio, promMsg);
+          await sendWa(`whatsapp:+${PROMOTOR_1_PHONE}`, promMsg);
+          await logProactiveMessage(PROMOTOR_1_PHONE, promKey, folio, promMsg);
         } catch (e: any) {
           errors.push(`anticipo promotor ${folio}: ${e.message}`);
         }
