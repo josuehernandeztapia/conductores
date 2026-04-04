@@ -15,6 +15,7 @@ import OriginacionPage from "./pages/originacion";
 import OriginacionFlowPage from "./pages/originacion-flow";
 import PanelPage from "./pages/panel";
 import EvaluacionesPage from "./pages/evaluaciones";
+import PipelinePage from "./pages/pipeline";
 import NotFound from "./pages/not-found";
 
 // ===== Director Router (full access) =====
@@ -32,6 +33,8 @@ function DirectorRouter() {
       <Route path="/originacion" component={OriginacionPage} />
       <Route path="/originacion/:id" component={OriginacionFlowPage} />
       <Route path="/evaluaciones" component={EvaluacionesPage} />
+      {/* Ventas */}
+      <Route path="/pipeline" component={PipelinePage} />
       {/* Cartera */}
       <Route path="/panel" component={PanelPage} />
       <Route component={NotFound} />
