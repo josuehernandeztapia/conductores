@@ -18,7 +18,7 @@ const getSQL = () => {
 
 const CANAL_KEYWORDS: Record<string, string[]> = {
   ACATAXI: ["acataxi", "cartel en acataxi", "poster acataxi", "vi el cartel"],
-  // Add more channels as they come
+  CATALOGO: ["[catalogo]", "catalogo", "vi el inventario", "inventario en línea", "inventario en linea", "catalogo.conductores"],
 };
 
 export function detectCanal(message: string): string {
