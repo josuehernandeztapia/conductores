@@ -23,9 +23,10 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
-# Copy compiled server + static frontend + templates
+# Copy compiled server + static frontend + templates + public assets
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/server/templates ./server/templates
+COPY --from=builder /app/public ./public
 
 # Port — Express listens on 5000
 ENV PORT=5000
