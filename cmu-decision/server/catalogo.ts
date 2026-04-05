@@ -56,11 +56,13 @@ async function getPublicVehicleBySlug(slug: string): Promise<PublicVehicle | nul
 }
 
 // ===== Financial calculator (same logic as renovacion.html) =====
-const TASA_M = 0.299 / 12;
+const TASA_ANUAL = 0.299;
+const TASA_M = TASA_ANUAL / 12;
 const N = 36;
 const ANT = 50000;
 const FG_I = 8000;
 const FG_M = 334;
+const FG_TOP = 20000;
 
 function buildAmort(precio: number, leq = 400, tarifa = 11) {
   const recaudo = leq * tarifa;
@@ -80,6 +82,34 @@ function buildAmort(precio: number, leq = 400, tarifa = 11) {
     rows.push({ mes: m, cuota: Math.round(cuota), saldo: Math.round(saldo), bolsillo: Math.round(diff + fgA), fgA });
   }
   return { rows, recaudo };
+}
+
+function calcCAT(precio: number): number {
+  const capitalFijo = precio / N;
+  // Flujo 0: recibe precio, paga FG inicial
+  const flujos = [precio - FG_I];
+  let saldo = precio;
+  for (let m = 1; m <= N; m++) {
+    if (m === 3) saldo -= ANT;
+    const interes = saldo * TASA_M;
+    const cuota = capitalFijo + interes;
+    let pago = cuota + FG_M;
+    if (m === 2) pago += ANT;
+    flujos.push(-pago);
+    saldo -= capitalFijo;
+  }
+  let fgAcum = FG_I;
+  for (let m = 1; m <= N; m++) fgAcum = Math.min(FG_TOP, fgAcum + FG_M);
+  flujos.push(fgAcum);
+  // Bisect for monthly IRR
+  let lo = 0.001, hi = 0.10;
+  for (let i = 0; i < 100; i++) {
+    const mid = (lo + hi) / 2;
+    const npv = flujos.reduce((s, f, t) => s + f / Math.pow(1 + mid, t), 0);
+    if (npv > 0) lo = mid; else hi = mid;
+  }
+  const rM = (lo + hi) / 2;
+  return (Math.pow(1 + rM, 12) - 1) * 100;
 }
 
 function vehicleName(v: PublicVehicle): string {
@@ -112,13 +142,19 @@ function ogTags(v: PublicVehicle | null, baseUrl: string): string {
   }
   const name = vehicleName(v);
   const { rows } = buildAmort(v.precio);
+  const cat = calcCAT(v.precio);
   return `
     <meta property="og:title" content="${name} — ${fmt(v.precio)} | CMU">
-    <meta property="og:description" content="Cuota desde ${fmt(rows[2].cuota)}/mes · Kit GNV incluido · Sin buró · Sin aval">
+    <meta property="og:description" content="Cuota desde ${fmt(rows[2].cuota)}/mes · CAT ${cat.toFixed(1)}% · Kit GNV incluido · Sin buró">
     <meta property="og:image" content="${baseUrl}${v.foto_url || '/vehicles/default.png'}">
     <meta property="og:type" content="product">
     <meta property="og:url" content="${baseUrl}/${v.slug}">
   `;
+}
+
+function waLink(text: string): string {
+  const msg = encodeURIComponent(`${text} [CATALOGO]`);
+  return `https://wa.me/524463293102?text=${msg}`;
 }
 
 // ===== Shared HTML shell =====
@@ -322,9 +358,10 @@ function renderGrid(vehicles: PublicVehicle[], baseUrl: string): string {
     const name = vehicleName(v);
     const { rows, recaudo } = buildAmort(v.precio);
     const cuotaM3 = rows[2].cuota;
-    // Find month where GNV covers full cuota
     const mesGnvCubre = rows.findIndex((r) => r.cuota <= recaudo);
-    const mesLabel = mesGnvCubre >= 0 ? `GNV cubre cuota desde mes ${mesGnvCubre + 1}` : "";
+    const mesLabel = mesGnvCubre >= 0 ? `$0 de bolsillo desde mes ${mesGnvCubre + 1}` : "";
+    const cat = calcCAT(v.precio);
+    const bolsilloM3 = Math.max(0, cuotaM3 - recaudo) + FG_M;
 
     return `
     <a href="/${v.slug}" class="card">
@@ -335,8 +372,8 @@ function renderGrid(vehicles: PublicVehicle[], baseUrl: string): string {
         <div class="card-name">${name}</div>
         <div class="card-details">${v.color || "Blanco"} · Kit GNV instalado · Listo para trabajar</div>
         <div class="card-price">${fmt(v.precio)}</div>
-        <div class="card-cuota">Cuota desde ${fmt(cuotaM3)}/mes (post-anticipo) · ${mesLabel}</div>
-        <div class="card-gnv">⛽ GNV · Recaudo ${fmt(recaudo)}/mes</div>
+        <div class="card-cuota">De tu bolsillo: ${fmt(bolsilloM3)}/mes (post-anticipo) · ${mesLabel}</div>
+        <div class="card-gnv">⛽ Recaudo GNV: ${fmt(recaudo)}/mes · CAT ${cat.toFixed(1)}% s/IVA</div>
       </div>
     </a>`;
   }).join("\n");
@@ -350,8 +387,8 @@ function renderGrid(vehicles: PublicVehicle[], baseUrl: string): string {
     <div class="cta-section" style="margin-top:32px">
       <div class="cta-section-title">¿Listo para renovar tu taxi?</div>
       <div class="cta-section-sub">Sin buró de crédito · Sin aval · Registro gratuito</div>
-      <a href="https://wa.me/524463293102?text=Hola%2C%20vi%20el%20inventario%20y%20quiero%20informaci%C3%B3n" class="cta cta-wa" style="display:inline-block;width:auto;padding:14px 32px">
-        Escríbenos por WhatsApp · 446 329 3102
+      <a href="${waLink('Hola, vi el inventario y quiero informaci\u00f3n')}" class="cta cta-wa" style="display:inline-block;width:auto;padding:14px 32px">
+        Me interesa · WhatsApp 446 329 3102
       </a>
     </div>
   </div>`;
@@ -378,7 +415,7 @@ function renderFicha(v: PublicVehicle, baseUrl: string): string {
   const bolsilloM3 = Math.max(0, cuotaM3 - recaudo) + FG_M;
   const mesGnvLabel = mesGnvCubre >= 0 ? mesGnvCubre + 1 : 34;
 
-  const waText = encodeURIComponent(`Hola, me interesa el ${name} que vi en el inventario`);
+  const waUrl = waLink(`Hola, me interesa el ${name} que vi en el inventario`);
 
   const body = `
   <div class="container">
@@ -489,7 +526,7 @@ function renderFicha(v: PublicVehicle, baseUrl: string): string {
       </div>
 
       <!-- CTA -->
-      <a href="https://wa.me/524463293102?text=${waText}" class="cta cta-wa" style="margin-bottom:12px">
+      <a href="${waUrl}" class="cta cta-wa" style="margin-bottom:12px">
         Me interesa este vehículo · WhatsApp
       </a>
       <a href="/" class="cta" style="background:var(--card);border:1px solid rgba(255,255,255,.1)">
@@ -500,7 +537,7 @@ function renderFicha(v: PublicVehicle, baseUrl: string): string {
     <div class="cta-section" style="margin-top:32px">
       <div class="cta-section-title">¿Listo para renovar tu taxi?</div>
       <div class="cta-section-sub">Sin buró de crédito · Sin aval · Registro gratuito</div>
-      <a href="https://wa.me/524463293102?text=${waText}" class="cta cta-wa" style="display:inline-block;width:auto;padding:14px 32px">
+      <a href="${waUrl}" class="cta cta-wa" style="display:inline-block;width:auto;padding:14px 32px">
         Escríbenos por WhatsApp · 446 329 3102
       </a>
     </div>
