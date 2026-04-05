@@ -67,41 +67,45 @@ const FG_TOP = 20000;
 function buildAmort(precio: number, leq = 400, tarifa = 11) {
   const recaudo = leq * tarifa;
   let saldo = precio;
-  const capitalFijo = precio / N;
+  let P = precio / N;  // capital fijo inicial
   const rows: { mes: number; cuota: number; saldo: number; bolsillo: number; fgA: number }[] = [];
   let fgAcum = FG_I;
 
   for (let m = 1; m <= N; m++) {
-    if (m === 3) saldo -= ANT;
     const interes = saldo * TASA_M;
-    const cuota = capitalFijo + interes;
+    const cuota = P + interes;
     const diff = Math.max(0, cuota - recaudo);
-    const fgA = FG_M;
-    fgAcum = Math.min(20000, fgAcum + fgA);
-    saldo -= capitalFijo;
-    rows.push({ mes: m, cuota: Math.round(cuota), saldo: Math.round(saldo), bolsillo: Math.round(diff + fgA), fgA });
+    const fgA = fgAcum >= FG_TOP ? 0 : FG_M;
+    fgAcum = Math.min(FG_TOP, fgAcum + fgA);
+    const bolsillo = diff + fgA;
+    rows.push({ mes: m, cuota: Math.round(cuota), saldo: Math.round(saldo), bolsillo: Math.round(bolsillo), fgA });
+    saldo -= P;
+    // Anticipo en mes 2: recalcular capital fijo sobre saldo restante
+    if (m === 2) {
+      saldo -= ANT;
+      P = saldo / (N - 2);
+    }
   }
   return { rows, recaudo };
 }
 
 function calcCAT(precio: number): number {
-  const capitalFijo = precio / N;
-  // Flujo 0: recibe precio, paga FG inicial
+  let P = precio / N;
   const flujos = [precio - FG_I];
   let saldo = precio;
+  let fgAcum = FG_I;
   for (let m = 1; m <= N; m++) {
-    if (m === 3) saldo -= ANT;
     const interes = saldo * TASA_M;
-    const cuota = capitalFijo + interes;
-    let pago = cuota + FG_M;
+    const cuota = P + interes;
+    const fgA = fgAcum >= FG_TOP ? 0 : FG_M;
+    fgAcum = Math.min(FG_TOP, fgAcum + fgA);
+    let pago = cuota + fgA;
     if (m === 2) pago += ANT;
     flujos.push(-pago);
-    saldo -= capitalFijo;
+    saldo -= P;
+    if (m === 2) { saldo -= ANT; P = saldo / (N - 2); }
   }
-  let fgAcum = FG_I;
-  for (let m = 1; m <= N; m++) fgAcum = Math.min(FG_TOP, fgAcum + FG_M);
   flujos.push(fgAcum);
-  // Bisect for monthly IRR
   let lo = 0.001, hi = 0.10;
   for (let i = 0; i < 100; i++) {
     const mid = (lo + hi) / 2;
@@ -458,7 +462,7 @@ function renderFicha(v: PublicVehicle, baseUrl: string): string {
             <tr style="background:var(--card);border-radius:6px">
               <td style="padding:10px 12px;border-radius:6px 0 0 6px">
                 <strong>Mes 1–2</strong>
-                <div style="font-size:11px;color:var(--muted)">Recibes tu vehículo, empiezas a cargar GNV</div>
+                <div style="font-size:11px;color:var(--muted)">Firmas, recibes tu vehículo y empiezas a cargar GNV</div>
               </td>
               <td style="padding:10px 8px;text-align:right;font-family:var(--raj);font-weight:600">${fmt(cuotaM1)}</td>
               <td style="padding:10px 8px;text-align:right;color:var(--verde);font-family:var(--raj);font-weight:600">${fmt(recaudo)}</td>
@@ -554,19 +558,17 @@ function renderFicha(v: PublicVehicle, baseUrl: string): string {
     const recaudo = leq * tarifa;
     
     let saldo = PRECIO;
-    const capitalFijo = PRECIO / N;
+    let P = PRECIO / N;
     let cuotaM1=0, cuotaM3=0, mesGnv=-1;
-    const cuotas = [];
     
     for (let m = 1; m <= N; m++) {
-      if (m === 3) saldo -= ANT;
       const interes = saldo * TASA_M;
-      const cuota = capitalFijo + interes;
-      cuotas.push(Math.round(cuota));
+      const cuota = P + interes;
       if (m === 1) cuotaM1 = Math.round(cuota);
       if (m === 3) cuotaM3 = Math.round(cuota);
       if (mesGnv < 0 && cuota <= recaudo) mesGnv = m;
-      saldo -= capitalFijo;
+      saldo -= P;
+      if (m === 2) { saldo -= ANT; P = saldo / (N - 2); }
     }
     
     const bolM1 = Math.max(0, cuotaM1 - recaudo) + FG_M;
