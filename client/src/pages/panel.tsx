@@ -221,7 +221,7 @@ function FolioDetail({ origination, onClose }: { origination: Origination; onClo
               <div className="text-xs space-y-0.5">
                 <div>Tipo: <span className="font-medium">{origination.contractType === "convenio_validacion" ? "Convenio de Validación" : "Compraventa a Plazos"}</span></div>
                 {origination.contractGeneratedAt && (
-                  <div className="text-muted-foreground">Generado: {new Date(origination.contractGeneratedAt).toLocaleString("es-MX")}</div>
+                  <div className="text-muted-foreground">Generado: {new Date(origination.contractGeneratedAt).toLocaleString("es-MX", { timeZone: "America/Mexico_City" })}</div>
                 )}
                 {origination.contractUrl && (
                   <Button variant="outline" size="sm" className="mt-1 text-[10px] h-7 gap-1"
@@ -236,8 +236,8 @@ function FolioDetail({ origination, onClose }: { origination: Origination; onClo
 
         <Separator />
         <div className="text-[10px] text-muted-foreground space-y-0.5">
-          <div>Creado: {new Date(origination.createdAt).toLocaleString("es-MX")}</div>
-          <div>Actualizado: {new Date(origination.updatedAt).toLocaleString("es-MX")}</div>
+          <div>Creado: {new Date(origination.createdAt).toLocaleString("es-MX", { timeZone: "America/Mexico_City" })}</div>
+          <div>Actualizado: {new Date(origination.updatedAt).toLocaleString("es-MX", { timeZone: "America/Mexico_City" })}</div>
           {origination.rejectionReason && (
             <div className="text-red-600 font-medium mt-1">Motivo rechazo: {origination.rejectionReason}</div>
           )}
@@ -270,30 +270,50 @@ export default function PanelPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let mounted = true;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let attempts = 0;
+
     const loadAll = async () => {
-      setLoading(true);
       try {
         const [origs, vehs, evals] = await Promise.all([
-          apiListOriginations(),
-          apiListVehicles(),
-          apiListEvaluations().catch(() => []),
+          apiListOriginations().catch(() => [] as Origination[]),
+          apiListVehicles().catch(() => [] as VehicleInventory[]),
+          apiListEvaluations().catch(() => [] as any[]),
         ]);
+        if (!mounted) return;
         setOriginations(origs);
         setVehicles(vehs);
         setEvaluations(evals);
-      } catch (err) {
-        console.error("[Panel] Error loading data:", err);
-      } finally {
-        setLoading(false);
+        // If everything empty, retry (cold start on Fly)
+        if (origs.length === 0 && vehs.length === 0 && attempts < 5) {
+          attempts++;
+          retryTimer = setTimeout(loadAll, 1000 + attempts * 1000);
+          return;
+        }
+      } catch {
+        if (mounted && attempts < 5) {
+          attempts++;
+          retryTimer = setTimeout(loadAll, 1000 + attempts * 1000);
+          return;
+        }
       }
+      if (mounted) setLoading(false);
     };
+
     loadAll();
 
     const unsubscribe = subscribe(() => {
-      apiListOriginations().then(setOriginations).catch(console.error);
-      apiListVehicles().then(setVehicles).catch(console.error);
+      if (!mounted) return;
+      apiListOriginations().catch(() => []).then(d => mounted && setOriginations(d));
+      apiListVehicles().catch(() => []).then(d => mounted && setVehicles(d));
     });
-    return unsubscribe;
+
+    return () => {
+      mounted = false;
+      if (retryTimer) clearTimeout(retryTimer);
+      unsubscribe();
+    };
   }, []);
 
   // KPIs
@@ -301,7 +321,7 @@ export default function PanelPage() {
     const activos = originations.filter((o) => !["APROBADO", "RECHAZADO"].includes(o.estado));
     const docsPendientes = originations.filter((o) => o.currentStep < 7 && !["APROBADO", "RECHAZADO"].includes(o.estado));
     const today = new Date().toISOString().slice(0, 10);
-    const evalsHoy = evaluations.filter((e) => (e.created_at || e.createdAt || "").slice(0, 10) === today);
+    const evalsHoy = evaluations.filter((e) => String(e.created_at || e.createdAt || "").slice(0, 10) === today);
 
     return {
       foliosActivos: activos.length,
@@ -318,7 +338,7 @@ export default function PanelPage() {
   }, [originations, vehicles, evaluations]);
 
   const recentFolios = useMemo(() => {
-    return [...originations].sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || "")).slice(0, 5);
+    return [...originations].sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || ""))).slice(0, 5);
   }, [originations]);
 
   if (loading) {
@@ -339,7 +359,7 @@ export default function PanelPage() {
           </div>
           <div>
             <h1 className="text-base font-semibold" data-testid="text-panel-title">Panel CMU</h1>
-            <p className="text-xs text-muted-foreground">Dashboard administrativo — Ángeles Mireles</p>
+            <p className="text-xs text-muted-foreground">Dashboard administrativo — Conductores del Mundo</p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -556,7 +576,7 @@ export default function PanelPage() {
                           <span className="text-[10px] text-muted-foreground">Perfil {orig.perfilTipo}</span>
                           <span className="text-[10px] text-muted-foreground">Paso {orig.currentStep}/7</span>
                           <span className="text-[10px] text-muted-foreground">
-                            {new Date(orig.createdAt).toLocaleDateString("es-MX", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                            {new Date(orig.createdAt).toLocaleDateString("es-MX", { timeZone: "America/Mexico_City", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
                           </span>
                         </div>
                       </div>

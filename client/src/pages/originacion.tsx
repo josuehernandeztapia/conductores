@@ -100,14 +100,9 @@ function CreateFolioDialog({ open, onClose }: { open: boolean; onClose: () => vo
         ticketsGasolinaMensual: null, clabe: null, banco: null, createdAt: now,
       });
 
-      const prefix = tipo === "validacion" ? "CMU-VAL" : "CMU-CPV";
-      const d = new Date();
-      const dateStr = `${String(d.getFullYear()).slice(-2)}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-      const seq = getNextFolioSequence(prefix, dateStr);
-      const folio = `${prefix}-${dateStr}-${String(seq).padStart(3, "0")}`;
-
+      // Let backend generate folio (has DB access for correct sequence)
       const orig = await apiCreateOrigination({
-        folio, tipo, perfilTipo, taxistaId: taxista.id, promoterId: 1, otpPhone: telefono,
+        tipo, perfilTipo, taxistaId: taxista.id, promoterId: 1, otpPhone: telefono,
       });
 
       toast({ title: "Folio creado", description: orig.folio });
@@ -224,13 +219,34 @@ export default function OriginacionPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"recent" | "estado" | "step">("recent");
   const [originations, setOriginations] = useState<Origination[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    apiListOriginations().then(setOriginations).catch(console.error);
+    let mounted = true;
+    let attempts = 0;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const load = () => {
+      apiListOriginations()
+        .catch(() => [] as Origination[])
+        .then(data => {
+          if (!mounted) return;
+          setOriginations(data);
+          if (data.length === 0 && attempts < 6) {
+            attempts++;
+            retryTimer = setTimeout(load, 800 + attempts * 600);
+            return;
+          }
+          setLoading(false);
+        });
+    };
+    load();
+
     const unsubscribe = subscribe(() => {
-      apiListOriginations().then(setOriginations).catch(console.error);
+      if (!mounted) return;
+      apiListOriginations().catch(() => []).then(d => mounted && setOriginations(d));
     });
-    return unsubscribe;
+    return () => { mounted = false; if (retryTimer) clearTimeout(retryTimer); unsubscribe(); };
   }, []);
 
   const filtered = useMemo(() => {
@@ -249,19 +265,34 @@ export default function OriginacionPage() {
       const order = ["FIRMADO", "APROBADO", "GENERADO", "VALIDADO", "CAPTURANDO", "BORRADOR", "INCOMPLETO", "RECHAZADO"];
       list.sort((a, b) => order.indexOf(a.estado) - order.indexOf(b.estado));
     } else if (sortBy === "step") {
-      list.sort((a, b) => b.currentStep - a.currentStep);
+      list.sort((a, b) => (b.currentStep || 1) - (a.currentStep || 1));
     } else {
-      list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      // Sort by most recent (createdAt or updatedAt, fallback to id)
+      list.sort((a, b) => {
+        const ta = new Date(b.updatedAt || b.createdAt || 0).getTime() || 0;
+        const tb = new Date(a.updatedAt || a.createdAt || 0).getTime() || 0;
+        return ta - tb || (b.id || 0) - (a.id || 0);
+      });
     }
 
     return list;
   }, [originations, estadoFilter, searchQuery, sortBy]);
 
+  // Counts reflect the search-filtered set (so pills update when searching)
+  const searchFiltered = useMemo(() => {
+    if (!searchQuery.trim()) return originations;
+    const q = searchQuery.toLowerCase();
+    return originations.filter((o) => {
+      const name = getOperadorName(o).toLowerCase();
+      return o.folio.toLowerCase().includes(q) || name.includes(q) || o.otpPhone?.includes(q);
+    });
+  }, [originations, searchQuery]);
+
   const estadoCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    originations.forEach(o => { counts[o.estado] = (counts[o.estado] || 0) + 1; });
+    searchFiltered.forEach(o => { counts[o.estado] = (counts[o.estado] || 0) + 1; });
     return counts;
-  }, [originations]);
+  }, [searchFiltered]);
 
   return (
     <div className="max-w-4xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-5">
@@ -295,12 +326,12 @@ export default function OriginacionPage() {
             data-testid="input-search"
           />
         </div>
-        <div className="flex gap-1">
+        <div className="flex gap-1.5">
           {(["recent", "estado", "step"] as const).map((s) => (
             <button
               key={s}
               onClick={() => setSortBy(s)}
-              className={`text-[10px] px-2 py-1 rounded border transition-colors ${sortBy === s ? "bg-primary/10 text-primary border-primary/30" : "border-border text-muted-foreground hover:text-foreground"}`}
+              className={`text-[10px] px-2.5 py-1 rounded-md border font-medium transition-colors ${sortBy === s ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground"}`}
               data-testid={`sort-${s}`}
             >
               {s === "recent" ? "Recientes" : s === "estado" ? "Estado" : "Avance"}
@@ -316,7 +347,7 @@ export default function OriginacionPage() {
           className={`text-[10px] px-2.5 py-1 rounded-full border transition-colors ${estadoFilter === "todos" ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:text-foreground"}`}
           data-testid="filter-todos"
         >
-          Todos ({originations.length})
+          Todos ({searchFiltered.length})
         </button>
         {["BORRADOR", "CAPTURANDO", "VALIDADO", "GENERADO", "FIRMADO", "APROBADO"].map((estado) => {
           const count = estadoCounts[estado] || 0;
@@ -335,7 +366,14 @@ export default function OriginacionPage() {
       </div>
 
       {/* Origination list */}
-      {filtered.length === 0 ? (
+      {loading ? (
+        <Card>
+          <CardContent className="p-8 text-center">
+            <Loader2 className="w-6 h-6 text-muted-foreground mx-auto mb-2 animate-spin" />
+            <p className="text-sm text-muted-foreground">Cargando folios...</p>
+          </CardContent>
+        </Card>
+      ) : filtered.length === 0 ? (
         <Card>
           <CardContent className="p-8 text-center">
             {searchQuery ? (
@@ -363,9 +401,12 @@ export default function OriginacionPage() {
           {filtered.map((orig) => {
             const estadoCfg = ESTADO_CONFIG[orig.estado] || ESTADO_CONFIG.BORRADOR;
             const stepInfo = ORIGINATION_STEPS.find((s) => s.step === orig.currentStep);
-            const progress = ((orig.currentStep - 1) / 6) * 100;
+            const progress = ((orig.currentStep - 1) / 7) * 100;
             const operadorName = getOperadorName(orig);
             const isSigned = orig.estado === "FIRMADO" || orig.estado === "APROBADO";
+            const lastUpdate = new Date(orig.updatedAt || orig.createdAt).getTime();
+            const daysSinceUpdate = Math.floor((Date.now() - lastUpdate) / (1000 * 60 * 60 * 24));
+            const isStale = !isSigned && daysSinceUpdate >= 3;
 
             return (
               <Card
@@ -385,7 +426,7 @@ export default function OriginacionPage() {
                       {isSigned ? (
                         <CheckCircle2 className="w-5 h-5" />
                       ) : (
-                        <span>{orig.currentStep}/7</span>
+                        <span className="text-[9px]">P{orig.currentStep}/8</span>
                       )}
                     </div>
 
@@ -416,6 +457,11 @@ export default function OriginacionPage() {
                         <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5">
                           {orig.tipo === "validacion" ? "Val" : "CPV"}
                         </Badge>
+                        {isStale && (
+                          <Badge variant="destructive" className="text-[9px] px-1 py-0 h-3.5 animate-pulse">
+                            {daysSinceUpdate}d sin avance
+                          </Badge>
+                        )}
                       </div>
 
                       {/* Progress bar */}

@@ -1,4 +1,4 @@
-import { Car, FileText, Warehouse, LayoutDashboard, LogOut } from "lucide-react";
+import { Car, FileText, Warehouse, LayoutDashboard, LogOut, ClipboardCheck, Users, Bot } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -14,15 +14,47 @@ import {
 } from "@/components/ui/sidebar";
 import { PerplexityAttribution } from "@/components/PerplexityAttribution";
 
-const navItems = [
-  { title: "Motor CMU", url: "/motor", icon: Car, description: "Decisión de compra" },
-  { title: "Originación", url: "/originacion", icon: FileText, description: "Alta de taxistas" },
-  { title: "Inventario", url: "/inventario", icon: Warehouse, description: "Vehículos en flota" },
-  { title: "Panel CMU", url: "/panel", icon: LayoutDashboard, description: "Dashboard admin" },
+const navGroups = [
+  {
+    label: "Compras",
+    items: [
+      { title: "Motor CMU", url: "/motor", icon: Car, description: "Decisión de compra" },
+      { title: "Inventario", url: "/inventario", icon: Warehouse, description: "Vehículos en flota" },
+    ],
+  },
+  {
+    label: "Originación",
+    items: [
+      { title: "Folios", url: "/originacion", icon: FileText, description: "Alta de taxistas" },
+      { title: "Evaluaciones", url: "/evaluaciones", icon: ClipboardCheck, description: "Scoring entrevistas" },
+    ],
+  },
+  {
+    label: "Ventas",
+    items: [
+      { title: "Pipeline", url: "/pipeline", icon: Users, description: "Prospectos por canal" },
+    ],
+  },
+  {
+    label: "Cartera",
+    items: [
+      { title: "Panel CMU", url: "/panel", icon: LayoutDashboard, description: "Créditos y cobranza" },
+    ],
+  },
 ];
 
-export function AppSidebar({ promoterName, onLogout }: { promoterName: string; onLogout: () => void }) {
+const devGroup = {
+  label: "Dev Tools",
+  items: [
+    { title: "Sandbox", url: "/sandbox", icon: Bot, description: "Simulador del agente WhatsApp" },
+  ],
+};
+
+export function AppSidebar({ promoterName, role, onLogout }: { promoterName: string; role: string; onLogout: () => void }) {
   const [location] = useLocation();
+  const groups = role === "dev" ? [...navGroups, devGroup] : 
+                 role === "director" ? [...navGroups, { label: "Dev Tools", items: [{ title: "Sandbox", url: "/sandbox", icon: Bot, description: "Simulador del agente" }] }] :
+                 navGroups;
 
   return (
     <Sidebar>
@@ -43,31 +75,33 @@ export function AppSidebar({ promoterName, onLogout }: { promoterName: string; o
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Módulos</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {navItems.map((item) => {
-                const isActive = location === item.url || 
-                  (item.url !== "/" && location.startsWith(item.url));
-                return (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={isActive}
-                      tooltip={item.description}
-                    >
-                      <Link href={item.url}>
-                        <item.icon />
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {groups.map((group) => (
+          <SidebarGroup key={group.label}>
+            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {group.items.map((item) => {
+                  const isActive = location === item.url || 
+                    (item.url !== "/" && location.startsWith(item.url));
+                  return (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={isActive}
+                        tooltip={item.description}
+                      >
+                        <Link href={item.url}>
+                          <item.icon />
+                          <span>{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
 
       <SidebarFooter className="p-3 border-t border-sidebar-border">
@@ -77,7 +111,7 @@ export function AppSidebar({ promoterName, onLogout }: { promoterName: string; o
               {promoterName}
             </span>
             <span className="text-[10px] text-muted-foreground">
-              Promotora
+              {role === "director" ? "Director" : "Promotora"}
             </span>
           </div>
           <button

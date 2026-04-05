@@ -69,6 +69,7 @@ export const promoters = pgTable("promoters", {
   name: text("name").notNull(),
   pin: text("pin").notNull(), // 6-digit PIN
   phone: text("phone"),
+  role: text("role").notNull().default("promotora"), // "promotora" | "director"
   active: integer("active").notNull().default(1), // 1=true, 0=false (SQLite compat)
   createdAt: text("created_at").notNull(),
 });
@@ -169,6 +170,7 @@ export const documents = pgTable("documents", {
   ocrConfidence: text("ocr_confidence"), // "alta" | "media" | "baja"
   editedData: text("edited_data"), // JSON string if promoter edited OCR results
   status: text("status").notNull().default("pending"), // "pending" | "captured" | "ocr_done" | "verified"
+  source: text("source").default("pwa"), // "pwa" | "whatsapp"
   createdAt: text("created_at").notNull(),
 });
 
@@ -191,6 +193,14 @@ export const vehiclesInventory = pgTable("vehicles_inventory", {
   cmuValor: integer("cmu_valor"), // CMU market value
   costoAdquisicion: integer("costo_adquisicion"),
   costoReparacion: integer("costo_reparacion"),
+  // Acquisition assumptions (from Motor CMU evaluation)
+  precioAseguradora: integer("precio_aseguradora"), // insurer price at purchase
+  reparacionEstimada: integer("reparacion_estimada"), // initial estimate from evaluation
+  reparacionReal: integer("reparacion_real"), // actual repair cost (editable in inventory)
+  conTanque: integer("con_tanque").default(1), // 1=con tanque, 0=sin tanque
+  margenEstimado: integer("margen_estimado"), // margin at time of evaluation
+  tirBaseEstimada: text("tir_base_estimada"), // TIR Base at evaluation (stored as string "0.565")
+  evaluationId: integer("evaluation_id"), // link back to opportunities table
   // Status: "disponible" | "asignado" | "en_reparacion" | "vendido" | "baja"
   status: text("status").notNull().default("disponible"),
   assignedOriginationId: integer("assigned_origination_id"),
@@ -205,6 +215,9 @@ export const vehiclesInventory = pgTable("vehicles_inventory", {
   tanqueMarca: text("tanque_marca"),
   tanqueSerie: text("tanque_serie"),
   tanqueCosto: integer("tanque_costo"),
+  // GNV Pricing Modality (HU-4)
+  gnvModalidad: text("gnv_modalidad"), // "kit_tanque" | "kit_reusado" | "incluido" | "descuento"
+  descuentoGnv: integer("descuento_gnv"), // discount amount when gnvModalidad = "descuento" or "kit_reusado"
   fotos: text("fotos"), // JSON array of image URLs
   notes: text("notes"),
   createdAt: text("created_at").notNull(),
@@ -249,15 +262,20 @@ export type EvaluationInput = {
   cmu: number;
   insurerPrice: number;
   repairEstimate: number;
+  conTanque: boolean; // true = con tanque ($18k kit), false = sin tanque ($27.4k kit, CMU+$9.4k)
   city?: string;
 };
 
-export type CashFlowEntry = {
+export type AmortizationRow = {
   month: number;
-  balance: number;
-  vehiclePayment: number;
+  saldoInicial: number;
+  capital: number;
+  interes: number;
+  cuota: number;
+  saldoFinal: number;
   gnvRevenue: number;
-  netCashFlow: number;
+  depositoTransferencia: number; // cuota - gnvRevenue (lo que el taxista paga vía Conekta)
+  fondoGarantia: number; // acumulado
 };
 
 export type SensitivityPoint = {
@@ -265,6 +283,7 @@ export type SensitivityPoint = {
   newRepair: number;
   newTotalCost: number;
   newMargin: number;
+  newTirBase: number;
   newDecision: string;
   newDecisionLevel: string;
 };
@@ -275,24 +294,52 @@ export type EvaluationResult = {
   variant: string | null;
   year: number;
   city: string | null;
+  // Inputs
   cmu: number;
+  precioContado: number; // CMU or CMU+9400 if sin tanque
   insurerPrice: number;
   repairEstimate: number;
-  totalCost: number;
-  purchasePct: number;
-  margin: number;
-  tirAnnual: number;
+  kitGnv: number;
+  conTanque: boolean;
+  // Core metrics
+  totalCost: number; // aseg + rep + kit
+  costoPctCmu: number; // totalCost / precioContado
+  asegPctCmu: number; // insurerPrice / cmu
+  margin: number; // precioContado - totalCost
+  // Market price cap
+  precioMaxCMU: number; // min(precioContado, marketAvgPrice) — max price CMU can charge
+  marketAvgPrice: number | null; // average market price from Kavak/ML
+  precioCapped: boolean; // true if precioContado was capped to market price
+  // Amortization (German system — constant principal, decreasing interest)
+  ventaPlazos: number; // sum of all 36 cuotas
+  cuotaMes1: number;
+  cuotaMes36: number;
+  mesGnvCubre: number | null; // first month where cuota <= $4,400
+  amortizacion: AmortizationRow[];
+  // Amortization post-anticipo (recalculated from month 3)
+  amortizacionConAnticipo: AmortizationRow[];
+  // 3 TIRs (con tiempos reales de desembolso)
+  tirBase: number; // todo de golpe día 0, cuotas desde día 0 (piso mínimo)
+  tirOperativa: number; // efectivo día 0 (rep+kit), Amex día 50 (aseg), cuotas desde día 25, SIN anticipo
+  tirCompleta: number; // operativa + anticipo $50k en mes 2
   moic: number;
-  ventaPlazos: number;
-  monthlyPayment: number;
-  decision: "COMPRAR" | "DUDOSO" | "NO COMPRAR";
-  decisionLevel: "optimo" | "bueno" | "descartar";
-  explanation: string;
   totalInflows: number;
   totalOutflows: number;
-  cashFlows: CashFlowEntry[];
+  // Classification
+  decision: "COMPRAR" | "VIABLE" | "NO COMPRAR";
+  decisionLevel: "comprar" | "viable" | "descartar";
+  explanation: string;
+  // Sensitivity
   sensitivity: SensitivityPoint[];
-  purchaseBenchmarkPct: number;
+  // v11: 8 Guardrails + Risk + PV min
+  pvMinimo: number;
+  guardrails: { label: string; value: string; threshold: string; passed: boolean }[];
+  guardrailsPassed: number;
+  riesgoCliente: { diferencialM1: number; diferencialM3: number; difPctGasolina: number; nivel: string; mesGnvCubre: number | null };
+  paybackMonth: number | null;
+  diferencialM3: number;
+  gastoGasolina: number;
+  capitalCMU: number;
 };
 
 export type RepairEstimateRequest = {
@@ -355,12 +402,13 @@ export type OriginationEstado =
 
 export const ORIGINATION_STEPS = [
   { step: 1, name: "Crear Folio", description: "Tipo de trámite y perfil" },
-  { step: 2, name: "Documentos", description: "Captura de 10 documentos + selfie biométrico" },
-  { step: 3, name: "Verificación Tel.", description: "OTP de verificación de teléfono" },
-  { step: 4, name: "Revisión Docs", description: "Resumen de documentos capturados" },
-  { step: 5, name: "Vehículo", description: "Fotos del vehículo + selfie con INE" },
-  { step: 6, name: "Contrato", description: "Generación de contrato PDF" },
-  { step: 7, name: "Firma", description: "Firma electrónica (Mifiel)" },
+  { step: 2, name: "Documentos", description: "Captura de documentos requeridos + selfie biométrico" },
+  { step: 3, name: "Entrevista", description: "Evaluación rápida — 8 preguntas por voz" },
+  { step: 4, name: "Verificación Tel.", description: "OTP de verificación de teléfono" },
+  { step: 5, name: "Revisión Docs", description: "Resumen de documentos capturados" },
+  { step: 6, name: "Vehículo", description: "Fotos del vehículo + selfie con INE" },
+  { step: 7, name: "Contrato", description: "Generación de contrato PDF" },
+  { step: 8, name: "Firma", description: "Firma electrónica (Mifiel)" },
 ] as const;
 
 export const DOCUMENT_TYPES = {

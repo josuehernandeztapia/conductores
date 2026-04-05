@@ -52,10 +52,23 @@ async function tryApi<T>(apiCall: () => Promise<T>, fallback: () => T): Promise<
     backendAvailable = true;
     lastBackendCheck = Date.now();
     return result;
-  } catch (err) {
-    console.warn("[API] Backend unavailable, using in-memory fallback:", (err as Error).message);
-    backendAvailable = false;
-    lastBackendCheck = Date.now();
+  } catch (err: any) {
+    const msg = String(err?.message || "");
+    // Network-level: "Failed to fetch", "NetworkError", "Load failed", "ERR_CONNECTION"
+    const isNetworkError = msg.includes("Failed to fetch") || msg.includes("NetworkError") || msg.includes("Load failed") || msg.includes("ERR_");
+    if (isNetworkError) {
+      console.warn("[API] Backend unreachable, using fallback:", msg);
+      backendAvailable = false;
+      lastBackendCheck = Date.now();
+    } else {
+      // Application error (4xx, parsing error, etc.) → backend is reachable
+      console.warn("[API] API error:", msg);
+      backendAvailable = true;
+      // Rate limiting or auth errors: re-throw so caller sees the message
+      if (msg.includes("intento") || msg.includes("Espera") || msg.includes("Demasiados")) {
+        throw new Error(msg);
+      }
+    }
     return fallback();
   }
 }
@@ -64,24 +77,34 @@ async function tryApi<T>(apiCall: () => Promise<T>, fallback: () => T): Promise<
 // AUTH
 // ============================================================
 
-export async function apiLogin(pin: string): Promise<{ id: number; name: string } | null> {
+export async function apiLogin(pin: string): Promise<{ id: number; name: string; role: string } | null> {
+  // Reset backend state on login so we always try the real API first
+  backendAvailable = null;
+  lastBackendCheck = 0;
   return tryApi(
     async () => {
       const res = await apiFetch("/api/auth/login", {
         method: "POST",
         body: JSON.stringify({ pin }),
       });
-      if (!res.ok) return null;
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        if (errData.message) throw new Error(errData.message);
+        return null;
+      }
       const data = await res.json();
       authToken = data.token;
       currentPromoter = data.promoter;
-      return data.promoter;
+      backendAvailable = true; // explicitly mark backend as available after successful login
+      // Sync models from Neon (non-blocking)
+      syncModelsFromApi().catch(() => {});
+      return { ...data.promoter, role: data.promoter.role || "promotora" };
     },
     () => {
       const promoter = storage.getPromoterByPin(pin);
       if (!promoter) return null;
       currentPromoter = { id: promoter.id, name: promoter.name };
-      return currentPromoter;
+      return { ...currentPromoter, role: (promoter as any).role || "promotora" };
     }
   );
 }
@@ -93,6 +116,14 @@ export function getAuthPromoter() {
 export function logout() {
   authToken = null;
   currentPromoter = null;
+  // Reset backend tracking so next login retries the real API
+  backendAvailable = null;
+  lastBackendCheck = 0;
+}
+
+export function resetApiState() {
+  backendAvailable = null;
+  lastBackendCheck = 0;
 }
 
 // ============================================================
@@ -312,6 +343,42 @@ export async function apiCreateVehicle(data: Record<string, any>) {
   );
 }
 
+export async function apiUpdateVehicle(id: number, data: Record<string, any>) {
+  console.log(`[apiUpdateVehicle] id=${id}, keys=${Object.keys(data).join(',')}, precio_aseg=${data.precio_aseguradora}, rep_real=${data.reparacion_real}`);
+  return tryApi(
+    async () => {
+      console.log(`[apiUpdateVehicle] Calling PATCH /api/vehicles/${id}`);
+      const res = await apiFetch(`/api/vehicles/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error(`[apiUpdateVehicle] PATCH failed: ${res.status} ${errText}`);
+        throw new Error("Failed to update vehicle");
+      }
+      const result = await res.json();
+      console.log(`[apiUpdateVehicle] PATCH success, precio_aseg=${result.precio_aseguradora}`);
+      return normalizeVehicle(result);
+    },
+    () => {
+      console.warn(`[apiUpdateVehicle] FALLBACK to local storage!`);
+      return storage.updateVehicle(id, data as any);
+    }
+  );
+}
+
+export async function apiDeleteVehicle(id: number) {
+  return tryApi(
+    async () => {
+      const res = await apiFetch(`/api/vehicles/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete vehicle");
+      return res.json();
+    },
+    () => { /* no local fallback */ }
+  );
+}
+
 // ============================================================
 // EVALUATIONS
 // ============================================================
@@ -370,11 +437,41 @@ export async function apiGetStats() {
 }
 
 // ============================================================
-// MODELS (always from storage — seed data)
+// MODELS (seed data initially, synced from Neon API when available)
 // ============================================================
+
+let modelsSyncedFromApi = false;
 
 export function apiGetModels() {
   return storage.getModels();
+}
+
+/** Sync models from API (Neon) into local storage. Call once after login. */
+export async function syncModelsFromApi(): Promise<void> {
+  if (modelsSyncedFromApi) return;
+  try {
+    const res = await apiFetch("/api/models");
+    if (!res.ok) return;
+    const apiModels = await res.json();
+    if (!Array.isArray(apiModels) || apiModels.length === 0) return;
+    // Normalize snake_case from Neon
+    const normalized = apiModels.map((m: any) => ({
+      id: m.id, brand: m.brand, model: m.model, variant: m.variant || null,
+      year: m.year, cmu: m.cmu, slug: m.slug,
+      purchaseBenchmarkPct: m.purchaseBenchmarkPct ?? m.purchase_benchmark_pct ?? 0.60,
+      cmuSource: m.cmuSource ?? m.cmu_source ?? "catalog",
+      cmuUpdatedAt: m.cmuUpdatedAt ?? m.cmu_updated_at ?? null,
+      cmuMin: m.cmuMin ?? m.cmu_min ?? null,
+      cmuMax: m.cmuMax ?? m.cmu_max ?? null,
+      cmuMedian: m.cmuMedian ?? m.cmu_median ?? null,
+      cmuSampleCount: m.cmuSampleCount ?? m.cmu_sample_count ?? null,
+    }));
+    storage.replaceModels(normalized);
+    modelsSyncedFromApi = true;
+    console.log(`[API] Synced ${normalized.length} models from Neon`);
+  } catch (err: any) {
+    console.warn("[API] Models sync failed, using local seed:", err.message);
+  }
 }
 
 // Market prices from real sources (Kavak, Autocosmos, Seminuevos)
@@ -477,6 +574,14 @@ function normalizeVehicle(row: any) {
     tanqueMarca: row.tanque_marca ?? row.tanqueMarca ?? null,
     tanqueSerie: row.tanque_serie ?? row.tanqueSerie ?? null,
     tanqueCosto: row.tanque_costo ?? row.tanqueCosto ?? null,
+    // Financial fields needed by edit form
+    precioAseguradora: row.precio_aseguradora ?? row.precioAseguradora ?? null,
+    reparacionEstimada: row.reparacion_estimada ?? row.reparacionEstimada ?? null,
+    reparacionReal: row.reparacion_real ?? row.reparacionReal ?? null,
+    conTanque: row.con_tanque ?? row.conTanque ?? 1,
+    margenEstimado: row.margen_estimado ?? row.margenEstimado ?? null,
+    gnvModalidad: row.gnv_modalidad ?? row.gnvModalidad ?? null,
+    descuentoGnv: row.descuento_gnv ?? row.descuentoGnv ?? null,
     fotos: row.fotos ?? null,
     notes: row.notes ?? null,
     createdAt: row.created_at ?? row.createdAt,
@@ -568,6 +673,55 @@ export async function apiVerifyOtp(phone: string, code: string, originationId: n
   } catch (err: any) {
     console.error("OTP verify error:", err);
     return { success: false, verified: false, message: err.message };
+  }
+}
+
+// ============================================================
+// BUSINESS CONFIG (SSOT from business_rules + fuel_prices)
+// ============================================================
+
+export type BusinessConfig = {
+  leqBase: number;
+  leqMinimo: number;
+  sobreprecioGnv: number;
+  plazoMeses: number;
+  tasaAnual: number;
+  fgInicial: number;
+  fgMensual: number;
+  fgTecho: number;
+  moraFee: number;
+  mesesRescision: number;
+  excelentePct: number;
+  buenNegocioPctMin: number;
+  buenNegocioPctMax: number;
+  marginalPctMin: number;
+  marginalPctMax: number;
+  noConvienePct: number;
+  precioGnv: number;
+  precioMagna: number;
+  precioPremium: number;
+  gnvRevenueMes: number;
+};
+
+let cachedConfig: BusinessConfig | null = null;
+let configFetchedAt = 0;
+const CONFIG_TTL = 5 * 60 * 1000; // 5 minutes
+
+export async function apiFetchBusinessConfig(): Promise<BusinessConfig | null> {
+  // Return cache if fresh
+  if (cachedConfig && Date.now() - configFetchedAt < CONFIG_TTL) {
+    return cachedConfig;
+  }
+  try {
+    const res = await apiFetch("/api/business-config");
+    if (!res.ok) throw new Error("Failed to fetch business config");
+    const data = await res.json();
+    cachedConfig = data as BusinessConfig;
+    configFetchedAt = Date.now();
+    return cachedConfig;
+  } catch (err: any) {
+    console.warn("[API] Business config unavailable:", err.message);
+    return cachedConfig; // return stale cache or null
   }
 }
 

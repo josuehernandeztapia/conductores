@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiLogin, initStore } from "@/lib/api";
 
 type PinLoginProps = {
-  onLogin: (promoter: { id: number; name: string }) => void;
+  onLogin: (promoter: { id: number; name: string; role: string }) => void;
 };
 
 export function PinLogin({ onLogin }: PinLoginProps) {
@@ -17,34 +17,43 @@ export function PinLogin({ onLogin }: PinLoginProps) {
 
   const handleInput = useCallback((index: number, value: string) => {
     if (!/^\d?$/.test(value)) return;
-    const newPin = [...pin];
-    newPin[index] = value;
-    setPin(newPin);
-
+    setPin(prev => {
+      const newPin = [...prev];
+      newPin[index] = value;
+      return newPin;
+    });
     if (value && index < 5) {
-      inputRefs.current[index + 1]?.focus();
+      setTimeout(() => inputRefs.current[index + 1]?.focus(), 0);
     }
-  }, [pin]);
+  }, []);
 
   const handleKeyDown = useCallback((index: number, e: React.KeyboardEvent) => {
-    if (e.key === "Backspace" && !pin[index] && index > 0) {
-      inputRefs.current[index - 1]?.focus();
+    if (e.key === "Backspace") {
+      setPin(prev => {
+        if (!prev[index] && index > 0) {
+          const newPin = [...prev];
+          newPin[index - 1] = "";
+          setTimeout(() => inputRefs.current[index - 1]?.focus(), 0);
+          return newPin;
+        }
+        return prev;
+      });
     }
-  }, [pin]);
+  }, []);
 
   const handlePaste = useCallback((e: React.ClipboardEvent) => {
     e.preventDefault();
     const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
-    const newPin = [...pin];
-    for (let i = 0; i < pasted.length; i++) {
-      newPin[i] = pasted[i];
-    }
-    setPin(newPin);
+    setPin(() => {
+      const newPin = ["", "", "", "", "", ""];
+      for (let i = 0; i < pasted.length; i++) newPin[i] = pasted[i];
+      return newPin;
+    });
     if (pasted.length > 0) {
       const focusIdx = Math.min(pasted.length, 5);
-      inputRefs.current[focusIdx]?.focus();
+      setTimeout(() => inputRefs.current[focusIdx]?.focus(), 0);
     }
-  }, [pin]);
+  }, []);
 
   const handleSubmit = useCallback(async () => {
     const pinStr = pin.join("");
@@ -62,14 +71,15 @@ export function PinLogin({ onLogin }: PinLoginProps) {
       const promoter = await apiLogin(pinStr);
 
       if (promoter) {
-        onLogin({ id: promoter.id, name: promoter.name });
+        onLogin({ id: promoter.id, name: promoter.name, role: promoter.role || "promotora" });
       } else {
         toast({ title: "PIN incorrecto", description: "Verifica tu PIN e intenta de nuevo", variant: "destructive" });
         setPin(["", "", "", "", "", ""]);
         inputRefs.current[0]?.focus();
       }
-    } catch {
-      toast({ title: "Error", description: "No se pudo verificar el PIN", variant: "destructive" });
+    } catch (err: any) {
+      const msg = err?.message || "No se pudo verificar el PIN";
+      toast({ title: msg.includes("intento") || msg.includes("Espera") ? "Acceso bloqueado" : "Error", description: msg, variant: "destructive" });
       setPin(["", "", "", "", "", ""]);
       inputRefs.current[0]?.focus();
     } finally {
@@ -110,7 +120,7 @@ export function PinLogin({ onLogin }: PinLoginProps) {
                 <input
                   key={i}
                   ref={(el) => { inputRefs.current[i] = el; }}
-                  type="text"
+                  type="password"
                   inputMode="numeric"
                   maxLength={1}
                   value={digit}
@@ -135,7 +145,7 @@ export function PinLogin({ onLogin }: PinLoginProps) {
             </Button>
 
             <p className="text-[10px] text-muted-foreground text-center">
-              Acceso exclusivo para promotoras CMU
+              Acceso con PIN de 6 dígitos
             </p>
           </CardContent>
         </Card>

@@ -14,14 +14,19 @@ RUN npm run build
 # === PRODUCTION STAGE ===
 FROM node:20-slim AS production
 
+# Install poppler-utils (PDF-to-image) + LibreOffice (DOCX-to-PDF)
+RUN apt-get update && apt-get install -y --no-install-recommends poppler-utils libreoffice-nogui && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # Only production dependencies
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
-# Copy compiled server + static frontend
+# Copy compiled server + static frontend + templates + public assets
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/server/templates ./server/templates
+COPY --from=builder /app/public ./public
 
 # Port — Express listens on 5000
 ENV PORT=5000

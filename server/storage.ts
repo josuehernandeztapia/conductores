@@ -13,6 +13,7 @@ export interface IStorage {
   getModels(): Promise<Model[]>;
   getModelOptions(): Promise<ModelOption[]>;
   getModelBySlugYear(slug: string, year: number): Promise<Model | undefined>;
+  createModel(data: any): Promise<Model>;
   saveOpportunity(opp: Omit<Opportunity, "id" | "createdAt">): Promise<Opportunity>;
   getOpportunities(): Promise<Opportunity[]>;
   updateModelCmu(id: number, cmu: number, source: string, meta?: { cmuMin?: number; cmuMax?: number; cmuMedian?: number; sampleCount?: number }): Promise<Model | undefined>;
@@ -35,6 +36,7 @@ export interface IStorage {
   updateOrigination(id: number, data: Partial<InsertOrigination>): Promise<Origination | undefined>;
   listOriginations(filters?: { estado?: string; promoterId?: number }): Promise<Origination[]>;
   getNextFolioSequence(prefix: string, dateStr: string): Promise<number>;
+  findFolioFlexible(query: string): Promise<{ origination: Origination; taxistaName: string | null; matchType: string }[]>;
 
   // Documents
   createDocument(data: InsertDocument): Promise<Document>;
@@ -47,6 +49,7 @@ export interface IStorage {
   createVehicle(data: InsertVehicleInventory): Promise<VehicleInventory>;
   getVehicle(id: number): Promise<VehicleInventory | undefined>;
   updateVehicle(id: number, data: Partial<InsertVehicleInventory>): Promise<VehicleInventory | undefined>;
+  deleteVehicle(id: number): Promise<void>;
   listVehicles(filters?: { status?: string }): Promise<VehicleInventory[]>;
   getAvailableVehicles(): Promise<VehicleInventory[]>;
 
@@ -55,6 +58,37 @@ export interface IStorage {
   getContract(id: number): Promise<Contract | undefined>;
   updateContract(id: number, data: Partial<InsertContract>): Promise<Contract | undefined>;
   getContractByOrigination(originationId: number): Promise<Contract | undefined>;
+
+  // WhatsApp Roles
+  getRoleByPhone(phone: string): Promise<{ phone: string; role: string; name: string | null; permissions: string[]; folio_id: number | null; phone_verified: boolean; active: boolean } | null>;
+  createRole(phone: string, role: string, name: string | null, permissions?: string[]): Promise<any>;
+  updateRole(phone: string, updates: Record<string, any>): Promise<any>;
+  verifyPhone(phone: string): Promise<void>;
+
+  // WhatsApp OTP
+  createOTP(phone: string, code: string, expiresAt: Date): Promise<void>;
+  verifyOTP(phone: string, code: string): Promise<{ valid: boolean; expired?: boolean; maxAttempts?: boolean }>;
+
+  // Model lookup for Motor CMU (dynamic)
+  findModelFuzzy(query: string): Promise<Model | undefined>;
+
+  // Fuel prices
+  getFuelPrices(): Promise<{ gnv: number; magna: number; premium: number }>;
+
+  // Client state lookup by phone
+  getClientStateByPhone(phone: string): Promise<{
+    found: boolean;
+    originationId: number | null;
+    folio: string | null;
+    estado: string | null;
+    taxistaName: string | null;
+    taxistaId: number | null;
+    perfilTipo: string | null;
+    currentStep: number | null;
+    docsCapturados: string[];
+    docsPendientes: string[];
+    totalDocs: number;
+  } | null>;
 }
 
 export class MemStorage implements IStorage {
@@ -127,12 +161,43 @@ export class MemStorage implements IStorage {
   }
 
   private seedPromoters() {
-    const id = this.promoterSeq++;
-    this.promotersMap.set(id, {
-      id,
+    const id1 = this.promoterSeq++;
+    this.promotersMap.set(id1, {
+      id: id1,
       name: "Ángeles Mireles",
       pin: "123456",
       phone: "+524491234567",
+      role: "promotora",
+      active: 1,
+      createdAt: new Date().toISOString(),
+    });
+    const id2 = this.promoterSeq++;
+    this.promotersMap.set(id2, {
+      id: id2,
+      name: "Josué Hernández",
+      pin: "654321",
+      phone: "+5214422022540",
+      role: "director",
+      active: 1,
+      createdAt: new Date().toISOString(),
+    });
+    const id3 = this.promoterSeq++;
+    this.promotersMap.set(id3, {
+      id: id3,
+      name: "Pablo Prado",
+      pin: "111111",
+      phone: "+524433570533",
+      role: "dev",
+      active: 1,
+      createdAt: new Date().toISOString(),
+    });
+    const id4 = this.promoterSeq++;
+    this.promotersMap.set(id4, {
+      id: id4,
+      name: "Dagoberto Prado",
+      pin: "111111",
+      phone: "+524433181417",
+      role: "dev",
       active: 1,
       createdAt: new Date().toISOString(),
     });
@@ -170,6 +235,12 @@ export class MemStorage implements IStorage {
 
   async getModelBySlugYear(slug: string, year: number): Promise<Model | undefined> {
     return Array.from(this.models.values()).find((m) => m.slug === slug && m.year === year);
+  }
+  async createModel(data: any): Promise<Model> {
+    const id = this.models.size + 1000;
+    const m = { ...data, id } as Model;
+    this.models.set(id, m);
+    return m;
   }
 
   async saveOpportunity(opp: Omit<Opportunity, "id" | "createdAt">): Promise<Opportunity> {
@@ -292,6 +363,47 @@ export class MemStorage implements IStorage {
     return existing.length + 1;
   }
 
+  async findFolioFlexible(query: string): Promise<{ origination: Origination; taxistaName: string | null; matchType: string }[]> {
+    const q = query.toLowerCase().trim();
+    const results: { origination: Origination; taxistaName: string | null; matchType: string }[] = [];
+    const origs = Array.from(this.originationsMap.values()).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    
+    // "el último" / "el más reciente"
+    if (q.includes("último") || q.includes("ultimo") || q.includes("reciente") || q.includes("nueva")) {
+      if (origs.length > 0) {
+        const o = origs[0];
+        const tid = (o as any).taxistaId || (o as any).taxista_id;
+        let name: string | null = null;
+        if (tid) { const t = await this.getTaxista(tid); if (t) name = `${(t as any).nombre} ${(t as any).apellidoPaterno || (t as any).apellido_paterno || ""}`; }
+        results.push({ origination: o, taxistaName: name, matchType: "más_reciente" });
+      }
+      return results;
+    }
+
+    for (const o of origs) {
+      // Match partial folio (e.g. "047", "260320-001")
+      if (o.folio.toLowerCase().includes(q)) {
+        const tid = (o as any).taxistaId || (o as any).taxista_id;
+        let name: string | null = null;
+        if (tid) { const t = await this.getTaxista(tid); if (t) name = `${(t as any).nombre} ${(t as any).apellidoPaterno || (t as any).apellido_paterno || ""}`; }
+        results.push({ origination: o, taxistaName: name, matchType: "folio_parcial" });
+        continue;
+      }
+      // Match by taxista name
+      const tid = (o as any).taxistaId || (o as any).taxista_id;
+      if (tid) {
+        const t = await this.getTaxista(tid);
+        if (t) {
+          const fullName = `${(t as any).nombre} ${(t as any).apellidoPaterno || (t as any).apellido_paterno || ""} ${(t as any).apellidoMaterno || (t as any).apellido_materno || ""}`.toLowerCase();
+          if (fullName.includes(q)) {
+            results.push({ origination: o, taxistaName: `${(t as any).nombre} ${(t as any).apellidoPaterno || (t as any).apellido_paterno || ""}`, matchType: "nombre" });
+          }
+        }
+      }
+    }
+    return results.slice(0, 5);
+  }
+
   // ===== Documents =====
   async createDocument(data: InsertDocument): Promise<Document> {
     const id = this.documentSeq++;
@@ -340,6 +452,10 @@ export class MemStorage implements IStorage {
     return vehicle;
   }
 
+  async deleteVehicle(id: number): Promise<void> {
+    this.vehiclesMap.delete(id);
+  }
+
   async listVehicles(filters?: { status?: string }): Promise<VehicleInventory[]> {
     let list = Array.from(this.vehiclesMap.values());
     if (filters?.status) list = list.filter((v) => v.status === filters.status);
@@ -374,6 +490,22 @@ export class MemStorage implements IStorage {
     return Array.from(this.contractsMap.values())
       .find((c) => c.originationId === originationId);
   }
+
+  // WhatsApp Roles (MemStorage stubs)
+  async getRoleByPhone(_phone: string) { return null; }
+  async createRole(_phone: string, _role: string, _name: string | null, _perms?: string[]) { return {}; }
+  async updateRole(_phone: string, _updates: Record<string, any>) { return {}; }
+  async verifyPhone(_phone: string) {}
+  async createOTP(_phone: string, _code: string, _expiresAt: Date) {}
+  async verifyOTP(_phone: string, _code: string) { return { valid: true }; }
+  async findModelFuzzy(query: string): Promise<Model | undefined> {
+    const q = query.toLowerCase();
+    return Array.from(this.models.values()).find(m =>
+      m.model.toLowerCase().includes(q) || m.slug.toLowerCase().includes(q)
+    );
+  }
+  async getFuelPrices() { return { gnv: 12.99, magna: 24.00, premium: 26.50 }; }
+  async getClientStateByPhone(_phone: string) { return null; }
 }
 
 // ===== Neon PostgreSQL Storage =====
@@ -403,6 +535,12 @@ class NeonStorage implements IStorage {
   async getModelBySlugYear(slug: string, year: number) {
     const rows = await this.sql`SELECT * FROM models WHERE slug = ${slug} AND year = ${year} LIMIT 1`;
     return rows[0] as Model | undefined;
+  }
+  async createModel(data: any): Promise<Model> {
+    const rows = await this.sql`INSERT INTO models (brand, model, variant, year, cmu, slug, cmu_source, purchase_benchmark_pct, cmu_updated_at)
+      VALUES (${data.brand}, ${data.model}, ${data.variant || null}, ${data.year}, ${data.cmu}, ${data.slug}, ${data.cmuSource || 'mercado_auto'}, ${data.purchaseBenchmarkPct || 0.65}, ${data.cmuUpdatedAt || new Date().toISOString()})
+      RETURNING *`;
+    return rows[0] as Model;
   }
   async saveOpportunity(opp: Omit<Opportunity, "id" | "createdAt">) {
     const now = new Date().toISOString();
@@ -479,8 +617,70 @@ class NeonStorage implements IStorage {
     const rows = await this.sql`SELECT COUNT(*) as c FROM originations WHERE folio LIKE ${pattern}`;
     return (parseInt(rows[0]?.c) || 0) + 1;
   }
+  async findFolioFlexible(query: string): Promise<{ origination: Origination; taxistaName: string | null; matchType: string }[]> {
+    const q = query.toLowerCase().trim();
+    const results: { origination: Origination; taxistaName: string | null; matchType: string }[] = [];
+
+    // "el último" / "el más reciente" / "nueva"
+    if (q.includes("último") || q.includes("ultimo") || q.includes("reciente") || q.includes("nueva")) {
+      const rows = await this.sql`
+        SELECT o.*, t.nombre as t_nombre, t.apellido_paterno as t_apellido
+        FROM originations o LEFT JOIN taxistas t ON o.taxista_id = t.id
+        ORDER BY o.created_at DESC LIMIT 1`;
+      if (rows.length > 0) {
+        const r = rows[0] as any;
+        results.push({
+          origination: r as Origination,
+          taxistaName: r.t_nombre ? `${r.t_nombre} ${r.t_apellido || ""}`.trim() : null,
+          matchType: "más_reciente",
+        });
+      }
+      return results;
+    }
+
+    // Search by partial folio number (e.g. "047", "260320-001", "CMU-VAL")
+    const folioPattern = `%${q}%`;
+    const folioRows = await this.sql`
+      SELECT o.*, t.nombre as t_nombre, t.apellido_paterno as t_apellido
+      FROM originations o LEFT JOIN taxistas t ON o.taxista_id = t.id
+      WHERE LOWER(o.folio) LIKE ${folioPattern}
+      ORDER BY o.created_at DESC LIMIT 5`;
+    for (const r of folioRows) {
+      const row = r as any;
+      results.push({
+        origination: row as Origination,
+        taxistaName: row.t_nombre ? `${row.t_nombre} ${row.t_apellido || ""}`.trim() : null,
+        matchType: "folio_parcial",
+      });
+    }
+
+    // Search by taxista name/apellido (if not enough results from folio)
+    if (results.length < 5) {
+      const nameRows = await this.sql`
+        SELECT o.*, t.nombre as t_nombre, t.apellido_paterno as t_apellido, t.apellido_materno as t_apellido_m
+        FROM originations o JOIN taxistas t ON o.taxista_id = t.id
+        WHERE LOWER(t.nombre) LIKE ${folioPattern}
+           OR LOWER(t.apellido_paterno) LIKE ${folioPattern}
+           OR LOWER(t.apellido_materno) LIKE ${folioPattern}
+           OR LOWER(CONCAT(t.nombre, ' ', t.apellido_paterno)) LIKE ${folioPattern}
+        ORDER BY o.created_at DESC LIMIT 5`;
+      const existingIds = new Set(results.map(r => (r.origination as any).id));
+      for (const r of nameRows) {
+        const row = r as any;
+        if (existingIds.has(row.id)) continue;
+        results.push({
+          origination: row as Origination,
+          taxistaName: row.t_nombre ? `${row.t_nombre} ${row.t_apellido || ""}`.trim() : null,
+          matchType: "nombre",
+        });
+      }
+    }
+
+    return results.slice(0, 5);
+  }
   async createDocument(data: InsertDocument) {
-    const rows = await this.sql`INSERT INTO documents (origination_id, tipo, image_data, ocr_result, ocr_confidence, edited_data, status, created_at) VALUES (${data.originationId}, ${data.tipo}, ${data.imageData}, ${data.ocrResult}, ${data.ocrConfidence}, ${data.editedData}, ${data.status || 'pending'}, ${data.createdAt}) RETURNING *`;
+    const source = (data as any).source || 'pwa';
+    const rows = await this.sql`INSERT INTO documents (origination_id, tipo, image_data, ocr_result, ocr_confidence, edited_data, status, source, created_at) VALUES (${data.originationId}, ${data.tipo}, ${data.imageData}, ${data.ocrResult}, ${data.ocrConfidence}, ${data.editedData}, ${data.status || 'pending'}, ${source}, ${data.createdAt}) RETURNING *`;
     return rows[0] as Document;
   }
   async getDocument(id: number) {
@@ -514,8 +714,28 @@ class NeonStorage implements IStorage {
     const existing = await this.getVehicle(id);
     if (!existing) return undefined;
     const m: any = { ...existing, ...data, updated_at: new Date().toISOString() };
-    const rows = await this.sql`UPDATE vehicles_inventory SET marca = ${m.marca}, modelo = ${m.modelo}, anio = ${m.anio}, color = ${m.color}, status = ${m.status}, notes = ${m.notes}, updated_at = ${m.updated_at} WHERE id = ${id} RETURNING *`;
+    console.log(`[Storage] updateVehicle(${id}): keys=${Object.keys(data).join(',')}, precio_aseg=${m.precio_aseguradora}, rep_real=${m.reparacion_real}, gnv_mod=${m.gnv_modalidad}`);
+    const rows = await this.sql`UPDATE vehicles_inventory SET 
+      marca = ${m.marca}, modelo = ${m.modelo}, variante = ${m.variante || null}, anio = ${m.anio}, 
+      color = ${m.color || null}, niv = ${m.niv || null}, placas = ${m.placas || null},
+      cmu_valor = ${m.cmu_valor ?? m.cmuValor ?? null}, 
+      costo_adquisicion = ${m.costo_adquisicion ?? m.costoAdquisicion ?? null},
+      costo_reparacion = ${m.costo_reparacion ?? m.costoReparacion ?? null},
+      precio_aseguradora = ${m.precio_aseguradora ?? m.precioAseguradora ?? null},
+      reparacion_estimada = ${m.reparacion_estimada ?? m.reparacionEstimada ?? null},
+      reparacion_real = ${m.reparacion_real ?? m.reparacionReal ?? null},
+      con_tanque = ${m.con_tanque ?? m.conTanque ?? null},
+      kit_gnv_instalado = ${m.kit_gnv_instalado ?? m.kitGnvInstalado ?? 0},
+      kit_gnv_costo = ${m.kit_gnv_costo ?? m.kitGnvCosto ?? null},
+      tanque_costo = ${m.tanque_costo ?? m.tanqueCosto ?? null},
+      gnv_modalidad = ${m.gnv_modalidad ?? m.gnvModalidad ?? null},
+      descuento_gnv = ${m.descuento_gnv ?? m.descuentoGnv ?? null},
+      status = ${m.status}, notes = ${m.notes || null}, updated_at = ${m.updated_at}
+    WHERE id = ${id} RETURNING *`;
     return rows[0] as VehicleInventory | undefined;
+  }
+  async deleteVehicle(id: number): Promise<void> {
+    await this.sql`DELETE FROM vehicles_inventory WHERE id = ${id}`;
   }
   async listVehicles(filters?: { status?: string }) {
     if (filters?.status) {
@@ -527,9 +747,201 @@ class NeonStorage implements IStorage {
     const rows = await this.sql`INSERT INTO contracts (origination_id, tipo, folio, contract_data, status, created_at) VALUES (${data.originationId}, ${data.tipo}, ${data.folio}, ${data.contractData}, ${data.status || 'draft'}, ${data.createdAt}) RETURNING *`;
     return rows[0] as Contract;
   }
+  async getContract(id: number) {
+    const rows = await this.sql`SELECT * FROM contracts WHERE id = ${id} LIMIT 1`;
+    return rows[0] as Contract | undefined;
+  }
+  async updateContract(id: number, data: Partial<InsertContract>) {
+    const existing = await this.getContract(id);
+    if (!existing) return undefined;
+    const m: any = { ...existing, ...data };
+    const rows = await this.sql`UPDATE contracts SET status = ${m.status || 'draft'} WHERE id = ${id} RETURNING *`;
+    return rows[0] as Contract | undefined;
+  }
   async getContractByOrigination(originationId: number) {
     const rows = await this.sql`SELECT * FROM contracts WHERE origination_id = ${originationId} LIMIT 1`;
     return rows[0] as Contract | undefined;
+  }
+  async getAvailableVehicles() {
+    return this.sql`SELECT * FROM vehicles_inventory WHERE status = 'disponible' ORDER BY created_at DESC` as any;
+  }
+
+  // ===== WhatsApp Roles =====
+  async getRoleByPhone(phone: string) {
+    const cleanPhone = phone.replace(/\D/g, "");
+    // Try exact match, then with/without country code variants
+    const rows = await this.sql`SELECT phone, role, name, permissions, folio_id, phone_verified, active FROM whatsapp_roles WHERE phone = ${cleanPhone} AND active = true LIMIT 1`;
+    if (rows.length > 0) {
+      const r = rows[0] as any;
+      return { phone: r.phone, role: r.role, name: r.name, permissions: r.permissions || [], folio_id: r.folio_id, phone_verified: r.phone_verified ?? false, active: r.active ?? true };
+    }
+    // Try without leading 521 (Mexico mobile prefix)
+    if (cleanPhone.startsWith("521")) {
+      const short = cleanPhone.slice(3);
+      const rows2 = await this.sql`SELECT phone, role, name, permissions, folio_id, phone_verified, active FROM whatsapp_roles WHERE phone LIKE ${"%" + short} AND active = true LIMIT 1`;
+      if (rows2.length > 0) {
+        const r = rows2[0] as any;
+        return { phone: r.phone, role: r.role, name: r.name, permissions: r.permissions || [], folio_id: r.folio_id, phone_verified: r.phone_verified ?? false, active: r.active ?? true };
+      }
+    }
+    return null;
+  }
+
+  async createRole(phone: string, role: string, name: string | null, permissions: string[] = []) {
+    const cleanPhone = phone.replace(/\D/g, "");
+    const rows = await this.sql`INSERT INTO whatsapp_roles (phone, role, name, permissions, phone_verified) VALUES (${cleanPhone}, ${role}, ${name}, ${permissions as any}, false) ON CONFLICT (phone) DO UPDATE SET role = ${role}, name = ${name}, permissions = ${permissions as any} RETURNING *`;
+    return rows[0];
+  }
+
+  async updateRole(phone: string, updates: Record<string, any>) {
+    const cleanPhone = phone.replace(/\D/g, "");
+    // Build dynamic update — simple approach
+    if (updates.folio_id !== undefined) {
+      await this.sql`UPDATE whatsapp_roles SET folio_id = ${updates.folio_id} WHERE phone = ${cleanPhone}`;
+    }
+    if (updates.role) {
+      await this.sql`UPDATE whatsapp_roles SET role = ${updates.role} WHERE phone = ${cleanPhone}`;
+    }
+    if (updates.name) {
+      await this.sql`UPDATE whatsapp_roles SET name = ${updates.name} WHERE phone = ${cleanPhone}`;
+    }
+    return {};
+  }
+
+  async verifyPhone(phone: string) {
+    const cleanPhone = phone.replace(/\D/g, "");
+    await this.sql`UPDATE whatsapp_roles SET phone_verified = true, verified_at = NOW() WHERE phone = ${cleanPhone}`;
+  }
+
+  // ===== WhatsApp OTP =====
+  async createOTP(phone: string, code: string, expiresAt: Date) {
+    const cleanPhone = phone.replace(/\D/g, "");
+    await this.sql`INSERT INTO whatsapp_otp (phone, code, expires_at, attempts) VALUES (${cleanPhone}, ${code}, ${expiresAt.toISOString()}, 0) ON CONFLICT (phone) DO UPDATE SET code = ${code}, expires_at = ${expiresAt.toISOString()}, attempts = 0, created_at = NOW()`;
+  }
+
+  async verifyOTP(phone: string, code: string): Promise<{ valid: boolean; expired?: boolean; maxAttempts?: boolean }> {
+    const cleanPhone = phone.replace(/\D/g, "");
+    const rows = await this.sql`SELECT code, expires_at, attempts FROM whatsapp_otp WHERE phone = ${cleanPhone} LIMIT 1`;
+    if (rows.length === 0) return { valid: false };
+    const row = rows[0] as any;
+    if (row.attempts >= 3) return { valid: false, maxAttempts: true };
+    if (new Date(row.expires_at) < new Date()) return { valid: false, expired: true };
+    if (row.code !== code) {
+      await this.sql`UPDATE whatsapp_otp SET attempts = attempts + 1 WHERE phone = ${cleanPhone}`;
+      return { valid: false };
+    }
+    // Valid — delete OTP and verify phone
+    await this.sql`DELETE FROM whatsapp_otp WHERE phone = ${cleanPhone}`;
+    await this.verifyPhone(cleanPhone);
+    return { valid: true };
+  }
+
+  // ===== Fuzzy model lookup =====
+  async findModelFuzzy(query: string): Promise<Model | undefined> {
+    const q = query.toLowerCase().trim();
+    // Try exact slug match first
+    const rows1 = await this.sql`SELECT * FROM models WHERE LOWER(slug) = ${q} LIMIT 1`;
+    if (rows1.length > 0) return rows1[0] as Model;
+    // Try LIKE on slug
+    const rows2 = await this.sql`SELECT * FROM models WHERE LOWER(slug) LIKE ${"%" + q.replace(/\s+/g, "%") + "%"} ORDER BY year DESC LIMIT 1`;
+    if (rows2.length > 0) return rows2[0] as Model;
+    // Try LIKE on model name
+    const rows3 = await this.sql`SELECT * FROM models WHERE LOWER(model) LIKE ${"%" + q.replace(/\s+/g, "%") + "%"} ORDER BY year DESC LIMIT 1`;
+    if (rows3.length > 0) return rows3[0] as Model;
+    // Try brand + model combo
+    const parts = q.split(/\s+/);
+    if (parts.length >= 2) {
+      const rows4 = await this.sql`SELECT * FROM models WHERE LOWER(brand) LIKE ${"%" + parts[0] + "%"} AND LOWER(model) LIKE ${"%" + parts[1] + "%"} ORDER BY year DESC LIMIT 1`;
+      if (rows4.length > 0) return rows4[0] as Model;
+    }
+    return undefined;
+  }
+
+  // ===== Fuel Prices =====
+  async getFuelPrices(): Promise<{ gnv: number; magna: number; premium: number }> {
+    try {
+      const rows = await this.sql`SELECT fuel_type, price_per_unit FROM fuel_prices`;
+      const prices: any = { gnv: 12.99, magna: 24.00, premium: 26.50 }; // defaults
+      for (const r of rows) {
+        prices[r.fuel_type] = parseFloat(r.price_per_unit);
+      }
+      return prices;
+    } catch (e: any) {
+      console.error("[Storage] getFuelPrices error:", e.message);
+      return { gnv: 12.99, magna: 24.00, premium: 26.50 };
+    }
+  }
+
+  // ===== Client State by Phone =====
+  async getClientStateByPhone(phone: string) {
+    const cleanPhone = phone.replace(/\D/g, "");
+    const ALL_DOCS = ["ine_frente","ine_reverso","tarjeta_circulacion","factura_vehiculo","csf","comprobante_domicilio","concesion","estado_cuenta","historial_gnv","carta_membresia","selfie_biometrico"];
+    const DOC_LABELS: Record<string,string> = {ine_frente:"INE Frente",ine_reverso:"INE Reverso",tarjeta_circulacion:"Tarjeta Circulaci\u00f3n",factura_vehiculo:"Factura Veh\u00edculo",csf:"CSF",comprobante_domicilio:"Comprobante Domicilio",concesion:"Concesi\u00f3n",estado_cuenta:"Edo. Cuenta",historial_gnv:"Historial GNV",carta_membresia:"Carta Membres\u00eda",selfie_biometrico:"Selfie INE"};
+
+    try {
+      // Path 1: whatsapp_roles.folio_id
+      let originationId: number | null = null;
+      const roleRows = await this.sql`SELECT folio_id FROM whatsapp_roles WHERE phone = ${cleanPhone} AND folio_id IS NOT NULL LIMIT 1`;
+      if (roleRows.length > 0 && roleRows[0].folio_id) {
+        originationId = roleRows[0].folio_id;
+      }
+
+      // Path 2: whatsapp_phone_folio
+      if (!originationId) {
+        const wpfRows = await this.sql`SELECT o.id FROM whatsapp_phone_folio wpf JOIN originations o ON o.folio = wpf.folio WHERE wpf.phone LIKE ${"%" + cleanPhone.slice(-10)} ORDER BY wpf.created_at DESC LIMIT 1`;
+        if (wpfRows.length > 0) originationId = wpfRows[0].id;
+      }
+
+      // Path 3: taxistas.telefono
+      if (!originationId) {
+        const tRows = await this.sql`SELECT o.id FROM taxistas t JOIN originations o ON o.taxista_id = t.id WHERE t.telefono LIKE ${"%" + cleanPhone.slice(-10)} ORDER BY o.created_at DESC LIMIT 1`;
+        if (tRows.length > 0) originationId = tRows[0].id;
+      }
+
+      // Path 4: originations.otp_phone
+      if (!originationId) {
+        const otpRows = await this.sql`SELECT id FROM originations WHERE otp_phone LIKE ${"%" + cleanPhone.slice(-10)} ORDER BY created_at DESC LIMIT 1`;
+        if (otpRows.length > 0) originationId = otpRows[0].id;
+      }
+
+      if (!originationId) return null;
+
+      // Load origination
+      const origRows = await this.sql`SELECT * FROM originations WHERE id = ${originationId} LIMIT 1`;
+      if (origRows.length === 0) return null;
+      const orig = origRows[0] as any;
+
+      // Load taxista name
+      let taxistaName: string | null = null;
+      let taxistaId: number | null = orig.taxista_id || null;
+      if (taxistaId) {
+        const tRows = await this.sql`SELECT nombre, apellido_paterno FROM taxistas WHERE id = ${taxistaId} LIMIT 1`;
+        if (tRows.length > 0) taxistaName = `${tRows[0].nombre} ${tRows[0].apellido_paterno || ""}`.trim();
+      }
+
+      // Load documents
+      const docs = await this.sql`SELECT tipo, status, image_data IS NOT NULL as has_image FROM documents WHERE origination_id = ${originationId}`;
+      const captured = docs.filter((d: any) => d.has_image).map((d: any) => d.tipo);
+      const capturedSet = new Set(captured);
+      const pending = ALL_DOCS.filter(k => !capturedSet.has(k));
+
+      return {
+        found: true,
+        originationId,
+        folio: orig.folio,
+        estado: orig.estado,
+        taxistaName,
+        taxistaId,
+        perfilTipo: orig.perfil_tipo,
+        currentStep: orig.current_step,
+        docsCapturados: captured.map((k: string) => DOC_LABELS[k] || k),
+        docsPendientes: pending.map(k => DOC_LABELS[k] || k),
+        totalDocs: ALL_DOCS.length,
+      };
+    } catch (e: any) {
+      console.error("[Storage] getClientStateByPhone error:", e.message);
+      return null;
+    }
   }
 }
 

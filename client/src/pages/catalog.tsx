@@ -33,7 +33,9 @@ import {
 import { Link } from "wouter";
 import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { Progress } from "@/components/ui/progress";
 import { apiGetModels, subscribe, updateModel, addModel, deleteModel, apiFetchMarketPrices, apiUpdateModelCmu } from "@/lib/api";
+import { scrapeAllPrices, type ScrapeProgress } from "@/lib/price-scraper";
 import type { Model } from "@shared/schema";
 
 function formatMXN(value: number): string {
@@ -196,6 +198,9 @@ function EditableRow({ model: m, onSave, onDelete, onFetchPrices, isFetching }: 
         <span className={`inline-flex items-center gap-0.5 text-[10px] ${src.color}`}>
           <SrcIcon className="w-2.5 h-2.5" />{src.label}
         </span>
+        {!m.cmuSampleCount && m.cmuSource === "catalog" && (
+          <span className="ml-1 inline-block w-1.5 h-1.5 rounded-full bg-amber-400" title="Sin datos de mercado" />
+        )}
       </td>
       <td className="py-1.5 px-2 text-[10px] text-muted-foreground text-right">
         {formatDate(m.cmuUpdatedAt)}
@@ -228,6 +233,26 @@ export default function CatalogPage() {
   const [catalog, setCatalog] = useState<Model[]>(() => apiGetModels());
   const [showAdd, setShowAdd] = useState(false);
   const [fetchingId, setFetchingId] = useState<number | null>(null);
+  const [scraping, setScraping] = useState(false);
+  const [scrapeProgress, setScrapeProgress] = useState<ScrapeProgress | null>(null);
+
+  const handleScrapeAll = useCallback(async () => {
+    setScraping(true);
+    setScrapeProgress(null);
+    toast({ title: "Actualizando precios de mercado...", description: "Consultando Kavak y MercadoLibre desde tu navegador" });
+    try {
+      const result = await scrapeAllPrices((p) => setScrapeProgress({ ...p }));
+      const successCount = result.results.filter(r => r.prices.length > 0).length;
+      toast({
+        title: `Precios actualizados: ${successCount}/${result.total}`,
+        description: `${result.errors.length > 0 ? result.errors.length + " errores" : "Sin errores"}. Datos guardados en cache.`,
+      });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    } finally {
+      setScraping(false);
+    }
+  }, [toast]);
 
   useEffect(() => {
     const unsubscribe = subscribe(() => setCatalog(apiGetModels()));
@@ -303,6 +328,10 @@ export default function CatalogPage() {
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground">{catalog?.length || 0} modelos</span>
+          <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs" onClick={handleScrapeAll} disabled={scraping} data-testid="button-scrape-prices">
+            <RefreshCw className={`w-3 h-3 ${scraping ? "animate-spin" : ""}`} />
+            {scraping ? "Actualizando..." : "Actualizar precios"}
+          </Button>
           <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs" onClick={() => setShowAdd(true)} data-testid="button-add-model">
             <Plus className="w-3 h-3" />
             Agregar
@@ -310,11 +339,35 @@ export default function CatalogPage() {
         </div>
       </div>
 
+      {/* Scrape progress */}
+      {scraping && scrapeProgress && (
+        <Card>
+          <CardContent className="p-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-medium">Consultando {scrapeProgress.currentModel}...</span>
+              <span className="text-xs text-muted-foreground">{scrapeProgress.current}/{scrapeProgress.total}</span>
+            </div>
+            <Progress value={(scrapeProgress.current / scrapeProgress.total) * 100} className="h-1.5" />
+            {scrapeProgress.results.length > 0 && (
+              <div className="mt-2 max-h-32 overflow-y-auto text-[10px] space-y-0.5">
+                {scrapeProgress.results.slice(-5).map((r, i) => (
+                  <div key={i} className={`flex justify-between ${r.prices.length > 0 ? "text-emerald-600" : "text-red-500"}`}>
+                    <span>{r.brand} {r.model} {r.year}</span>
+                    <span>{r.prices.length > 0 ? `${r.prices.length} precios — ${r.sources}` : r.error || "sin datos"}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Legend */}
       <div className="flex items-center gap-4 text-[10px] text-muted-foreground">
         <span className="flex items-center gap-1"><Database className="w-3 h-3 text-primary" /> Catálogo</span>
         <span className="flex items-center gap-1"><Globe className="w-3 h-3 text-emerald-600" /> Mercado</span>
         <span className="flex items-center gap-1"><Pencil className="w-3 h-3 text-amber-600" /> Manual</span>
+        <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-amber-400" /> Sin muestras</span>
         <span className="ml-auto text-[9px]">Click en precio para editar · Hover para acciones</span>
       </div>
 

@@ -2,6 +2,8 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
+import { createCatalogoRouter, catalogoHtmlHandler } from "./catalogo";
+import path from "path";
 
 const app = express();
 const httpServer = createServer(app);
@@ -61,6 +63,34 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // ===== Hostname routing: catalogo.conductores.lat → public catalog =====
+  const CATALOGO_HOSTS = ["catalogo.conductores.lat"];
+  
+  app.use((req, res, next) => {
+    const host = (req.hostname || req.headers.host || "").split(":")[0];
+    if (CATALOGO_HOSTS.includes(host)) {
+      // Tag request so we know it's for the catalog
+      (req as any).__catalogo = true;
+    }
+    next();
+  });
+
+  // Serve vehicle images for catalog domain
+  app.use("/vehicles", express.static(path.join(process.cwd(), "public", "vehicles"), {
+    maxAge: "7d",
+    immutable: true,
+  }));
+
+  // Catalog API routes (available on all hosts)
+  app.use(createCatalogoRouter());
+
+  // Catalog SSR HTML (only for catalog hostname)
+  app.use((req, res, next) => {
+    if (!(req as any).__catalogo) return next();
+    const handler = catalogoHtmlHandler("https://catalogo.conductores.lat");
+    handler(req, res).catch(next);
+  });
+
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
