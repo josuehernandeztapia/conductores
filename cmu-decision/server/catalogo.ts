@@ -89,32 +89,6 @@ function buildAmort(precio: number, leq = 400, tarifa = 11) {
   return { rows, recaudo };
 }
 
-function calcCAT(precio: number): number {
-  let P = precio / N;
-  const flujos = [precio - FG_I];
-  let saldo = precio;
-  let fgAcum = FG_I;
-  for (let m = 1; m <= N; m++) {
-    const interes = saldo * TASA_M;
-    const cuota = P + interes;
-    const fgA = fgAcum >= FG_TOP ? 0 : FG_M;
-    fgAcum = Math.min(FG_TOP, fgAcum + fgA);
-    let pago = cuota + fgA;
-    if (m === 2) pago += ANT;
-    flujos.push(-pago);
-    saldo -= P;
-    if (m === 2) { saldo -= ANT; P = saldo / (N - 2); }
-  }
-  flujos.push(fgAcum);
-  let lo = 0.001, hi = 0.10;
-  for (let i = 0; i < 100; i++) {
-    const mid = (lo + hi) / 2;
-    const npv = flujos.reduce((s, f, t) => s + f / Math.pow(1 + mid, t), 0);
-    if (npv > 0) lo = mid; else hi = mid;
-  }
-  const rM = (lo + hi) / 2;
-  return (Math.pow(1 + rM, 12) - 1) * 100;
-}
 
 function vehicleName(v: PublicVehicle): string {
   return [v.marca, v.modelo, v.variante, v.anio].filter(Boolean).join(" ");
@@ -146,10 +120,9 @@ function ogTags(v: PublicVehicle | null, baseUrl: string): string {
   }
   const name = vehicleName(v);
   const { rows } = buildAmort(v.precio);
-  const cat = calcCAT(v.precio);
   return `
     <meta property="og:title" content="${name} — ${fmt(v.precio)} | CMU">
-    <meta property="og:description" content="Cuota desde ${fmt(rows[2].cuota)}/mes · CAT ${cat.toFixed(1)}% · Kit GNV incluido · Sin buró">
+    <meta property="og:description" content="Cuota desde ${fmt(rows[2].cuota)}/mes · Kit GNV incluido · Sin buró · Sin aval">
     <meta property="og:image" content="${baseUrl}${v.foto_url || '/vehicles/default.png'}">
     <meta property="og:type" content="product">
     <meta property="og:url" content="${baseUrl}/${v.slug}">
@@ -364,7 +337,6 @@ function renderGrid(vehicles: PublicVehicle[], baseUrl: string): string {
     const cuotaM3 = rows[2].cuota;
     const mesGnvCubre = rows.findIndex((r) => r.cuota <= recaudo);
     const mesLabel = mesGnvCubre >= 0 ? `$0 de bolsillo desde mes ${mesGnvCubre + 1}` : "";
-    const cat = calcCAT(v.precio);
     const bolsilloM3 = Math.max(0, cuotaM3 - recaudo) + FG_M;
 
     return `
@@ -377,7 +349,7 @@ function renderGrid(vehicles: PublicVehicle[], baseUrl: string): string {
         <div class="card-details">${v.color || "Blanco"} · Kit GNV instalado · Listo para trabajar</div>
         <div class="card-price">${fmt(v.precio)}</div>
         <div class="card-cuota">De tu bolsillo: ${fmt(bolsilloM3)}/mes (post-anticipo) · ${mesLabel}</div>
-        <div class="card-gnv">⛽ Recaudo GNV: ${fmt(recaudo)}/mes · CAT ${cat.toFixed(1)}% s/IVA</div>
+        <div class="card-gnv">⛽ Recaudo GNV: ${fmt(recaudo)}/mes</div>
       </div>
     </a>`;
   }).join("\n");
