@@ -2626,6 +2626,18 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
       const lower = body.toLowerCase();
       const prospectState = await this.getConvState(phone);
 
+      // If no state yet (first message, e.g. from QR scan), start the prospect flow
+      if (!prospectState.state || prospectState.state === "idle") {
+        const canal = detectCanal(body);
+        try { await upsertProspect({ phone, canal_origen: canal, status: "curioso" }); }
+        catch (e: any) { console.error(`[Pipeline] upsertProspect:`, e.message); }
+        await this.updateState(phone, { state: "prospect_fuel_type", context: { canal } });
+        const hour = new Date().getHours();
+        const timeGreet = hour < 12 ? "Buenos d\u00edas" : hour < 18 ? "Buenas tardes" : "Buenas noches";
+        const name = profileName || "";
+        return await respond(`${timeGreet}${name ? " " + name : ""}. Soy el asistente de *Conductores del Mundo*. Tenemos un programa para renovar tu taxi con veh\u00edculo seminuevo y kit de gas natural. Gran parte del pago se cubre con tu ahorro en GNV.\n\n\u00bfTu taxi ya usa *gas natural* o est\u00e1s con *gasolina*?`);
+      }
+
       // Helper: send notification to Josué + promotor
       const notifyTeam = async (msg: string) => {
         const endpoints = [
