@@ -27,7 +27,7 @@ import { getBusinessRules, ruleNum, buildRulesContext, getThresholds } from "./b
 import { buildClientCarteraContext, buildCarteraDashboard, buildEstadoCuenta, isAirtableEnabled, findCreditByPhone, findProductsByPhone, getPaymentsByFolio, getRecaudoByFolio } from "./airtable-client";
 import { processPdf, isPdf } from "./pdf-handler";
 import { detectCanal, upsertProspect, updateProspectStatus } from "./pipeline-ventas";
-import { generarCorridaEstimada, getModelosDisponiblesText, MODELOS_PROSPECTO } from "./corrida-estimada";
+import { generarCorridaEstimada, getModelosDisponiblesText, MODELOS_PROSPECTO, generarResumen5Modelos, matchModelFromText, getPvForModel } from "./corrida-estimada";
 import { getPromotor, DIRECTOR, PROMOTOR_LABEL } from "./team-config";
 import { processNatgasCsv, processNatgasMultiProduct, parseNatgasExcel, parseNatgasCsv as parseNatgasCsvRows, formatRecaudoSummary, cierreMensual, formatCierreReport, isDuplicateFile, markFileProcessed } from "./recaudo-engine";
 import { createFolioFromWhatsApp, associateDocIntelligently } from "./folio-manager";
@@ -2157,9 +2157,13 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
       if (role === "prospecto") {
         // Prospecto: guide to fuel type question + track in pipeline
         const canal = detectCanal(body);
-        await upsertProspect({ phone, canal_origen: canal, status: "curioso" }).catch(() => {});
+        try {
+          await upsertProspect({ phone, canal_origen: canal, status: "curioso" });
+        } catch (e: any) {
+          console.error(`[Pipeline] upsertProspect FAILED for ${phone}:`, e.message);
+        }
         await this.updateState(phone, { state: "prospect_fuel_type", context: { canal } });
-        return await respond(`${timeGreet}${name ? " " + name : ""}. Soy el asistente de *Conductores del Mundo*. Tenemos un programa donde puedes estrenar taxi seminuevo y cubrir gran parte del pago con tu ahorro en gas natural.\n\n\u00bfTu taxi ya usa *gas natural* o est\u00e1s con *gasolina*?`);
+        return await respond(`${timeGreet}${name ? " " + name : ""}. Soy el asistente de *Conductores del Mundo*. Tenemos un programa para renovar tu taxi con veh\u00edculo seminuevo y kit de gas natural. Gran parte del pago se cubre con tu ahorro en GNV.\n\n\u00bfTu taxi ya usa *gas natural* o est\u00e1s con *gasolina*?`);
       }
       // proveedor greeting already handled in its own flow
     }
@@ -2606,241 +2610,218 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
       }
     }
 
-    // ===== PROSPECT: Guided state machine =====
+    // ===== PROSPECT: Guided state machine (v2 — agente owns full funnel) =====
     if (body && role === "prospecto") {
       const lower = body.toLowerCase();
       const prospectState = await this.getConvState(phone);
-      const fuel = await this.getFuel();
 
-      // State: prospect_fuel_type — waiting for GNV or gasolina answer
+      // Helper: send notification to Josué + promotor
+      const notifyTeam = async (msg: string) => {
+        const endpoints = [
+          { to: "whatsapp:+5214422022540" },  // Josué
+          { to: `whatsapp:+${getPromotor()?.phone || "5214493845228"}` },  // Promotor
+        ];
+        for (const ep of endpoints) {
+          try {
+            await fetch("http://localhost:5000/api/whatsapp/send-outbound", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ ...ep, body: msg }),
+            });
+          } catch (e: any) {
+            console.error(`[Notify] Failed to send to ${ep.to}:`, e.message);
+          }
+        }
+      };
+
+      // ── State: prospect_fuel_type — ¿gas natural o gasolina? ──
       if (prospectState.state === "prospect_fuel_type") {
         const isGNV = /gas\s*natural|gnv|gas$|ya.*gas|s[ií].*gas|con gas/i.test(lower);
         const isGasolina = /gasolina|magna|premium|normal|no.*gas|sin gas/i.test(lower);
         if (isGNV) {
-          await this.updateState(phone, { state: "prospect_gnv_consumo", context: { fuelType: "gnv" } });
+          await this.updateState(phone, { state: "prospect_gnv_consumo", context: { ...prospectState.context, fuelType: "gnv" } });
           return await respond("Perfecto, ya est\u00e1s con gas natural. \u00bfM\u00e1s o menos cu\u00e1ntos litros cargas al mes? Un aproximado est\u00e1 bien.");
         } else if (isGasolina) {
-          await this.updateState(phone, { state: "prospect_gasolina_gasto", context: { fuelType: "gasolina" } });
+          await this.updateState(phone, { state: "prospect_gasolina_gasto", context: { ...prospectState.context, fuelType: "gasolina" } });
           return await respond("\u00bfCu\u00e1nto gastas de gasolina al mes, m\u00e1s o menos? Con eso te calculo cu\u00e1nto ahorrar\u00edas con gas natural.");
         }
-        // Didn't understand — let LLM handle but keep state
       }
 
-      // State: prospect_gnv_consumo — waiting for LEQ/month
+      // ── State: prospect_gnv_consumo — ¿cuántos LEQ/mes? ──
       if (prospectState.state === "prospect_gnv_consumo") {
         const numMatch = lower.match(/(\d{2,4})/);
         if (numMatch) {
           const leq = parseInt(numMatch[1]);
-          const recaudo = Math.round(leq * 11); // $11/LEQ sobreprecio
-          // Skip "interest" step — go straight to model selection
-          await this.updateState(phone, { state: "prospect_select_model", context: { fuelType: "gnv", leqMes: leq, ahorroMes: recaudo, canal: prospectState.context?.canal } });
-          await upsertProspect({ phone, status: "interesado", fuel_type: "gnv", consumo_mensual: leq, ahorro_estimado: recaudo }).catch(() => {});
-          // Notify Josué + Ángeles
-          const canalCtx = prospectState.context?.canal || "ORGANICO";
-          const notifInteresado = `*Nuevo prospecto interesado* \u2705\nCanal: ${canalCtx}\nTel: ${phone}\nCombustible: GNV\nConsumo: ${leq} LEQ/mes\nRecaudo: $${recaudo.toLocaleString()}/mes\nPendiente de registro.`;
-          fetch("http://localhost:5000/api/whatsapp/send-outbound", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: "whatsapp:+5214422022540", body: notifInteresado }) }).catch(() => {});
-          fetch("http://localhost:5000/api/whatsapp/send-outbound", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: `whatsapp:+${getPromotor()?.phone || "5214493845228"}`, body: notifInteresado }) }).catch(() => {});
-          const modelos = getModelosDisponiblesText();
-          return await respond(`Con ${leq} LEQ/mes, tu recaudo GNV cubre *$${recaudo.toLocaleString()}/mes* de la cuota.\n\n\u00bfQu\u00e9 modelo te interesa? Te doy los n\u00fameros exactos.\n\n${modelos}`);
+          const recaudo = leq * 11;
+          await this.updateState(phone, { state: "prospect_show_models", context: { ...prospectState.context, leqMes: leq, recaudo } });
+          try { await upsertProspect({ phone, status: "interesado", fuel_type: "gnv", consumo_mensual: leq, ahorro_estimado: recaudo }); }
+          catch (e: any) { console.error(`[Pipeline] upsertProspect:`, e.message); }
+          // Show 5 models with real numbers
+          const resumen = await generarResumen5Modelos(leq);
+          return await respond(resumen);
         }
       }
 
-      // State: prospect_gasolina_gasto — waiting for monthly gas spend
+      // ── State: prospect_gasolina_gasto — ¿cuánto gastas en gasolina? ──
       if (prospectState.state === "prospect_gasolina_gasto") {
         const numMatch = lower.match(/(\d{3,5})/);
         if (numMatch) {
-          const gastoGasolina = parseInt(numMatch[1]);
-          const ltGasolina = Math.round(gastoGasolina / fuel.gasolinaPrice);
-          const gastoGNV = Math.round(ltGasolina * fuel.gnvPrice);
-          const ahorro = gastoGasolina - gastoGNV;
-          const recaudoEquiv = Math.round(ltGasolina * 11); // $11/LEQ sobreprecio
-          await this.updateState(phone, { state: "prospect_select_model", context: { fuelType: "gasolina", gastoGasolina, ahorroMes: recaudoEquiv, leqEquiv: ltGasolina, canal: prospectState.context?.canal } });
-          await upsertProspect({ phone, status: "interesado", fuel_type: "gasolina", consumo_mensual: ltGasolina, ahorro_estimado: recaudoEquiv }).catch(() => {});
-          const canalCtxG = prospectState.context?.canal || "ORGANICO";
-          const notifInteresadoG = `*Nuevo prospecto interesado* \u2705\nCanal: ${canalCtxG}\nTel: ${phone}\nCombustible: Gasolina\nGasto actual: $${gastoGasolina.toLocaleString()}/mes\nRecaudo equiv: $${recaudoEquiv.toLocaleString()}/mes\nPendiente de registro.`;
-          fetch("http://localhost:5000/api/whatsapp/send-outbound", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: "whatsapp:+5214422022540", body: notifInteresadoG }) }).catch(() => {});
-          fetch("http://localhost:5000/api/whatsapp/send-outbound", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: `whatsapp:+${getPromotor()?.phone || "5214493845228"}`, body: notifInteresadoG }) }).catch(() => {});
-          const modelosG = getModelosDisponiblesText();
-          return await respond(`Gastas *$${gastoGasolina.toLocaleString()}/mes* en gasolina. Con GNV gastar\u00edas *$${gastoGNV.toLocaleString()}*. Ahorro: *$${ahorro.toLocaleString()}/mes*.\n\nCon GNV tu recaudo cubrir\u00eda *$${recaudoEquiv.toLocaleString()}/mes* de la cuota. \u00bfQu\u00e9 modelo te interesa?\n\n${modelosG}`);
-        }
-      }
-
-      // State: prospect_interest — waiting for yes/no → offer corrida
-      if (prospectState.state === "prospect_interest") {
-        const isPositive = /s[ií]|va|dale|le entro|me interesa|claro|por\s*supuesto|\u00f3rale|orale|dime|quer[ií]a|quiero|c[oó]mo le hago|qu[eé] necesito|qu[eé] hago|adelante|ok|va pues/i.test(lower);
-        const isNegative = /no|nel|nah|luego|despu[eé]s|lo pienso|ahorita no|quiz[aá]s/i.test(lower);
-        if (isPositive) {
-          await this.updateState(phone, { state: "prospect_select_model", context: prospectState.context });
-          await updateProspectStatus(phone, "interesado").catch(() => {});
-          const modelos = getModelosDisponiblesText();
-          return await respond(`Te muestro cu\u00e1nto pagar\u00edas al mes. \u00bfQu\u00e9 modelo te interesa?\n\n${modelos}`);
-        } else if (isNegative) {
-          await this.updateState(phone, { state: "prospect_cold", context: prospectState.context });
-          return await respond("Sin problema. Si m\u00e1s adelante te interesa, escr\u00edbeme y retomamos. El programa sigue abierto.");
-        }
-      }
-
-      // State: prospect_select_model — waiting for model selection
-      if (prospectState.state === "prospect_select_model") {
-        // Match model from message
-        let matched: { marca: string; modelo: string; anio: number } | null = null;
-        for (const m of MODELOS_PROSPECTO) {
-          const modelLower = m.modelo.toLowerCase();
-          const marcaLower = m.marca.toLowerCase();
-          if (lower.includes(modelLower) || lower.includes(marcaLower)) {
-            // Check if they specified a year
-            const yearMatch = lower.match(/(202[0-9])/);
-            const anio = yearMatch ? parseInt(yearMatch[1]) : m.anios[0];
-            const validAnio = m.anios.includes(anio) ? anio : m.anios[0];
-            matched = { marca: m.marca, modelo: m.modelo, anio: validAnio };
-            break;
-          }
-        }
-        // Also match simple terms
-        if (!matched) {
-          if (/march.*sense|sense/i.test(lower)) matched = { marca: "Nissan", modelo: "March Sense", anio: 2022 };
-          else if (/march.*advance|advance/i.test(lower)) matched = { marca: "Nissan", modelo: "March Advance", anio: 2022 };
-          else if (/aveo/i.test(lower)) matched = { marca: "Chevrolet", modelo: "Aveo", anio: 2022 };
-          else if (/i10|i 10|grand/i.test(lower)) matched = { marca: "Hyundai", modelo: "i10", anio: 2022 };
-          else if (/kwid/i.test(lower)) matched = { marca: "Renault", modelo: "Kwid", anio: 2024 };
-        }
-
-        if (matched) {
-          // Get PV from catalog (use market-validated price)
           const fuel = await this.getFuel();
-          const consumo = prospectState.context?.leqMes || prospectState.context?.leqEquiv || 400;
-          // Query catalog for this model
-          try {
-            const { neon: neonFn } = await import("@neondatabase/serverless");
-            const sql = neonFn(process.env.DATABASE_URL!);
-            const rows = await sql`SELECT cmu, cmu_median FROM models WHERE LOWER(brand || ' ' || model) LIKE ${`%${matched.modelo.toLowerCase()}%`} AND year = ${matched.anio} LIMIT 1`;
-            let pv = rows.length > 0 ? (rows[0].cmu_median || rows[0].cmu) : 200000;
-            
-            const corrida = generarCorridaEstimada(
-              `${matched.marca} ${matched.modelo}`,
-              matched.anio,
-              pv,
-              consumo,
-              fuel.gnvPrecioLeq,
-            );
-
-            await this.updateState(phone, { state: "prospect_post_corrida", context: { ...prospectState.context, modelo: matched } });
-            return await respond(corrida.resumenWhatsApp);
-          } catch (e) {
-            // Fallback with default PV
-            const corrida = generarCorridaEstimada(
-              `${matched.marca} ${matched.modelo}`,
-              matched.anio,
-              200000,
-              consumo,
-              fuel.gnvPrecioLeq,
-            );
-            await this.updateState(phone, { state: "prospect_post_corrida", context: { ...prospectState.context, modelo: matched } });
-            return await respond(corrida.resumenWhatsApp);
-          }
+          const gastoGasolina = parseInt(numMatch[1]);
+          const ltEquiv = Math.round(gastoGasolina / fuel.gasolinaPrice);
+          const recaudo = ltEquiv * 11;
+          await this.updateState(phone, { state: "prospect_show_models", context: { ...prospectState.context, leqMes: ltEquiv, recaudo, gastoGasolina } });
+          try { await upsertProspect({ phone, status: "interesado", fuel_type: "gasolina", consumo_mensual: ltEquiv, ahorro_estimado: recaudo }); }
+          catch (e: any) { console.error(`[Pipeline] upsertProspect:`, e.message); }
+          const resumen = await generarResumen5Modelos(ltEquiv);
+          const gastoGNV = Math.round(ltEquiv * fuel.gnvPrice);
+          const ahorro = gastoGasolina - gastoGNV;
+          return await respond(`Gastas *$${gastoGasolina.toLocaleString()}/mes* en gasolina. Con GNV gastar\u00edas *$${gastoGNV.toLocaleString()}* \u2014 ahorro de *$${ahorro.toLocaleString()}/mes*.\n\n${resumen}`);
         }
-        // Didn't match — let LLM handle
       }
 
-      // State: prospect_post_corrida — after seeing the corrida, offer registration
-      if (prospectState.state === "prospect_post_corrida") {
-        const isPositive = /s[ií]|va|dale|le entro|me interesa|me apunto|quiero|inscri|registr|adelante|ok|va pues|c[oó]mo/i.test(lower);
-        const wantsOther = /otro|diferente|cambiar|ver otro|march|aveo|i10|kwid|advance|sense/i.test(lower);
-        if (wantsOther) {
-          // Let them pick another model
-          await this.updateState(phone, { state: "prospect_select_model", context: prospectState.context });
-          const modelos = getModelosDisponiblesText();
-          return await respond(`Claro, \u00bfcu\u00e1l otro modelo quieres ver?\n\n${modelos}`);
-        } else if (isPositive) {
-          await this.updateState(phone, { state: "awaiting_name", context: prospectState.context });
-          return await respond("Para apuntarte en la lista necesito unos datos.\n\nPrimero, \u00bfc\u00f3mo te llamas? (nombre completo)");
-        }
-        // Questions about the corrida — let LLM answer with context
-      }
-
-      // Step 4: OTP verification
-      if (prospectState.state === "awaiting_otp") {
-        const code = body.trim().replace(/\s/g, "");
-        if (/^\d{4,6}$/.test(code)) {
-          const { checkOTP } = await import("./twilio-verify");
-          const result = await checkOTP(prospectState.context.verifyPhone || phone, code);
-          if (result.valid) {
-            // OTP verified — create folio
-            const nombre = prospectState.context.nombre || "Prospecto";
-            const tel = prospectState.context.verifyPhone || phone;
-            const folioResult = await createFolioFromWhatsApp(this.storage, phone, nombre, tel);
-            await this.updateState(phone, { state: "idle", context: {} });
-            await upsertProspect({ phone, nombre, status: "registrado", folio_id: folioResult.folio }).catch(() => {});
-            
-            // Notify Ángeles + Josué
-            const notifyMsg = `*Nuevo registro verificado*\n\nNombre: ${nombre}\nTel: ${tel}\nFolio: ${folioResult.folio || "?"}\nVerificado por OTP`;
-            fetch("http://localhost:5000/api/whatsapp/send-outbound", {
-              method: "POST", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ to: `whatsapp:+${getPromotor()?.phone || "5214493845228"}`, body: notifyMsg }),
-            }).catch(() => {});
-            fetch("http://localhost:5000/api/whatsapp/send-outbound", {
-              method: "POST", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ to: "whatsapp:+5214422022540", body: notifyMsg }),
-            }).catch(() => {});
-            
-            return await respond(`Numero verificado.\n\nTu folio es *${folioResult.folio}*.\nTu asesor(a) CMU te contactara para continuar con tu expediente.\n\nDocumentos que necesitaras:\n- INE (frente y reverso)\n- Tarjeta de circulacion\n- Concesion vigente\n- Comprobante de domicilio\n- Tickets de carga GNV`);
+      // ── State: prospect_show_models — waiting for model selection ──
+      if (prospectState.state === "prospect_show_models" || prospectState.state === "prospect_select_model") {
+        const matched = matchModelFromText(lower);
+        if (matched) {
+          const consumo = prospectState.context?.leqMes || 400;
+          const pv = await getPvForModel(matched.marca, matched.modelo, matched.anio);
+          const fuelType = prospectState.context?.fuelType || "gnv";
+          
+          // If Perfil A (GNV) → ask about tank reuse
+          if (fuelType === "gnv") {
+            await this.updateState(phone, { state: "prospect_tank_question", context: { ...prospectState.context, modelo: matched, pv } });
+            return await respond(`*${matched.marca} ${matched.modelo} ${matched.anio}* \u2014 $${pv.toLocaleString()}\n\nAntes de darte los n\u00fameros: \u00bftu tanque de GNV est\u00e1 en buen estado para reusarlo? Reusarlo no tiene costo extra. Equipo nuevo suma $9,400 al precio.\n\n1\uFE0F\u20E3 *Reuso mi tanque* (sin costo)\n2\uFE0F\u20E3 *Equipo nuevo* (+$9,400)`);
           } else {
-            return await respond("Codigo incorrecto. Intenta de nuevo o escribe *reenviar* para recibir otro codigo.");
+            // Perfil B (gasolina) → always new equipment
+            const pvFinal = pv + 9400;
+            const corrida = generarCorridaEstimada(`${matched.marca} ${matched.modelo}`, matched.anio, pvFinal, consumo);
+            await this.updateState(phone, { state: "prospect_post_corrida", context: { ...prospectState.context, modelo: matched, pv: pvFinal, kitNuevo: true } });
+            return await respond(corrida.resumenWhatsApp + "\n\n\u00bfQuieres empezar el proceso? Solo necesito tu nombre.");
           }
-        } else if (lower === "reenviar" || lower === "reenviar codigo") {
-          const { sendOTP } = await import("./twilio-verify");
-          await sendOTP(prospectState.context.verifyPhone || phone);
-          return await respond("Reenviado. Revisa tu WhatsApp y escribeme el codigo de 6 digitos.");
-        } else {
-          return await respond("Escribeme el codigo de 6 digitos que recibiste por WhatsApp.");
+        }
+        // Didn't match — show models again
+        if (/cu[aá]l|modelo|ver|opciones|otro/i.test(lower)) {
+          const resumen = await generarResumen5Modelos(prospectState.context?.leqMes || 400);
+          return await respond(resumen);
         }
       }
-      
-      // Step 3: Capture phone number and send OTP
-      if (prospectState.state === "awaiting_phone") {
-        const phoneDigits = body.replace(/\D/g, "");
-        if (phoneDigits.length >= 10) {
-          const { sendOTP, isVerifyEnabled } = await import("./twilio-verify");
-          if (isVerifyEnabled()) {
-            const otpResult = await sendOTP(phoneDigits);
-            if (otpResult.success) {
-              await this.updateState(phone, {
-                state: "awaiting_otp",
-                context: { ...prospectState.context, verifyPhone: phoneDigits },
-              });
-              return await respond(`Te enviamos un codigo de verificacion por ${otpResult.channel === "whatsapp" ? "WhatsApp" : "SMS"} al ${phoneDigits}.\n\nEscribeme el codigo de 6 digitos:`);
-            }
-          }
-          // Fallback if Verify not available: skip OTP, create folio directly
-          const nombre = prospectState.context.nombre || "Prospecto";
-          const folioResult = await createFolioFromWhatsApp(this.storage, phone, nombre, phoneDigits);
-          await this.updateState(phone, { state: "idle", context: {} });
-          await upsertProspect({ phone, nombre, status: "registrado", folio_id: folioResult.folio }).catch(() => {});
-          return await respond(`Registrado.\n\nTu folio es *${folioResult.folio}*.\nTu asesor(a) CMU te contactara pronto.`);
-        } else {
-          return await respond("Necesito tu numero de celular a 10 digitos. Ejemplo: 4491234567");
+
+      // ── State: prospect_tank_question — ¿reusa tanque o equipo nuevo? (solo Perfil A) ──
+      if (prospectState.state === "prospect_tank_question") {
+        const reusa = /reuso|reusar|1|mi tanque|el m[ií]o|s[ií]|actual|mismo/i.test(lower);
+        const nuevo = /nuevo|2|equipo nuevo|completo|todo nuevo/i.test(lower);
+        const modelo = prospectState.context?.modelo;
+        const pvBase = prospectState.context?.pv || 200000;
+        const consumo = prospectState.context?.leqMes || 400;
+        
+        if (reusa || nuevo) {
+          const kitNuevo = nuevo;
+          const pvFinal = kitNuevo ? pvBase + 9400 : pvBase;
+          const corrida = generarCorridaEstimada(`${modelo.marca} ${modelo.modelo}`, modelo.anio, pvFinal, consumo);
+          await this.updateState(phone, { state: "prospect_post_corrida", context: { ...prospectState.context, pv: pvFinal, kitNuevo } });
+          const kitLabel = kitNuevo ? "(equipo GNV nuevo +$9,400)" : "(reusas tu tanque)";
+          return await respond(`${corrida.resumenWhatsApp}\n${kitLabel}\n\n\u00bfQuieres empezar el proceso? Solo necesito tu nombre.`);
         }
       }
-      
-      // Step 2: Capture name
-      if (prospectState.state === "awaiting_name") {
+
+      // ── State: prospect_post_corrida — vio la corrida, ¿quiere empezar? ──
+      if (prospectState.state === "prospect_post_corrida") {
+        const isPositive = /s[ií]|va|dale|le entro|me interesa|me apunto|quiero|inscri|registr|adelante|ok|va pues|c[oó]mo|nombre|empez/i.test(lower);
+        const wantsOther = /otro|diferente|cambiar|ver otro/i.test(lower);
+        if (wantsOther) {
+          await this.updateState(phone, { state: "prospect_show_models", context: prospectState.context });
+          const resumen = await generarResumen5Modelos(prospectState.context?.leqMes || 400);
+          return await respond(`Claro, aqu\u00ed est\u00e1n de nuevo:\n\n${resumen}`);
+        }
+        // Check if they also matched a model name (want to see another specific one)
+        const matched = matchModelFromText(lower);
+        if (matched) {
+          await this.updateState(phone, { state: "prospect_show_models", context: prospectState.context });
+          // Re-trigger model selection
+          const consumo = prospectState.context?.leqMes || 400;
+          const pv = await getPvForModel(matched.marca, matched.modelo, matched.anio);
+          const fuelType = prospectState.context?.fuelType || "gnv";
+          if (fuelType === "gnv") {
+            await this.updateState(phone, { state: "prospect_tank_question", context: { ...prospectState.context, modelo: matched, pv } });
+            return await respond(`*${matched.marca} ${matched.modelo} ${matched.anio}* \u2014 $${pv.toLocaleString()}\n\n\u00bfReusas tu tanque de GNV o equipo nuevo (+$9,400)?`);
+          } else {
+            const pvFinal = pv + 9400;
+            const corrida = generarCorridaEstimada(`${matched.marca} ${matched.modelo}`, matched.anio, pvFinal, consumo);
+            await this.updateState(phone, { state: "prospect_post_corrida", context: { ...prospectState.context, modelo: matched, pv: pvFinal } });
+            return await respond(corrida.resumenWhatsApp + "\n\n\u00bfQuieres empezar? Solo necesito tu nombre.");
+          }
+        }
+        if (isPositive) {
+          await this.updateState(phone, { state: "prospect_awaiting_name", context: prospectState.context });
+          return await respond("\u00bfC\u00f3mo te llamas? (nombre completo)");
+        }
+        const isNegative = /no|nel|nah|luego|despu[eé]s|lo pienso|ahorita no/i.test(lower);
+        if (isNegative) {
+          await this.updateState(phone, { state: "prospect_cold" });
+          return await respond("Sin problema. Cuando quieras retomar, escr\u00edbeme. El programa sigue abierto.");
+        }
+      }
+
+      // ── State: prospect_awaiting_name — solo nombre ──
+      if (prospectState.state === "prospect_awaiting_name") {
         const nombre = body.trim();
         if (nombre.length >= 3 && nombre.split(/\s+/).length >= 2) {
-          await this.updateState(phone, {
-            state: "awaiting_phone",
-            context: { nombre },
-          });
-          return await respond(`Gracias, ${nombre.split(" ")[0]}.\n\nAhora dame tu numero de celular (10 digitos):`);
+          // Create folio + register
+          try {
+            const folioResult = await createFolioFromWhatsApp(this.storage, phone, nombre, phone);
+            await this.updateState(phone, { state: "prospect_docs_capture", context: { ...prospectState.context, nombre, folio: folioResult.folio }, folioId: folioResult.id });
+            try { await upsertProspect({ phone, nombre, status: "registrado", folio_id: folioResult.folio }); }
+            catch (e: any) { console.error(`[Pipeline] upsertProspect registrado:`, e.message); }
+            
+            // Notify team
+            const canalCtx = prospectState.context?.canal || "ORGANICO";
+            const modelo = prospectState.context?.modelo;
+            const modeloStr = modelo ? `${modelo.marca} ${modelo.modelo} ${modelo.anio}` : "Por definir";
+            const notifMsg = `*Nuevo registro* \u2705\nNombre: ${nombre}\nTel: ${phone}\nCanal: ${canalCtx}\nModelo: ${modeloStr}\nCombustible: ${prospectState.context?.fuelType || "?"}\nConsumo: ${prospectState.context?.leqMes || "?"} LEQ/mes\nFolio: ${folioResult.folio}`;
+            await notifyTeam(notifMsg);
+            
+            return await respond(`Listo, ${nombre.split(" ")[0]}. Tu folio es *${folioResult.folio}*.\n\nAhora vamos con tu expediente. Son 11 documentos que me puedes mandar por foto. Empecemos:\n\nM\u00e1ndame tu *INE de frente* \uD83D\uDCF7`);
+          } catch (e: any) {
+            console.error(`[Folio] createFolioFromWhatsApp FAILED:`, e.message);
+            return await respond(`Hubo un problema t\u00e9cnico al crear tu registro. Intenta de nuevo en unos minutos o escr\u00edbenos al 446 329 3102.`);
+          }
         } else {
-          return await respond("Necesito tu nombre completo (nombre y apellido). Ejemplo: Juan Perez Lopez");
+          return await respond("Necesito tu nombre completo (nombre y apellido). Ejemplo: Juan P\u00e9rez L\u00f3pez");
         }
       }
-      
-      // Step 1: Detect registration intent (broad — catches "va", "le entro", "me interesa", etc.)
-      const wantsToRegister = /quiero registrarme|c[oó]mo me registro|quiero aplicar|me interesa|quiero entrar|registrarme|inscribirme|le entro|me apunto|s[ií].*quiero|va.*programa|d[oó]nde me anoto|qu[eé] necesito para entrar|c[oó]mo le hago para entrar/i.test(lower);
-      if (wantsToRegister) {
-        await this.updateState(phone, { state: "awaiting_name", context: {} });
-        return await respond("Para registrarte necesito algunos datos.\n\nPrimero, dime tu *nombre completo*:");
+
+      // ── State: prospect_docs_capture — el agente guía doc por doc ──
+      // (docs are handled by the existing media handler below when the prospect sends photos)
+      // Here we handle text messages during doc capture
+      if (prospectState.state === "prospect_docs_capture") {
+        // Check if they want to skip to interview
+        const wantsInterview = /entrevista|preguntas|voz|audio|saltar|skip|despu[eé]s.*doc|no tengo/i.test(lower);
+        if (wantsInterview) {
+          await this.updateState(phone, { state: "interview_ready", context: prospectState.context });
+          return await respond("No te preocupes, los documentos que falten los completamos despu\u00e9s.\n\nVamos con una entrevista r\u00e1pida: son 8 preguntas por nota de voz, toma unos 5 minutos. \u00bfListo?\n\nEscribe *empezar* cuando quieras.");
+        }
+        // Offer interview if they seem stuck
+        const isStuck = /no tengo|no lo tengo|todav[ií]a no|ahorita no|despu[eé]s|ma[nñ]ana|luego/i.test(lower);
+        if (isStuck) {
+          return await respond("Sin problema, lo mandas cuando lo tengas.\n\nMientras tanto, \u00bfquieres que hagamos una *entrevista r\u00e1pida*? Son 8 preguntas por nota de voz (5 minutos). As\u00ed avanzamos con tu evaluaci\u00f3n.");
+        }
+        // If they're asking about progress or what's next
+        const asksProgress = /cu[aá]nto|falta|siguiente|qu[eé] sigue|progreso|estado/i.test(lower);
+        if (asksProgress && prospectState.folioId) {
+          const pInfo = await this.getPendingInfo(prospectState.folioId);
+          if (pInfo.count > 0) {
+            return await respond(`Te faltan *${pInfo.count} documentos*: ${pInfo.text}\n\nM\u00e1ndame el siguiente: *${pInfo.nextKey || "foto del documento"}* \uD83D\uDCF7`);
+          } else {
+            return await respond("Tu expediente documental est\u00e1 completo. \u00bfHacemos la entrevista r\u00e1pida? Escribe *empezar*.");
+          }
+        }
+      }
+
+      // ── Catch-all: detect registration intent from any state ──
+      const wantsToRegister = /quiero registrarme|c[oó]mo me registro|quiero aplicar|quiero entrar|registrarme|inscribirme|me apunto|d[oó]nde me anoto|c[oó]mo le hago para entrar/i.test(lower);
+      if (wantsToRegister && !prospectState.state?.startsWith("prospect_awaiting")) {
+        await this.updateState(phone, { state: "prospect_awaiting_name", context: prospectState.context || {} });
+        return await respond("\u00bfC\u00f3mo te llamas? (nombre completo)");
       }
     }
 
