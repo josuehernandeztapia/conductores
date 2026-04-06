@@ -2769,6 +2769,27 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
           await this.updateState(phone, { state: "prospect_cold" });
           return await respond("Sin problema. Cuando quieras retomar, escr\u00edbeme. El programa sigue abierto.");
         }
+        // If they sent what looks like a name (2+ words, no commands) — treat as name directly
+        const words = body.trim().split(/\s+/);
+        if (words.length >= 2 && body.trim().length >= 5 && !/\d/.test(body) && !matchModelFromText(lower)) {
+          // They gave their name directly after seeing the corrida — create folio
+          const nombre = body.trim();
+          try {
+            const folioResult = await createFolioFromWhatsApp(this.storage, phone, nombre, phone);
+            await this.updateState(phone, { state: "prospect_docs_capture", context: { ...prospectState.context, nombre, folio: folioResult.folio }, folioId: folioResult.id });
+            try { await upsertProspect({ phone, nombre, status: "registrado", folio_id: folioResult.folio }); }
+            catch (e: any) { console.error(`[Pipeline] upsertProspect registrado:`, e.message); }
+            const canalCtx = prospectState.context?.canal || "ORGANICO";
+            const modelo = prospectState.context?.modelo;
+            const modeloStr = modelo ? `${modelo.marca} ${modelo.modelo} ${modelo.anio}` : "Por definir";
+            const notifMsg = `*Nuevo registro* \u2705\nNombre: ${nombre}\nTel: ${phone}\nCanal: ${canalCtx}\nModelo: ${modeloStr}\nConsumo: ${prospectState.context?.leqMes || "?"} LEQ/mes\nFolio: ${folioResult.folio}`;
+            await notifyTeam(notifMsg);
+            return await respond(`Listo, ${nombre.split(" ")[0]}. Tu folio es *${folioResult.folio}*.\n\nAhora vamos con tu expediente. M\u00e1ndame tu *INE de frente* \uD83D\uDCF7`);
+          } catch (e: any) {
+            console.error(`[Folio] createFolioFromWhatsApp FAILED:`, e.message);
+            return await respond(`Hubo un problema t\u00e9cnico. Intenta de nuevo en unos minutos.`);
+          }
+        }
       }
 
       // ── State: prospect_awaiting_name — solo nombre ──
