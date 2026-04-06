@@ -2004,8 +2004,9 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
     const fuel = calcFuelContext(fuelPrices);
 
     // ===== LOAD CLIENT STATE from DB (persistent across sessions) =====
+    // Skip for prospectos — the state machine handles their flow
     let clientState = await this.storage.getClientStateByPhone(phone);
-    if (clientState && clientState.found && !originationId) {
+    if (clientState && clientState.found && !originationId && role !== "prospecto") {
       originationId = clientState.originationId;
       console.log(`[Agent] Client state loaded for ${phone}: folio=${clientState.folio}, docs=${clientState.docsCapturados.length}/${clientState.totalDocs}`);
     }
