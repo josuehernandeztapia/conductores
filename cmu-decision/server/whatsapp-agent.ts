@@ -2942,7 +2942,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
     const canalLabel = role === "promotora" ? "Canal B (Promotora)" : role === "director" ? "Canal B (Director — acceso completo)" : "Canal A (Taxista)";
 
     // Process image or PDF (Canal A/B) — v9: supports PDF via text extraction + image conversion
-    if (mediaUrl && originationId && (role === "cliente" || role === "promotora" || role === "director")) {
+    if (mediaUrl && originationId && (role === "cliente" || role === "promotora" || role === "director" || role === "prospecto")) {
       let media: { base64: string; wasPdf: boolean; pdfText?: string };
       try {
         media = await this.downloadMedia(mediaUrl, mediaType);
