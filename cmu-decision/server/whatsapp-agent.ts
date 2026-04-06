@@ -2402,9 +2402,18 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
       }
     }
 
-    // ===== PERMISSION CHECK: Prospecto cannot send docs =====
+    // ===== PERMISSION CHECK: Prospecto media handling =====
     if (role === "prospecto" && mediaUrl) {
-      return await respond("Para enviar documentos necesitas un folio activo. Tu asesor(a) CMU te lo puede crear. \u00bfQuieres saber m\u00e1s sobre el programa CMU primero?", null, null);
+      // Check if prospect has a folio (is in docs capture state)
+      const pState = await this.getConvState(phone);
+      if (pState.folioId) {
+        // Has folio — let the doc handler below process it
+        originationId = pState.folioId;
+        console.log(`[Agent] Prospect ${phone} sending doc, folio=${originationId}`);
+      } else {
+        // No folio yet — guide them through the flow first
+        return await respond("Primero necesito registrarte. \u00bfTu taxi ya usa *gas natural* o est\u00e1s con *gasolina*?", null, null);
+      }
     }
 
     // ===== CANAL A/B SHARED LOGIC =====
@@ -2954,6 +2963,21 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         // Update pipeline with doc progress
         const { updateProspectDocs } = await import("./pipeline-ventas");
         updateProspectDocs(phone, capturedList.length, DOC_ORDER.length).catch(() => {});
+        
+        // === PROSPECT: Guided doc-by-doc response (deterministic, not LLM) ===
+        if (role === "prospecto" && docSaved) {
+          const docLabel = DOC_LABELS[docSaved] || docSaved;
+          if (pendingList.length === 0) {
+            // All docs complete!
+            await this.updateState(phone, { state: "interview_ready", context: { ...convState.context, docsComplete: true } });
+            try { const { updateProspectStatus: ups } = await import("./pipeline-ventas"); await ups(phone, "docs_completo"); } catch(e:any) { console.error('[Pipeline]', e.message); }
+            return await respond(`*${docLabel}* recibido. ${capturedList.length}/${DOC_ORDER.length} documentos.\n\nTu expediente est\u00e1 completo. Ahora vamos con una *entrevista r\u00e1pida* (8 preguntas por nota de voz, ~5 min).\n\nEscribe *empezar* cuando est\u00e9s listo.`);
+          } else {
+            const nextDoc = DOC_ORDER.find(d => !capturedKeys.has(d.key));
+            const nextLabel = nextDoc ? nextDoc.label : "siguiente documento";
+            return await respond(`*${docLabel}* recibido. ${capturedList.length}/${DOC_ORDER.length}\n\nAhora m\u00e1ndame tu *${nextLabel}*`);
+          }
+        }
       }
     } else if (mediaUrl && !originationId) { visionNote = "Imagen sin folio vinculado."; }
 

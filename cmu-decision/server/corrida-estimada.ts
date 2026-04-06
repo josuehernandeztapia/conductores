@@ -203,16 +203,27 @@ export function matchModelFromText(text: string): { marca: string; modelo: strin
  */
 export async function getPvForModel(marca: string, modelo: string, anio: number): Promise<number> {
   const vehicles = await getVehiclePrices();
-  const match = vehicles.find(v => 
-    v.marca.toLowerCase() === marca.toLowerCase() && 
-    (v.modelo.toLowerCase().includes(modelo.toLowerCase()) || modelo.toLowerCase().includes(v.modelo.toLowerCase())) &&
-    v.anio === anio
-  );
-  if (match) return match.precio;
   
-  // Fallback: try partial match
-  const partial = vehicles.find(v => 
-    v.modelo.toLowerCase().includes(modelo.split(" ")[0].toLowerCase())
+  // First: exact match including variante (e.g. "March Advance" → modelo=March, variante=Advance)
+  const modeloParts = modelo.split(" ");
+  const exactMatch = vehicles.find(v => {
+    if (v.marca.toLowerCase() !== marca.toLowerCase() || v.anio !== anio) return false;
+    const fullName = [v.modelo, v.variante].filter(Boolean).join(" ").toLowerCase();
+    return fullName === modelo.toLowerCase();
+  });
+  if (exactMatch) return exactMatch.precio;
+  
+  // Second: partial match (modelo contains or is contained)
+  const partialMatch = vehicles.find(v => {
+    if (v.marca.toLowerCase() !== marca.toLowerCase() || v.anio !== anio) return false;
+    const fullName = [v.modelo, v.variante].filter(Boolean).join(" ").toLowerCase();
+    return fullName.includes(modelo.toLowerCase()) || modelo.toLowerCase().includes(fullName);
+  });
+  if (partialMatch) return partialMatch.precio;
+  
+  // Fallback: match by first word of modelo
+  const fallback = vehicles.find(v => 
+    v.modelo.toLowerCase().includes(modeloParts[0].toLowerCase()) && v.anio === anio
   );
-  return partial ? partial.precio : 200000;
+  return fallback ? fallback.precio : 200000;
 }
