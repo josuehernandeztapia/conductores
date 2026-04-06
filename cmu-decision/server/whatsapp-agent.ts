@@ -2790,7 +2790,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
           const nombre = body.trim();
           try {
             const folioResult = await createFolioFromWhatsApp(this.storage, phone, nombre, phone);
-            await this.updateState(phone, { state: "prospect_docs_capture", context: { ...prospectState.context, nombre, folio: folioResult.folio }, folioId: folioResult.id });
+            await this.updateState(phone, { state: "prospect_docs_capture", context: { ...prospectState.context, nombre, folio: folioResult.folio }, folioId: folioResult.originationId });
             try { await upsertProspect({ phone, nombre, status: "registrado", folio_id: folioResult.folio }); }
             catch (e: any) { console.error(`[Pipeline] upsertProspect registrado:`, e.message); }
             const canalCtx = prospectState.context?.canal || "ORGANICO";
@@ -2813,7 +2813,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
           // Create folio + register
           try {
             const folioResult = await createFolioFromWhatsApp(this.storage, phone, nombre, phone);
-            await this.updateState(phone, { state: "prospect_docs_capture", context: { ...prospectState.context, nombre, folio: folioResult.folio }, folioId: folioResult.id });
+            await this.updateState(phone, { state: "prospect_docs_capture", context: { ...prospectState.context, nombre, folio: folioResult.folio }, folioId: folioResult.originationId });
             try { await upsertProspect({ phone, nombre, status: "registrado", folio_id: folioResult.folio }); }
             catch (e: any) { console.error(`[Pipeline] upsertProspect registrado:`, e.message); }
             
