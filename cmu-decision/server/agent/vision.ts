@@ -8,7 +8,7 @@
  * 4. Cross-reference against existing data (INE = source of truth)
  */
 
-import OpenAI from "openai";
+
 import type { DocDefinition, VisionResult } from "./types";
 
 // ─── Document Order (14 documents) ──────────────────────────────────────────
@@ -189,7 +189,6 @@ export async function classifyAndValidateDoc(
   docOrder: DocDefinition[] = DOC_ORDER,
   existingData: Record<string, any> = {},
 ): Promise<VisionResult> {
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
   const prompt = buildVisionPrompt(expectedType, docOrder, existingData);
 

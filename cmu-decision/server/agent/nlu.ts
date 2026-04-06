@@ -8,8 +8,9 @@
  * denials, doc skip intent, interview intent, names (2+ words).
  */
 
-import OpenAI from "openai";
+
 import type { Intent, NLUResult } from "./types";
+import { chatCompletion } from "./openai-helper";
 
 // ─── Regex Patterns ──────────────────────────────────────────────────────────
 
@@ -247,7 +248,6 @@ const VALID_INTENTS: Intent[] = [
 
 async function extractByLLM(body: string, state: string): Promise<NLUResult> {
   try {
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
     const systemPrompt = `You classify WhatsApp messages from Mexican taxi drivers into intents.
 Current conversation state: "${state}"

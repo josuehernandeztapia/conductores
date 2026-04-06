@@ -11,7 +11,8 @@
  */
 
 import { neon } from "@neondatabase/serverless";
-import OpenAI from "openai";
+import { chatCompletion } from "./openai-helper";
+
 
 // ─── Pre-Written FAQ ─────────────────────────────────────────────────────────
 
@@ -211,7 +212,6 @@ async function searchBusinessRules(question: string): Promise<BusinessRule[]> {
 
 async function answerWithLLM(question: string, rules: BusinessRule[]): Promise<string | null> {
   try {
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
     const rulesContext = rules.length > 0
       ? rules.map(r => `[${r.categoria}] ${r.titulo}: ${r.contenido}`).join("\n\n")

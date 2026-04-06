@@ -15,7 +15,7 @@
  * interview_complete
  */
 
-import OpenAI from "openai";
+
 import { neon } from "@neondatabase/serverless";
 
 // ── Agent modules ──
@@ -53,6 +53,7 @@ import {
   updateProspectDocs,
 } from "../pipeline-ventas";
 import { getSession, updateSession } from "../conversation-state";
+import { chatCompletion, whisperTranscribe } from "./openai-helper";
 import { createFolioFromWhatsApp } from "../folio-manager";
 import { DIRECTOR, getPromotor } from "../team-config";
 
@@ -100,7 +101,6 @@ async function downloadTwilioMedia(mediaUrl: string): Promise<Buffer> {
  * Transcribe audio using OpenAI Whisper.
  */
 async function transcribeAudio(audioBuffer: Buffer): Promise<string> {
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
   // Create a File-like object from the buffer
   const file = new File([audioBuffer], "audio.ogg", { type: "audio/ogg" });
@@ -117,7 +117,6 @@ async function transcribeAudio(audioBuffer: Buffer): Promise<string> {
 // ─── LLM Call Helper (for interview) ─────────────────────────────────────────
 
 async function llmCall(messages: any[], maxTokens: number): Promise<string> {
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   const response = await openai.chat.completions.create({
     model: "gpt-4o-mini",
     messages,
