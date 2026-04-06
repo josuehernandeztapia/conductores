@@ -2156,6 +2156,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
       }
       if (role === "prospecto") {
         // Prospecto: guide to fuel type question + track in pipeline
+        // Reset any stale state from previous conversations
         const canal = detectCanal(body);
         try {
           await upsertProspect({ phone, canal_origen: canal, status: "curioso" });
