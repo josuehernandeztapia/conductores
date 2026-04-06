@@ -2004,11 +2004,20 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
     const fuel = calcFuelContext(fuelPrices);
 
     // ===== LOAD CLIENT STATE from DB (persistent across sessions) =====
-    // Skip for prospectos — the state machine handles their flow
     let clientState = await this.storage.getClientStateByPhone(phone);
-    if (clientState && clientState.found && !originationId && role !== "prospecto") {
-      originationId = clientState.originationId;
-      console.log(`[Agent] Client state loaded for ${phone}: folio=${clientState.folio}, docs=${clientState.docsCapturados.length}/${clientState.totalDocs}`);
+    if (clientState && clientState.found && !originationId) {
+      // For prospectos: only load originationId if they have a folio in conversation state
+      // (don't let stale folios from previous tests hijack the flow)
+      if (role === "prospecto") {
+        const pConvState = await this.getConvState(phone);
+        if (pConvState.folioId) {
+          originationId = pConvState.folioId;
+          console.log(`[Agent] Prospect ${phone} has folio from conv state: ${originationId}`);
+        }
+      } else {
+        originationId = clientState.originationId;
+        console.log(`[Agent] Client state loaded for ${phone}: folio=${clientState.folio}, docs=${clientState.docsCapturados?.length || 0}/${clientState.totalDocs}`);
+      }
     }
 
     // ===== LOAD CONVERSATION STATE from DB =====
@@ -2918,8 +2927,8 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
     if (clientState && clientState.found) {
       ctx += ` | Folio: ${clientState.folio} | Estado: ${clientState.estado}`;
       if (clientState.taxistaName) ctx += ` | Nombre: ${clientState.taxistaName}`;
-      ctx += ` | Docs: ${clientState.docsCapturados.length}/${clientState.totalDocs}`;
-      if (clientState.docsPendientes.length > 0) ctx += ` | Pendientes: ${clientState.docsPendientes.join(", ")}`;
+      ctx += ` | Docs: ${(clientState.docsCapturados || []).length}/${clientState.totalDocs || 11}`;
+      if ((clientState.docsPendientes || []).length > 0) ctx += ` | Pendientes: ${clientState.docsPendientes.join(", ")}`;
       else ctx += ` | Expediente COMPLETO`;
     } else if (originationId) {
       const orig = await this.storage.getOrigination(originationId);
