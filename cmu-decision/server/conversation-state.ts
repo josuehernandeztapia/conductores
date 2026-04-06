@@ -143,16 +143,22 @@ export async function updateSession(
   const sql = getDb();
   if (sql) {
     try {
+      const ctx = JSON.stringify(session.context || {});
+      const lm = session.lastModel ? JSON.stringify(session.lastModel) : null;
+      const fid = session.folioId || null;
       await sql`
         INSERT INTO conversation_states (phone, state, context, last_model, folio_id, updated_at)
-        VALUES (${phone}, ${session.state}, ${JSON.stringify(session.context)}, ${JSON.stringify(session.lastModel)}, ${session.folioId}, NOW())
+        VALUES (${phone}, ${session.state}, ${ctx}, ${lm}, ${fid}, NOW())
         ON CONFLICT (phone)
-        DO UPDATE SET state = ${session.state}, context = ${JSON.stringify(session.context)}, 
-                      last_model = ${JSON.stringify(session.lastModel)}, folio_id = ${session.folioId}, updated_at = NOW()
+        DO UPDATE SET state = ${session.state}, context = ${ctx}, 
+                      last_model = ${lm}, folio_id = ${fid}, updated_at = NOW()
       `;
+      console.log(`[ConvState] DB write OK: ${phone} → ${session.state}`);
     } catch (e: any) {
-      console.error("[ConvState] DB write error:", e.message);
+      console.error(`[ConvState] DB write FAILED for ${phone}:`, e.message);
     }
+  } else {
+    console.error(`[ConvState] No DATABASE_URL — state not persisted for ${phone}`);
   }
 }
 
