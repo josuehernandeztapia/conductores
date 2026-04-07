@@ -354,6 +354,21 @@ async function handleTextMessage(
   const nlu = override || await extractIntent(body, state);
   console.log(`[Orchestrator] NLU: intent=${nlu.intent} confidence=${nlu.confidence} entities=${JSON.stringify(nlu.entities)} override=${!!override}`);
 
+  // ── CRITICAL: Greeting/fresh-start detection in advanced state → reset to idle ──
+  // A message that STARTS with "hola"/"buenos días"/etc while deep in the flow means fresh start
+  const ADVANCED_STATES: string[] = [
+    "prospect_corrida", "prospect_confirm",
+    "docs_capture", "docs_pending",
+    "interview_ready", "interview_q1", "interview_q2", "interview_q3",
+    "interview_q4", "interview_q5", "interview_q6", "interview_q7", "interview_q8",
+    "interview_complete", "completed",
+  ];
+  const startsWithGreeting = /^\s*(hola|buenos?\s+(?:d[ií]as?|tardes?|noches?)|buenas|hey|qu[eé]\s+tal|que\s+tal|oye|buen\s+d[ií]a)/i.test(body);
+  if ((nlu.intent === "greeting" || startsWithGreeting) && ADVANCED_STATES.includes(state)) {
+    console.log(`[Orchestrator] Greeting/fresh-start in advanced state ${state} → reset to idle`);
+    return handleIdle(phone, body, { intent: "greeting", entities: {}, confidence: 1.0 }, { profileName: ctx.profileName }, storage);
+  }
+
   // ── Check for off-flow questions (any state except idle/prospect_name) ──
   if (nlu.intent === "ask_question" && state !== "idle" && state !== "prospect_name") {
     const answer = await answerQuestion(nlu.entities.question || body);

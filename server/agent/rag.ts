@@ -204,10 +204,10 @@ function matchFAQ(question: string): string | null {
 
 interface BusinessRule {
   id: number;
-  categoria: string;
-  titulo: string;
-  contenido: string;
-  keywords: string[];
+  category: string;
+  key: string;
+  value: string;
+  description: string | null;
 }
 
 async function searchBusinessRules(question: string): Promise<BusinessRule[]> {
@@ -236,14 +236,13 @@ async function searchBusinessRules(question: string): Promise<BusinessRule[]> {
     // Search by keyword overlap
     const searchTerm = words.join(" | ");
     const rows = await sql`
-      SELECT id, categoria, titulo, contenido, keywords
+      SELECT id, category, key, value, description
       FROM business_rules
-      WHERE activo = true
-        AND (
-          to_tsvector('spanish', contenido) @@ to_tsquery('spanish', ${searchTerm})
-          OR to_tsvector('spanish', titulo) @@ to_tsquery('spanish', ${searchTerm})
-        )
-      ORDER BY ts_rank(to_tsvector('spanish', contenido), to_tsquery('spanish', ${searchTerm})) DESC
+      WHERE
+        to_tsvector('spanish', value) @@ to_tsquery('spanish', ${searchTerm})
+        OR to_tsvector('spanish', COALESCE(description, '')) @@ to_tsquery('spanish', ${searchTerm})
+        OR to_tsvector('spanish', key) @@ to_tsquery('spanish', ${searchTerm})
+      ORDER BY ts_rank(to_tsvector('spanish', value), to_tsquery('spanish', ${searchTerm})) DESC
       LIMIT 3
     `;
 
@@ -267,7 +266,7 @@ async function answerWithLLM(question: string, rules: BusinessRule[]): Promise<s
     } catch {
       // Fallback to just the DB rules
       knowledgeBase = rules.length > 0
-        ? rules.map(r => `[${r.categoria}] ${r.titulo}: ${r.contenido}`).join("\n\n")
+        ? rules.map(r => `[${r.category}] ${r.key}: ${r.value}`).join("\n\n")
         : "";
     }
 
