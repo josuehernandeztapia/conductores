@@ -605,6 +605,24 @@ async function processDocImage(
     [`_${detectedKey}_data`]: visionResult.extracted_data,
   };
 
+  // ── CRITICAL: Cross-check INE nombre vs prospect nombre ──
+  if (detectedKey === 'ine_frente' && visionResult.extracted_data) {
+    const ineNombre = (visionResult.extracted_data.nombre || '').toUpperCase().trim();
+    const prospectNombre = (ctx.nombre || '').toUpperCase().trim();
+    if (ineNombre && prospectNombre) {
+      // Compare first word (apellido or nombre) for basic match
+      const ineWords = ineNombre.split(/\s+/);
+      const prospectWords = prospectNombre.split(/\s+/);
+      const anyMatch = prospectWords.some((w: string) => w.length > 2 && ineWords.includes(w));
+      if (!anyMatch) {
+        // Name on INE doesn't match prospect's stated name AT ALL
+        if (!visionResult.cross_check_flags.includes('nombre_prospecto_mismatch')) {
+          visionResult.cross_check_flags.push('nombre_prospecto_mismatch');
+        }
+      }
+    }
+  }
+
   // Save document to DB
   if (ctx.originationId) {
     await saveDocument(
@@ -631,7 +649,7 @@ async function processDocImage(
   };
 
   // Check next doc after this one
-  const nextDocAfter = getNextExpectedDoc(newCollected);
+  const nextDocAfter = getNextExpectedDoc([...newCollected, ...(ctx.skippedDocs || [])]);
 
   if (!nextDocAfter) {
     // All docs complete!
@@ -660,10 +678,14 @@ async function processDocImage(
     };
   }
 
-  // Build response with extracted data summary
+  // Build response with extracted data summary — show ALL non-null fields
   const extractedSummary = Object.entries(visionResult.extracted_data || {})
-    .filter(([k, v]) => v && !k.startsWith('_') && ['nombre', 'curp', 'direccion', 'vigencia', 'clabe', 'rfc'].includes(k))
-    .map(([k, v]) => `${k}: ${v}`)
+    .filter(([k, v]) => v !== null && v !== undefined && v !== '' && v !== 'null' && !k.startsWith('_'))
+    .map(([k, v]) => {
+      const val = String(v);
+      // Truncate very long values
+      return `${k}: ${val.length > 40 ? val.slice(0, 40) + '...' : val}`;
+    })
     .join(' | ');
   const dataSummaryLine = extractedSummary ? `\n_Datos: ${extractedSummary}_` : '';
 
@@ -704,6 +726,7 @@ async function processDocImage(
 
     // ── WARNING flags → accepted but flagged ──
     const warnings: string[] = [];
+    if (flags.includes('nombre_prospecto_mismatch')) warnings.push('El nombre en tu INE no coincide con el nombre que me diste. \u00bfLa INE es tuya?');
     if (flags.includes('nombre_mismatch')) warnings.push('El nombre en este documento no coincide con tu INE. \u00bfEs tuyo?');
     if (flags.includes('expired') || flags.includes('vigencia_vencida') || flags.includes('ine_vencida')) warnings.push('Este documento parece estar vencido.');
     if (flags.includes('curp_mismatch')) warnings.push('La CURP no coincide con la de tu INE.');
@@ -720,7 +743,7 @@ async function processDocImage(
     if (flags.includes('consumo_bajo_gnv')) warnings.push('Tu consumo de GNV parece bajo (< 300 LEQ/mes).');
     if (flags.includes('gasto_bajo_gasolina')) warnings.push('Tu gasto de gasolina parece bajo (< $6,000/mes).');
     // Catch any unhandled flags
-    const handledFlags = ['nombre_mismatch','expired','vigencia_vencida','ine_vencida','curp_mismatch','domicilio_mismatch','address_mismatch','domicilio_vencido','csf_vencida','clabe_invalid','niv_mismatch','placa_mismatch','ine_operador_vencida','licencia_vencida','rostro_no_coincide','consumo_bajo_gnv','gasto_bajo_gasolina','tipo_no_taxi','no_es_taxi','municipio_no_ags'];
+    const handledFlags = ['nombre_prospecto_mismatch','nombre_mismatch','expired','vigencia_vencida','ine_vencida','curp_mismatch','domicilio_mismatch','address_mismatch','domicilio_vencido','csf_vencida','clabe_invalid','niv_mismatch','placa_mismatch','ine_operador_vencida','licencia_vencida','rostro_no_coincide','consumo_bajo_gnv','gasto_bajo_gasolina','tipo_no_taxi','no_es_taxi','municipio_no_ags'];
     const unhandled = flags.filter((f: string) => !handledFlags.includes(f));
     if (unhandled.length > 0 && warnings.length === 0) warnings.push(unhandled.join(', '));
 

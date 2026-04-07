@@ -287,7 +287,7 @@ export async function classifyAndValidateDoc(
           ],
         },
       ],
-      { model: "gpt-4o", max_tokens: 1500, temperature: 0 },
+      { model: "gpt-4o", max_tokens: 2500, temperature: 0 },
     );
 
     const text = (typeof response === 'string' ? response : '').trim();

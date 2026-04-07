@@ -36,7 +36,18 @@ Ejemplos:
 ATENCIÓN: Si dice "X horas" el valor de horas_dia es X. NO dividas ni recalcules.
 Responde SOLO JSON: {"horas_dia": N, "dias_semana": N}`;
     case "servicios_cobro":
-      return "Extrae: servicios_dia (cuántos servicios/viajes hace al día) y cobro_promedio_servicio (cuánto cobra en promedio por servicio en pesos). Responde SOLO JSON: {\"servicios_dia\": N, \"cobro_promedio_servicio\": N}";
+      return `Extrae EXACTAMENTE estos dos números:
+1. servicios_dia: ¿Cuántos servicios/viajes hace AL DÍA?
+2. cobro_promedio_servicio: ¿Cuánto cobra POR SERVICIO en pesos?
+
+ATENCIÓN: Si dice un monto total (ej: "2200 pesos al día") y también dice cuántos servicios, NO dividas. Pon el monto total como cobro_promedio_servicio SOLO si dice "por servicio" o "cada servicio". Si da un monto diario total sin decir "por servicio", pon 0 en cobro_promedio_servicio.
+
+Ejemplos:
+- "15 servicios y cobro 200 cada uno" → {"servicios_dia": 15, "cobro_promedio_servicio": 200}
+- "hago 15 servicios, saco como 2200 al día" → {"servicios_dia": 15, "cobro_promedio_servicio": 0} (2200 es ingreso total, no por servicio)
+- "cobro entre 150 y 200 por viaje, hago unos 12" → {"servicios_dia": 12, "cobro_promedio_servicio": 175}
+
+Responde SOLO JSON: {"servicios_dia": N, "cobro_promedio_servicio": N}`;
     case "ingreso_diario":
       return "Extrae: ingreso_dia (cuánto gana al día en pesos, ingreso bruto). Responde SOLO JSON: {\"ingreso_dia\": N}";
     case "estructura_chofer":
@@ -122,9 +133,18 @@ export async function processAnswer(
   // Check if we need to confirm extracted values (if they seem off)
   let confirmationNote = "";
   if (step.id !== "resiliencia" && Object.keys(extracted).length > 0) {
+    const NON_MONEY_FIELDS = new Set([
+      'horas_dia', 'dias_semana', 'servicios_dia', 'num_taxis',
+      'tiene_chofer', 'resiliencia_ok',
+    ]);
     const vals = Object.entries(extracted)
-      .filter(([_, v]) => typeof v === "number" && v > 0)
-      .map(([k, v]) => `${k}: ${typeof v === "number" ? "$" + v.toLocaleString() : v}`)
+      .filter(([_, v]) => v !== null && v !== undefined && v !== 0 && v !== false)
+      .map(([k, v]) => {
+        if (typeof v === 'boolean') return `${k}: ${v ? 'sí' : 'no'}`;
+        if (typeof v === 'number' && NON_MONEY_FIELDS.has(k)) return `${k}: ${v}`;
+        if (typeof v === 'number') return `${k}: $${v.toLocaleString()}`;
+        return `${k}: ${v}`;
+      })
       .join(", ");
     if (vals) {
       confirmationNote = `\n_Entendí: ${vals}_`;

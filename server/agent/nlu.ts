@@ -152,7 +152,7 @@ const PATTERNS: Array<{ intent: Intent; regex: RegExp; entityExtractor?: (match:
     },
   },
 
-  // ── Interview navigation: go back to previous question ──
+  // ── Interview navigation: go back / correct previous question ──
   {
     intent: "go_back",
     regex: /(?:regres[ae]|volver|vuelv[ea]|corregir|cambiar|repetir)\s+(?:a\s+)?(?:la\s+)?(?:pregunta\s*)?#?\s*(\d)/i,
@@ -161,11 +161,16 @@ const PATTERNS: Array<{ intent: Intent; regex: RegExp; entityExtractor?: (match:
   {
     intent: "go_back",
     regex: /(?:quiero\s+)?(?:corregir|cambiar|repetir)\s+(?:la\s+)?(?:respuesta|pregunta)\s+(?:anterior|pasada|de\s+antes)/i,
-    entityExtractor: () => ({ question_number: -1 }), // -1 = previous question
+    entityExtractor: () => ({ question_number: -1 }),
   },
   {
     intent: "go_back",
     regex: /(?:la\s+)?(?:pregunta|respuesta)\s+(?:anterior|pasada)\b/i,
+    entityExtractor: () => ({ question_number: -1 }),
+  },
+  {
+    intent: "go_back",
+    regex: /(?:te\s+dije|ya\s+te\s+dije|no\s*,?\s*(?:yo\s+)?(?:dije|te\s+dije)|eso\s+no\s+(?:es|fue)|(?:est[aá]|estuvo)\s+mal|me\s+entendiste\s+mal|no\s+(?:era|es)\s+(?:eso|as[ií])|quise\s+decir)/i,
     entityExtractor: () => ({ question_number: -1 }),
   },
 
