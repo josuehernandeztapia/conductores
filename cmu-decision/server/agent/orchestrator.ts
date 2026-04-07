@@ -729,6 +729,17 @@ async function handleIdle(
     };
   }
 
+  // Check if they mention a specific model (e.g. from catalog CTA)
+  const matchedModel = matchModelFromText(body.toLowerCase());
+  if (matchedModel) {
+    // They came from catalog with a specific model in mind
+    return {
+      response: greeting(ctx.profileName || "") + `\n\n_Vi que te interesa el ${matchedModel.marca} ${matchedModel.modelo} ${matchedModel.anio}. Te doy los detalles despu\u00e9s de conocerte._`,
+      newState: "prospect_name",
+      contextUpdates: { canal, preSelectedModel: matchedModel },
+    };
+  }
+
   // Default: greeting + ask name
   return {
     response: greeting(ctx.profileName || ""),
@@ -920,6 +931,30 @@ async function handleConsumo(
         newState: "prospect_consumo",
         contextUpdates: { consumoLeq: leq, gastoPesosMes: gastoPesos > 0 ? gastoPesos : undefined },
       };
+    }
+
+    // If they came from catalog with a model pre-selected, skip to that model
+    if (ctx.preSelectedModel) {
+      const m = ctx.preSelectedModel;
+      const pv = await getPvForModel(m.marca, m.modelo, m.anio);
+      const modelName = `${m.marca} ${m.modelo} ${m.anio}`;
+      
+      if (ctx.fuelType === "gnv") {
+        return {
+          response: ask_tank(modelName, pv),
+          newState: "prospect_tank",
+          contextUpdates: { consumoLeq: leq, selectedModel: m, selectedPv: pv },
+        };
+      } else {
+        // Gasolina → new kit always
+        const pvFinal = pv + 9400;
+        const corrida = generarCorridaEstimada(`${m.marca} ${m.modelo}`, m.anio, pvFinal, leq);
+        return {
+          response: show_corrida(corrida.resumenWhatsApp, "_(Equipo GNV nuevo)_", firstName),
+          newState: "prospect_corrida",
+          contextUpdates: { consumoLeq: leq, selectedModel: m, selectedPv: pvFinal, kitNuevo: true },
+        };
+      }
     }
 
     return {
