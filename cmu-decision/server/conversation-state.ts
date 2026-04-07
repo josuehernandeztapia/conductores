@@ -70,7 +70,7 @@ export type ConversationSession = {
 
 // In-memory cache (backed by DB)
 const sessions = new Map<string, ConversationSession>();
-const SESSION_TTL = 30 * 60 * 1000; // 30 minutes
+const SESSION_TTL = 0; // Always read from DB (multi-machine Fly.io)
 const MAX_MESSAGES = 20;
 
 function getDb() {

@@ -595,20 +595,7 @@ async function handleIdle(
     };
   }
 
-  // If they ask a question
-  if (nlu.intent === "ask_question") {
-    const answer = await answerQuestion(nlu.entities.question || body);
-    const intro = templates.greeting_prospect(ctx.profileName || "");
-    if (answer) {
-      return {
-        response: `${answer}\n\n${intro}`,
-        newState: "prospect_fuel_type",
-        contextUpdates: { canal },
-      };
-    }
-  }
-
-  // Default: greeting → ask fuel type
+  // Default: always greeting → ask fuel type (first message, never RAG)
   return {
     response: templates.greeting_prospect(ctx.profileName || ""),
     newState: "prospect_fuel_type",
