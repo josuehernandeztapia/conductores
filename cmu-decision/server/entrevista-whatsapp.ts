@@ -131,6 +131,27 @@ export async function processAnswer(
   const nextQuestion = state.currentQuestion + 1;
   
   // Check if we need to confirm extracted values (if they seem off)
+  // ── Validate extracted values against reasonable ranges ──
+  const RANGE_CHECKS: Record<string, { min: number; max: number; label: string }> = {
+    horas_dia: { min: 4, max: 20, label: "horas al día" },
+    dias_semana: { min: 1, max: 7, label: "días a la semana" },
+    servicios_dia: { min: 3, max: 50, label: "servicios al día" },
+    cobro_promedio_servicio: { min: 30, max: 500, label: "cobro por servicio" },
+    ingreso_dia: { min: 200, max: 5000, label: "ingreso diario" },
+    gasto_combustible_dia: { min: 50, max: 1500, label: "gasto de combustible diario" },
+    gastos_mes: { min: 500, max: 15000, label: "gastos mensuales" },
+    otros_creditos_mes: { min: 0, max: 30000, label: "créditos mensuales" },
+  };
+
+  let rangeWarning = "";
+  for (const [field, range] of Object.entries(RANGE_CHECKS)) {
+    const val = extracted[field];
+    if (typeof val === "number" && val > 0 && (val < range.min || val > range.max)) {
+      rangeWarning = `\n\n⚠️ Dijiste *${val}* de ${range.label}. ¿Es correcto? Si me equivoqué, escribe *corregir* o repite tu respuesta.`;
+      break;
+    }
+  }
+
   let confirmationNote = "";
   if (step.id !== "resiliencia" && Object.keys(extracted).length > 0) {
     const NON_MONEY_FIELDS = new Set([

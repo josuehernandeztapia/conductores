@@ -144,27 +144,54 @@ const PATTERNS: Array<{ intent: Intent; regex: RegExp; entityExtractor?: (match:
     regex: /\b(entrevista|empezar\s+entrevista|quiero\s+(?:la\s+)?entrevista|hagamos\s+(?:la\s+)?entrevista|hacemos\s+(?:la\s+)?entrevista|preguntas|empezamos)\b/i,
   },
 
-  // ── Give name (2+ words, no numbers, state-dependent) ──
+  // ── Give name: "me llamo X", "soy Pedro", or just "Pedro García" ──
   {
     intent: "give_name",
-    regex: /^([A-ZÁÉÍÓÚÑa-záéíóúñ]{2,}(?:\s+[A-ZÁÉÍÓÚÑa-záéíóúñ]{2,})+)$/,
+    regex: /^(?:me\s+llamo|soy|mi\s+nombre\s+es|me\s+dicen|mi\s+pap[aá]\s+se\s+llama|se\s+llama)\s+(.+)$/i,
+    entityExtractor: (match) => {
+      const name = match[1].trim().replace(/[.,!?]+$/, '');
+      if (name.length < 2) return {};
+      return { nombre: name };
+    },
+  },
+  {
+    intent: "give_name",
+    regex: /^([A-ZÁÉÍÓÚÑa-záéíóúñ]{2,}(?:\s+[A-ZÁÉÍÓÚÑa-záéíóúñ]{2,})*)$/,
     entityExtractor: (match) => {
       const name = match[1].trim();
-      if (name.split(/\s+/).length < 2 || name.split(/\s+/).length > 5) return {};
-      // Reject common phrases that are NOT names
+      if (name.length < 2 || name.split(/\s+/).length > 6) return {};
       const lower = name.toLowerCase();
+      // Reject common phrases that are NOT names
       const NOT_NAMES = [
         'ya no', 'no quiero', 'te dije', 'te quiero', 'no tengo', 'no puedo',
         'si quiero', 'me interesa', 'no estoy', 'ya tengo', 'quiero enviar',
-        'pero me', 'est\u00e1 bien', 'esta bien', 'no gracias', 'ya no quiero',
-        'ya estuvo', 'como le', 'la verdad', 'ni idea', 'no mames',
-        'que onda', 'la neta', 'simon', 'nel', 'va va',
+        'pero me', 'esta bien', 'no gracias', 'ya estuvo', 'como le',
+        'la verdad', 'ni idea', 'que onda', 'la neta', 'gas natural',
+        'gasolina', 'siguiente', 'entrevista', 'empezar', 'buenos dias',
+        'buenas tardes', 'buenas noches', 'oiga',
       ];
       if (NOT_NAMES.some(phrase => lower.includes(phrase))) return {};
       return { nombre: name };
     },
   },
 
+  // ── Pause / continue later ──
+  {
+    intent: "maybe_later",
+    regex: /\b(mañana\s+(?:sigo|continuo|le\s+sigo)|después\s+(?:sigo|continuo|le\s+sigo)|ya\s+(?:me\s+)?cans[eé]|luego\s+(?:le\s+)?sigo|otro\s+d[ií]a|ahorita\s+no\s+puedo|no\s+(?:puedo|tengo\s+tiempo)\s+ahorita|(?:estoy|ando)\s+ocupad|ya\s+despu[eé]s|descanso\s+y\s+sigo|al\s+rato)\b/i,
+  },
+  // ── Escalate to human ──
+  {
+    intent: "ask_question",
+    regex: /\b((?:puedo|quiero)\s+hablar\s+con\s+(?:alguien|una\s+persona|un\s+asesor)|hay\s+alguien\s+(?:real|humano)|me\s+puede\s+(?:hablar|llamar|atender)\s+(?:alguien|una\s+persona))\b/i,
+    entityExtractor: () => ({ question: "hablar con persona" }),
+  },
+  // ── "No entiendo" ──
+  {
+    intent: "ask_question",
+    regex: /\b(no\s+(?:le\s+)?entiendo|no\s+(?:le\s+)?entend[ií]|(?:es\s+)?muy\s+complicad|est[aá]\s+(?:muy\s+)?(?:complicad|dif[ií]cil|confus)|no\s+s[eé]\s+(?:c[oó]mo|qu[eé])\s+(?:hacer|le\s+hago))\b/i,
+    entityExtractor: () => ({ question: "no entiendo" }),
+  },
   // ── Cancel / quit / don't want to continue ──
   {
     intent: "deny",
@@ -207,7 +234,7 @@ const PATTERNS: Array<{ intent: Intent; regex: RegExp; entityExtractor?: (match:
   // ── Greeting ──
   {
     intent: "greeting",
-    regex: /^[\s]*(hola|buenos?\s+(?:d[ií]as?|tardes?|noches?)|buenas|hey|qu[eé]\s+tal|que\s+tal|oye|buen\s+d[ií]a)[\s!.,]*$/i,
+    regex: /^[\s]*(hola|buenos?\s+(?:d[ií]as?|tardes?|noches?)|buenas|hey|qu[eé]\s+tal|que\s+tal|oye|oiga|buen\s+d[ií]a)[\s!.,;]*(?:\s+.*)?$/i,
   },
 
   // ── Questions (fallback pattern — catches "¿...?" and "qué/cómo/cuándo/por qué..." ──
@@ -285,7 +312,7 @@ function getStatePriority(state: string): Intent[] {
     case "interview_q6":
     case "interview_q7":
     case "interview_q8":
-      return ["go_back"];
+      return ["go_back", "deny", "maybe_later", "skip_doc"];
     default:
       return [];
   }

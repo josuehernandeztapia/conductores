@@ -1620,6 +1620,16 @@ async function handleInterviewTextAnswer(
     };
   }
 
+  // ── Pause/later ──
+  if (nlu.intent === "maybe_later") {
+    const firstName = getFirstName(ctx);
+    return {
+      response: `No hay problema ${firstName}, cuando quieras retomamos. Tu avance queda guardado.\n\nCuando estés listo, solo escríbeme y seguimos donde nos quedamos. 👍`,
+      newState: state,
+      contextUpdates: {},
+    };
+  }
+
   // ── Cancel/quit interview ──
   if (nlu.intent === "deny") {
     const firstName = getFirstName(ctx);

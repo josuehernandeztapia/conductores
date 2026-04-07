@@ -45,6 +45,71 @@ const FAQ: FAQEntry[] = [
   },
   {
     patterns: [
+      /qu[eé]\s+es\s+(?:la\s+)?(?:csf|constancia|situaci[oó]n\s+fiscal)/i,
+      /c[oó]mo\s+(?:saco|consigo|obtengo)\s+(?:la\s+)?(?:csf|constancia)/i,
+    ],
+    answer: "La *CSF* (Constancia de Situación Fiscal) es un documento del SAT que confirma tu RFC y régimen fiscal. La sacas gratis en sat.gob.mx con tu RFC y contraseña, o tu contador te la puede dar. Debe tener máximo 30 días de emitida.",
+  },
+  {
+    patterns: [
+      /qu[eé]\s+es\s+(?:la\s+)?clabe/i,
+      /qu[eé]\s+es\s+una\s+clabe/i,
+      /d[oó]nde\s+(?:encuentro|est[aá]|viene|saco)\s+(?:la\s+)?clabe/i,
+    ],
+    answer: "La *CLABE* es tu número de cuenta interbancaria de 18 dígitos. La encuentras en tu estado de cuenta bancario (la primera página/carátula) o en tu app del banco. NO es el número de tarjeta.",
+  },
+  {
+    patterns: [
+      /qu[eé]\s+es\s+(?:la\s+)?concesi[oó]n/i,
+      /d[oó]nde\s+(?:saco|consigo)\s+(?:la\s+)?concesi[oó]n/i,
+    ],
+    answer: "La *concesión* es el permiso del gobierno estatal que te autoriza a operar como taxi. Es un documento grande con el escudo del estado y tu número de concesión. Si no la tienes, puedes pedirla en la Secretaría de Movilidad de Aguascalientes.",
+  },
+  {
+    patterns: [
+      /qu[eé]\s+es\s+(?:el\s+)?(?:estado\s+de\s+cuenta|estado.*bancario)/i,
+      /qu[eé]\s+(?:parte|p[aá]gina)\s+del\s+estado/i,
+    ],
+    answer: "Necesito la *primera página (carátula)* de tu estado de cuenta bancario. Es donde aparece tu nombre, número de cuenta, CLABE a 18 dígitos, y dirección. Puede ser de cualquier banco. Si usas app bancaria, ahí lo puedes descargar.",
+  },
+  {
+    patterns: [
+      /qu[eé]\s+es\s+(?:la\s+)?(?:carta|membres[ií]a)\s+gremial/i,
+      /d[oó]nde\s+(?:saco|consigo)\s+(?:la\s+)?carta/i,
+    ],
+    answer: "La *Carta de Membresía Gremial* es el documento de tu agrupación de taxis (ACATAXI, CTM, etc.) que confirma que eres miembro activo. Pídela en tu sindicato o agrupación.",
+  },
+  {
+    patterns: [
+      /qu[eé]\s+(?:fotos|foto)\s+(?:del|de la|de mi)?\s*(?:taxi|unidad|carro)/i,
+      /c[oó]mo\s+(?:tomo|le\s+tomo)\s+(?:las\s+)?fotos/i,
+    ],
+    answer: "Necesito *4 fotos de tu taxi*: frente, trasera, lateral izquierdo y lateral derecho. Tómalas de día, que se vea bien la unidad completa. Si se ve la placa, mejor.",
+  },
+  {
+    patterns: [
+      /qu[eé]\s+es\s+(?:la\s+)?selfie/i,
+      /c[oó]mo\s+(?:me\s+)?tomo\s+la\s+selfie/i,
+    ],
+    answer: "Necesito una *selfie tuya sosteniendo tu INE al lado de tu cara*. Con buena luz, que se vea tu rostro y los datos de la INE legibles. Es para verificar que tú eres el titular.",
+  },
+  {
+    patterns: [
+      /(?:puedo|quiero)\s+hablar\s+con\s+(?:alguien|persona|asesor|humano)/i,
+      /hay\s+(?:alguien|una\s+persona)\s+(?:real|que me atienda)/i,
+      /(?:at[eé]nder|hablar).*(?:persona|humano|asesor)/i,
+    ],
+    answer: "Claro, tu promotora te puede atender personalmente. Le aviso que necesitas apoyo. Mientras tanto, si tienes documentos listos, mándamelos aquí — yo los proceso al instante.",
+  },
+  {
+    patterns: [
+      /cu[aá]ndo\s+(?:me\s+)?(?:dan|entregan|tengo)\s+(?:el\s+)?(?:carro|taxi|veh[ií]culo|respuesta)/i,
+      /cu[aá]nto\s+(?:se\s+)?tarda/i,
+    ],
+    answer: "Una vez que tengamos tu expediente completo (14 docs + entrevista), lo revisamos en 24-48 horas y te damos respuesta. Si todo sale bien, la entrega del vehículo es en unas 2-3 semanas.",
+  },
+  {
+    patterns: [
       /adelant(?:ar|o)\s*pagos?/i,
       /pago\s*anticipad/i,
       /pagar\s*(?:m[aá]s|antes|adelantad)/i,
