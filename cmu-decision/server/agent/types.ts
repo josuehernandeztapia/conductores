@@ -32,6 +32,8 @@ export type Intent =
   | "ask_progress"
   | "want_interview"
   | "send_doc"         // detected by media presence, not text
+  // Interview navigation
+  | "go_back"          // entities: { question_number: number }
   // Questions (out-of-flow)
   | "ask_question"     // entities: { question: string }
   // Greeting
@@ -123,6 +125,7 @@ export interface AgentContext {
 
   // Document capture
   docsCollected?: string[];     // keys of docs already captured
+  skippedDocs?: string[];       // keys of docs skipped for now
   currentDocIndex?: number;     // index into DOC_ORDER
   existingData?: Record<string, any>; // accumulated OCR data for cross-check
 

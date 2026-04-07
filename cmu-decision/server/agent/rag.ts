@@ -26,6 +26,25 @@ interface FAQEntry {
 const FAQ: FAQEntry[] = [
   {
     patterns: [
+      /cu[aá]les\s+(?:son\s+)?(?:los\s+)?(?:14\s+)?document/i,
+      /qu[eé]\s+document/i,
+      /lista\s+(?:de\s+)?document/i,
+      /14\s+document/i,
+      /qu[eé]\s+(?:me\s+)?(?:van\s+a\s+)?pedir/i,
+      /qu[eé]\s+necesit/i,
+    ],
+    answer: "Los 14 documentos son:\n\n1. INE frente\n2. INE reverso\n3. Tarjeta de circulación\n4. Factura del vehículo\n5. Constancia de Situación Fiscal (CSF)\n6. Comprobante de domicilio\n7. Concesión de taxi\n8. Estado de cuenta bancario\n9. Tickets/historial de GNV (o gasolina)\n10. Carta de membresía gremial\n11. Selfie con tu INE\n12. INE del operador (si tienes chofer)\n13. Licencia del operador\n14. Fotos de tu unidad (4 fotos)\n\nTe voy pidiendo uno por uno. Si no tienes alguno, escribe *siguiente* para saltarlo.",
+  },
+  {
+    patterns: [
+      /(?:puedo|quiero)\s+(?:enviar|mandar)\s+(?:la\s+)?(?:factura|doc|foto)/i,
+      /te\s+(?:puedo|quiero)\s+(?:enviar|mandar)/i,
+      /(?:mand|envi)\s*(?:ar)?(?:te)?\s+(?:la\s+)?(?:factura|doc|foto)/i,
+    ],
+    answer: "Claro, mándamela aquí mismo por foto. Solo tómale una foto al documento y envíala.",
+  },
+  {
+    patterns: [
       /adelant(?:ar|o)\s*pagos?/i,
       /pago\s*anticipad/i,
       /pagar\s*(?:m[aá]s|antes|adelantad)/i,
@@ -204,10 +223,10 @@ function matchFAQ(question: string): string | null {
 
 interface BusinessRule {
   id: number;
-  categoria: string;
-  titulo: string;
-  contenido: string;
-  keywords: string[];
+  category: string;
+  key: string;
+  value: string;
+  description: string | null;
 }
 
 async function searchBusinessRules(question: string): Promise<BusinessRule[]> {
@@ -236,14 +255,13 @@ async function searchBusinessRules(question: string): Promise<BusinessRule[]> {
     // Search by keyword overlap
     const searchTerm = words.join(" | ");
     const rows = await sql`
-      SELECT id, categoria, titulo, contenido, keywords
+      SELECT id, category, key, value, description
       FROM business_rules
-      WHERE activo = true
-        AND (
-          to_tsvector('spanish', contenido) @@ to_tsquery('spanish', ${searchTerm})
-          OR to_tsvector('spanish', titulo) @@ to_tsquery('spanish', ${searchTerm})
-        )
-      ORDER BY ts_rank(to_tsvector('spanish', contenido), to_tsquery('spanish', ${searchTerm})) DESC
+      WHERE
+        to_tsvector('spanish', value) @@ to_tsquery('spanish', ${searchTerm})
+        OR to_tsvector('spanish', COALESCE(description, '')) @@ to_tsquery('spanish', ${searchTerm})
+        OR to_tsvector('spanish', key) @@ to_tsquery('spanish', ${searchTerm})
+      ORDER BY ts_rank(to_tsvector('spanish', value), to_tsquery('spanish', ${searchTerm})) DESC
       LIMIT 3
     `;
 
@@ -267,7 +285,7 @@ async function answerWithLLM(question: string, rules: BusinessRule[]): Promise<s
     } catch {
       // Fallback to just the DB rules
       knowledgeBase = rules.length > 0
-        ? rules.map(r => `[${r.categoria}] ${r.titulo}: ${r.contenido}`).join("\n\n")
+        ? rules.map(r => `[${r.category}] ${r.key}: ${r.value}`).join("\n\n")
         : "";
     }
 

@@ -129,7 +129,11 @@ const PATTERNS: Array<{ intent: Intent; regex: RegExp; entityExtractor?: (match:
   // ── Doc skip / progress / interview intent ──
   {
     intent: "skip_doc",
-    regex: /\b(no\s+(?:la|lo|las|los)?\s*tengo|no\s+cuento|no\s+(?:lo\s+)?encuentro|ahorita\s+no|no\s+(?:la|lo)\s+tengo\s+a\s+la\s+mano|despu[eé]s\s+(?:te|lo|la)\s+(?:mando|env[ií]o)|lo\s+busco|l[oa]\s+mando\s+(?:luego|despu[eé]s)|saltar|skip|brincar|no\s+tengo\s+eso|siguiente|no\s+(?:la|lo)\s+tengo)\b/i,
+    regex: /\b(soy\s+(?:yo\s+)?(?:el\s+)?(?:operador|chofer|conductor)|yo\s+(?:mismo\s+)?(?:manejo|opero|conduzco)|no\s+tengo\s+(?:operador|chofer))\b/i,
+  },
+  {
+    intent: "skip_doc",
+    regex: /\b(no\s+(?:la|lo|las|los)?\s*tengo|no\s+cuento|no\s+(?:lo\s+)?encuentro|ahorita\s+no|no\s+(?:la|lo)\s+tengo\s+(?:a\s+la\s+mano|conmigo|aqu[ií])|no\s+est[aá]\s+aqu[ií]|no\s+(?:la|lo)\s+traigo|despu[eé]s\s+(?:te|lo|la)\s+(?:mando|env[ií]o)|lo\s+busco|l[oa]\s+mando\s+(?:luego|despu[eé]s)|saltar|skip|brincar|no\s+tengo\s+eso|siguie?nte|sigiente|siguente|no\s+(?:la|lo)\s+tengo|no\s+(?:la|lo)\s+tengo\s+conmigo|no\s+(?:la|lo)\s+traigo\s+conmigo|no\s+(?:la|lo)\s+tengo\s+aqu[ií]|ahorita\s+no\s+(?:la|lo)\s+tengo|no\s+lo\s+tengo\s+(?:a\s+la|cer[ck]a))\b/i,
   },
   {
     intent: "ask_progress",
@@ -146,10 +150,52 @@ const PATTERNS: Array<{ intent: Intent; regex: RegExp; entityExtractor?: (match:
     regex: /^([A-ZÁÉÍÓÚÑa-záéíóúñ]{2,}(?:\s+[A-ZÁÉÍÓÚÑa-záéíóúñ]{2,})+)$/,
     entityExtractor: (match) => {
       const name = match[1].trim();
-      // Must be 2+ words, no single-word names
-      if (name.split(/\s+/).length >= 2) return { nombre: name };
-      return {};
+      if (name.split(/\s+/).length < 2 || name.split(/\s+/).length > 5) return {};
+      // Reject common phrases that are NOT names
+      const lower = name.toLowerCase();
+      const NOT_NAMES = [
+        'ya no', 'no quiero', 'te dije', 'te quiero', 'no tengo', 'no puedo',
+        'si quiero', 'me interesa', 'no estoy', 'ya tengo', 'quiero enviar',
+        'pero me', 'est\u00e1 bien', 'esta bien', 'no gracias', 'ya no quiero',
+        'ya estuvo', 'como le', 'la verdad', 'ni idea', 'no mames',
+        'que onda', 'la neta', 'simon', 'nel', 'va va',
+      ];
+      if (NOT_NAMES.some(phrase => lower.includes(phrase))) return {};
+      return { nombre: name };
     },
+  },
+
+  // ── Cancel / quit / don't want to continue ──
+  {
+    intent: "deny",
+    regex: /\b(ya\s+no\s+quiero|no\s+quiero\s+(?:seguir|continuar)|quiero\s+(?:salir|parar|detener)|basta|par[ae]|d[ée]jalo|cancel[ae]r?|no\s+(?:me\s+)?interesa|olv[ií]dalo|ya\s+no)\b/i,
+  },
+  // ── Don't know / skip answer ──
+  {
+    intent: "unknown",
+    regex: /^\s*(no\s*s[eé]|nos[eé]|ni\s*idea|no\s+tengo\s+idea|no\s+s[eé]\s+(?:cu[aá]nto|qu[eé]|c[oó]mo)|quien\s+sabe|pas[ao])\s*$/i,
+  },
+
+  // ── Interview navigation: go back / correct previous question ──
+  {
+    intent: "go_back",
+    regex: /(?:regres[ae]|volver|vuelv[ea]|corregir|cambiar|repetir)\s+(?:a\s+)?(?:la\s+)?(?:pregunta\s*)?#?\s*(\d)/i,
+    entityExtractor: (match) => ({ question_number: parseInt(match[1], 10) }),
+  },
+  {
+    intent: "go_back",
+    regex: /(?:quiero\s+)?(?:corregir|cambiar|repetir)\s+(?:la\s+)?(?:respuesta|pregunta)\s+(?:anterior|pasada|de\s+antes)/i,
+    entityExtractor: () => ({ question_number: -1 }),
+  },
+  {
+    intent: "go_back",
+    regex: /(?:la\s+)?(?:pregunta|respuesta)\s+(?:anterior|pasada)\b/i,
+    entityExtractor: () => ({ question_number: -1 }),
+  },
+  {
+    intent: "go_back",
+    regex: /(?:te\s+dije|ya\s+te\s+dije|no\s*,?\s*(?:yo\s+)?(?:dije|te\s+dije)|eso\s+no\s+(?:es|fue)|(?:est[aá]|estuvo)\s+mal|me\s+entendiste\s+mal|no\s+(?:era|es)\s+(?:eso|as[ií])|quise\s+decir)/i,
+    entityExtractor: () => ({ question_number: -1 }),
   },
 
   // ── Want to register ──
@@ -231,6 +277,15 @@ function getStatePriority(state: string): Intent[] {
       return ["skip_doc", "ask_progress", "want_interview"];
     case "interview_ready":
       return ["affirm", "want_interview"];
+    case "interview_q1":
+    case "interview_q2":
+    case "interview_q3":
+    case "interview_q4":
+    case "interview_q5":
+    case "interview_q6":
+    case "interview_q7":
+    case "interview_q8":
+      return ["go_back"];
     default:
       return [];
   }
@@ -242,7 +297,7 @@ const VALID_INTENTS: Intent[] = [
   "fuel_gnv", "fuel_gasolina", "consumo_number", "gasto_number",
   "select_model", "see_all_models", "reuse_tank", "new_tank",
   "affirm", "deny", "maybe_later", "give_name", "want_register",
-  "skip_doc", "ask_progress", "want_interview", "ask_question",
+  "skip_doc", "ask_progress", "want_interview", "go_back", "ask_question",
   "greeting", "unknown",
 ];
 
@@ -265,8 +320,9 @@ Rules:
 - "ask_question" = user is asking a question about the program. Extract as {"question": "their question"}
 - "affirm" = yes, ok, si, dale, etc.
 - "deny" = no, nope, etc.
-- "skip_doc" = user says they don't have a document right now
+- "skip_doc" = user says they don't have a document right now, it's not with them, not here, will send later. Examples: "no lo tengo", "no está aquí conmigo", "después te lo mando", "no la traigo", "siguiente"
 - "want_interview" = user wants to start or continue the interview
+- "go_back" = user wants to go back to a previous interview question or correct an answer. Extract as {"question_number": N} (1-8) or {"question_number": -1} for previous question
 - "unknown" = you cannot determine the intent
 
 Respond ONLY with valid JSON: {"intent": "...", "entities": {...}, "confidence": 0.N}`;

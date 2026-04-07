@@ -181,19 +181,33 @@ export function already_complete(): string {
 
 export const DOC_EXPLANATIONS: Record<string, string> = {
   ine_frente: "Tu *INE de frente* — el lado donde está tu foto y nombre. Una foto derecha donde se lean bien los datos.",
-  ine_reverso: "Ahora el *reverso de tu INE* — donde está el código de barras y tu dirección.",
+  ine_reverso: "Ahora el *reverso de tu INE* — el lado sin foto, donde está el código de barras (MRZ) y el QR.",
   tarjeta_circulacion: "Tu *tarjeta de circulación* — la de tu unidad actual.",
   factura_vehiculo: "La *factura de tu vehículo actual* — si no la tienes a la mano, escribe *siguiente* y la mandas después.",
   csf: "Tu *Constancia de Situación Fiscal* (CSF) — la sacas en el portal del SAT o tu contador te la da. Debe tener máximo 30 días.",
-  comprobante_domicilio: "Un *comprobante de domicilio* reciente — recibo de luz, agua, teléfono o estado de cuenta bancario. Máximo 3 meses de antigüedad.",
+  comprobante_domicilio: "Un *comprobante de domicilio* reciente — recibo de luz (CFE), agua, teléfono o banco. Máximo 3 meses. Puede estar a nombre de tu esposa o familiar, lo importante es que la *dirección coincida con tu INE*.",
   concesion: "Tu *concesión de taxi vigente* — el documento que te autoriza a operar como taxi en Aguascalientes.",
-  estado_cuenta: "Un *estado de cuenta bancario* — la carátula donde se vea tu nombre y tu CLABE a 18 dígitos.",
-  tickets_gnv: "Tus *tickets de carga de GNV* — necesito 3 o 4 tickets recientes de cuando cargas gas en la estación NATGAS. Si los tienes en el tablero del carro, con una foto está bien.",
+  estado_cuenta: "Tu *estado de cuenta bancario (carátula)* — donde se vea tu nombre, CLABE a 18 dígitos, y dirección. La dirección debe coincidir con tu INE.",
+  historial_gnv: "Tus *tickets de carga de GNV* — necesito 3 o 4 tickets recientes de cuando cargas gas en la estación NATGAS. Si los tienes en el tablero del carro, con una foto está bien.",
   tickets_gasolina: "Tus *tickets de gasolina* — 3 o 4 recientes. Pueden ser de Magna o Premium.",
   carta_membresia: "Tu *Carta de Membresía Gremial* — la carta de tu agrupación de taxis (ACATAXI, CTM, etc.) que confirma que eres miembro activo.",
-  selfie_ine: "Una *selfie tuya sosteniendo tu INE* — tómala con buena luz, que se vea tu cara y la INE legible.",
-  ine_operador: "La *INE del operador* — si alguien más maneja tu taxi, necesito la credencial de esa persona.",
-  licencia_operador: "La *licencia de conducir del operador* — vigente.",
+  selfie_biometrico: "Una *selfie tuya sosteniendo tu INE* — tómala con buena luz, que se vea tu cara y la INE legible.",
+  ine_operador: "La *INE del operador* — si alguien más maneja tu taxi, necesito la credencial de esa persona. Si no tienes operador, escribe *siguiente*.",
+  licencia_conducir: "La *licencia de conducir del operador* — vigente. Si no tienes operador, escribe *siguiente*.",
+  fotos_unidad: "*Fotos de tu unidad* — necesito 4 fotos: frente, trasera, lateral izquierdo y lateral derecho. De preferencia que se vea la placa.",
+};
+
+export const DOC_FAQ: Record<string, Record<string, string>> = {
+  historial_gnv: {
+    'cuantos': 'Mándame 3 o 4 tickets recientes de carga de GNV. Los del último mes están bien.',
+    'donde': 'Los tickets de NATGAS o la estación donde cargas gas. Si los tienes en el tablero del carro, con foto está bien.',
+  },
+  tickets_gasolina: {
+    'cuantos': 'Mándame 3 o 4 tickets recientes de gasolina.',
+  },
+  fotos_unidad: {
+    'cuantas': 'Necesito 4 fotos: frente, trasera, lateral izquierdo y lateral derecho.',
+  },
 };
 
 export function doc_explanation(docKey: string): string {

@@ -237,15 +237,16 @@ function preNluOverride(body: string, state: string): NLUResult | null {
       state === "docs_capture" ||
       state === "docs_pending" ||
       state === "interview_complete" ||
-      state === "prospect_confirm"
+      state === "prospect_confirm" ||
+      state === "completed"
     ) {
       return { intent: "ask_progress", entities: {}, confidence: 1.0 };
     }
   }
 
   // ── "siguiente" in docs states → skip_doc ──
-  if (/^(siguiente|skip|saltar|brincar)$/i.test(trimmed)) {
-    if (state === "docs_capture" || state === "docs_pending") {
+  if (/^(siguie?nte|siguiente|sigiente|siguente|skip|saltar|brincar)$/i.test(trimmed)) {
+    if (state === "docs_capture" || state === "docs_pending" || state === "completed") {
       return { intent: "skip_doc", entities: {}, confidence: 1.0 };
     }
   }
@@ -354,6 +355,21 @@ async function handleTextMessage(
   const nlu = override || await extractIntent(body, state);
   console.log(`[Orchestrator] NLU: intent=${nlu.intent} confidence=${nlu.confidence} entities=${JSON.stringify(nlu.entities)} override=${!!override}`);
 
+  // ── CRITICAL: Greeting/fresh-start detection in advanced state → reset to idle ──
+  // A message that STARTS with "hola"/"buenos días"/etc while deep in the flow means fresh start
+  const ADVANCED_STATES: string[] = [
+    "prospect_corrida", "prospect_confirm",
+    "docs_capture", "docs_pending",
+    "interview_ready", "interview_q1", "interview_q2", "interview_q3",
+    "interview_q4", "interview_q5", "interview_q6", "interview_q7", "interview_q8",
+    "interview_complete", "completed",
+  ];
+  const startsWithGreeting = /^\s*(hola|buenos?\s+(?:d[ií]as?|tardes?|noches?)|buenas|hey|qu[eé]\s+tal|que\s+tal|oye|buen\s+d[ií]a)/i.test(body);
+  if ((nlu.intent === "greeting" || startsWithGreeting) && ADVANCED_STATES.includes(state)) {
+    console.log(`[Orchestrator] Greeting/fresh-start in advanced state ${state} → reset to idle`);
+    return handleIdle(phone, body, { intent: "greeting", entities: {}, confidence: 1.0 }, { profileName: ctx.profileName }, storage);
+  }
+
   // ── Check for off-flow questions (any state except idle/prospect_name) ──
   if (nlu.intent === "ask_question" && state !== "idle" && state !== "prospect_name") {
     const answer = await answerQuestion(nlu.entities.question || body);
@@ -410,11 +426,7 @@ async function handleTextMessage(
       return handleInterviewCompleteText(phone, body, nlu, ctx, state, storage);
 
     case "completed":
-      return {
-        response: already_complete(),
-        newState: "completed",
-        contextUpdates: {},
-      };
+      return handleCompletedText(phone, body, nlu, ctx, storage);
 
     default:
       return handleIdle(phone, body, nlu, ctx, storage);
@@ -480,8 +492,8 @@ async function handleImageMessage(
   storage: any,
 ): Promise<{ response: string; newState: ProspectState; contextUpdates: Partial<AgentContext> }> {
 
-  // ── Process images during docs_capture, docs_pending, or interview_complete ──
-  if (state === "docs_capture" || state === "docs_pending" || state === "interview_complete") {
+  // ── Process images during docs_capture, docs_pending, interview_complete, or completed (with pending docs) ──
+  if (state === "docs_capture" || state === "docs_pending" || state === "interview_complete" || state === "completed") {
     return processDocImage(phone, mediaUrl, mediaType, state, ctx, body, storage);
   }
 
@@ -590,6 +602,59 @@ async function processDocImage(
     [`_${detectedKey}_data`]: visionResult.extracted_data,
   };
 
+  console.log(`[Orchestrator] Vision extracted_data:`, JSON.stringify(visionResult.extracted_data).slice(0, 300));
+
+  const contextUp: Partial<AgentContext> = {
+    docsCollected: newCollected,
+    existingData: newExistingData,
+    currentDocIndex: (ctx.currentDocIndex || 0) + 1,
+  };
+
+  // ── CRITICAL: Cross-check INE nombre vs prospect nombre ──
+  if (detectedKey === 'ine_frente' && visionResult.extracted_data) {
+    const ineNombre = (visionResult.extracted_data.nombre || '').toUpperCase().trim();
+    const prospectNombre = (ctx.nombre || '').toUpperCase().trim();
+    if (ineNombre && prospectNombre) {
+      // Compare first word (apellido or nombre) for basic match
+      const ineWords = ineNombre.split(/\s+/);
+      const prospectWords = prospectNombre.split(/\s+/);
+      const anyMatch = prospectWords.some((w: string) => w.length > 2 && ineWords.includes(w));
+      if (!anyMatch) {
+        // Name on INE doesn't match prospect's stated name AT ALL
+        if (!visionResult.cross_check_flags.includes('nombre_prospecto_mismatch')) {
+          visionResult.cross_check_flags.push('nombre_prospecto_mismatch');
+        }
+      }
+    }
+  }
+
+  // ── INE frente: update prospect name from official document ──
+  if (detectedKey === 'ine_frente' && visionResult.extracted_data) {
+    const ineNombre = visionResult.extracted_data.nombre || visionResult.extracted_data.nombre_completo;
+    if (ineNombre && ineNombre.trim()) {
+      const oldName = ctx.nombre || '';
+      const newName = ineNombre.trim();
+      contextUp.nombre = newName;
+
+      if (ctx.folio) {
+        try {
+          const sql = getSQL();
+          await sql`UPDATE originations SET nombre = ${newName} WHERE folio = ${ctx.folio}`;
+        } catch (e: any) {
+          console.error('[Orchestrator] Failed to update folio name:', e.message);
+        }
+      }
+
+      if (oldName && oldName.toUpperCase() !== newName.toUpperCase()) {
+        try {
+          await notifyTeam(`⚠️ Nombre cambiado: "${oldName}" → "${newName}" (INE) | Folio: ${ctx.folio || '?'}`);
+        } catch (e: any) {
+          console.error('[Orchestrator] notifyTeam failed:', e.message);
+        }
+      }
+    }
+  }
+
   // Save document to DB
   if (ctx.originationId) {
     await saveDocument(
@@ -609,17 +674,26 @@ async function processDocImage(
     console.error(`[Orchestrator] updateProspectDocs failed:`, error.message);
   }
 
-  const contextUp: Partial<AgentContext> = {
-    docsCollected: newCollected,
-    existingData: newExistingData,
-    currentDocIndex: (ctx.currentDocIndex || 0) + 1,
-  };
-
   // Check next doc after this one
-  const nextDocAfter = getNextExpectedDoc(newCollected);
+  const nextDocAfter = getNextExpectedDoc([...newCollected, ...(ctx.skippedDocs || [])]);
 
   if (!nextDocAfter) {
-    // All docs complete!
+    const actualPending = TOTAL_DOCS - newCollected.length;
+
+    if (actualPending > 0) {
+      // Remaining docs were all skipped — re-present them
+      const firstPending = getNextExpectedDoc(newCollected); // without skipped
+      if (firstPending) {
+        contextUp.skippedDocs = [];
+        return {
+          response: `*${detectedLabel}* recibido ✓ (${newCollected.length}/${TOTAL_DOCS})\n\n${firstName}, te faltan *${actualPending} documentos* por capturar. Los que saltaste los puedes mandar ahora.\n\nMándame tu *${firstPending.label}* 📷`,
+          newState: "docs_pending" as ProspectState,
+          contextUpdates: contextUp,
+        };
+      }
+    }
+
+    // All docs truly complete!
     try {
       await notifyTeam(`Documentos completos: ${ctx.folio || "?"} — ${ctx.nombre || "?"}`);
     } catch (e: any) {
@@ -645,10 +719,14 @@ async function processDocImage(
     };
   }
 
-  // Build response with extracted data summary
+  // Build response with extracted data summary — show ALL non-null fields
   const extractedSummary = Object.entries(visionResult.extracted_data || {})
-    .filter(([k, v]) => v && !k.startsWith('_') && ['nombre', 'curp', 'direccion', 'vigencia', 'clabe', 'rfc'].includes(k))
-    .map(([k, v]) => `${k}: ${v}`)
+    .filter(([k, v]) => v !== null && v !== undefined && v !== '' && v !== 'null' && !k.startsWith('_'))
+    .map(([k, v]) => {
+      const val = String(v);
+      // Truncate very long values
+      return `${k}: ${val.length > 40 ? val.slice(0, 40) + '...' : val}`;
+    })
     .join(' | ');
   const dataSummaryLine = extractedSummary ? `\n_Datos: ${extractedSummary}_` : '';
 
@@ -663,16 +741,56 @@ async function processDocImage(
     responseText = `*${detectedLabel}* recibido \u2713 (${newCollected.length}/${TOTAL_DOCS})${dataSummaryLine}\n\n${nextDocExplanation}`;
   }
 
-  // Cross-check warnings (human-readable)
+  // Cross-check: REJECTION flags vs WARNING flags
   if (visionResult.cross_check_flags.length > 0) {
     const flags = visionResult.cross_check_flags;
+
+    // ── REJECTION flags → document NOT accepted ──
+    const REJECTION_FLAGS: Record<string, string> = {
+      'tipo_no_taxi': 'Esta concesi\u00f3n NO es de taxi. Solo aceptamos concesiones de *taxi*. Si tienes una concesi\u00f3n de taxi, m\u00e1ndala.',
+      'no_es_taxi': 'Esta tarjeta de circulaci\u00f3n no es de servicio p\u00fablico/taxi. Necesitamos la tarjeta del *taxi*, no de un veh\u00edculo particular.',
+      'municipio_no_ags': 'Esta concesi\u00f3n no es de Aguascalientes. Solo operamos en *Aguascalientes*.',
+    };
+
+    for (const [flagKey, rejectionMsg] of Object.entries(REJECTION_FLAGS)) {
+      if (flags.includes(flagKey)) {
+        // REJECT: remove from collected, don't save
+        const rejectedIdx = newCollected.indexOf(detectedKey);
+        if (rejectedIdx !== -1) newCollected.splice(rejectedIdx, 1);
+        return {
+          response: `\u274c ${rejectionMsg}`,
+          newState: state as ProspectState,
+          contextUpdates: { docsCollected: newCollected },
+        };
+      }
+    }
+
+    // ── WARNING flags → accepted but flagged ──
     const warnings: string[] = [];
-    if (flags.includes('nombre_mismatch')) warnings.push(`El nombre en este documento no coincide con tu INE. \u00bfEs tuyo?`);
-    if (flags.includes('expired') || flags.includes('vigencia_vencida')) warnings.push(`Este documento parece estar vencido.`);
-    if (flags.includes('curp_mismatch')) warnings.push(`La CURP no coincide con la de tu INE.`);
-    if (flags.includes('address_mismatch')) warnings.push(`La direcci\u00f3n no coincide con la de tu INE.`);
-    if (warnings.length === 0) warnings.push(flags.join(', '));
-    responseText = `\u26a0\ufe0f ${warnings.join(' ')}\n\n${responseText}`;
+    if (flags.includes('nombre_prospecto_mismatch')) warnings.push('El nombre en tu INE no coincide con el nombre que me diste. \u00bfLa INE es tuya?');
+    if (flags.includes('nombre_mismatch')) warnings.push('El nombre en este documento no coincide con tu INE. \u00bfEs tuyo?');
+    if (flags.includes('expired') || flags.includes('vigencia_vencida') || flags.includes('ine_vencida')) warnings.push('Este documento parece estar vencido.');
+    if (flags.includes('curp_mismatch')) warnings.push('La CURP no coincide con la de tu INE.');
+    if (flags.includes('domicilio_mismatch')) warnings.push('La direcci\u00f3n no coincide con la de tu INE. Necesitamos que el domicilio sea el mismo en INE, comprobante y estado de cuenta.');
+    if (flags.includes('address_mismatch')) warnings.push('La direcci\u00f3n no coincide con la de tu INE.');
+    if (flags.includes('domicilio_vencido')) warnings.push('Este comprobante tiene m\u00e1s de 3 meses. Necesitamos uno m\u00e1s reciente.');
+    if (flags.includes('csf_vencida')) warnings.push('Tu CSF tiene m\u00e1s de 30 d\u00edas. Saca una nueva en el portal del SAT.');
+    if (flags.includes('clabe_invalid')) warnings.push('La CLABE no tiene 18 d\u00edgitos. Verifica tu estado de cuenta.');
+    if (flags.includes('niv_mismatch')) warnings.push('El NIV/n\u00famero de serie no coincide con tu tarjeta de circulaci\u00f3n.');
+    if (flags.includes('placa_mismatch')) warnings.push('La placa no coincide con tu tarjeta de circulaci\u00f3n.');
+    if (flags.includes('ine_operador_vencida')) warnings.push('La INE del operador est\u00e1 vencida.');
+    if (flags.includes('licencia_vencida')) warnings.push('La licencia de conducir est\u00e1 vencida.');
+    if (flags.includes('rostro_no_coincide')) warnings.push('El rostro en la selfie no parece coincidir con la foto de tu INE.');
+    if (flags.includes('consumo_bajo_gnv')) warnings.push('Tu consumo de GNV parece bajo (< 300 LEQ/mes).');
+    if (flags.includes('gasto_bajo_gasolina')) warnings.push('Tu gasto de gasolina parece bajo (< $6,000/mes).');
+    // Catch any unhandled flags
+    const handledFlags = ['nombre_prospecto_mismatch','nombre_mismatch','expired','vigencia_vencida','ine_vencida','curp_mismatch','domicilio_mismatch','address_mismatch','domicilio_vencido','csf_vencida','clabe_invalid','niv_mismatch','placa_mismatch','ine_operador_vencida','licencia_vencida','rostro_no_coincide','consumo_bajo_gnv','gasto_bajo_gasolina','tipo_no_taxi','no_es_taxi','municipio_no_ags'];
+    const unhandled = flags.filter((f: string) => !handledFlags.includes(f));
+    if (unhandled.length > 0 && warnings.length === 0) warnings.push(unhandled.join(', '));
+
+    if (warnings.length > 0) {
+      responseText = `\u26a0\ufe0f ${warnings.join('\n\u26a0\ufe0f ')}\n\n${responseText}`;
+    }
   }
 
   // Stay in same state (docs_capture, docs_pending, or interview_complete)
@@ -1356,8 +1474,22 @@ async function handleDocsText(
     }
   }
 
+  // ── Check doc-specific FAQ ──
+  const { DOC_FAQ } = await import('./templates');
+  const nextDocForFaq = getNextExpectedDoc([...collectedDocs, ...(ctx.skippedDocs || [])]);
+  const currentDocKey = nextDocForFaq?.key || '';
+  const docFaq = DOC_FAQ[currentDocKey];
+  if (docFaq) {
+    const lower = body.toLowerCase();
+    for (const [keyword, answer] of Object.entries(docFaq)) {
+      if (lower.includes(keyword)) {
+        return { response: answer + `\n\nCuando los tengas, mándamelos 📷`, newState: state, contextUpdates: {} };
+      }
+    }
+  }
+
   // ── Default: remind what doc we're waiting for ──
-  const nextDoc = getNextExpectedDoc([...collectedDocs, ...(ctx.skippedDocs || [])]);
+  const nextDoc = nextDocForFaq;
   if (nextDoc) {
     return {
       response: `Mándame tu *${nextDoc.label}* 📷\n\n_Escribe "siguiente" para saltar, "estado" para ver tu avance, o "entrevista" para hacer las preguntas._`,
@@ -1452,8 +1584,78 @@ async function handleInterviewTextAnswer(
     return { response: fallback_state_error(), newState: state, contextUpdates: {} };
   }
 
-  // Handle questions during interview (don't break flow)
+  // Handle questions and navigation during interview (don't break flow)
   const nlu = await extractIntent(body, state);
+
+  // ── Go back to previous question ──
+  if (nlu.intent === "go_back") {
+    let targetQ = nlu.entities.question_number;
+    if (targetQ === -1) {
+      // Go to previous question (currentQuestion is 0-indexed)
+      targetQ = interviewState.currentQuestion - 1;
+    } else {
+      // Convert from 1-indexed to 0-indexed
+      targetQ = targetQ - 1;
+    }
+    // Validate range: can only go back to questions already answered
+    if (targetQ >= 0 && targetQ < interviewState.currentQuestion) {
+      const updatedInterviewState: InterviewState = {
+        ...interviewState,
+        currentQuestion: targetQ,
+      };
+      const qText = getCurrentQuestion(updatedInterviewState);
+      const targetState = `interview_q${targetQ + 1}` as ProspectState;
+      return {
+        response: `Ok, regresamos a la pregunta ${targetQ + 1}. Tu respuesta anterior se reemplazar\u00e1.\n\n${qText}`,
+        newState: targetState,
+        contextUpdates: { interviewState: updatedInterviewState },
+      };
+    }
+    // Invalid target — repeat current question
+    const q = getCurrentQuestion(interviewState);
+    return {
+      response: `No puedo regresar a esa pregunta. Estamos en:\n\n${q}`,
+      newState: state,
+      contextUpdates: {},
+    };
+  }
+
+  // ── Cancel/quit interview ──
+  if (nlu.intent === "deny") {
+    const firstName = getFirstName(ctx);
+    const collectedDocs = ctx.docsCollected || [];
+    const pendingCount = TOTAL_DOCS - collectedDocs.length;
+    if (pendingCount > 0) {
+      const nextDoc = getNextExpectedDoc(collectedDocs);
+      return {
+        response: `Ok ${firstName}, dejamos la entrevista por ahora. La puedes retomar despu\u00e9s.\n\nTe faltan *${pendingCount} documentos*. Si quieres seguir con los docs, m\u00e1ndame tu *${nextDoc?.label || 'documento'}* \ud83d\udcf7\n\nEscribe *entrevista* cuando quieras retomar las preguntas.`,
+        newState: "docs_pending" as ProspectState,
+        contextUpdates: { skippedDocs: [] },
+      };
+    }
+    return {
+      response: `Ok ${firstName}, dejamos la entrevista. Escribe *entrevista* cuando quieras retomarla.`,
+      newState: "interview_ready" as ProspectState,
+      contextUpdates: {},
+    };
+  }
+
+  // ── Skip question ("siguiente" in interview context) ──
+  if (nlu.intent === "skip_doc" || /^\s*(siguie?nte|skip|saltar|paso|siguiente)\s*$/i.test(body.trim())) {
+    return processInterviewStep(phone, "no sabe", 0, interviewState, ctx, storage);
+  }
+
+  // ── "No sé" / don't know ──
+  const lowerBody = body.toLowerCase().trim();
+  if (/^(no\s*s[eé]|nos[eé]|ni\s*idea|no\s+tengo\s+idea|quien\s+sabe|pas[ao]|no\s+s[eé]\s+\w+)$/i.test(lowerBody)) {
+    const q = getCurrentQuestion(interviewState);
+    return {
+      response: `No hay problema, un aproximado está bien. No tiene que ser exacto.\n\n${q}\n\n_Si de plano no sabes, escribe *siguiente* para saltar esta pregunta._`,
+      newState: state,
+      contextUpdates: {},
+    };
+  }
+
   if (nlu.intent === "ask_question") {
     const answer = await answerQuestion(nlu.entities.question || body);
     if (answer) {
@@ -1639,9 +1841,59 @@ async function handleInterviewCompleteText(
     };
   }
 
+  // ALL remaining docs were skipped — re-present them
+  if (pendingCount > 0) {
+    const firstPending = getNextExpectedDoc(collectedDocs); // without skipped
+    if (firstPending) {
+      return {
+        response: `${firstName}, te faltan *${pendingCount} documentos* por capturar. Los que saltaste los puedes mandar ahora.\n\nMándame tu *${firstPending.label}* 📷\n\n_Escribe *estado* para ver cuáles faltan._`,
+        newState: "docs_pending" as ProspectState,
+        contextUpdates: { skippedDocs: [] },
+      };
+    }
+  }
+
   return {
     response: already_complete(),
     newState: "completed" as ProspectState,
     contextUpdates: {},
   };
+}
+
+// ── COMPLETED → allow re-entering doc capture if docs still pending ──
+
+async function handleCompletedText(
+  phone: string, body: string, nlu: NLUResult, ctx: AgentContext, storage: any,
+): Promise<{ response: string; newState: ProspectState; contextUpdates: Partial<AgentContext> }> {
+  const firstName = getFirstName(ctx);
+  const collectedDocs = ctx.docsCollected || [];
+  const pendingCount = TOTAL_DOCS - collectedDocs.length;
+
+  // If truly complete (all 14 captured), stay completed
+  if (pendingCount === 0) {
+    return { response: already_complete(), newState: "completed" as ProspectState, contextUpdates: {} };
+  }
+
+  // User wants to check status — re-enter doc capture
+  if (nlu.intent === "ask_progress") {
+    const pendingLabels = getPendingDocLabels(collectedDocs);
+    const interviewDone = ctx.interviewState?.currentQuestion === 8;
+    return {
+      response: doc_status(firstName, collectedDocs.length, TOTAL_DOCS, pendingLabels, interviewDone),
+      newState: "docs_pending" as ProspectState,
+      contextUpdates: { skippedDocs: [] },
+    };
+  }
+
+  // Any other message — tell them they have pending docs and re-enter
+  const firstPending = getNextExpectedDoc(collectedDocs); // without skipped
+  if (firstPending) {
+    return {
+      response: `${firstName}, te faltan *${pendingCount} documentos*. Mándame tu *${firstPending.label}* 📷\n\nEscribe *estado* para ver cuáles faltan.`,
+      newState: "docs_pending" as ProspectState,
+      contextUpdates: { skippedDocs: [] },
+    };
+  }
+
+  return { response: already_complete(), newState: "completed" as ProspectState, contextUpdates: {} };
 }
