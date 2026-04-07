@@ -12,6 +12,8 @@
 
 import { neon } from "@neondatabase/serverless";
 import { chatCompletion } from "./openai-helper";
+import { buildClientKnowledge } from "../cmu-knowledge";
+import { getBusinessRules } from "../business-rules";
 
 
 // ─── Pre-Written FAQ ─────────────────────────────────────────────────────────
@@ -138,6 +140,50 @@ const FAQ: FAQEntry[] = [
     ],
     answer: "La cuota depende del vehículo que elijas y tu consumo de GNV. A mayor consumo, más cubre el recaudo. Ejemplo: con 400 LEQ/mes, la cuota del mes 3 puede ser ~$5,200 y GNV cubre ~$4,400 → de tu bolsillo ~$1,100. ¿Quieres que calculemos con tus números?",
   },
+  {
+    patterns: [/aval/i, /fiador/i, /garant[ií]a\s+personal/i, /obligado\s+solidario/i],
+    answer: "No se necesita aval ni fiador. CMU no pide garantías personales. Solo tu concesión vigente y tus documentos.",
+  },
+  {
+    patterns: [/m[aá]s\s+de\s+50/i, /dar\s+m[aá]s/i, /abonar\s+m[aá]s/i, /anticipo\s+mayor/i],
+    answer: "Sí, puedes dar más de $50,000 de anticipo. Todo se abona a capital y tu cuota baja aún más. El mínimo es $50,000 pero no hay tope.",
+  },
+  {
+    patterns: [/56\s*d[ií]as/i, /no\s+vend/i, /m[aá]s\s+tiempo/i, /extender.*plazo/i, /pr[oó]rroga/i],
+    answer: "Si necesitas más tiempo para vender tu taxi, habla con CMU antes del día 56. Se puede extender sin penalización. Lo importante es comunicarte, no desaparecer.",
+  },
+  {
+    patterns: [/bur[oó]/i, /historial\s+credit/i, /checan.*bur/i, /revisan.*bur/i],
+    answer: "No revisamos buró de crédito. CMU es venta a plazos, no crédito bancario. Evaluamos tu operación como taxista y tu consumo de combustible.",
+  },
+  {
+    patterns: [/mora/i, /no\s+pag/i, /atras/i, /qu[eé].*si.*no.*pago/i],
+    answer: "Si tu recaudo GNV no cubre la cuota, tienes 5 días para pagar el diferencial. Si no, el Fondo de Garantía cubre automáticamente. Si el FG se agota, hay recargo de $250 + 2% mensual. Tres meses sin regularizar = rescisión.",
+  },
+  {
+    patterns: [/promotor/i, /asesor/i, /en\s+persona/i, /oficina/i, /presencial/i],
+    answer: "Si prefieres ayuda en persona, nuestro promotor puede asistirte con los documentos y resolver tus dudas. Solo dime y te lo conecto.",
+  },
+  {
+    patterns: [/reserva.*dominio/i, /a\s+nombre\s+de\s+qui[eé]n/i, /de\s+qui[eé]n.*carro/i],
+    answer: "El vehículo queda a nombre de CMU hasta que pagues la última cuota (mes 36). Tú lo usas, lo aseguras y lo operas. Al liquidar, CMU te transfiere el dominio y es 100% tuyo.",
+  },
+  {
+    patterns: [/liquidar.*antes/i, /pagar.*todo/i, /anticip.*liquidar/i, /saldo.*insoluto/i],
+    answer: "Sí, puedes liquidar el saldo en cualquier momento sin penalización. Contacta a CMU para obtener tu saldo de liquidación y al pagar se te transfiere el vehículo.",
+  },
+  {
+    patterns: [/donde.*pag/i, /c[oó]mo.*pag/i, /clabe/i, /oxxo/i, /conekta/i, /transferencia/i],
+    answer: "Puedes pagar por liga de pago (OXXO, transferencia o tarjeta), o directo a la CLABE 152680120000787681 (Bancrea) con tu folio de referencia. Te llega la liga por WhatsApp cada mes.",
+  },
+  {
+    patterns: [/siniestro/i, /choque/i, /accidente.*carro/i],
+    answer: "Es tu responsabilidad mantener seguro vehicular vigente los 36 meses. En caso de siniestro, el seguro cubre la unidad. Tú eliges la aseguradora.",
+  },
+  {
+    patterns: [/concesi[oó]n/i, /vigente/i, /no\s+tengo\s+concesi/i],
+    answer: "Necesitas ser titular de una concesión de taxi vigente en Aguascalientes. Si la concesión está a nombre de otra persona, el titular es quien debe solicitar.",
+  },
 ];
 
 // ─── Tier 1: Regex FAQ ──────────────────────────────────────────────────────
@@ -212,25 +258,33 @@ async function searchBusinessRules(question: string): Promise<BusinessRule[]> {
 
 async function answerWithLLM(question: string, rules: BusinessRule[]): Promise<string | null> {
   try {
-
-    const rulesContext = rules.length > 0
-      ? rules.map(r => `[${r.categoria}] ${r.titulo}: ${r.contenido}`).join("\n\n")
-      : "No hay reglas de negocio relevantes encontradas.";
+    // Build full knowledge base from SSOT + business_rules
+    let knowledgeBase: string;
+    try {
+      const allRules = await getBusinessRules();
+      const rulesMap = new Map(allRules.map((r: any) => [r.key, r]));
+      knowledgeBase = buildClientKnowledge(rulesMap);
+    } catch {
+      // Fallback to just the DB rules
+      knowledgeBase = rules.length > 0
+        ? rules.map(r => `[${r.categoria}] ${r.titulo}: ${r.contenido}`).join("\n\n")
+        : "";
+    }
 
     const text = await chatCompletion(
       [
         {
           role: "system",
-          content: `Eres el asistente de CMU (Conductores del Mundo), un programa de renovación de taxis en Aguascalientes, México.
-Responde la pregunta del taxista usando SOLO la información proporcionada. Si no tienes suficiente info, di que no tienes esa información.
-Respuesta corta (2-3 líneas), español coloquial mexicano. NO inventes datos ni números.
+          content: `Eres el asistente de CMU (Conductores del Mundo), un programa de renovación de taxis en Aguascalientes.
+Responde la pregunta del taxista usando SOLO la información del knowledge base. Si no encuentras la respuesta, di "No tengo esa información, pero tu asesor CMU te puede ayudar."
+Respuesta corta (2-3 líneas), español coloquial mexicano. Amigable y directo. NO inventes datos.
 
-REGLAS DE NEGOCIO:
-${rulesContext}`,
+KNOWLEDGE BASE CMU:
+${knowledgeBase}`,
         },
         { role: "user", content: question },
       ],
-      { max_tokens: 200, temperature: 0.3 },
+      { max_tokens: 250, temperature: 0.2 },
     );
 
     if (text && text.length > 10) return text;
