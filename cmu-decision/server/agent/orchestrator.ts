@@ -645,18 +645,34 @@ async function processDocImage(
     };
   }
 
-  // Build response: wrong slot but valid doc → accepted with note
+  // Build response with extracted data summary
+  const extractedSummary = Object.entries(visionResult.extracted_data || {})
+    .filter(([k, v]) => v && !k.startsWith('_') && ['nombre', 'curp', 'direccion', 'vigencia', 'clabe', 'rfc'].includes(k))
+    .map(([k, v]) => `${k}: ${v}`)
+    .join(' | ');
+  const dataSummaryLine = extractedSummary ? `\n_Datos: ${extractedSummary}_` : '';
+
+  // Import doc explanation for next doc
+  const { doc_request_with_explanation } = await import('./templates');
+  const nextDocExplanation = doc_request_with_explanation(nextDocAfter.key, nextDocAfter.label, newCollected.length + 1, TOTAL_DOCS);
+
   let responseText: string;
   if (!visionResult.matches_expected && detectedKey !== nextDoc.key) {
-    responseText = `Recibí *${detectedLabel}* (esperaba ${nextDoc.label}, pero está bien). ${newCollected.length}/${TOTAL_DOCS}\n\nAhora mándame tu *${nextDocAfter.label}* 📷`;
+    responseText = `*${detectedLabel}* recibido \u2713 (${newCollected.length}/${TOTAL_DOCS})${dataSummaryLine}\n\n${nextDocExplanation}`;
   } else {
-    responseText = doc_received(detectedLabel, newCollected.length, TOTAL_DOCS, nextDocAfter.label);
+    responseText = `*${detectedLabel}* recibido \u2713 (${newCollected.length}/${TOTAL_DOCS})${dataSummaryLine}\n\n${nextDocExplanation}`;
   }
 
-  // Cross-check warnings (append if any)
+  // Cross-check warnings (human-readable)
   if (visionResult.cross_check_flags.length > 0) {
-    const flags = visionResult.cross_check_flags.join(", ");
-    responseText = `⚠️ _Nota: ${flags}_\n\n${responseText}`;
+    const flags = visionResult.cross_check_flags;
+    const warnings: string[] = [];
+    if (flags.includes('nombre_mismatch')) warnings.push(`El nombre en este documento no coincide con tu INE. \u00bfEs tuyo?`);
+    if (flags.includes('expired') || flags.includes('vigencia_vencida')) warnings.push(`Este documento parece estar vencido.`);
+    if (flags.includes('curp_mismatch')) warnings.push(`La CURP no coincide con la de tu INE.`);
+    if (flags.includes('address_mismatch')) warnings.push(`La direcci\u00f3n no coincide con la de tu INE.`);
+    if (warnings.length === 0) warnings.push(flags.join(', '));
+    responseText = `\u26a0\ufe0f ${warnings.join(' ')}\n\n${responseText}`;
   }
 
   // Stay in same state (docs_capture, docs_pending, or interview_complete)
