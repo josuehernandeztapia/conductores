@@ -115,7 +115,7 @@ const PATTERNS: Array<{ intent: Intent; regex: RegExp; entityExtractor?: (match:
   // ── Affirm / Deny ──
   {
     intent: "affirm",
-    regex: /^[\s]*(s[ií]|sí?|claro|dale|va|órale|orale|si\s+quiero|empezar|listo|de\s+acuerdo|[oó]k|ok[ay]?|arre|simon|simón|va\s+pues|jalo|ándale|andale|a\s+darle|por\s+supuesto|me\s+interesa|adelante|va\s+va|afirmativo)[\s!.]*$/i,
+    regex: /^[\s]*(s[ií]|sí?|claro|dale|va|órale|orale|si\s+quiero|empezar|listo|de\s+acuerdo|[oó]k|ok[ay]?|arre|simon|simón|va\s+pues|jalo|ándale|andale|a\s+darle|por\s+supuesto|me\s+interesa|adelante|va\s+va|afirmativo|me\s+late|le\s+entro|le\s+entramos|si\s+me\s+late|s[ií]\s+va|va\s+que\s+va|s[ií]\s+le\s+entro|s[ií]\s+me\s+interesa)[\s!.]*$/i,
   },
   {
     intent: "deny",
@@ -129,11 +129,11 @@ const PATTERNS: Array<{ intent: Intent; regex: RegExp; entityExtractor?: (match:
   // ── Doc skip / progress / interview intent ──
   {
     intent: "skip_doc",
-    regex: /\b(no\s+(?:lo\s+)?tengo|no\s+cuento|no\s+(?:lo\s+)?encuentro|ahorita\s+no|despu[eé]s\s+(?:te|lo)\s+(?:mando|env[ií]o)|lo\s+busco|lo\s+mando\s+(?:luego|despu[eé]s)|saltar|skip|brincar|no\s+tengo\s+eso)\b/i,
+    regex: /\b(no\s+(?:la|lo|las|los)?\s*tengo|no\s+cuento|no\s+(?:lo\s+)?encuentro|ahorita\s+no|no\s+(?:la|lo)\s+tengo\s+a\s+la\s+mano|despu[eé]s\s+(?:te|lo|la)\s+(?:mando|env[ií]o)|lo\s+busco|l[oa]\s+mando\s+(?:luego|despu[eé]s)|saltar|skip|brincar|no\s+tengo\s+eso|siguiente|no\s+(?:la|lo)\s+tengo)\b/i,
   },
   {
     intent: "ask_progress",
-    regex: /\b(cu[aá]ntos?\s+(?:faltan|llevo|van)|cu[aá]nto\s+falta|qu[eé]\s+falta|c[oó]mo\s+voy|mi\s+avance|mi\s+progreso|estado\s+de\s+mis\s+doc)\b/i,
+    regex: /\b(cu[aá]ntos?\s+(?:faltan|llevo|van)|cu[aá]nto\s+falta|qu[eé]\s+(?:me\s+)?falta[n]?|c[oó]mo\s+voy|mi\s+avance|mi\s+progreso|estado|cu[aá]les\s+(?:me\s+)?falta[n]?|que\s+(?:me\s+)?falta[n]?)\b/i,
   },
   {
     intent: "want_interview",

@@ -84,7 +84,7 @@ export function ask_tank(modelName: string, precio: number): string {
 // ═══════════════════════════════════════════════════════════════
 
 export function show_corrida(corridaResumen: string, kitLabel: string, firstName: string): string {
-  return `${corridaResumen}\n${kitLabel}\n\n${firstName}, si te interesa avanzar, el proceso es así:\n\n*1.* Me mandas *14 documentos* por foto (te voy guiando uno por uno)\n*2.* Hacemos una *entrevista rápida* de 8 preguntas por nota de voz (~5 min)\n*3.* Josué revisa tu expediente y te da respuesta\n\nLos docs y la entrevista los puedes hacer en el orden que quieras, no tiene que ser todo hoy.\n\n¿Le entramos?`;
+  return `${corridaResumen}\n${kitLabel}\n\n${firstName}, si te interesa avanzar, el proceso es así:\n\n*1.* Me mandas *14 documentos* por foto (te voy guiando uno por uno)\n*2.* Hacemos una *entrevista rápida* de 8 preguntas por nota de voz (~5 min)\n*3.* Revisamos tu expediente y te damos respuesta\n\nLos docs y la entrevista los puedes hacer en el orden que quieras, no tiene que ser todo hoy.\n\n¿Le entramos?`;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -150,9 +150,9 @@ export function interview_understood(extractedData: string): string {
 
 export function interview_complete(firstName: string, hasPendingDocs: boolean, pendingCount?: number): string {
   if (hasPendingDocs) {
-    return `Entrevista completada ✓\n\n${firstName}, te faltan *${pendingCount} documentos*. Mándamelos cuando puedas. Escribe *estado* para ver cuáles son.\n\nCuando esté todo completo, Josué revisará tu expediente y te daremos respuesta.`;
+    return `Entrevista completada ✓\n\n${firstName}, te faltan *${pendingCount} documentos*. Mándamelos cuando puedas. Escribe *estado* para ver cuáles son.\n\nCuando esté todo completo, revisamos tu expediente y te damos respuesta.`;
   }
-  return `Entrevista completada ✓\n\nTu expediente está *completo*, ${firstName}. Josué lo va a revisar y te damos respuesta pronto. Gracias por tu tiempo.`;
+  return `Entrevista completada ✓\n\nTu expediente está *completo*, ${firstName}. Lo revisamos y te damos respuesta pronto. Gracias por tu tiempo.`;
 }
 
 // ═══════════════════════════════════════════════════════════════

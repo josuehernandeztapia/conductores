@@ -163,11 +163,8 @@ async function saveDocument(
   try {
     const sql = getSQL();
     await sql`
-      INSERT INTO documents (origination_id, doc_type, doc_label, extracted_data, image_url, cross_check_flags, created_at)
-      VALUES (${originationId}, ${docKey}, ${docLabel}, ${JSON.stringify(extractedData)}, ${imageUrl}, ${JSON.stringify(crossCheckFlags)}, NOW())
-      ON CONFLICT (origination_id, doc_type)
-      DO UPDATE SET extracted_data = ${JSON.stringify(extractedData)}, image_url = ${imageUrl},
-                    cross_check_flags = ${JSON.stringify(crossCheckFlags)}, updated_at = NOW()
+      INSERT INTO documents (origination_id, tipo, image_data, ocr_result, ocr_confidence, status, created_at, source)
+      VALUES (${originationId}, ${docKey}, ${imageUrl}, ${JSON.stringify(extractedData)}, ${JSON.stringify(crossCheckFlags)}, 'verified', NOW(), 'whatsapp_v3')
     `;
   } catch (error: any) {
     console.error(`[Orchestrator] saveDocument failed for ${docKey}:`, error.message);
@@ -529,7 +526,7 @@ async function processDocImage(
 
   // Determine expected document
   const collectedDocs = ctx.docsCollected || [];
-  const nextDoc = getNextExpectedDoc(collectedDocs);
+  const nextDoc = getNextExpectedDoc([...collectedDocs, ...(ctx.skippedDocs || [])]);
 
   if (!nextDoc) {
     // All docs already collected — check if interview done
@@ -1270,54 +1267,39 @@ async function handleDocsText(
 
   // ── Skip current doc ──
   if (nlu.intent === "skip_doc") {
-    const nextDoc = getNextExpectedDoc(collectedDocs);
-    if (!nextDoc) {
+    const skippedDocs: string[] = ctx.skippedDocs || [];
+    const currentDoc = getNextExpectedDoc([...collectedDocs, ...skippedDocs]);
+    
+    if (!currentDoc) {
       if (interviewDone) {
         return { response: already_complete(), newState: "completed" as ProspectState, contextUpdates: {} };
       }
       return { response: doc_all_complete(firstName), newState: "interview_ready" as ProspectState, contextUpdates: {} };
     }
 
-    // Skip this doc, move to next
-    const skippedLabel = nextDoc.label;
-    // We don't add to collected — just find the next one after this
-    const tempCollected = [...collectedDocs, nextDoc.key + "_skipped"];
-    const nextAfterSkip = getNextExpectedDoc(collectedDocs);
-
-    // Actually, skip means we move our "pointer" — find the next non-collected
-    // We need to find the doc after the current expected one
-    let foundCurrent = false;
-    let nextUnskipped: typeof DOC_ORDER[0] | null = null;
-    for (const d of DOC_ORDER) {
-      if (d.key === nextDoc.key) { foundCurrent = true; continue; }
-      if (foundCurrent && !collectedDocs.includes(d.key)) {
-        nextUnskipped = d;
-        break;
-      }
-    }
-
+    const newSkipped = [...skippedDocs, currentDoc.key];
+    const nextDoc = getNextExpectedDoc([...collectedDocs, ...newSkipped]);
     const pendingCount = TOTAL_DOCS - collectedDocs.length;
 
-    if (!nextUnskipped) {
-      // No more docs to show — all remaining are the current skipped one
+    if (!nextDoc) {
       if (interviewDone) {
         return {
-          response: doc_skipped(skippedLabel, "—", pendingCount) + "\n\nCuando tengas los documentos pendientes, mándamelos.",
+          response: doc_skipped(currentDoc.label, "—", pendingCount) + "\n\nCuando tengas los documentos pendientes, mándamelos.",
           newState: state,
-          contextUpdates: {},
+          contextUpdates: { skippedDocs: newSkipped },
         };
       }
       return {
-        response: doc_skipped(skippedLabel, "entrevista", pendingCount) + "\n\nSi quieres, podemos hacer la *entrevista* mientras tanto. Escribe *entrevista* para empezar.",
+        response: doc_skipped(currentDoc.label, "entrevista", pendingCount) + "\n\nSi quieres, podemos hacer la *entrevista* mientras tanto. Escribe *entrevista* para empezar.",
         newState: state,
-        contextUpdates: {},
+        contextUpdates: { skippedDocs: newSkipped },
       };
     }
 
     return {
-      response: doc_skipped(skippedLabel, nextUnskipped.label, pendingCount),
+      response: doc_skipped(currentDoc.label, nextDoc.label, pendingCount),
       newState: state,
-      contextUpdates: { currentDocIndex: (ctx.currentDocIndex || 0) + 1 },
+      contextUpdates: { skippedDocs: newSkipped },
     };
   }
 
@@ -1352,14 +1334,14 @@ async function handleDocsText(
   if (nlu.intent === "ask_question") {
     const answer = await answerQuestion(nlu.entities.question || body);
     if (answer) {
-      const nextDoc = getNextExpectedDoc(collectedDocs);
+      const nextDoc = getNextExpectedDoc([...collectedDocs, ...(ctx.skippedDocs || [])]);
       const docPrompt = nextDoc ? `\n\nCuando puedas, mándame tu *${nextDoc.label}* 📷` : "";
       return { response: answer + docPrompt, newState: state, contextUpdates: {} };
     }
   }
 
   // ── Default: remind what doc we're waiting for ──
-  const nextDoc = getNextExpectedDoc(collectedDocs);
+  const nextDoc = getNextExpectedDoc([...collectedDocs, ...(ctx.skippedDocs || [])]);
   if (nextDoc) {
     return {
       response: `Mándame tu *${nextDoc.label}* 📷\n\n_Escribe "siguiente" para saltar, "estado" para ver tu avance, o "entrevista" para hacer las preguntas._`,
@@ -1615,7 +1597,7 @@ async function handleInterviewCompleteText(
   }
 
   // ── Default: remind about pending docs ──
-  const nextDoc = getNextExpectedDoc(collectedDocs);
+  const nextDoc = getNextExpectedDoc([...collectedDocs, ...(ctx.skippedDocs || [])]);
   if (nextDoc) {
     return {
       response: `${firstName}, te faltan *${pendingCount} documentos*. Mándame tu *${nextDoc.label}* 📷\n\nEscribe *estado* para ver cuáles faltan.`,

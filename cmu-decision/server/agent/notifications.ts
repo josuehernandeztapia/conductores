@@ -17,7 +17,7 @@ async function sendWhatsApp(phone: string, message: string): Promise<boolean> {
     const response = await fetch(OUTBOUND_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ to: phone, message }),
+      body: JSON.stringify({ to: `whatsapp:+${phone}`, body: message }),
     });
 
     if (!response.ok) {
