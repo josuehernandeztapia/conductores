@@ -175,6 +175,11 @@ const PATTERNS: Array<{ intent: Intent; regex: RegExp; entityExtractor?: (match:
     },
   },
 
+  // ── "Ya no tengo más" / done for today ──
+  {
+    intent: "maybe_later",
+    regex: /\b(ya\s+no\s+tengo\s+m[aá]s|es\s+todo\s+(?:por\s+hoy)?|(?:por\s+hoy\s+)?(?:ya\s+)?(?:es\s+todo|estuvo)|nada\s+m[aá]s\s+(?:por\s+hoy|tengo)|solo\s+(?:ten[ií]a|tra[ij]e|tengo)\s+es[oe]s?|no\s+traigo\s+m[aá]s|ya\s+(?:no\s+)?(?:traigo|tengo)\s+(?:nada|m[aá]s)|esos\s+son\s+todos|con\s+esos\s+(?:ya|está\s+bien))\b/i,
+  },
   // ── Pause / continue later ──
   {
     intent: "maybe_later",

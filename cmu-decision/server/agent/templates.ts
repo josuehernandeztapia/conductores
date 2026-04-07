@@ -92,7 +92,17 @@ export function show_corrida(corridaResumen: string, kitLabel: string, firstName
 // ═══════════════════════════════════════════════════════════════
 
 export function folio_created(firstName: string, folio: string): string {
-  return `Listo, ${firstName}. Tu folio es *${folio}*.\n\nEmpecemos con los documentos. Te voy a ir pidiendo uno por uno.\n\nMándame tu *INE de frente* 📷\n\n_Si no tienes alguno a la mano, escribe "siguiente" y lo dejamos para después. También puedes escribir "entrevista" para hacer las 8 preguntas primero._`;
+  return `Listo, ${firstName}. Tu folio es *${folio}*.
+
+Para armar tu expediente necesito 14 documentos + una entrevista de 8 preguntas. *No tiene que ser todo hoy* — mándame lo que tengas a la mano y los demás cuando puedas.
+
+Te voy guiando uno por uno:
+• Si no tienes alguno, escribe *siguiente*
+• Si quieres ver cuáles son, escribe *documentos*
+• Si prefieres empezar con la entrevista, escribe *entrevista*
+• Pregúntame lo que quieras en cualquier momento
+
+¿Traes tu *INE*? Mándame foto del frente 📷`;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -100,7 +110,7 @@ export function folio_created(firstName: string, folio: string): string {
 // ═══════════════════════════════════════════════════════════════
 
 export function doc_received(docLabel: string, count: number, total: number, nextLabel: string): string {
-  return `*${docLabel}* recibido ✓ (${count}/${total})\n\nAhora mándame tu *${nextLabel}* 📷`;
+  return `*${docLabel}* recibido ✓ (${count}/${total})\n\n¿Tienes tu *${nextLabel}* a la mano? Mándamelo 📷\n_Si no lo tienes ahorita, escribe *siguiente* o *ya no tengo más*._`;
 }
 
 export function doc_all_complete(firstName: string): string {
@@ -112,7 +122,7 @@ export function doc_invalid(expectedLabel: string, reason: string): string {
 }
 
 export function doc_skipped(skippedLabel: string, nextLabel: string, pendingCount: number): string {
-  return `Ok, dejamos *${skippedLabel}* para después. Te quedan ${pendingCount} documentos pendientes.\n\nMándame tu *${nextLabel}* 📷`;
+  return `Ok, dejamos *${skippedLabel}* para después.\n\n¿Tienes tu *${nextLabel}*? 📷\n_O escribe *ya no tengo más* si quieres dejarlo por hoy._`;
 }
 
 export function doc_status(firstName: string, completed: number, total: number, pendingList: string[], interviewDone: boolean): string {
@@ -237,6 +247,26 @@ export function welcome_back(firstName: string, pendingDocLabel: string | null, 
   }
   
   msg += `\n\n_Si prefieres que alguien te ayude en persona, dime y te conecto con nuestro promotor._`;
+  return msg;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CIERRE DE SESIÓN NATURAL
+// ═══════════════════════════════════════════════════════════════
+
+export function session_close(firstName: string, docsCompleted: number, docsTotal: number, interviewDone: boolean): string {
+  const pending = docsTotal - docsCompleted;
+  let msg = `Perfecto ${firstName}, con lo que me diste hoy ya arrancamos.`;
+  if (docsCompleted > 0) {
+    msg += ` Llevas *${docsCompleted}/${docsTotal}* documentos.`;
+  }
+  if (pending > 0) {
+    msg += `\n\nCuando tengas más documentos, mándamelos aquí — yo los proceso al instante.`;
+  }
+  if (!interviewDone) {
+    msg += ` También puedes hacer la entrevista de 8 preguntas cuando quieras (escribe *entrevista*).`;
+  }
+  msg += `\n\nTe escribo pronto para ver cómo vas. 👍`;
   return msg;
 }
 

@@ -123,6 +123,10 @@ export interface AgentContext {
   originationId?: number;
   taxistaId?: number;
 
+  // OTP verification
+  otpSent?: boolean;
+  otpVerified?: boolean;
+
   // Document capture
   docsCollected?: string[];     // keys of docs already captured
   skippedDocs?: string[];       // keys of docs skipped for now

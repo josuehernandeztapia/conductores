@@ -348,6 +348,43 @@ async function handleTextMessage(
   storage: any,
 ): Promise<{ response: string; newState: ProspectState; contextUpdates: Partial<AgentContext> }> {
 
+  // ── OTP code check (6 digits) ──
+  const otpMatch = body.trim().match(/^(\d{6})$/);
+  if (otpMatch && ctx.otpSent && !ctx.otpVerified) {
+    try {
+      const code = otpMatch[1];
+      const TWILIO_VERIFY_SID = process.env.TWILIO_VERIFY_SID || "VAb7b31cdc560d238ed2bd90da259b9a12";
+      const TWILIO_SID = process.env.TWILIO_ACCOUNT_SID || "";
+      const TWILIO_TOKEN = process.env.TWILIO_AUTH_TOKEN || "";
+      const otpPhone = phone.startsWith("+") ? phone : `+${phone}`;
+      const authHeader = "Basic " + Buffer.from(`${TWILIO_SID}:${TWILIO_TOKEN}`).toString("base64");
+      const resp = await fetch(`https://verify.twilio.com/v2/Services/${TWILIO_VERIFY_SID}/VerificationCheck`, {
+        method: "POST",
+        headers: { "Authorization": authHeader, "Content-Type": "application/x-www-form-urlencoded" },
+        body: `To=${encodeURIComponent(otpPhone)}&Code=${code}`,
+      });
+      const result: any = await resp.json();
+      if (result.status === "approved") {
+        console.log(`[Orchestrator] OTP verified for ${phone}`);
+        const firstName = getFirstName(ctx);
+        const nextDoc = getNextExpectedDoc([...(ctx.docsCollected || []), ...(ctx.skippedDocs || [])]);
+        return {
+          response: `Celular verificado ✓\n\n${firstName}, ¿tienes tu *${nextDoc?.label || 'siguiente documento'}* a la mano? 📷`,
+          newState: state,
+          contextUpdates: { otpVerified: true },
+        };
+      } else {
+        return {
+          response: "Ese código no es correcto. Revísalo e intenta de nuevo.",
+          newState: state,
+          contextUpdates: {},
+        };
+      }
+    } catch (e: any) {
+      console.error(`[Orchestrator] OTP verify failed:`, e.message);
+    }
+  }
+
   // ── Pre-NLU overrides (critical fixes) ──
   const override = preNluOverride(body, state);
 
@@ -364,10 +401,21 @@ async function handleTextMessage(
     "interview_q4", "interview_q5", "interview_q6", "interview_q7", "interview_q8",
     "interview_complete", "completed",
   ];
-  const startsWithGreeting = /^\s*(hola|buenos?\s+(?:d[ií]as?|tardes?|noches?)|buenas|hey|qu[eé]\s+tal|que\s+tal|oye|buen\s+d[ií]a)/i.test(body);
+  const startsWithGreeting = /^\s*(hola|buenos?\s+(?:d[ií]as?|tardes?|noches?)|buenas|hey|qu[eé]\s+tal|que\s+tal|oye|oiga|buen\s+d[ií]a)/i.test(body);
   if ((nlu.intent === "greeting" || startsWithGreeting) && ADVANCED_STATES.includes(state)) {
-    console.log(`[Orchestrator] Greeting/fresh-start in advanced state ${state} → reset to idle`);
-    return handleIdle(phone, body, { intent: "greeting", entities: {}, confidence: 1.0 }, { profileName: ctx.profileName }, storage);
+    console.log(`[Orchestrator] Greeting in advanced state ${state} → welcome_back`);
+    const firstName = getFirstName(ctx);
+    const collectedDocs = ctx.docsCollected || [];
+    const interviewDone = (ctx.interviewState?.currentQuestion || 0) >= 8;
+    const nextDoc = getNextExpectedDoc([...collectedDocs, ...(ctx.skippedDocs || [])]);
+    const nextDocLabel = nextDoc?.label || null;
+    // Reset skipped docs so they can re-send
+    const { welcome_back } = await import('./templates');
+    return {
+      response: welcome_back(firstName, nextDocLabel, interviewDone, collectedDocs.length, TOTAL_DOCS),
+      newState: state.startsWith("interview_") && !state.includes("complete") ? "docs_pending" as ProspectState : state as ProspectState,
+      contextUpdates: { skippedDocs: [] },
+    };
   }
 
   // ── Check for off-flow questions (any state except idle/prospect_name) ──
@@ -655,6 +703,28 @@ async function processDocImage(
     }
   }
 
+  // ── OTP: Send verification code after INE frente captured ──
+  if (detectedKey === 'ine_frente' && !ctx.otpSent) {
+    try {
+      const TWILIO_VERIFY_SID = process.env.TWILIO_VERIFY_SID || "VAb7b31cdc560d238ed2bd90da259b9a12";
+      const TWILIO_SID = process.env.TWILIO_ACCOUNT_SID || "";
+      const TWILIO_TOKEN = process.env.TWILIO_AUTH_TOKEN || "";
+      if (TWILIO_SID && TWILIO_TOKEN && TWILIO_VERIFY_SID) {
+        const authHeader = "Basic " + Buffer.from(`${TWILIO_SID}:${TWILIO_TOKEN}`).toString("base64");
+        const otpPhone = phone.startsWith("+") ? phone : `+${phone}`;
+        await fetch(`https://verify.twilio.com/v2/Services/${TWILIO_VERIFY_SID}/Verifications`, {
+          method: "POST",
+          headers: { "Authorization": authHeader, "Content-Type": "application/x-www-form-urlencoded" },
+          body: `To=${encodeURIComponent(otpPhone)}&Channel=sms`,
+        });
+        contextUp.otpSent = true;
+        console.log(`[Orchestrator] OTP sent to ${otpPhone}`);
+      }
+    } catch (e: any) {
+      console.error(`[Orchestrator] OTP send failed:`, e.message);
+    }
+  }
+
   // Save document to DB
   if (ctx.originationId) {
     await saveDocument(
@@ -717,6 +787,12 @@ async function processDocImage(
       newState: state === "interview_complete" ? "interview_complete" as ProspectState : "interview_ready" as ProspectState,
       contextUpdates: contextUp,
     };
+  }
+
+  // After INE frente → add OTP prompt to response
+  let otpPrompt = "";
+  if (detectedKey === "ine_frente" && !ctx.otpVerified && contextUp.otpSent) {
+    otpPrompt = "\n\n📱 Te mandé un *código de 6 dígitos* por SMS para verificar tu celular. Escríbelo aquí.";
   }
 
   // Build response with extracted data summary — show ALL non-null fields
@@ -1328,7 +1404,10 @@ async function createFolioAndAdvance(
     }
 
     try {
-      await notifyTeam(`Nuevo folio: *${folio}* — ${nombre} (${phone})`);
+      const modelo = ctx.modelo || '?';
+      const consumo = ctx.consumo || 0;
+      const combustible = ctx.fuelType || '?';
+      await notifyTeam(`🆕 *Nuevo prospecto*\n\n*Folio:* ${folio}\n*Nombre:* ${nombre}\n*Tel:* ${phone}\n*Modelo:* ${modelo}\n*Combustible:* ${combustible}\n*Consumo:* ${consumo} LEQ/mes`);
     } catch (error: any) {
       console.error(`[Orchestrator] notifyTeam failed:`, error.message);
     }
