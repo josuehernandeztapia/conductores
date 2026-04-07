@@ -1,5 +1,5 @@
 /**
- * CMU WhatsApp Agent v3 — Orchestrator (State Machine)
+ * CMU WhatsApp Agent v4 — Orchestrator (State Machine)
  *
  * The core module. A deterministic state machine that:
  * - Controls ALL conversation flow
@@ -8,13 +8,22 @@
  * - Uses Vision only to classify documents
  * - Uses RAG only to answer off-flow questions
  *
- * States flow:
- * idle → prospect_fuel_type → prospect_consumo → prospect_show_models →
- * prospect_select_model → prospect_tank (GNV only) → prospect_corrida →
- * prospect_name → docs_capture → interview_ready → interview_q1..q8 →
- * interview_complete
+ * NEW FLOW ORDER (v4):
+ * 1. idle → greeting + ask name
+ * 2. prospect_name → receive name → explain program + ask fuel type
+ * 3. prospect_fuel_type → GNV or gasolina
+ * 4. prospect_consumo → LEQ/month → show 5 models
+ * 5. prospect_select_model → pick model
+ * 6. prospect_tank → reuse tank or new? (GNV only)
+ * 7. prospect_corrida → show corrida + explain process + "¿le entramos?"
+ * 8. prospect_confirm → yes → create folio → ask for INE
+ * 9. docs_capture → docs one by one (skip, status, interview)
+ * 10. interview_ready → "empezar"
+ * 11. interview_q1..q8 → voice notes / text
+ * 12. interview_complete → check pending docs
+ * 13. docs_pending → same as docs_capture but after interview
+ * 14. all_complete → "En revisión."
  */
-
 
 import { neon } from "@neondatabase/serverless";
 
@@ -26,8 +35,35 @@ import type {
   Intent,
 } from "./types";
 import { extractIntent } from "./nlu";
-import { templates } from "./templates";
+import {
+  greeting,
+  program_context,
+  ask_consumo_gnv,
+  ask_consumo_gasolina,
+  consumo_out_of_range,
+  gasto_out_of_range,
+  show_models,
+  no_models_available,
+  ask_tank,
+  show_corrida,
+  folio_created,
+  doc_received,
+  doc_all_complete,
+  doc_invalid,
+  doc_skipped,
+  doc_status,
+  interview_intro,
+  interview_question,
+  interview_understood,
+  interview_complete,
+  fallback_no_understand,
+  fallback_state_error,
+  cold_goodbye,
+  already_complete,
+} from "./templates";
+import type { ModelSummary } from "./templates";
 import { classifyAndValidateDoc, DOC_ORDER, DOC_LABELS, getNextExpectedDoc, getPendingDocLabels } from "./vision";
+import { chatCompletion, whisperTranscribe } from "./openai-helper";
 import { answerQuestion } from "./rag";
 import { notifyTeam, notifyDirector } from "./notifications";
 
@@ -53,7 +89,6 @@ import {
   updateProspectDocs,
 } from "../pipeline-ventas";
 import { getSession, updateSession } from "../conversation-state";
-import { chatCompletion, whisperTranscribe } from "./openai-helper";
 import { createFolioFromWhatsApp } from "../folio-manager";
 import { DIRECTOR, getPromotor } from "../team-config";
 
@@ -64,14 +99,13 @@ const BASE_LEQ = 400;          // base 400 LEQ/mes
 const KIT_NUEVO_COST = 9400;   // +$9,400 for new GNV kit
 const TOTAL_DOCS = DOC_ORDER.length; // 14
 
-// Gasolina to LEQ conversion: rough estimate
-// $22/L gasolina, 10km/L. GNV: $11/LEQ, ~3.5km/LEQ equivalent
-// Simplified: pesosMes / 22 * 10 / 3.5 ≈ pesosMes * 1.3 / 11
+// Gasolina to LEQ conversion:
+// Simplified: pesosMes / 11
 function pesosToLeq(pesosMes: number): number {
   return Math.round(pesosMes / 11);
 }
 
-// ─── Audio Processing ────────────────────────────────────────────────────────
+// ─── Audio / Media Helpers ──────────────────────────────────────────────────
 
 /**
  * Download media from Twilio URL using Basic auth.
@@ -101,7 +135,6 @@ async function downloadTwilioMedia(mediaUrl: string): Promise<Buffer> {
  * Transcribe audio using OpenAI Whisper.
  */
 async function transcribeAudio(audioBuffer: Buffer): Promise<string> {
-
   return await whisperTranscribe(audioBuffer);
 }
 
@@ -144,11 +177,11 @@ async function saveDocument(
 // ─── Build Model Summaries ───────────────────────────────────────────────────
 
 async function buildModelSummaries(leq: number): Promise<{
-  summaries: import("./types").ModelSummary[];
-  text: string;
+  summaries: ModelSummary[];
+  recaudo: number;
 }> {
   const recaudo = leq * SOBREPRECIO_GNV;
-  const summaries: import("./types").ModelSummary[] = [];
+  const summaries: ModelSummary[] = [];
 
   for (const m of MODELOS_PROSPECTO) {
     try {
@@ -161,21 +194,74 @@ async function buildModelSummaries(leq: number): Promise<{
         precio: pv,
         cuotaM3: m3.cuota,
         bolsillo: m3.diferencial,
-        mesGnvLabel: mesGnvCubre ? `Mes ${mesGnvCubre}` : "Mes 34+",
+        mesGnvLabel: mesGnvCubre ? `GNV cubre todo desde mes ${mesGnvCubre}` : "GNV cubre todo desde mes 34+",
       });
     } catch (error: any) {
       console.error(`[Orchestrator] buildModelSummaries failed for ${m.modelo}:`, error.message);
     }
   }
 
-  const text = await generarResumen5Modelos(leq);
-  return { summaries, text };
+  return { summaries, recaudo };
 }
 
-// ─── State Machine Entry Point ───────────────────────────────────────────────
+// ─── Helper: get firstName from context ──────────────────────────────────────
+
+function getFirstName(ctx: AgentContext): string {
+  if (ctx.nombre) return ctx.nombre.split(" ")[0];
+  if (ctx.profileName) return ctx.profileName.split(" ")[0];
+  return "";
+}
+
+// ─── Helper: explicit intent override for known patterns ─────────────────────
 
 /**
- * Main entry point for the agent v3.
+ * CRITICAL FIX: Pre-NLU explicit checks for patterns that NLU may misclassify.
+ * - "1" / "2" in prospect_tank → reuse_tank / new_tank
+ * - "falta" / "estado" / "pendiente" → ask_progress (NOT give_name)
+ * - "siguiente" → skip_doc
+ */
+function preNluOverride(body: string, state: string): NLUResult | null {
+  const trimmed = body.trim().toLowerCase();
+
+  // ── CRITICAL FIX #1: "1" and "2" in prospect_tank ──
+  if (state === "prospect_tank") {
+    if (trimmed === "1" || trimmed === "1️⃣") {
+      return { intent: "reuse_tank", entities: {}, confidence: 1.0 };
+    }
+    if (trimmed === "2" || trimmed === "2️⃣") {
+      return { intent: "new_tank", entities: {}, confidence: 1.0 };
+    }
+  }
+
+  // ── CRITICAL FIX #5: "qué me falta" / "estado" / "pendiente" → ask_progress ──
+  if (/falta|estado|pendiente|proceso|cu[aá]ntos?\s+(faltan|llevo)|c[oó]mo\s+voy/.test(trimmed)) {
+    // Only override when in doc-related or post-interview states
+    if (
+      state === "docs_capture" ||
+      state === "docs_pending" ||
+      state === "interview_complete" ||
+      state === "prospect_confirm"
+    ) {
+      return { intent: "ask_progress", entities: {}, confidence: 1.0 };
+    }
+  }
+
+  // ── "siguiente" in docs states → skip_doc ──
+  if (/^(siguiente|skip|saltar|brincar)$/i.test(trimmed)) {
+    if (state === "docs_capture" || state === "docs_pending") {
+      return { intent: "skip_doc", entities: {}, confidence: 1.0 };
+    }
+  }
+
+  return null;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MAIN ENTRY POINT
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Main entry point for the agent v4.
  * Processes a prospect's WhatsApp message and returns a response string.
  *
  * @param phone - Sender phone number (cleaned, e.g. "5214421234567")
@@ -230,14 +316,14 @@ export async function handleProspectMessage(
     }
   } catch (error: any) {
     console.error(`[Orchestrator] Unhandled error for ${phone}:`, error.message);
-    response = templates.fallback_state_error();
+    response = fallback_state_error();
   }
 
   // ── Persist state ──
   const updatedContext: AgentContext = { ...ctx, ...contextUpdates };
   try {
     await updateSession(phone, {
-      state: "simulation" as any, // reusing existing state type; agentState tracks v3 state
+      state: "simulation" as any,
       context: {
         ...session.context,
         agentState: newState,
@@ -252,7 +338,9 @@ export async function handleProspectMessage(
   return response;
 }
 
-// ─── Text Message Handler ────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// TEXT MESSAGE HANDLER
+// ═══════════════════════════════════════════════════════════════════════════════
 
 async function handleTextMessage(
   phone: string,
@@ -262,12 +350,15 @@ async function handleTextMessage(
   storage: any,
 ): Promise<{ response: string; newState: ProspectState; contextUpdates: Partial<AgentContext> }> {
 
-  // ── NLU ──
-  const nlu = await extractIntent(body, state);
-  console.log(`[Orchestrator] NLU: intent=${nlu.intent} confidence=${nlu.confidence} entities=${JSON.stringify(nlu.entities)}`);
+  // ── Pre-NLU overrides (critical fixes) ──
+  const override = preNluOverride(body, state);
 
-  // ── Check for off-flow questions (any state) ──
-  if (nlu.intent === "ask_question" && state !== "idle") {
+  // ── NLU ──
+  const nlu = override || await extractIntent(body, state);
+  console.log(`[Orchestrator] NLU: intent=${nlu.intent} confidence=${nlu.confidence} entities=${JSON.stringify(nlu.entities)} override=${!!override}`);
+
+  // ── Check for off-flow questions (any state except idle/prospect_name) ──
+  if (nlu.intent === "ask_question" && state !== "idle" && state !== "prospect_name") {
     const answer = await answerQuestion(nlu.entities.question || body);
     if (answer) {
       return { response: answer, newState: state, contextUpdates: {} };
@@ -280,27 +371,30 @@ async function handleTextMessage(
     case "idle":
       return handleIdle(phone, body, nlu, ctx, storage);
 
+    case "prospect_name":
+      return handleProspectName(phone, body, nlu, ctx);
+
     case "prospect_fuel_type":
       return handleFuelType(phone, nlu, ctx);
 
     case "prospect_consumo":
-      return handleConsumo(phone, nlu, ctx);
+      return handleConsumo(phone, body, nlu, ctx);
 
-    case "prospect_show_models":
     case "prospect_select_model":
       return handleModelSelection(phone, body, nlu, ctx);
 
     case "prospect_tank":
-      return handleTankDecision(phone, nlu, ctx);
+      return handleTankDecision(phone, body, nlu, ctx);
 
     case "prospect_corrida":
-      return handleCorridaResponse(phone, nlu, ctx, storage);
+      return handleCorridaResponse(phone, body, nlu, ctx, storage);
 
-    case "prospect_name":
-      return handleNameCapture(phone, body, nlu, ctx, storage);
+    case "prospect_confirm":
+      return handleProspectConfirm(phone, body, nlu, ctx, storage);
 
     case "docs_capture":
-      return handleDocsText(phone, body, nlu, ctx, storage);
+    case "docs_pending":
+      return handleDocsText(phone, body, nlu, ctx, state, storage);
 
     case "interview_ready":
       return handleInterviewReady(phone, nlu, ctx);
@@ -316,9 +410,12 @@ async function handleTextMessage(
       return handleInterviewTextAnswer(phone, body, state, ctx, storage);
 
     case "interview_complete":
+      return handleInterviewCompleteText(phone, body, nlu, ctx, state, storage);
+
+    case "completed":
       return {
-        response: templates.interview_already_done(),
-        newState: "interview_complete",
+        response: already_complete(),
+        newState: "completed",
         contextUpdates: {},
       };
 
@@ -327,7 +424,9 @@ async function handleTextMessage(
   }
 }
 
-// ─── Audio Message Handler ───────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// AUDIO MESSAGE HANDLER
+// ═══════════════════════════════════════════════════════════════════════════════
 
 async function handleAudioMessage(
   phone: string,
@@ -339,29 +438,40 @@ async function handleAudioMessage(
 
   // Download and transcribe
   let transcript: string;
+  let audioBuffer: Buffer;
   try {
-    const audioBuffer = await downloadTwilioMedia(mediaUrl);
+    audioBuffer = await downloadTwilioMedia(mediaUrl);
     transcript = await transcribeAudio(audioBuffer);
     console.log(`[Orchestrator] Whisper transcript: "${transcript.slice(0, 100)}"`);
   } catch (error: any) {
     console.error(`[Orchestrator] Audio processing failed:`, error.message);
-    return { response: templates.audio_error(), newState: state, contextUpdates: {} };
+    return {
+      response: "No pude procesar tu nota de voz. ¿Puedes intentar de nuevo o escribir tu respuesta?",
+      newState: state,
+      contextUpdates: {},
+    };
   }
 
   if (!transcript || transcript.trim().length === 0) {
-    return { response: templates.audio_error(), newState: state, contextUpdates: {} };
+    return {
+      response: "No pude escuchar tu nota de voz. ¿Puedes intentar de nuevo?",
+      newState: state,
+      contextUpdates: {},
+    };
   }
 
-  // If in interview state → process as interview answer
+  // If in interview state → process as interview answer (voice)
   if (state.startsWith("interview_q")) {
-    return handleInterviewVoiceAnswer(phone, transcript, state, ctx, storage);
+    return handleInterviewVoiceAnswer(phone, transcript, audioBuffer.length, state, ctx, storage);
   }
 
   // Otherwise, treat transcript as text
   return handleTextMessage(phone, transcript, state, ctx, storage);
 }
 
-// ─── Image Message Handler ───────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// IMAGE MESSAGE HANDLER
+// ═══════════════════════════════════════════════════════════════════════════════
 
 async function handleImageMessage(
   phone: string,
@@ -373,19 +483,38 @@ async function handleImageMessage(
   storage: any,
 ): Promise<{ response: string; newState: ProspectState; contextUpdates: Partial<AgentContext> }> {
 
-  // Only process images during docs_capture state
-  if (state !== "docs_capture") {
-    // If they're sending an image before the docs stage, acknowledge and continue flow
-    if (state === "idle" || state === "prospect_fuel_type") {
-      return handleTextMessage(phone, body || "", state, ctx, storage);
-    }
-    return {
-      response: "Recibí tu imagen, pero ahorita no estamos en la etapa de documentos. " +
-        (body ? "" : templates.fallback_no_understand()),
-      newState: state,
-      contextUpdates: {},
-    };
+  // ── Process images during docs_capture, docs_pending, or interview_complete ──
+  if (state === "docs_capture" || state === "docs_pending" || state === "interview_complete") {
+    return processDocImage(phone, mediaUrl, mediaType, state, ctx, body, storage);
   }
+
+  // If they're sending an image before the docs stage, acknowledge and continue flow
+  if (state === "idle" || state === "prospect_name" || state === "prospect_fuel_type") {
+    return handleTextMessage(phone, body || "", state, ctx, storage);
+  }
+
+  return {
+    response: "Recibí tu imagen, pero ahorita no estamos en la etapa de documentos. " + fallback_no_understand(),
+    newState: state,
+    contextUpdates: {},
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// DOCUMENT IMAGE PROCESSOR
+// ═══════════════════════════════════════════════════════════════════════════════
+
+async function processDocImage(
+  phone: string,
+  mediaUrl: string,
+  mediaType: string,
+  state: ProspectState,
+  ctx: AgentContext,
+  body: string,
+  storage: any,
+): Promise<{ response: string; newState: ProspectState; contextUpdates: Partial<AgentContext> }> {
+
+  const firstName = getFirstName(ctx);
 
   // Download image from Twilio
   let imageBuffer: Buffer;
@@ -393,7 +522,7 @@ async function handleImageMessage(
     imageBuffer = await downloadTwilioMedia(mediaUrl);
   } catch (error: any) {
     console.error(`[Orchestrator] Image download failed:`, error.message);
-    return { response: templates.fallback_state_error(), newState: state, contextUpdates: {} };
+    return { response: fallback_state_error(), newState: state, contextUpdates: {} };
   }
 
   const imageBase64 = imageBuffer.toString("base64");
@@ -403,10 +532,18 @@ async function handleImageMessage(
   const nextDoc = getNextExpectedDoc(collectedDocs);
 
   if (!nextDoc) {
-    // All docs already collected
+    // All docs already collected — check if interview done
+    const interviewDone = ctx.interviewState?.currentQuestion === 8;
+    if (interviewDone) {
+      return {
+        response: already_complete(),
+        newState: "completed" as ProspectState,
+        contextUpdates: {},
+      };
+    }
     return {
-      response: templates.doc_all_complete(collectedDocs.length),
-      newState: "interview_ready",
+      response: doc_all_complete(firstName),
+      newState: state === "interview_complete" ? "interview_complete" as ProspectState : "interview_ready" as ProspectState,
       contextUpdates: {},
     };
   }
@@ -424,7 +561,7 @@ async function handleImageMessage(
   // ── Not legible ──
   if (!visionResult.is_legible) {
     return {
-      response: templates.doc_illegible(nextDoc.label),
+      response: doc_invalid(nextDoc.label, visionResult.rejection_reason || "La imagen no se ve bien. ¿Puedes tomarla con más luz?"),
       newState: state,
       contextUpdates: {},
     };
@@ -433,7 +570,7 @@ async function handleImageMessage(
   // ── Unknown type ──
   if (visionResult.detected_type === "unknown") {
     return {
-      response: templates.doc_invalid(nextDoc.label, visionResult.rejection_reason || "No reconozco este documento."),
+      response: doc_invalid(nextDoc.label, visionResult.rejection_reason || "No reconozco este documento."),
       newState: state,
       contextUpdates: {},
     };
@@ -475,87 +612,69 @@ async function handleImageMessage(
     console.error(`[Orchestrator] updateProspectDocs failed:`, error.message);
   }
 
-  // ── Cross-check warnings ──
-  if (visionResult.cross_check_flags.length > 0) {
-    const warningResponse = templates.doc_cross_check_warning(detectedLabel, visionResult.cross_check_flags);
-    // Still save and advance — just warn
-    const nextDocAfter = getNextExpectedDoc(newCollected);
-    const contextUp: Partial<AgentContext> = {
-      docsCollected: newCollected,
-      existingData: newExistingData,
-      currentDocIndex: (ctx.currentDocIndex || 0) + 1,
-    };
-
-    if (!nextDocAfter) {
-      // All docs complete
-      try { await notifyTeam(templates.notify_docs_complete(ctx.folio || "?", ctx.nombre || "?")); } catch (e: any) { console.error("[Orchestrator] notifyTeam failed:", e.message); }
-      return {
-        response: warningResponse + "\n\n" + templates.doc_all_complete(newCollected.length),
-        newState: "interview_ready",
-        contextUpdates: contextUp,
-      };
-    }
-
-    return {
-      response: warningResponse + "\n\n" + templates.doc_received(detectedLabel, newCollected.length, TOTAL_DOCS, nextDocAfter.label),
-      newState: state,
-      contextUpdates: contextUp,
-    };
-  }
-
-  // ── Wrong type but valid doc ──
-  if (!visionResult.matches_expected && detectedKey !== nextDoc.key) {
-    const nextDocAfter = getNextExpectedDoc(newCollected);
-    const contextUp: Partial<AgentContext> = {
-      docsCollected: newCollected,
-      existingData: newExistingData,
-      currentDocIndex: (ctx.currentDocIndex || 0) + 1,
-    };
-
-    if (!nextDocAfter) {
-      try { await notifyTeam(templates.notify_docs_complete(ctx.folio || "?", ctx.nombre || "?")); } catch (e: any) { console.error("[Orchestrator] notifyTeam failed:", e.message); }
-      return {
-        response: `Recibí *${detectedLabel}* (esperaba ${nextDoc.label}, pero está bien).\n\n${templates.doc_all_complete(newCollected.length)}`,
-        newState: "interview_ready",
-        contextUpdates: contextUp,
-      };
-    }
-
-    return {
-      response: `Recibí *${detectedLabel}* (esperaba ${nextDoc.label}, pero está bien). ${newCollected.length}/${TOTAL_DOCS}\n\nAhora mándame tu *${nextDocAfter.label}*`,
-      newState: state,
-      contextUpdates: contextUp,
-    };
-  }
-
-  // ── Correct doc, accepted ──
   const contextUp: Partial<AgentContext> = {
     docsCollected: newCollected,
     existingData: newExistingData,
     currentDocIndex: (ctx.currentDocIndex || 0) + 1,
   };
 
+  // Check next doc after this one
   const nextDocAfter = getNextExpectedDoc(newCollected);
+
   if (!nextDocAfter) {
     // All docs complete!
-    try { await notifyTeam(templates.notify_docs_complete(ctx.folio || "?", ctx.nombre || "?")); } catch (e: any) { console.error("[Orchestrator] notifyTeam failed:", e.message); }
+    try {
+      await notifyTeam(`Documentos completos: ${ctx.folio || "?"} — ${ctx.nombre || "?"}`);
+    } catch (e: any) {
+      console.error("[Orchestrator] notifyTeam failed:", e.message);
+    }
+
+    const interviewDone = ctx.interviewState?.currentQuestion === 8;
+
+    if (interviewDone) {
+      // Both docs and interview done → all_complete
+      try { await updateProspectStatus(phone, "expediente_completo"); } catch (e: any) { console.error(e.message); }
+      return {
+        response: doc_status(firstName, newCollected.length, TOTAL_DOCS, [], true),
+        newState: "completed" as ProspectState,
+        contextUpdates: contextUp,
+      };
+    }
+
     return {
-      response: templates.doc_received_last(detectedLabel, newCollected.length, TOTAL_DOCS),
-      newState: "interview_ready",
+      response: doc_all_complete(firstName),
+      newState: state === "interview_complete" ? "interview_complete" as ProspectState : "interview_ready" as ProspectState,
       contextUpdates: contextUp,
     };
   }
 
+  // Build response: wrong slot but valid doc → accepted with note
+  let responseText: string;
+  if (!visionResult.matches_expected && detectedKey !== nextDoc.key) {
+    responseText = `Recibí *${detectedLabel}* (esperaba ${nextDoc.label}, pero está bien). ${newCollected.length}/${TOTAL_DOCS}\n\nAhora mándame tu *${nextDocAfter.label}* 📷`;
+  } else {
+    responseText = doc_received(detectedLabel, newCollected.length, TOTAL_DOCS, nextDocAfter.label);
+  }
+
+  // Cross-check warnings (append if any)
+  if (visionResult.cross_check_flags.length > 0) {
+    const flags = visionResult.cross_check_flags.join(", ");
+    responseText = `⚠️ _Nota: ${flags}_\n\n${responseText}`;
+  }
+
+  // Stay in same state (docs_capture, docs_pending, or interview_complete)
   return {
-    response: templates.doc_received(detectedLabel, newCollected.length, TOTAL_DOCS, nextDocAfter.label),
-    newState: "docs_capture",
+    response: responseText,
+    newState: state as ProspectState,
     contextUpdates: contextUp,
   };
 }
 
-// ─── State Handlers ──────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// STATE HANDLERS
+// ═══════════════════════════════════════════════════════════════════════════════
 
-// ── IDLE ──
+// ── IDLE → greeting + ask name ──
 
 async function handleIdle(
   phone: string,
@@ -579,37 +698,119 @@ async function handleIdle(
     console.error(`[Orchestrator] upsertProspect failed:`, error.message);
   }
 
-  // If they already mention fuel type, skip to consumo
-  if (nlu.intent === "fuel_gnv") {
+  // If they already give their name in the first message, accept it
+  if (nlu.intent === "give_name" && nlu.entities.nombre) {
+    const nombre = nlu.entities.nombre;
+    const firstName = nombre.split(" ")[0];
+
+    try {
+      await upsertProspect({ phone, nombre, status: "interesado" });
+    } catch (error: any) {
+      console.error(`[Orchestrator] upsertProspect failed:`, error.message);
+    }
+
     return {
-      response: templates.ask_consumo_gnv(),
-      newState: "prospect_consumo",
-      contextUpdates: { fuelType: "gnv", canal },
-    };
-  }
-  if (nlu.intent === "fuel_gasolina") {
-    return {
-      response: templates.ask_consumo_gasolina(),
-      newState: "prospect_consumo",
-      contextUpdates: { fuelType: "gasolina", canal },
+      response: program_context(nombre),
+      newState: "prospect_fuel_type",
+      contextUpdates: { canal, nombre, profileName: ctx.profileName },
     };
   }
 
-  // Default: always greeting → ask fuel type (first message, never RAG)
+  // Default: greeting + ask name
   return {
-    response: templates.greeting_prospect(ctx.profileName || ""),
-    newState: "prospect_fuel_type",
+    response: greeting(ctx.profileName || ""),
+    newState: "prospect_name",
     contextUpdates: { canal },
   };
 }
 
-// ── FUEL TYPE ──
+// ── PROSPECT_NAME → receive name → explain program + ask fuel type ──
+
+async function handleProspectName(
+  phone: string,
+  body: string,
+  nlu: NLUResult,
+  ctx: AgentContext,
+): Promise<{ response: string; newState: ProspectState; contextUpdates: Partial<AgentContext> }> {
+
+  // Check for name intent
+  if (nlu.intent === "give_name" && nlu.entities.nombre) {
+    const nombre = nlu.entities.nombre;
+    try {
+      await upsertProspect({ phone, nombre, status: "interesado" });
+    } catch (error: any) {
+      console.error(`[Orchestrator] upsertProspect failed:`, error.message);
+    }
+
+    return {
+      response: program_context(nombre),
+      newState: "prospect_fuel_type",
+      contextUpdates: { nombre },
+    };
+  }
+
+  // If body looks like a name (2+ words, letters only) — accept it even without NLU match
+  const cleanBody = body.trim();
+  const words = cleanBody.split(/\s+/);
+  if (words.length >= 2 && /^[A-ZÁÉÍÓÚÑa-záéíóúñ\s]+$/.test(cleanBody) && cleanBody.length >= 4) {
+    const nombre = cleanBody;
+    try {
+      await upsertProspect({ phone, nombre, status: "interesado" });
+    } catch (error: any) {
+      console.error(`[Orchestrator] upsertProspect failed:`, error.message);
+    }
+
+    return {
+      response: program_context(nombre),
+      newState: "prospect_fuel_type",
+      contextUpdates: { nombre },
+    };
+  }
+
+  // Single word → accept as first name (many people just say "Juan")
+  if (words.length === 1 && /^[A-ZÁÉÍÓÚÑa-záéíóúñ]{2,}$/.test(cleanBody)) {
+    const nombre = cleanBody;
+    try {
+      await upsertProspect({ phone, nombre, status: "interesado" });
+    } catch (error: any) {
+      console.error(`[Orchestrator] upsertProspect failed:`, error.message);
+    }
+
+    return {
+      response: program_context(nombre),
+      newState: "prospect_fuel_type",
+      contextUpdates: { nombre },
+    };
+  }
+
+  if (nlu.intent === "deny" || nlu.intent === "maybe_later") {
+    return { response: cold_goodbye(getFirstName(ctx)), newState: "idle", contextUpdates: {} };
+  }
+
+  // Handle questions
+  if (nlu.intent === "ask_question") {
+    const answer = await answerQuestion(nlu.entities.question || body);
+    if (answer) {
+      return { response: answer + "\n\n¿Cómo te llamas?", newState: "prospect_name", contextUpdates: {} };
+    }
+  }
+
+  return {
+    response: "Para atenderte mejor, ¿cómo te llamas?",
+    newState: "prospect_name",
+    contextUpdates: {},
+  };
+}
+
+// ── PROSPECT_FUEL_TYPE → GNV or gasolina ──
 
 async function handleFuelType(
   phone: string,
   nlu: NLUResult,
   ctx: AgentContext,
 ): Promise<{ response: string; newState: ProspectState; contextUpdates: Partial<AgentContext> }> {
+
+  const firstName = getFirstName(ctx);
 
   if (nlu.intent === "fuel_gnv") {
     try {
@@ -618,7 +819,7 @@ async function handleFuelType(
       console.error(`[Orchestrator] upsertProspect failed:`, error.message);
     }
     return {
-      response: templates.ask_consumo_gnv(),
+      response: ask_consumo_gnv(firstName),
       newState: "prospect_consumo",
       contextUpdates: { fuelType: "gnv" },
     };
@@ -631,7 +832,7 @@ async function handleFuelType(
       console.error(`[Orchestrator] upsertProspect failed:`, error.message);
     }
     return {
-      response: templates.ask_consumo_gasolina(),
+      response: ask_consumo_gasolina(firstName),
       newState: "prospect_consumo",
       contextUpdates: { fuelType: "gasolina" },
     };
@@ -641,46 +842,55 @@ async function handleFuelType(
   if (nlu.intent === "ask_question") {
     const answer = await answerQuestion(nlu.entities.question || "");
     if (answer) {
-      return { response: answer + "\n\n" + templates.ask_fuel_type(), newState: "prospect_fuel_type", contextUpdates: {} };
+      return {
+        response: answer + "\n\n¿Tu taxi usa *gas natural* o *gasolina*?",
+        newState: "prospect_fuel_type",
+        contextUpdates: {},
+      };
     }
   }
 
   if (nlu.intent === "deny" || nlu.intent === "maybe_later") {
-    return { response: templates.cold_goodbye(), newState: "idle", contextUpdates: {} };
+    return { response: cold_goodbye(firstName), newState: "idle", contextUpdates: {} };
   }
 
   return {
-    response: templates.ask_fuel_type(),
+    response: `${firstName}, para calcularte los números necesito saber: ¿tu taxi usa *gas natural* o *gasolina*?`,
     newState: "prospect_fuel_type",
     contextUpdates: {},
   };
 }
 
-// ── CONSUMO ──
+// ── PROSPECT_CONSUMO → LEQ/month → show 5 models ──
 
 async function handleConsumo(
   phone: string,
+  body: string,
   nlu: NLUResult,
   ctx: AgentContext,
 ): Promise<{ response: string; newState: ProspectState; contextUpdates: Partial<AgentContext> }> {
 
-  let leq: number | null = null;
-  let gastoPesos: number | null = null;
+  const firstName = getFirstName(ctx);
+  let leq = 0;
+  let gastoPesos = 0;
+  let hasConsumo = false;
 
   if (nlu.intent === "consumo_number" && nlu.entities.leq) {
     leq = nlu.entities.leq;
     if (leq < 50 || leq > 3000) {
-      return { response: templates.consumo_out_of_range(), newState: "prospect_consumo", contextUpdates: {} };
+      return { response: consumo_out_of_range(), newState: "prospect_consumo", contextUpdates: {} };
     }
+    hasConsumo = true;
   } else if (nlu.intent === "gasto_number" && nlu.entities.pesos) {
     gastoPesos = nlu.entities.pesos;
     if (gastoPesos < 500 || gastoPesos > 30000) {
-      return { response: templates.gasto_out_of_range(), newState: "prospect_consumo", contextUpdates: {} };
+      return { response: gasto_out_of_range(), newState: "prospect_consumo", contextUpdates: {} };
     }
     leq = pesosToLeq(gastoPesos);
+    hasConsumo = true;
   }
 
-  if (leq) {
+  if (hasConsumo && leq > 0) {
     // Update prospect
     try {
       await upsertProspect({ phone, consumo_mensual: leq });
@@ -689,47 +899,42 @@ async function handleConsumo(
     }
 
     // Build model summaries
-    const { summaries } = await buildModelSummaries(leq);
-    const recaudo = leq * SOBREPRECIO_GNV;
+    const { summaries, recaudo } = await buildModelSummaries(leq);
 
     if (summaries.length === 0) {
       return {
-        response: templates.no_models_available(),
+        response: no_models_available(),
         newState: "prospect_consumo",
-        contextUpdates: { consumoLeq: leq, gastoPesosMes: gastoPesos || undefined },
+        contextUpdates: { consumoLeq: leq, gastoPesosMes: gastoPesos > 0 ? gastoPesos : undefined },
       };
     }
 
-    const response = ctx.fuelType === "gasolina" && gastoPesos
-      ? templates.show_models_gasolina(gastoPesos, summaries)
-      : templates.show_models(leq, recaudo, summaries);
-
     return {
-      response,
+      response: show_models(firstName, leq, recaudo, summaries),
       newState: "prospect_select_model",
-      contextUpdates: { consumoLeq: leq, gastoPesosMes: gastoPesos || undefined },
+      contextUpdates: { consumoLeq: leq, gastoPesosMes: gastoPesos > 0 ? gastoPesos : undefined },
     };
   }
 
   // Handle questions
   if (nlu.intent === "ask_question") {
-    const answer = await answerQuestion(nlu.entities.question || "");
+    const answer = await answerQuestion(nlu.entities.question || body);
     if (answer) {
-      const askAgain = ctx.fuelType === "gasolina" ? templates.ask_consumo_gasolina() : templates.ask_consumo_gnv();
+      const askAgain = ctx.fuelType === "gasolina" ? ask_consumo_gasolina(firstName) : ask_consumo_gnv(firstName);
       return { response: answer + "\n\n" + askAgain, newState: "prospect_consumo", contextUpdates: {} };
     }
   }
 
   if (nlu.intent === "deny" || nlu.intent === "maybe_later") {
-    return { response: templates.cold_maybe_later(), newState: "idle", contextUpdates: {} };
+    return { response: cold_goodbye(firstName), newState: "idle", contextUpdates: {} };
   }
 
   // Can't parse → ask again
-  const askAgain = ctx.fuelType === "gasolina" ? templates.ask_consumo_gasolina() : templates.ask_consumo_gnv();
-  return { response: templates.fallback_no_understand() + "\n\n" + askAgain, newState: "prospect_consumo", contextUpdates: {} };
+  const askAgain = ctx.fuelType === "gasolina" ? ask_consumo_gasolina(firstName) : ask_consumo_gnv(firstName);
+  return { response: fallback_no_understand() + "\n\n" + askAgain, newState: "prospect_consumo", contextUpdates: {} };
 }
 
-// ── MODEL SELECTION ──
+// ── PROSPECT_SELECT_MODEL → pick model ──
 
 async function handleModelSelection(
   phone: string,
@@ -738,54 +943,24 @@ async function handleModelSelection(
   ctx: AgentContext,
 ): Promise<{ response: string; newState: ProspectState; contextUpdates: Partial<AgentContext> }> {
 
+  const firstName = getFirstName(ctx);
+
   // Select a specific model
   if (nlu.intent === "select_model" && nlu.entities.modelo) {
-    const matched = matchModelFromText(nlu.entities.modelo);
-    if (!matched) {
-      return { response: templates.model_not_found(), newState: "prospect_select_model", contextUpdates: {} };
-    }
-
-    const pv = await getPvForModel(matched.marca, matched.modelo, matched.anio);
-    const modelName = `${matched.marca} ${matched.modelo} ${matched.anio}`;
-
-    // Perfil A (GNV): ask about tank
-    if (ctx.fuelType === "gnv") {
-      return {
-        response: templates.ask_tank(modelName, pv),
-        newState: "prospect_tank",
-        contextUpdates: { selectedModel: matched, pvBase: pv },
-      };
-    }
-
-    // Perfil B (gasolina): always new kit → go straight to corrida
-    const pvWithKit = pv + KIT_NUEVO_COST;
-    const leq = ctx.consumoLeq || BASE_LEQ;
-    const corrida = generarCorridaEstimada(matched.modelo, matched.anio, pvWithKit, leq);
-
-    return {
-      response: templates.show_corrida(corrida.resumenWhatsApp),
-      newState: "prospect_corrida",
-      contextUpdates: {
-        selectedModel: matched,
-        pvBase: pvWithKit,
-        reuseTank: false,
-        corridaResumen: corrida.resumenWhatsApp,
-      },
-    };
+    return selectModelAndAdvance(nlu.entities.modelo, ctx, firstName);
   }
 
   // Want to see all models again
   if (nlu.intent === "see_all_models") {
     const leq = ctx.consumoLeq || BASE_LEQ;
-    const { summaries } = await buildModelSummaries(leq);
-    const recaudo = leq * SOBREPRECIO_GNV;
+    const { summaries, recaudo } = await buildModelSummaries(leq);
 
     if (summaries.length === 0) {
-      return { response: templates.no_models_available(), newState: "prospect_select_model", contextUpdates: {} };
+      return { response: no_models_available(), newState: "prospect_select_model", contextUpdates: {} };
     }
 
     return {
-      response: templates.show_models(leq, recaudo, summaries),
+      response: show_models(firstName, leq, recaudo, summaries),
       newState: "prospect_select_model",
       contextUpdates: {},
     };
@@ -794,31 +969,7 @@ async function handleModelSelection(
   // Try matching model name directly from body text
   const matched = matchModelFromText(body);
   if (matched) {
-    const pv = await getPvForModel(matched.marca, matched.modelo, matched.anio);
-    const modelName = `${matched.marca} ${matched.modelo} ${matched.anio}`;
-
-    if (ctx.fuelType === "gnv") {
-      return {
-        response: templates.ask_tank(modelName, pv),
-        newState: "prospect_tank",
-        contextUpdates: { selectedModel: matched, pvBase: pv },
-      };
-    }
-
-    const pvWithKit = pv + KIT_NUEVO_COST;
-    const leq = ctx.consumoLeq || BASE_LEQ;
-    const corrida = generarCorridaEstimada(matched.modelo, matched.anio, pvWithKit, leq);
-
-    return {
-      response: templates.show_corrida(corrida.resumenWhatsApp),
-      newState: "prospect_corrida",
-      contextUpdates: {
-        selectedModel: matched,
-        pvBase: pvWithKit,
-        reuseTank: false,
-        corridaResumen: corrida.resumenWhatsApp,
-      },
-    };
+    return selectModelAndAdvance(matched.modelo, ctx, firstName);
   }
 
   // Handle questions
@@ -830,26 +981,82 @@ async function handleModelSelection(
   }
 
   if (nlu.intent === "deny" || nlu.intent === "maybe_later") {
-    return { response: templates.cold_maybe_later(), newState: "idle", contextUpdates: {} };
+    return { response: cold_goodbye(firstName), newState: "idle", contextUpdates: {} };
   }
 
-  return { response: templates.model_not_found(), newState: "prospect_select_model", contextUpdates: {} };
+  return {
+    response: "No encontré ese modelo. Los que tenemos son: Aveo, March Sense, March Advance, Kwid, i10. ¿Cuál te interesa?",
+    newState: "prospect_select_model",
+    contextUpdates: {},
+  };
 }
 
-// ── TANK DECISION (GNV only) ──
+/**
+ * Helper: select a model and advance to tank (GNV) or corrida (gasolina).
+ */
+async function selectModelAndAdvance(
+  modeloText: string,
+  ctx: AgentContext,
+  firstName: string,
+): Promise<{ response: string; newState: ProspectState; contextUpdates: Partial<AgentContext> }> {
+
+  const matched = matchModelFromText(modeloText);
+  if (!matched) {
+    return {
+      response: "No encontré ese modelo. Los que tenemos son: Aveo, March Sense, March Advance, Kwid, i10. ¿Cuál te interesa?",
+      newState: "prospect_select_model",
+      contextUpdates: {},
+    };
+  }
+
+  const pv = await getPvForModel(matched.marca, matched.modelo, matched.anio);
+  const modelName = `${matched.marca} ${matched.modelo} ${matched.anio}`;
+
+  // Perfil A (GNV): ask about tank
+  if (ctx.fuelType === "gnv") {
+    return {
+      response: ask_tank(modelName, pv),
+      newState: "prospect_tank",
+      contextUpdates: { selectedModel: matched, pvBase: pv },
+    };
+  }
+
+  // Perfil B (gasolina): always new kit → go straight to corrida
+  const pvWithKit = pv + KIT_NUEVO_COST;
+  const leq = ctx.consumoLeq || BASE_LEQ;
+  const corrida = generarCorridaEstimada(matched.modelo, matched.anio, pvWithKit, leq);
+  const kitLabel = "_(Incluye kit de gas natural nuevo: +$9,400)_";
+
+  return {
+    response: show_corrida(corrida.resumenWhatsApp, kitLabel, firstName),
+    newState: "prospect_corrida",
+    contextUpdates: {
+      selectedModel: matched,
+      pvBase: pvWithKit,
+      reuseTank: false,
+      corridaResumen: corrida.resumenWhatsApp,
+    },
+  };
+}
+
+// ── PROSPECT_TANK → reuse tank or new? (GNV only) ──
 
 async function handleTankDecision(
   phone: string,
+  body: string,
   nlu: NLUResult,
   ctx: AgentContext,
 ): Promise<{ response: string; newState: ProspectState; contextUpdates: Partial<AgentContext> }> {
 
+  const firstName = getFirstName(ctx);
+
   if (!ctx.selectedModel || !ctx.pvBase) {
-    return { response: templates.fallback_state_error(), newState: "prospect_select_model", contextUpdates: {} };
+    return { response: fallback_state_error(), newState: "prospect_select_model", contextUpdates: {} };
   }
 
   let reuse: boolean | null = null;
 
+  // CRITICAL FIX #1: "1" is handled by preNluOverride → intent = reuse_tank
   if (nlu.intent === "reuse_tank" || nlu.intent === "affirm") {
     reuse = true;
   } else if (nlu.intent === "new_tank") {
@@ -866,8 +1073,12 @@ async function handleTankDecision(
       leq,
     );
 
+    const kitLabel = reuse
+      ? "_(Reuso de tanque, sin costo extra)_"
+      : `_(Kit de gas natural nuevo: +$${KIT_NUEVO_COST.toLocaleString()})_`;
+
     return {
-      response: templates.show_corrida(corrida.resumenWhatsApp),
+      response: show_corrida(corrida.resumenWhatsApp, kitLabel, firstName),
       newState: "prospect_corrida",
       contextUpdates: {
         reuseTank: reuse,
@@ -882,7 +1093,7 @@ async function handleTankDecision(
     const answer = await answerQuestion(nlu.entities.question || "");
     if (answer) {
       return {
-        response: answer + "\n\n" + templates.ask_tank(
+        response: answer + "\n\n" + ask_tank(
           `${ctx.selectedModel.marca} ${ctx.selectedModel.modelo} ${ctx.selectedModel.anio}`,
           ctx.pvBase,
         ),
@@ -893,7 +1104,7 @@ async function handleTankDecision(
   }
 
   return {
-    response: templates.ask_tank(
+    response: ask_tank(
       `${ctx.selectedModel.marca} ${ctx.selectedModel.modelo} ${ctx.selectedModel.anio}`,
       ctx.pvBase,
     ),
@@ -902,58 +1113,9 @@ async function handleTankDecision(
   };
 }
 
-// ── CORRIDA RESPONSE ──
+// ── PROSPECT_CORRIDA → show corrida → "¿le entramos?" ──
 
 async function handleCorridaResponse(
-  phone: string,
-  nlu: NLUResult,
-  ctx: AgentContext,
-  storage: any,
-): Promise<{ response: string; newState: ProspectState; contextUpdates: Partial<AgentContext> }> {
-
-  if (nlu.intent === "affirm" || nlu.intent === "want_register") {
-    return {
-      response: templates.ask_name(),
-      newState: "prospect_name",
-      contextUpdates: {},
-    };
-  }
-
-  if (nlu.intent === "deny") {
-    return { response: templates.cold_goodbye(), newState: "idle", contextUpdates: {} };
-  }
-
-  if (nlu.intent === "maybe_later") {
-    return { response: templates.cold_maybe_later(), newState: "idle", contextUpdates: {} };
-  }
-
-  // If they give their name directly
-  if (nlu.intent === "give_name" && nlu.entities.nombre) {
-    return createFolioAndAdvance(phone, nlu.entities.nombre, ctx, storage);
-  }
-
-  // Handle questions
-  if (nlu.intent === "ask_question") {
-    const answer = await answerQuestion(nlu.entities.question || "");
-    if (answer) {
-      return {
-        response: answer + "\n\n¿Quieres empezar el proceso? Solo necesito tu nombre.",
-        newState: "prospect_corrida",
-        contextUpdates: {},
-      };
-    }
-  }
-
-  return {
-    response: templates.confirm_interest(),
-    newState: "prospect_corrida",
-    contextUpdates: {},
-  };
-}
-
-// ── NAME CAPTURE ──
-
-async function handleNameCapture(
   phone: string,
   body: string,
   nlu: NLUResult,
@@ -961,47 +1123,68 @@ async function handleNameCapture(
   storage: any,
 ): Promise<{ response: string; newState: ProspectState; contextUpdates: Partial<AgentContext> }> {
 
-  // Check for name intent
-  if (nlu.intent === "give_name" && nlu.entities.nombre) {
-    return createFolioAndAdvance(phone, nlu.entities.nombre, ctx, storage);
+  const firstName = getFirstName(ctx);
+
+  if (nlu.intent === "affirm" || nlu.intent === "want_register") {
+    // Create folio immediately
+    return createFolioAndAdvance(phone, ctx, storage);
   }
 
-  // If body looks like a name (2+ words, no special characters)
-  const cleanBody = body.trim();
-  const words = cleanBody.split(/\s+/);
-  if (words.length >= 2 && /^[A-ZÁÉÍÓÚÑa-záéíóúñ\s]+$/.test(cleanBody)) {
-    return createFolioAndAdvance(phone, cleanBody, ctx, storage);
+  if (nlu.intent === "deny") {
+    return { response: cold_goodbye(firstName), newState: "idle", contextUpdates: {} };
   }
 
-  if (nlu.intent === "deny" || nlu.intent === "maybe_later") {
-    return { response: templates.cold_maybe_later(), newState: "idle", contextUpdates: {} };
+  if (nlu.intent === "maybe_later") {
+    return {
+      response: `Sin problema, ${firstName}. Cuando quieras retomar, escríbeme. El programa sigue abierto.`,
+      newState: "idle",
+      contextUpdates: {},
+    };
+  }
+
+  // If they want to pick a different model
+  if (nlu.intent === "select_model") {
+    return selectModelAndAdvance(nlu.entities.modelo || body, ctx, firstName);
+  }
+
+  // Handle questions
+  if (nlu.intent === "ask_question") {
+    const answer = await answerQuestion(nlu.entities.question || body);
+    if (answer) {
+      return {
+        response: answer + "\n\n¿Le entramos?",
+        newState: "prospect_corrida",
+        contextUpdates: {},
+      };
+    }
   }
 
   return {
-    response: templates.name_too_short(),
-    newState: "prospect_name",
+    response: `${firstName}, ¿le entramos al proceso? Son 14 documentos por foto + una entrevista rápida.`,
+    newState: "prospect_corrida",
     contextUpdates: {},
   };
 }
 
-// ── Create Folio and Advance to Docs ──
+// ── Create Folio Helper ──
 
 async function createFolioAndAdvance(
   phone: string,
-  nombre: string,
   ctx: AgentContext,
   storage: any,
 ): Promise<{ response: string; newState: ProspectState; contextUpdates: Partial<AgentContext> }> {
+  const firstName = getFirstName(ctx);
+  const nombre = ctx.nombre || firstName;
+
   try {
     const { folio, originationId, taxistaId } = await createFolioFromWhatsApp(
       storage,
-      phone,      // senderPhone (self-service)
-      nombre,     // taxistaName
-      phone,      // taxistaPhone
+      phone,
+      nombre,
+      phone,
       "CONCESIONARIO",
     );
 
-    // Update prospect pipeline
     try {
       await upsertProspect({
         phone,
@@ -1013,18 +1196,16 @@ async function createFolioAndAdvance(
       console.error(`[Orchestrator] upsertProspect failed:`, error.message);
     }
 
-    // Notify team
     try {
-      await notifyTeam(templates.notify_folio_created(folio, nombre, phone));
+      await notifyTeam(`Nuevo folio: *${folio}* — ${nombre} (${phone})`);
     } catch (error: any) {
       console.error(`[Orchestrator] notifyTeam failed:`, error.message);
     }
 
     return {
-      response: templates.folio_created(nombre, folio),
+      response: folio_created(firstName, folio),
       newState: "docs_capture",
       contextUpdates: {
-        nombre,
         folio,
         originationId,
         taxistaId,
@@ -1036,16 +1217,16 @@ async function createFolioAndAdvance(
   } catch (error: any) {
     console.error(`[Orchestrator] createFolioFromWhatsApp failed:`, error.message);
     return {
-      response: templates.folio_error(),
-      newState: "prospect_name",
+      response: "Tuve un problema creando tu folio. Intenta de nuevo o escríbenos al 446 329 3102.",
+      newState: "prospect_confirm",
       contextUpdates: {},
     };
   }
 }
 
-// ── DOCS TEXT HANDLER (skip, progress, interview intent) ──
+// ── PROSPECT_CONFIRM → yes → create folio → ask for INE ──
 
-async function handleDocsText(
+async function handleProspectConfirm(
   phone: string,
   body: string,
   nlu: NLUResult,
@@ -1053,74 +1234,166 @@ async function handleDocsText(
   storage: any,
 ): Promise<{ response: string; newState: ProspectState; contextUpdates: Partial<AgentContext> }> {
 
+  const firstName = getFirstName(ctx);
+
+  // If they deny at the last moment
+  if (nlu.intent === "deny") {
+    return { response: cold_goodbye(firstName), newState: "idle", contextUpdates: {} };
+  }
+
+  if (nlu.intent === "maybe_later") {
+    return {
+      response: `Sin problema, ${firstName}. Cuando quieras retomar, escríbeme.`,
+      newState: "idle",
+      contextUpdates: {},
+    };
+  }
+
+  // Any other message → create folio (they already confirmed in prospect_corrida)
+  return createFolioAndAdvance(phone, ctx, storage);
+}
+
+// ── DOCS_CAPTURE / DOCS_PENDING → docs one by one ──
+
+async function handleDocsText(
+  phone: string,
+  body: string,
+  nlu: NLUResult,
+  ctx: AgentContext,
+  state: ProspectState,
+  storage: any,
+): Promise<{ response: string; newState: ProspectState; contextUpdates: Partial<AgentContext> }> {
+
+  const firstName = getFirstName(ctx);
   const collectedDocs = ctx.docsCollected || [];
+  const interviewDone = ctx.interviewState?.currentQuestion === 8;
 
-  // Skip current doc
+  // ── Skip current doc ──
   if (nlu.intent === "skip_doc") {
-    return {
-      response: templates.doc_skip_offer_interview(),
-      newState: "docs_capture",
-      contextUpdates: {},
-    };
-  }
+    const nextDoc = getNextExpectedDoc(collectedDocs);
+    if (!nextDoc) {
+      if (interviewDone) {
+        return { response: already_complete(), newState: "completed" as ProspectState, contextUpdates: {} };
+      }
+      return { response: doc_all_complete(firstName), newState: "interview_ready" as ProspectState, contextUpdates: {} };
+    }
 
-  // Ask progress
-  if (nlu.intent === "ask_progress") {
-    const pendingLabels = getPendingDocLabels(collectedDocs);
-    return {
-      response: templates.doc_progress(collectedDocs.length, TOTAL_DOCS, pendingLabels),
-      newState: "docs_capture",
-      contextUpdates: {},
-    };
-  }
+    // Skip this doc, move to next
+    const skippedLabel = nextDoc.label;
+    // We don't add to collected — just find the next one after this
+    const tempCollected = [...collectedDocs, nextDoc.key + "_skipped"];
+    const nextAfterSkip = getNextExpectedDoc(collectedDocs);
 
-  // Want to start interview
-  if (nlu.intent === "want_interview" || nlu.intent === "affirm") {
-    // If they say "empezar" or "si" → start interview
-    if (collectedDocs.length > 0 || nlu.intent === "want_interview") {
+    // Actually, skip means we move our "pointer" — find the next non-collected
+    // We need to find the doc after the current expected one
+    let foundCurrent = false;
+    let nextUnskipped: typeof DOC_ORDER[0] | null = null;
+    for (const d of DOC_ORDER) {
+      if (d.key === nextDoc.key) { foundCurrent = true; continue; }
+      if (foundCurrent && !collectedDocs.includes(d.key)) {
+        nextUnskipped = d;
+        break;
+      }
+    }
+
+    const pendingCount = TOTAL_DOCS - collectedDocs.length;
+
+    if (!nextUnskipped) {
+      // No more docs to show — all remaining are the current skipped one
+      if (interviewDone) {
+        return {
+          response: doc_skipped(skippedLabel, "—", pendingCount) + "\n\nCuando tengas los documentos pendientes, mándamelos.",
+          newState: state,
+          contextUpdates: {},
+        };
+      }
       return {
-        response: templates.interview_ready_prompt(),
-        newState: "interview_ready",
+        response: doc_skipped(skippedLabel, "entrevista", pendingCount) + "\n\nSi quieres, podemos hacer la *entrevista* mientras tanto. Escribe *entrevista* para empezar.",
+        newState: state,
         contextUpdates: {},
       };
     }
+
+    return {
+      response: doc_skipped(skippedLabel, nextUnskipped.label, pendingCount),
+      newState: state,
+      contextUpdates: { currentDocIndex: (ctx.currentDocIndex || 0) + 1 },
+    };
   }
 
-  // Handle questions
+  // ── Ask progress / status ──
+  if (nlu.intent === "ask_progress") {
+    const pendingLabels = getPendingDocLabels(collectedDocs);
+    return {
+      response: doc_status(firstName, collectedDocs.length, TOTAL_DOCS, pendingLabels, interviewDone),
+      newState: state,
+      contextUpdates: {},
+    };
+  }
+
+  // ── Want to start interview ──
+  if (nlu.intent === "want_interview") {
+    if (interviewDone) {
+      const pendingLabels = getPendingDocLabels(collectedDocs);
+      return {
+        response: `Ya completaste la entrevista ✓\n\n` + doc_status(firstName, collectedDocs.length, TOTAL_DOCS, pendingLabels, true),
+        newState: state,
+        contextUpdates: {},
+      };
+    }
+    return {
+      response: interview_intro(),
+      newState: "interview_ready",
+      contextUpdates: {},
+    };
+  }
+
+  // ── Handle questions ──
   if (nlu.intent === "ask_question") {
     const answer = await answerQuestion(nlu.entities.question || body);
     if (answer) {
       const nextDoc = getNextExpectedDoc(collectedDocs);
       const docPrompt = nextDoc ? `\n\nCuando puedas, mándame tu *${nextDoc.label}* 📷` : "";
-      return { response: answer + docPrompt, newState: "docs_capture", contextUpdates: {} };
+      return { response: answer + docPrompt, newState: state, contextUpdates: {} };
     }
   }
 
-  // Default: remind what doc we're waiting for
+  // ── Default: remind what doc we're waiting for ──
   const nextDoc = getNextExpectedDoc(collectedDocs);
   if (nextDoc) {
     return {
-      response: templates.doc_ask_image(nextDoc.label),
-      newState: "docs_capture",
+      response: `Mándame tu *${nextDoc.label}* 📷\n\n_Escribe "siguiente" para saltar, "estado" para ver tu avance, o "entrevista" para hacer las preguntas._`,
+      newState: state,
       contextUpdates: {},
     };
   }
 
   // All docs complete
+  if (interviewDone) {
+    try { await updateProspectStatus(phone, "expediente_completo"); } catch (e: any) { console.error(e.message); }
+    return {
+      response: doc_status(firstName, collectedDocs.length, TOTAL_DOCS, [], true),
+      newState: "completed" as ProspectState,
+      contextUpdates: {},
+    };
+  }
+
   return {
-    response: templates.doc_all_complete(collectedDocs.length),
-    newState: "interview_ready",
+    response: doc_all_complete(firstName),
+    newState: "interview_ready" as ProspectState,
     contextUpdates: {},
   };
 }
 
-// ── INTERVIEW READY ──
+// ── INTERVIEW READY → "empezar" ──
 
 async function handleInterviewReady(
   phone: string,
   nlu: NLUResult,
   ctx: AgentContext,
 ): Promise<{ response: string; newState: ProspectState; contextUpdates: Partial<AgentContext> }> {
+
+  const firstName = getFirstName(ctx);
 
   if (nlu.intent === "affirm" || nlu.intent === "want_interview") {
     // Initialize interview state
@@ -1131,9 +1404,9 @@ async function handleInterviewReady(
       transcripts: [],
     };
 
-    const q1 = getCurrentQuestion(interviewState);
+    const questionText = getCurrentQuestion(interviewState);
     return {
-      response: templates.interview_start(q1),
+      response: getInterviewWelcome() + "\n\n" + questionText,
       newState: "interview_q1",
       contextUpdates: { interviewState },
     };
@@ -1141,38 +1414,32 @@ async function handleInterviewReady(
 
   if (nlu.intent === "deny" || nlu.intent === "maybe_later") {
     return {
-      response: templates.cold_maybe_later(),
+      response: `Sin problema, ${firstName}. Cuando estés listo para la entrevista, escríbeme "entrevista".`,
+      newState: "interview_ready",
+      contextUpdates: {},
+    };
+  }
+
+  // If they send a doc status request
+  if (nlu.intent === "ask_progress") {
+    const collectedDocs = ctx.docsCollected || [];
+    const pendingLabels = getPendingDocLabels(collectedDocs);
+    const interviewDone = ctx.interviewState?.currentQuestion === 8;
+    return {
+      response: doc_status(firstName, collectedDocs.length, TOTAL_DOCS, pendingLabels, interviewDone),
       newState: "interview_ready",
       contextUpdates: {},
     };
   }
 
   return {
-    response: templates.interview_ready_prompt(),
+    response: interview_intro(),
     newState: "interview_ready",
     contextUpdates: {},
   };
 }
 
-// ── INTERVIEW: Voice Answer ──
-
-async function handleInterviewVoiceAnswer(
-  phone: string,
-  transcript: string,
-  state: ProspectState,
-  ctx: AgentContext,
-  storage: any,
-): Promise<{ response: string; newState: ProspectState; contextUpdates: Partial<AgentContext> }> {
-
-  const interviewState = ctx.interviewState;
-  if (!interviewState) {
-    return { response: templates.fallback_state_error(), newState: state, contextUpdates: {} };
-  }
-
-  return processInterviewStep(phone, transcript, interviewState, ctx, storage);
-}
-
-// ── INTERVIEW: Text Answer ──
+// ── INTERVIEW Q1–Q8: Text Answer ──
 
 async function handleInterviewTextAnswer(
   phone: string,
@@ -1184,7 +1451,7 @@ async function handleInterviewTextAnswer(
 
   const interviewState = ctx.interviewState;
   if (!interviewState) {
-    return { response: templates.fallback_state_error(), newState: state, contextUpdates: {} };
+    return { response: fallback_state_error(), newState: state, contextUpdates: {} };
   }
 
   // Handle questions during interview (don't break flow)
@@ -1197,7 +1464,26 @@ async function handleInterviewTextAnswer(
     }
   }
 
-  return processInterviewStep(phone, body, interviewState, ctx, storage);
+  return processInterviewStep(phone, body, 0, interviewState, ctx, storage);
+}
+
+// ── INTERVIEW Q1–Q8: Voice Answer ──
+
+async function handleInterviewVoiceAnswer(
+  phone: string,
+  transcript: string,
+  audioDurationMs: number,
+  state: ProspectState,
+  ctx: AgentContext,
+  storage: any,
+): Promise<{ response: string; newState: ProspectState; contextUpdates: Partial<AgentContext> }> {
+
+  const interviewState = ctx.interviewState;
+  if (!interviewState) {
+    return { response: fallback_state_error(), newState: state, contextUpdates: {} };
+  }
+
+  return processInterviewStep(phone, transcript, audioDurationMs, interviewState, ctx, storage);
 }
 
 // ── INTERVIEW: Process Step ──
@@ -1205,23 +1491,26 @@ async function handleInterviewTextAnswer(
 async function processInterviewStep(
   phone: string,
   transcript: string,
+  audioDurationMs: number,
   interviewState: InterviewState,
   ctx: AgentContext,
   storage: any,
 ): Promise<{ response: string; newState: ProspectState; contextUpdates: Partial<AgentContext> }> {
 
+  const firstName = getFirstName(ctx);
+
   try {
     const result = await processInterviewAnswer(
       interviewState,
       transcript,
-      0, // audio duration (0 for text)
+      audioDurationMs,
       llmCall,
     );
 
     if (result.isComplete) {
       // Interview complete → notify team
       try {
-        await notifyTeam(templates.notify_interview_complete(ctx.folio || "?", ctx.nombre || "?"));
+        await notifyTeam(`Entrevista completada: ${ctx.folio || "?"} — ${ctx.nombre || "?"}`);
       } catch (error: any) {
         console.error(`[Orchestrator] notifyTeam failed:`, error.message);
       }
@@ -1232,9 +1521,24 @@ async function processInterviewStep(
         console.error(`[Orchestrator] updateProspectStatus failed:`, error.message);
       }
 
+      // Check pending docs
+      const collectedDocs = ctx.docsCollected || [];
+      const pendingCount = TOTAL_DOCS - collectedDocs.length;
+      const hasPendingDocs = pendingCount > 0;
+
+      if (!hasPendingDocs) {
+        // All complete!
+        try { await updateProspectStatus(phone, "expediente_completo"); } catch (e: any) { console.error(e.message); }
+        return {
+          response: interview_complete(firstName, false),
+          newState: "completed" as ProspectState,
+          contextUpdates: { interviewState: result.newState },
+        };
+      }
+
       return {
-        response: templates.interview_complete(),
-        newState: "interview_complete",
+        response: interview_complete(firstName, true, pendingCount),
+        newState: "interview_complete" as ProspectState,
         contextUpdates: { interviewState: result.newState },
       };
     }
@@ -1243,17 +1547,86 @@ async function processInterviewStep(
     const nextQNum = result.newState.currentQuestion + 1; // 1-indexed for state name
     const nextState = `interview_q${nextQNum}` as ProspectState;
 
+    // Build response: confirmation note + next question
+    let responseText = result.reply;
+
     return {
-      response: result.reply,
+      response: responseText,
       newState: nextState,
       contextUpdates: { interviewState: result.newState },
     };
   } catch (error: any) {
     console.error(`[Orchestrator] processInterviewAnswer failed:`, error.message);
     return {
-      response: templates.audio_error(),
+      response: "No pude procesar tu respuesta. ¿Puedes intentar de nuevo?",
       newState: `interview_q${interviewState.currentQuestion + 1}` as ProspectState,
       contextUpdates: {},
     };
   }
+}
+
+// ── INTERVIEW_COMPLETE → check pending docs, allow sending more docs ──
+
+async function handleInterviewCompleteText(
+  phone: string,
+  body: string,
+  nlu: NLUResult,
+  ctx: AgentContext,
+  state: ProspectState,
+  storage: any,
+): Promise<{ response: string; newState: ProspectState; contextUpdates: Partial<AgentContext> }> {
+
+  const firstName = getFirstName(ctx);
+  const collectedDocs = ctx.docsCollected || [];
+  const pendingCount = TOTAL_DOCS - collectedDocs.length;
+
+  // If all docs are done → all_complete
+  if (pendingCount === 0) {
+    try { await updateProspectStatus(phone, "expediente_completo"); } catch (e: any) { console.error(e.message); }
+    return {
+      response: already_complete(),
+      newState: "completed" as ProspectState,
+      contextUpdates: {},
+    };
+  }
+
+  // ── Ask progress / status ──
+  if (nlu.intent === "ask_progress") {
+    const pendingLabels = getPendingDocLabels(collectedDocs);
+    return {
+      response: doc_status(firstName, collectedDocs.length, TOTAL_DOCS, pendingLabels, true),
+      newState: state,
+      contextUpdates: {},
+    };
+  }
+
+  // ── Skip doc ──
+  if (nlu.intent === "skip_doc") {
+    // Delegate to docs handler
+    return handleDocsText(phone, body, nlu, ctx, "docs_pending" as ProspectState, storage);
+  }
+
+  // ── Handle questions ──
+  if (nlu.intent === "ask_question") {
+    const answer = await answerQuestion(nlu.entities.question || body);
+    if (answer) {
+      return { response: answer, newState: state, contextUpdates: {} };
+    }
+  }
+
+  // ── Default: remind about pending docs ──
+  const nextDoc = getNextExpectedDoc(collectedDocs);
+  if (nextDoc) {
+    return {
+      response: `${firstName}, te faltan *${pendingCount} documentos*. Mándame tu *${nextDoc.label}* 📷\n\nEscribe *estado* para ver cuáles faltan.`,
+      newState: state,
+      contextUpdates: {},
+    };
+  }
+
+  return {
+    response: already_complete(),
+    newState: "completed" as ProspectState,
+    contextUpdates: {},
+  };
 }

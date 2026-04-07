@@ -10,6 +10,7 @@
 
 
 import type { DocDefinition, VisionResult } from "./types";
+import { chatCompletion } from "./openai-helper";
 
 // ─── Document Order (14 documents) ──────────────────────────────────────────
 

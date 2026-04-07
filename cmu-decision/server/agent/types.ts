@@ -71,14 +71,16 @@ export interface VisionResult {
 
 export type ProspectState =
   | "idle"
+  | "prospect_name"             // v4: ask name first
   | "prospect_fuel_type"
   | "prospect_consumo"
   | "prospect_show_models"
   | "prospect_select_model"
   | "prospect_tank"            // GNV only — reuse vs new kit
   | "prospect_corrida"
-  | "prospect_name"
+  | "prospect_confirm"         // v4: yes → create folio
   | "docs_capture"
+  | "docs_pending"             // v4: docs after interview
   | "interview_ready"
   | "interview_q1"
   | "interview_q2"
