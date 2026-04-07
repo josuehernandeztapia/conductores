@@ -1506,9 +1506,26 @@ async function processInterviewStep(
     );
 
     if (result.isComplete) {
-      // Interview complete → notify team
+      // Save evaluation to DB
+      if (result.evaluation) {
+        try {
+          const sql = getSQL();
+          await sql`
+            INSERT INTO evaluaciones_taxi (folio, phone, datos, coherencia, created_at)
+            VALUES (${ctx.folio || ''}, ${phone}, ${JSON.stringify(result.evaluation.datos)}, ${JSON.stringify(result.evaluation.coherencia)}, NOW())
+          `;
+          console.log(`[Orchestrator] Evaluation saved for ${phone}: coherencia=${JSON.stringify(result.evaluation.coherencia).slice(0, 60)}`);
+        } catch (error: any) {
+          console.error(`[Orchestrator] Save evaluation failed:`, error.message);
+        }
+      }
+
+      // Notify team with evaluation summary
+      const evalSummary = result.evaluation?.coherencia
+        ? `\nCoherencia: ${JSON.stringify(result.evaluation.coherencia).slice(0, 100)}`
+        : '';
       try {
-        await notifyTeam(`Entrevista completada: ${ctx.folio || "?"} — ${ctx.nombre || "?"}`);
+        await notifyTeam(`*Entrevista completada* \u2705\nNombre: ${ctx.nombre || '?'}\nFolio: ${ctx.folio || '?'}\nTel: ${phone}${evalSummary}`);
       } catch (error: any) {
         console.error(`[Orchestrator] notifyTeam failed:`, error.message);
       }
