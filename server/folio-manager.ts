@@ -105,12 +105,19 @@ export async function createFolioFromWhatsApp(
   // 4. Update taxista with folio
   await storage.updateTaxista(newTaxista.id, { folio });
 
-  // 5. Create role for taxista so they can send docs
+  // 5. Associate phone with folio (via whatsapp_phone_folio, NOT whatsapp_roles)
+  // Keep the phone as "unknown" (prospecto) in whatsapp_roles — the state machine handles the flow.
+  // Role only changes to "cliente" after director approves evaluation + assigns vehicle.
   try {
-    await storage.createRole(cleanPhone, "cliente", nombre, []);
-    await storage.updateRole(cleanPhone, { folio_id: origination.id, phone_verified: true });
+    const { neon: neonFn } = await import("@neondatabase/serverless");
+    const dbSql = neonFn(process.env.DATABASE_URL!);
+    await dbSql`
+      INSERT INTO whatsapp_phone_folio (phone, folio, associated_by, created_at)
+      VALUES (${cleanPhone}, ${folio}, ${senderPhone}, NOW())
+      ON CONFLICT DO NOTHING
+    `;
   } catch (e: any) {
-    console.warn(`[FolioManager] Could not create role for ${cleanPhone}:`, e.message);
+    console.warn(`[FolioManager] Could not associate phone-folio for ${cleanPhone}:`, e.message);
   }
 
   console.log(`[FolioManager] Created folio ${folio} for ${taxistaName} (${cleanPhone}) by ${senderPhone}`);

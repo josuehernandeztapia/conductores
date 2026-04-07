@@ -16,6 +16,7 @@ import { cierreMensual, processNatgasCsv, processNatgasMultiProduct, parseNatgas
 import evaluacionRoutes from "./evaluacion-routes";
 import { logAudit, initAuditTable, getAuditLog } from "./audit-trail";
 import { detectCanal, upsertProspect, updateProspectStatus, getPipelineStats, getPipelineList, getCanales, getProspectsNeedingFollowup, markFollowupSent, generateWhatsAppLink } from "./pipeline-ventas";
+import { handleProspectMessage } from "./agent/orchestrator";
 import { getPromotor, DIRECTOR, PROMOTOR_LABEL } from "./team-config";
 
 // ===== SESSION TOKEN (HMAC-signed) =====
@@ -2341,19 +2342,18 @@ Responde SOLO con JSON válido:
           return res.status(200).send("<Response></Response>");
         }
 
-        // Otherwise: route to AI agent as prospecto (informational mode)
-        if (waAgent && OPENAI_API_KEY) {
-          const result = await waAgent.handleMessage(
-            phone, body, ProfileName || "",
-            hasMedia ? mediaUrl : null, mediaType, null,
-            "prospecto", ProfileName, [],
+        // Route to modular agent v3 for prospectos
+        try {
+          const reply = await handleProspectMessage(
+            phone, body,
+            hasMedia ? mediaUrl : null, mediaType || null,
+            ProfileName || "", storage,
           );
-          await sendWa(From, result.reply);
-          return res.status(200).send("<Response></Response>");
+          await sendWa(From, reply);
+        } catch (e: any) {
+          console.error(`[AgentV3] Error for ${phone}:`, e.message);
+          await sendWa(From, `Ocurrió un error. Intenta de nuevo o escríbenos al 446 329 3102.`);
         }
-
-        // Fallback without AI
-        await sendWa(From, `🚗 *Conductores del Mundo (CMU)*\n\n¡Hola! Somos CMU. Ofrecemos a taxistas de Aguascalientes renovar su unidad con vehículo reparado y kit GNV.\n\n¿Qué te gustaría saber? Pregunta lo que quieras sobre el programa.\n\nCuando estés listo, escribe "quiero registrarme".`);
         return res.status(200).send("<Response></Response>");
       }
 
@@ -2371,19 +2371,17 @@ Responde SOLO con JSON válido:
             await sendWa(From, "❌ Código incorrecto. Inténtalo de nuevo.");
           }
         } else {
-          // They're registered but haven't verified — but let them ask questions too
-          if (waAgent && OPENAI_API_KEY) {
-            const result = await waAgent.handleMessage(
-              phone, body, ProfileName || "",
-              hasMedia ? mediaUrl : null, mediaType, null,
-              "prospecto", role.name || ProfileName, [],
+          // Route to modular agent v3
+          try {
+            const reply = await handleProspectMessage(
+              phone, body,
+              hasMedia ? mediaUrl : null, mediaType || null,
+              role.name || ProfileName || "", storage,
             );
-            let reply = result.reply;
-            reply += "\n\n_Tip: para completar tu registro, envía el código de verificación que te mandamos._";
             await sendWa(From, reply);
-          } else {
-            await sendOTP(phone, From);
-            await sendWa(From, "Para completar tu registro, envía el código de verificación.");
+          } catch (e: any) {
+            console.error(`[AgentV3] Error for ${phone}:`, e.message);
+            await sendWa(From, `Ocurrió un error. Intenta de nuevo.`);
           }
         }
         return res.status(200).send("<Response></Response>");

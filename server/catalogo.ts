@@ -56,31 +56,39 @@ async function getPublicVehicleBySlug(slug: string): Promise<PublicVehicle | nul
 }
 
 // ===== Financial calculator (same logic as renovacion.html) =====
-const TASA_M = 0.299 / 12;
+const TASA_ANUAL = 0.299;
+const TASA_M = TASA_ANUAL / 12;
 const N = 36;
 const ANT = 50000;
 const FG_I = 8000;
 const FG_M = 334;
+const FG_TOP = 20000;
 
 function buildAmort(precio: number, leq = 400, tarifa = 11) {
   const recaudo = leq * tarifa;
   let saldo = precio;
-  const capitalFijo = precio / N;
+  let P = precio / N;  // capital fijo inicial
   const rows: { mes: number; cuota: number; saldo: number; bolsillo: number; fgA: number }[] = [];
   let fgAcum = FG_I;
 
   for (let m = 1; m <= N; m++) {
-    if (m === 3) saldo -= ANT;
     const interes = saldo * TASA_M;
-    const cuota = capitalFijo + interes;
+    const cuota = P + interes;
     const diff = Math.max(0, cuota - recaudo);
-    const fgA = FG_M;
-    fgAcum = Math.min(20000, fgAcum + fgA);
-    saldo -= capitalFijo;
-    rows.push({ mes: m, cuota: Math.round(cuota), saldo: Math.round(saldo), bolsillo: Math.round(diff + fgA), fgA });
+    const fgA = fgAcum >= FG_TOP ? 0 : FG_M;
+    fgAcum = Math.min(FG_TOP, fgAcum + fgA);
+    const bolsillo = diff + fgA;
+    rows.push({ mes: m, cuota: Math.round(cuota), saldo: Math.round(saldo), bolsillo: Math.round(bolsillo), fgA });
+    saldo -= P;
+    // Anticipo en mes 2: recalcular capital fijo sobre saldo restante
+    if (m === 2) {
+      saldo -= ANT;
+      P = saldo / (N - 2);
+    }
   }
   return { rows, recaudo };
 }
+
 
 function vehicleName(v: PublicVehicle): string {
   return [v.marca, v.modelo, v.variante, v.anio].filter(Boolean).join(" ");
@@ -119,6 +127,11 @@ function ogTags(v: PublicVehicle | null, baseUrl: string): string {
     <meta property="og:type" content="product">
     <meta property="og:url" content="${baseUrl}/${v.slug}">
   `;
+}
+
+function waLink(text: string): string {
+  const msg = encodeURIComponent(`${text} [CATALOGO]`);
+  return `https://wa.me/524463293102?text=${msg}`;
 }
 
 // ===== Shared HTML shell =====
@@ -322,9 +335,9 @@ function renderGrid(vehicles: PublicVehicle[], baseUrl: string): string {
     const name = vehicleName(v);
     const { rows, recaudo } = buildAmort(v.precio);
     const cuotaM3 = rows[2].cuota;
-    // Find month where GNV covers full cuota
     const mesGnvCubre = rows.findIndex((r) => r.cuota <= recaudo);
-    const mesLabel = mesGnvCubre >= 0 ? `GNV cubre cuota desde mes ${mesGnvCubre + 1}` : "";
+    const mesLabel = mesGnvCubre >= 0 ? `$0 de bolsillo desde mes ${mesGnvCubre + 1}` : "";
+    const bolsilloM3 = Math.max(0, cuotaM3 - recaudo) + FG_M;
 
     return `
     <a href="/${v.slug}" class="card">
@@ -335,8 +348,8 @@ function renderGrid(vehicles: PublicVehicle[], baseUrl: string): string {
         <div class="card-name">${name}</div>
         <div class="card-details">${v.color || "Blanco"} · Kit GNV instalado · Listo para trabajar</div>
         <div class="card-price">${fmt(v.precio)}</div>
-        <div class="card-cuota">Cuota desde ${fmt(cuotaM3)}/mes (post-anticipo) · ${mesLabel}</div>
-        <div class="card-gnv">⛽ GNV · Recaudo ${fmt(recaudo)}/mes</div>
+        <div class="card-cuota">De tu bolsillo: ${fmt(bolsilloM3)}/mes (post-anticipo) · ${mesLabel}</div>
+        <div class="card-gnv">⛽ Recaudo GNV: ${fmt(recaudo)}/mes</div>
       </div>
     </a>`;
   }).join("\n");
@@ -350,8 +363,8 @@ function renderGrid(vehicles: PublicVehicle[], baseUrl: string): string {
     <div class="cta-section" style="margin-top:32px">
       <div class="cta-section-title">¿Listo para renovar tu taxi?</div>
       <div class="cta-section-sub">Sin buró de crédito · Sin aval · Registro gratuito</div>
-      <a href="https://wa.me/524463293102?text=Hola%2C%20vi%20el%20inventario%20y%20quiero%20informaci%C3%B3n" class="cta cta-wa" style="display:inline-block;width:auto;padding:14px 32px">
-        Escríbenos por WhatsApp · 446 329 3102
+      <a href="${waLink('Hola, vi el inventario y quiero informaci\u00f3n')}" class="cta cta-wa" style="display:inline-block;width:auto;padding:14px 32px">
+        Me interesa · WhatsApp 446 329 3102
       </a>
     </div>
   </div>`;
@@ -368,22 +381,17 @@ function renderFicha(v: PublicVehicle, baseUrl: string): string {
   const name = vehicleName(v);
   const { rows, recaudo } = buildAmort(v.precio);
   const cuotaM1 = rows[0].cuota;
+  const cuotaM2 = rows[1].cuota;
   const cuotaM3 = rows[2].cuota;
   const mesGnvCubre = rows.findIndex((r) => r.cuota <= recaudo);
 
-  // Comparativo gasolina vs GNV
-  const kmMes = 5200;
-  const precioGas = 22.50;
-  const rendGas = 12;
-  const precioGNV = 12.99;
-  const rendGNV = 16;
-  const gastoGas = Math.round((kmMes / rendGas) * precioGas);
-  const gastoGNV = Math.round((kmMes / rendGNV) * precioGNV);
-  const ahorro = gastoGas - gastoGNV;
-  const leqMes = Math.round(kmMes / rendGNV);
-  const gastoReal = Math.round((kmMes / rendGNV) * (precioGNV - 11));
+  // Bolsillo calculations per key moment
+  const bolsilloM1 = Math.max(0, cuotaM1 - recaudo) + FG_M;
+  const bolsilloM2 = Math.max(0, cuotaM2 - recaudo) + FG_M;
+  const bolsilloM3 = Math.max(0, cuotaM3 - recaudo) + FG_M;
+  const mesGnvLabel = mesGnvCubre >= 0 ? mesGnvCubre + 1 : 34;
 
-  const waText = encodeURIComponent(`Hola, me interesa el ${name} que vi en el inventario`);
+  const waUrl = waLink(`Hola, me interesa el ${name} que vi en el inventario`);
 
   const body = `
   <div class="container">
@@ -399,7 +407,7 @@ function renderFicha(v: PublicVehicle, baseUrl: string): string {
           <div class="ficha-name">${name}</div>
           <div style="display:flex;gap:8px;align-items:center;margin-top:4px">
             ${statusBadge(v.status)}
-            <span style="font-size:12px;color:var(--muted)">${v.color || "Blanco"} · Kit GNV instalado</span>
+            <span style="font-size:12px;color:var(--muted)">${v.color || "Blanco"} · Kit GNV instalado · Listo para trabajar</span>
           </div>
         </div>
         <div>
@@ -408,29 +416,82 @@ function renderFicha(v: PublicVehicle, baseUrl: string): string {
         </div>
       </div>
 
-      <div class="stats">
-        <div class="stat">
-          <div class="stat-label">Cuota mes 1</div>
-          <div class="stat-val" style="color:var(--amber)">${fmt(cuotaM1)}</div>
-          <div class="stat-sub">Principal + interés</div>
-        </div>
-        <div class="stat">
-          <div class="stat-label">Cuota mes 3+</div>
-          <div class="stat-val" style="color:var(--verde)">${fmt(cuotaM3)}</div>
-          <div class="stat-sub">Post-anticipo $50k</div>
-        </div>
-        <div class="stat">
-          <div class="stat-label">GNV cubre desde</div>
-          <div class="stat-val" style="color:var(--cyan)">Mes ${mesGnvCubre >= 0 ? mesGnvCubre + 1 : "34+"}</div>
-          <div class="stat-sub">Con 400 LEQ/mes</div>
+      <!-- ¿Cuánto pago? - Momentos clave del crédito -->
+      <div class="comp">
+        <div class="comp-title">¿Cuánto pago cada mes?</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Con 400 LEQ/mes de GNV · Recaudo automático: ${fmt(recaudo)}/mes</div>
+        
+        <table style="width:100%;border-collapse:separate;border-spacing:0 6px;font-size:13px">
+          <thead>
+            <tr style="font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted)">
+              <th style="text-align:left;padding:4px 8px">Momento</th>
+              <th style="text-align:right;padding:4px 8px">Cuota</th>
+              <th style="text-align:right;padding:4px 8px">GNV cubre</th>
+              <th style="text-align:right;padding:4px 8px">De tu bolsillo</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="background:var(--card);border-radius:6px">
+              <td style="padding:10px 12px;border-radius:6px 0 0 6px">
+                <strong>Mes 1–2</strong>
+                <div style="font-size:11px;color:var(--muted)">Firmas, recibes tu vehículo y empiezas a cargar GNV</div>
+              </td>
+              <td style="padding:10px 8px;text-align:right;font-family:var(--raj);font-weight:600">${fmt(cuotaM1)}</td>
+              <td style="padding:10px 8px;text-align:right;color:var(--verde);font-family:var(--raj);font-weight:600">${fmt(recaudo)}</td>
+              <td style="padding:10px 12px;text-align:right;color:var(--amber);font-family:var(--raj);font-size:16px;font-weight:700;border-radius:0 6px 6px 0">${fmt(bolsilloM1)}</td>
+            </tr>
+            <tr style="background:rgba(244,162,97,.1);border-radius:6px">
+              <td style="padding:10px 12px;border-radius:6px 0 0 6px">
+                <strong style="color:var(--amber)">Día 56 (Semana 8)</strong>
+                <div style="font-size:11px;color:var(--muted)">Vendes tu taxi actual → anticipo $50,000 a capital</div>
+              </td>
+              <td colspan="3" style="padding:10px 12px;text-align:center;color:var(--amber);font-family:var(--raj);font-weight:700;font-size:15px;border-radius:0 6px 6px 0">
+                ↓ Tu cuota baja desde el mes siguiente
+              </td>
+            </tr>
+            <tr style="background:var(--card);border-radius:6px">
+              <td style="padding:10px 12px;border-radius:6px 0 0 6px">
+                <strong>Mes 3+</strong>
+                <div style="font-size:11px;color:var(--muted)">Cuota recalculada post-anticipo</div>
+              </td>
+              <td style="padding:10px 8px;text-align:right;font-family:var(--raj);font-weight:600;color:var(--verde)">${fmt(cuotaM3)}</td>
+              <td style="padding:10px 8px;text-align:right;color:var(--verde);font-family:var(--raj);font-weight:600">${fmt(recaudo)}</td>
+              <td style="padding:10px 12px;text-align:right;color:${bolsilloM3 <= FG_M + 100 ? 'var(--verde)' : 'var(--amber)'};font-family:var(--raj);font-size:16px;font-weight:700;border-radius:0 6px 6px 0">${fmt(bolsilloM3)}</td>
+            </tr>
+            <tr style="background:rgba(0,196,140,.08);border-radius:6px">
+              <td style="padding:10px 12px;border-radius:6px 0 0 6px">
+                <strong style="color:var(--verde)">Mes ${mesGnvLabel}+</strong>
+                <div style="font-size:11px;color:var(--verde)">GNV cubre tu cuota completa</div>
+              </td>
+              <td style="padding:10px 8px;text-align:right;font-family:var(--raj);font-weight:600">${fmt(rows[mesGnvCubre >= 0 ? mesGnvCubre : 33].cuota)}</td>
+              <td style="padding:10px 8px;text-align:right;color:var(--verde);font-family:var(--raj);font-weight:600">${fmt(recaudo)}</td>
+              <td style="padding:10px 12px;text-align:right;color:var(--verde);font-family:var(--raj);font-size:16px;font-weight:700;border-radius:0 6px 6px 0">$0</td>
+            </tr>
+            <tr style="background:rgba(0,174,239,.08);border-radius:6px">
+              <td style="padding:10px 12px;border-radius:6px 0 0 6px">
+                <strong style="color:var(--cyan)">Mes 37</strong>
+                <div style="font-size:11px;color:var(--cyan)">Vehículo 100% tuyo</div>
+              </td>
+              <td colspan="3" style="padding:10px 12px;text-align:center;color:var(--cyan);font-family:var(--raj);font-weight:700;font-size:15px;border-radius:0 6px 6px 0">
+                CMU libera reserva de dominio + remanente FG
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div style="background:rgba(0,196,140,.06);border:1px solid rgba(0,196,140,.15);border-radius:7px;padding:12px 16px;font-size:13px;line-height:1.7;margin-top:14px">
+          <strong style="color:var(--verde)">¿Cómo funciona?</strong><br>
+          Cada vez que cargas GNV en la red NATGAS, <strong>$11 por LEQ</strong> abonan automáticamente a tu cuota.<br>
+          Con 400 LEQ/mes = <strong>${fmt(recaudo)}/mes</strong> de recaudo. La cuota baja cada mes (amortización alemana) hasta que el GNV la cubre completa.
         </div>
       </div>
 
-      <!-- Calculadora interactiva -->
+      <!-- Personaliza tu consumo -->
       <div class="comp" id="calcSection">
-        <div class="comp-title">Personaliza tu consumo</div>
+        <div class="comp-title">¿Consumes más o menos de 400 LEQ?</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Mueve el control para ver cómo cambia tu pago de bolsillo</div>
         <div class="slider-group">
-          <div class="slider-label">LEQ/mes (consumo de gas natural)</div>
+          <div class="slider-label">Tu consumo mensual de GNV (LEQ/mes)</div>
           <div class="slider-row">
             <input type="range" id="leqSlider" min="200" max="800" step="50" value="400"
               oninput="updateCalc()">
@@ -440,52 +501,8 @@ function renderFicha(v: PublicVehicle, baseUrl: string): string {
         <div id="calcResult"></div>
       </div>
 
-      <!-- Comparativo -->
-      <div class="comp">
-        <div class="comp-title">Comparativo de gasto mensual en combustible</div>
-        <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Base: 5,200 km/mes (200 km/día × 26 días) · Gasolina $22.50/L · GNV $12.99/LEQ</div>
-        <div class="comp-grid">
-          <div class="comp-box" style="border:2px solid var(--rojo)">
-            <div class="comp-box-label" style="color:var(--rojo)">Gasolina</div>
-            <div class="comp-box-val" style="color:var(--rojo)">${fmt(gastoGas)}</div>
-            <div class="comp-box-sub">${Math.round(kmMes / rendGas)} litros</div>
-          </div>
-          <div class="comp-box" style="border:2px solid var(--verde)">
-            <div class="comp-box-label" style="color:var(--verde)">GNV</div>
-            <div class="comp-box-val" style="color:var(--verde)">${fmt(gastoGNV)}</div>
-            <div class="comp-box-sub">${leqMes} LEQ</div>
-          </div>
-          <div class="comp-box" style="border:2px solid var(--cyan);background:rgba(0,174,239,.05)">
-            <div class="comp-box-label">Ahorro</div>
-            <div class="comp-box-val" style="color:var(--cyan)">${fmt(ahorro)}/mes</div>
-            <div class="comp-box-sub">${Math.round((ahorro / gastoGas) * 100)}% menos</div>
-          </div>
-        </div>
-        <div class="comp-detail">
-          <strong style="color:var(--verde)">De los $${precioGNV} por LEQ que pagas:</strong><br>
-          • <strong>$11.00</strong> abonan a tu cuota CMU (recaudo ~${fmt(recaudo)}/mes con 400 LEQ)<br>
-          • <strong>$${(precioGNV - 11).toFixed(2)}</strong> es tu costo real de combustible<br>
-          • Tu gasto real: <strong>${fmt(gastoReal)}/mes</strong> — el resto paga tu carro
-        </div>
-      </div>
-
-      <!-- Timeline -->
-      <div class="comp">
-        <div class="comp-title">Tu camino con CMU</div>
-        <div class="timeline">
-          <div class="tl-item"><div class="tl-when">Registro</div><div class="tl-what">Gratis. Sin buró de crédito. Sin aval. Solo tus documentos y tu concesión.</div></div>
-          <div class="tl-item"><div class="tl-when">Firma</div><div class="tl-what">Fondo de Garantía inicial: $8,000. Firmas contrato + pagaré de anticipo.</div></div>
-          <div class="tl-item"><div class="tl-when">~Día 25</div><div class="tl-what">Recibes tu vehículo con kit GNV instalado (~25 días naturales desde la firma).</div></div>
-          <div class="tl-item"><div class="tl-when">Mes 1</div><div class="tl-what">Empiezas a cargar GNV. Tu consumo abona automáticamente a tu cuota.</div></div>
-          <div class="tl-item"><div class="tl-when">Semana 8</div><div class="tl-what">Vendes tu unidad actual → anticipo de $50,000 a capital. Cuota baja.</div></div>
-          <div class="tl-item"><div class="tl-when">Mes 3+</div><div class="tl-what">Cuota baja a <strong>${fmt(cuotaM3)}/mes</strong>. GNV cubre la mayor parte.</div></div>
-          <div class="tl-item"><div class="tl-when">Mes ${mesGnvCubre >= 0 ? mesGnvCubre + 1 : "34"}</div><div class="tl-what"><strong style="color:var(--verde)">GNV cubre tu cuota completa.</strong> $0 de tu bolsillo.</div></div>
-          <div class="tl-item"><div class="tl-when">Mes 37</div><div class="tl-what"><strong style="color:var(--cyan)">Vehículo 100% tuyo.</strong> CMU libera reserva de dominio + remanente del Fondo de Garantía.</div></div>
-        </div>
-      </div>
-
       <!-- CTA -->
-      <a href="https://wa.me/524463293102?text=${waText}" class="cta cta-wa" style="margin-bottom:12px">
+      <a href="${waUrl}" class="cta cta-wa" style="margin-bottom:12px">
         Me interesa este vehículo · WhatsApp
       </a>
       <a href="/" class="cta" style="background:var(--card);border:1px solid rgba(255,255,255,.1)">
@@ -496,7 +513,7 @@ function renderFicha(v: PublicVehicle, baseUrl: string): string {
     <div class="cta-section" style="margin-top:32px">
       <div class="cta-section-title">¿Listo para renovar tu taxi?</div>
       <div class="cta-section-sub">Sin buró de crédito · Sin aval · Registro gratuito</div>
-      <a href="https://wa.me/524463293102?text=${waText}" class="cta cta-wa" style="display:inline-block;width:auto;padding:14px 32px">
+      <a href="${waUrl}" class="cta cta-wa" style="display:inline-block;width:auto;padding:14px 32px">
         Escríbenos por WhatsApp · 446 329 3102
       </a>
     </div>
@@ -513,25 +530,28 @@ function renderFicha(v: PublicVehicle, baseUrl: string): string {
     const recaudo = leq * tarifa;
     
     let saldo = PRECIO;
-    const capitalFijo = PRECIO / N;
-    let cuotaM3 = 0, mesGnv = -1;
+    let P = PRECIO / N;
+    let cuotaM1=0, cuotaM3=0, mesGnv=-1;
     
     for (let m = 1; m <= N; m++) {
-      if (m === 3) saldo -= ANT;
       const interes = saldo * TASA_M;
-      const cuota = capitalFijo + interes;
+      const cuota = P + interes;
+      if (m === 1) cuotaM1 = Math.round(cuota);
       if (m === 3) cuotaM3 = Math.round(cuota);
       if (mesGnv < 0 && cuota <= recaudo) mesGnv = m;
-      saldo -= capitalFijo;
+      saldo -= P;
+      if (m === 2) { saldo -= ANT; P = saldo / (N - 2); }
     }
     
-    const diff = Math.max(0, cuotaM3 - recaudo);
+    const bolM1 = Math.max(0, cuotaM1 - recaudo) + FG_M;
+    const bolM3 = Math.max(0, cuotaM3 - recaudo) + FG_M;
+    const gnvMes = mesGnv > 0 ? mesGnv : '34+';
     
     document.getElementById('calcResult').innerHTML = 
       '<div class="stats" style="margin-top:12px">' +
-      '<div class="stat"><div class="stat-label">Recaudo GNV</div><div class="stat-val" style="color:var(--verde)">$' + recaudo.toLocaleString('es-MX') + '</div><div class="stat-sub">' + leq + ' LEQ × $11</div></div>' +
-      '<div class="stat"><div class="stat-label">De tu bolsillo (mes 3+)</div><div class="stat-val" style="color:' + (diff > 0 ? 'var(--amber)' : 'var(--verde)') + '">$' + (diff + FG_M).toLocaleString('es-MX') + '</div><div class="stat-sub">Diferencial + FG $334</div></div>' +
-      '<div class="stat"><div class="stat-label">GNV cubre desde</div><div class="stat-val" style="color:var(--cyan)">' + (mesGnv > 0 ? 'Mes ' + mesGnv : 'Mes 36+') + '</div><div class="stat-sub">$0 de tu bolsillo</div></div>' +
+      '<div class="stat"><div class="stat-label">Recaudo GNV</div><div class="stat-val" style="color:var(--verde)">$' + recaudo.toLocaleString('es-MX') + '</div><div class="stat-sub">' + leq + ' LEQ \u00d7 $11</div></div>' +
+      '<div class="stat"><div class="stat-label">De tu bolsillo (mes 3+)</div><div class="stat-val" style="color:' + (bolM3 <= FG_M + 100 ? 'var(--verde)' : 'var(--amber)') + '">$' + bolM3.toLocaleString('es-MX') + '</div><div class="stat-sub">Diferencial + FG $334</div></div>' +
+      '<div class="stat"><div class="stat-label">$0 de bolsillo desde</div><div class="stat-val" style="color:var(--cyan)">Mes ' + gnvMes + '</div><div class="stat-sub">GNV cubre tu cuota</div></div>' +
       '</div>';
   }
   updateCalc();
