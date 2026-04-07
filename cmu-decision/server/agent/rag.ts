@@ -217,9 +217,8 @@ async function answerWithLLM(question: string, rules: BusinessRule[]): Promise<s
       ? rules.map(r => `[${r.categoria}] ${r.titulo}: ${r.contenido}`).join("\n\n")
       : "No hay reglas de negocio relevantes encontradas.";
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
+    const text = await chatCompletion(
+      [
         {
           role: "system",
           content: `Eres el asistente de CMU (Conductores del Mundo), un programa de renovación de taxis en Aguascalientes, México.
@@ -231,11 +230,9 @@ ${rulesContext}`,
         },
         { role: "user", content: question },
       ],
-      max_tokens: 200,
-      temperature: 0.3,
-    });
+      { max_tokens: 200, temperature: 0.3 },
+    );
 
-    const text = response.choices[0]?.message?.content?.trim();
     if (text && text.length > 10) return text;
     return null;
   } catch (error: any) {

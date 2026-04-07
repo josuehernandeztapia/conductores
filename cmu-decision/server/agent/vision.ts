@@ -193,28 +193,20 @@ export async function classifyAndValidateDoc(
   const prompt = buildVisionPrompt(expectedType, docOrder, existingData);
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
+    const response = await chatCompletion(
+      [
         {
           role: "user",
           content: [
             { type: "text", text: prompt },
-            {
-              type: "image_url",
-              image_url: {
-                url: `data:image/jpeg;base64,${imageBase64}`,
-                detail: "high",
-              },
-            },
+            { type: "image_url", image_url: { url: `data:image/jpeg;base64,${imageBase64}`, detail: "high" } },
           ],
         },
       ],
-      max_tokens: 800,
-      temperature: 0,
-    });
+      { model: "gpt-4o", max_tokens: 800, temperature: 0 },
+    );
 
-    const text = response.choices[0]?.message?.content?.trim() || "";
+    const text = (typeof response === 'string' ? response : '').trim();
 
     // Parse JSON response
     const jsonMatch = text.match(/\{[\s\S]*\}/);

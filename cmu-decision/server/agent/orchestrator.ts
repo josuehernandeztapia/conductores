@@ -102,28 +102,13 @@ async function downloadTwilioMedia(mediaUrl: string): Promise<Buffer> {
  */
 async function transcribeAudio(audioBuffer: Buffer): Promise<string> {
 
-  // Create a File-like object from the buffer
-  const file = new File([audioBuffer], "audio.ogg", { type: "audio/ogg" });
-
-  const transcription = await openai.audio.transcriptions.create({
-    model: "whisper-1",
-    file,
-    language: "es",
-  });
-
-  return transcription.text;
+  return await whisperTranscribe(audioBuffer);
 }
 
 // ─── LLM Call Helper (for interview) ─────────────────────────────────────────
 
 async function llmCall(messages: any[], maxTokens: number): Promise<string> {
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages,
-    max_tokens: maxTokens,
-    temperature: 0,
-  });
-  return response.choices[0]?.message?.content?.trim() || "";
+  return await chatCompletion(messages, { max_tokens: maxTokens, temperature: 0 });
 }
 
 // ─── DB Helpers ──────────────────────────────────────────────────────────────

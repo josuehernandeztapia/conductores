@@ -271,17 +271,13 @@ Rules:
 
 Respond ONLY with valid JSON: {"intent": "...", "entities": {...}, "confidence": 0.N}`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
+    const text = await chatCompletion(
+      [
         { role: "system", content: systemPrompt },
         { role: "user", content: body },
       ],
-      max_tokens: 150,
-      temperature: 0,
-    });
-
-    const text = response.choices[0]?.message?.content?.trim() || "";
+      { max_tokens: 150, temperature: 0 },
+    );
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
