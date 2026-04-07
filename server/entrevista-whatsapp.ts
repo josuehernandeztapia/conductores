@@ -138,9 +138,10 @@ export async function processAnswer(
       'tiene_chofer', 'resiliencia_ok',
     ]);
     const vals = Object.entries(extracted)
-      .filter(([_, v]) => v !== null && v !== undefined && v !== 0 && v !== false)
+      .filter(([_, v]) => v !== null && v !== undefined)
       .map(([k, v]) => {
         if (typeof v === 'boolean') return `${k}: ${v ? 'sí' : 'no'}`;
+        if (typeof v === 'number' && v === 0) return `${k}: 0`;
         if (typeof v === 'number' && NON_MONEY_FIELDS.has(k)) return `${k}: ${v}`;
         if (typeof v === 'number') return `${k}: $${v.toLocaleString()}`;
         return `${k}: ${v}`;

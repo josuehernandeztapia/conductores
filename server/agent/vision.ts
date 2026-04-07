@@ -204,6 +204,12 @@ REGLAS DE EXTRACCIÓN:
 - Para nombres, extrae tal cual aparecen en el documento (mayúsculas/minúsculas como estén).
 - Para fechas, usa formato YYYY-MM-DD cuando sea posible.
 
+REGLA CRÍTICA DE EXTRACCIÓN:
+- Debes extraer MÍNIMO 5 campos para INE frente (nombre, curp, domicilio, vigencia, fecha_nacimiento).
+- Si la imagen es legible, NUNCA devuelvas solo 1-2 campos. Examina cada campo listado.
+- Si un campo no es legible, pon null. Pero INTENTA leer cada uno.
+- Las imágenes pueden estar rotadas 90° — ajusta tu lectura.
+
 ── PASO 4: CROSS-CHECK ──
 Reglas específicas para "${expectedDoc?.label || expectedType}":
 ${expectedDoc?.crossCheck || "N/A"}

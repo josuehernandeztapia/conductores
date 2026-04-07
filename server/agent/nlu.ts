@@ -129,7 +129,11 @@ const PATTERNS: Array<{ intent: Intent; regex: RegExp; entityExtractor?: (match:
   // ── Doc skip / progress / interview intent ──
   {
     intent: "skip_doc",
-    regex: /\b(no\s+(?:la|lo|las|los)?\s*tengo|no\s+cuento|no\s+(?:lo\s+)?encuentro|ahorita\s+no|no\s+(?:la|lo)\s+tengo\s+(?:a\s+la\s+mano|conmigo|aqu[ií])|no\s+est[aá]\s+aqu[ií]|no\s+(?:la|lo)\s+traigo|despu[eé]s\s+(?:te|lo|la)\s+(?:mando|env[ií]o)|lo\s+busco|l[oa]\s+mando\s+(?:luego|despu[eé]s)|saltar|skip|brincar|no\s+tengo\s+eso|siguiente|no\s+(?:la|lo)\s+tengo|no\s+(?:la|lo)\s+tengo\s+conmigo|no\s+(?:la|lo)\s+traigo\s+conmigo|no\s+(?:la|lo)\s+tengo\s+aqu[ií]|ahorita\s+no\s+(?:la|lo)\s+tengo|no\s+lo\s+tengo\s+(?:a\s+la|cer[ck]a))\b/i,
+    regex: /\b(soy\s+(?:yo\s+)?(?:el\s+)?(?:operador|chofer|conductor)|yo\s+(?:mismo\s+)?(?:manejo|opero|conduzco)|no\s+tengo\s+(?:operador|chofer))\b/i,
+  },
+  {
+    intent: "skip_doc",
+    regex: /\b(no\s+(?:la|lo|las|los)?\s*tengo|no\s+cuento|no\s+(?:lo\s+)?encuentro|ahorita\s+no|no\s+(?:la|lo)\s+tengo\s+(?:a\s+la\s+mano|conmigo|aqu[ií])|no\s+est[aá]\s+aqu[ií]|no\s+(?:la|lo)\s+traigo|despu[eé]s\s+(?:te|lo|la)\s+(?:mando|env[ií]o)|lo\s+busco|l[oa]\s+mando\s+(?:luego|despu[eé]s)|saltar|skip|brincar|no\s+tengo\s+eso|siguie?nte|sigiente|siguente|no\s+(?:la|lo)\s+tengo|no\s+(?:la|lo)\s+tengo\s+conmigo|no\s+(?:la|lo)\s+traigo\s+conmigo|no\s+(?:la|lo)\s+tengo\s+aqu[ií]|ahorita\s+no\s+(?:la|lo)\s+tengo|no\s+lo\s+tengo\s+(?:a\s+la|cer[ck]a))\b/i,
   },
   {
     intent: "ask_progress",

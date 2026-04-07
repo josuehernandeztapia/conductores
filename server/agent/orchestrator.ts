@@ -237,15 +237,16 @@ function preNluOverride(body: string, state: string): NLUResult | null {
       state === "docs_capture" ||
       state === "docs_pending" ||
       state === "interview_complete" ||
-      state === "prospect_confirm"
+      state === "prospect_confirm" ||
+      state === "completed"
     ) {
       return { intent: "ask_progress", entities: {}, confidence: 1.0 };
     }
   }
 
   // ── "siguiente" in docs states → skip_doc ──
-  if (/^(siguiente|skip|saltar|brincar)$/i.test(trimmed)) {
-    if (state === "docs_capture" || state === "docs_pending") {
+  if (/^(siguie?nte|siguiente|sigiente|siguente|skip|saltar|brincar)$/i.test(trimmed)) {
+    if (state === "docs_capture" || state === "docs_pending" || state === "completed") {
       return { intent: "skip_doc", entities: {}, confidence: 1.0 };
     }
   }
@@ -425,11 +426,7 @@ async function handleTextMessage(
       return handleInterviewCompleteText(phone, body, nlu, ctx, state, storage);
 
     case "completed":
-      return {
-        response: already_complete(),
-        newState: "completed",
-        contextUpdates: {},
-      };
+      return handleCompletedText(phone, body, nlu, ctx, storage);
 
     default:
       return handleIdle(phone, body, nlu, ctx, storage);
@@ -495,8 +492,8 @@ async function handleImageMessage(
   storage: any,
 ): Promise<{ response: string; newState: ProspectState; contextUpdates: Partial<AgentContext> }> {
 
-  // ── Process images during docs_capture, docs_pending, or interview_complete ──
-  if (state === "docs_capture" || state === "docs_pending" || state === "interview_complete") {
+  // ── Process images during docs_capture, docs_pending, interview_complete, or completed (with pending docs) ──
+  if (state === "docs_capture" || state === "docs_pending" || state === "interview_complete" || state === "completed") {
     return processDocImage(phone, mediaUrl, mediaType, state, ctx, body, storage);
   }
 
@@ -605,6 +602,14 @@ async function processDocImage(
     [`_${detectedKey}_data`]: visionResult.extracted_data,
   };
 
+  console.log(`[Orchestrator] Vision extracted_data:`, JSON.stringify(visionResult.extracted_data).slice(0, 300));
+
+  const contextUp: Partial<AgentContext> = {
+    docsCollected: newCollected,
+    existingData: newExistingData,
+    currentDocIndex: (ctx.currentDocIndex || 0) + 1,
+  };
+
   // ── CRITICAL: Cross-check INE nombre vs prospect nombre ──
   if (detectedKey === 'ine_frente' && visionResult.extracted_data) {
     const ineNombre = (visionResult.extracted_data.nombre || '').toUpperCase().trim();
@@ -618,6 +623,33 @@ async function processDocImage(
         // Name on INE doesn't match prospect's stated name AT ALL
         if (!visionResult.cross_check_flags.includes('nombre_prospecto_mismatch')) {
           visionResult.cross_check_flags.push('nombre_prospecto_mismatch');
+        }
+      }
+    }
+  }
+
+  // ── INE frente: update prospect name from official document ──
+  if (detectedKey === 'ine_frente' && visionResult.extracted_data) {
+    const ineNombre = visionResult.extracted_data.nombre || visionResult.extracted_data.nombre_completo;
+    if (ineNombre && ineNombre.trim()) {
+      const oldName = ctx.nombre || '';
+      const newName = ineNombre.trim();
+      contextUp.nombre = newName;
+
+      if (ctx.folio) {
+        try {
+          const sql = getSQL();
+          await sql`UPDATE originations SET nombre = ${newName} WHERE folio = ${ctx.folio}`;
+        } catch (e: any) {
+          console.error('[Orchestrator] Failed to update folio name:', e.message);
+        }
+      }
+
+      if (oldName && oldName.toUpperCase() !== newName.toUpperCase()) {
+        try {
+          await notifyTeam(`⚠️ Nombre cambiado: "${oldName}" → "${newName}" (INE) | Folio: ${ctx.folio || '?'}`);
+        } catch (e: any) {
+          console.error('[Orchestrator] notifyTeam failed:', e.message);
         }
       }
     }
@@ -642,17 +674,26 @@ async function processDocImage(
     console.error(`[Orchestrator] updateProspectDocs failed:`, error.message);
   }
 
-  const contextUp: Partial<AgentContext> = {
-    docsCollected: newCollected,
-    existingData: newExistingData,
-    currentDocIndex: (ctx.currentDocIndex || 0) + 1,
-  };
-
   // Check next doc after this one
   const nextDocAfter = getNextExpectedDoc([...newCollected, ...(ctx.skippedDocs || [])]);
 
   if (!nextDocAfter) {
-    // All docs complete!
+    const actualPending = TOTAL_DOCS - newCollected.length;
+
+    if (actualPending > 0) {
+      // Remaining docs were all skipped — re-present them
+      const firstPending = getNextExpectedDoc(newCollected); // without skipped
+      if (firstPending) {
+        contextUp.skippedDocs = [];
+        return {
+          response: `*${detectedLabel}* recibido ✓ (${newCollected.length}/${TOTAL_DOCS})\n\n${firstName}, te faltan *${actualPending} documentos* por capturar. Los que saltaste los puedes mandar ahora.\n\nMándame tu *${firstPending.label}* 📷`,
+          newState: "docs_pending" as ProspectState,
+          contextUpdates: contextUp,
+        };
+      }
+    }
+
+    // All docs truly complete!
     try {
       await notifyTeam(`Documentos completos: ${ctx.folio || "?"} — ${ctx.nombre || "?"}`);
     } catch (e: any) {
@@ -1433,8 +1474,22 @@ async function handleDocsText(
     }
   }
 
+  // ── Check doc-specific FAQ ──
+  const { DOC_FAQ } = await import('./templates');
+  const nextDocForFaq = getNextExpectedDoc([...collectedDocs, ...(ctx.skippedDocs || [])]);
+  const currentDocKey = nextDocForFaq?.key || '';
+  const docFaq = DOC_FAQ[currentDocKey];
+  if (docFaq) {
+    const lower = body.toLowerCase();
+    for (const [keyword, answer] of Object.entries(docFaq)) {
+      if (lower.includes(keyword)) {
+        return { response: answer + `\n\nCuando los tengas, mándamelos 📷`, newState: state, contextUpdates: {} };
+      }
+    }
+  }
+
   // ── Default: remind what doc we're waiting for ──
-  const nextDoc = getNextExpectedDoc([...collectedDocs, ...(ctx.skippedDocs || [])]);
+  const nextDoc = nextDocForFaq;
   if (nextDoc) {
     return {
       response: `Mándame tu *${nextDoc.label}* 📷\n\n_Escribe "siguiente" para saltar, "estado" para ver tu avance, o "entrevista" para hacer las preguntas._`,
@@ -1750,9 +1805,59 @@ async function handleInterviewCompleteText(
     };
   }
 
+  // ALL remaining docs were skipped — re-present them
+  if (pendingCount > 0) {
+    const firstPending = getNextExpectedDoc(collectedDocs); // without skipped
+    if (firstPending) {
+      return {
+        response: `${firstName}, te faltan *${pendingCount} documentos* por capturar. Los que saltaste los puedes mandar ahora.\n\nMándame tu *${firstPending.label}* 📷\n\n_Escribe *estado* para ver cuáles faltan._`,
+        newState: "docs_pending" as ProspectState,
+        contextUpdates: { skippedDocs: [] },
+      };
+    }
+  }
+
   return {
     response: already_complete(),
     newState: "completed" as ProspectState,
     contextUpdates: {},
   };
+}
+
+// ── COMPLETED → allow re-entering doc capture if docs still pending ──
+
+async function handleCompletedText(
+  phone: string, body: string, nlu: NLUResult, ctx: AgentContext, storage: any,
+): Promise<{ response: string; newState: ProspectState; contextUpdates: Partial<AgentContext> }> {
+  const firstName = getFirstName(ctx);
+  const collectedDocs = ctx.docsCollected || [];
+  const pendingCount = TOTAL_DOCS - collectedDocs.length;
+
+  // If truly complete (all 14 captured), stay completed
+  if (pendingCount === 0) {
+    return { response: already_complete(), newState: "completed" as ProspectState, contextUpdates: {} };
+  }
+
+  // User wants to check status — re-enter doc capture
+  if (nlu.intent === "ask_progress") {
+    const pendingLabels = getPendingDocLabels(collectedDocs);
+    const interviewDone = ctx.interviewState?.currentQuestion === 8;
+    return {
+      response: doc_status(firstName, collectedDocs.length, TOTAL_DOCS, pendingLabels, interviewDone),
+      newState: "docs_pending" as ProspectState,
+      contextUpdates: { skippedDocs: [] },
+    };
+  }
+
+  // Any other message — tell them they have pending docs and re-enter
+  const firstPending = getNextExpectedDoc(collectedDocs); // without skipped
+  if (firstPending) {
+    return {
+      response: `${firstName}, te faltan *${pendingCount} documentos*. Mándame tu *${firstPending.label}* 📷\n\nEscribe *estado* para ver cuáles faltan.`,
+      newState: "docs_pending" as ProspectState,
+      contextUpdates: { skippedDocs: [] },
+    };
+  }
+
+  return { response: already_complete(), newState: "completed" as ProspectState, contextUpdates: {} };
 }

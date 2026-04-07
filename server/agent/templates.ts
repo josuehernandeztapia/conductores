@@ -197,6 +197,19 @@ export const DOC_EXPLANATIONS: Record<string, string> = {
   fotos_unidad: "*Fotos de tu unidad* — necesito 4 fotos: frente, trasera, lateral izquierdo y lateral derecho. De preferencia que se vea la placa.",
 };
 
+export const DOC_FAQ: Record<string, Record<string, string>> = {
+  historial_gnv: {
+    'cuantos': 'Mándame 3 o 4 tickets recientes de carga de GNV. Los del último mes están bien.',
+    'donde': 'Los tickets de NATGAS o la estación donde cargas gas. Si los tienes en el tablero del carro, con foto está bien.',
+  },
+  tickets_gasolina: {
+    'cuantos': 'Mándame 3 o 4 tickets recientes de gasolina.',
+  },
+  fotos_unidad: {
+    'cuantas': 'Necesito 4 fotos: frente, trasera, lateral izquierdo y lateral derecho.',
+  },
+};
+
 export function doc_explanation(docKey: string): string {
   return DOC_EXPLANATIONS[docKey] || `Tu *${docKey}*`;
 }
