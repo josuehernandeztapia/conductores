@@ -3025,6 +3025,22 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
       }
     } else if (mediaUrl && !originationId) { visionNote = "Imagen sin folio vinculado."; }
 
+    // ===== RAG: Try FAQ/knowledge base first for questions (all roles) =====
+    if (body && !mediaUrl && !docSaved) {
+      const isQuestion = /\?|qu[eé]|c[oó]mo|cu[aá]ndo|cu[aá]nto|d[oó]nde|por\s*qu[eé]|puedo|necesito|hay|existe|funciona|pasa\s+si/i.test(body);
+      if (isQuestion) {
+        try {
+          const { answerQuestion } = await import("./agent/rag");
+          const ragAnswer = await answerQuestion(body);
+          if (ragAnswer) {
+            return await respond(ragAnswer);
+          }
+        } catch (e: any) {
+          console.error("[RAG] Error in old agent:", e.message);
+        }
+      }
+    }
+
     // Build prompt with dynamic knowledge base from business_rules
     const rulesAB = await this.getRules();
     // v9: Use buildClientKnowledge for Canal A/B (excludes motor financiero)
