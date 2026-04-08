@@ -650,8 +650,8 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
     if (yearMatch) year = parseInt(yearMatch[0]);
 
     // Extract repair FIRST (before cost, so we don't confuse "rep 25k" with cost)
-    const repMatch = lower.match(/(\d{1,3}(?:\.\d+)?)\s*k[,\s]+rep(?:araci[oó]n)?\b/i)   // "10k reparación"
-      || lower.match(/(\d{1,3}(?:\.\d+)?)\s*k\s*,?\s*rep(?:araci[oó]n)?\b/i)           // "10k, reparación"
+    const repMatch = lower.match(/(\d{1,3}(?:\.\d+)?)\s*k[,\s]+(?:de\s+)?rep(?:araci[oó]n)?\b/i)  // "5k de reparación" "10k reparación"
+      || lower.match(/(\d{1,3}(?:\.\d+)?)\s*k\s*,?\s*(?:de\s+)?rep(?:araci[oó]n)?\b/i)          // "5k, de reparación"
       || lower.match(/rep(?:araci[oó]n)?(?:\s+(?:es\s+)?(?:de\s+)?)?\$?\s*(\d{1,3}(?:\.\d+)?)\s*(?:mil|k)/i)
       || lower.match(/rep(?:araci[oó]n)?(?:\s+(?:es\s+)?(?:de\s+)?)?\$?\s*(\d{1,3}),(\d{3})/i)
       || lower.match(/rep(?:araci[oó]n)?(?:\s+(?:es\s+)?(?:de\s+)?)?\$?\s*(\d{4,6})/i)
@@ -1654,7 +1654,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
                     modelName: checkName,
                     year: yr,
                     cost: earlyParsed.cost,
-                    repair: earlyParsed.repair || 10000,
+                    repair: earlyParsed.repair !== null ? earlyParsed.repair : 10000,
                     conTanque: earlyParsed.conTanque,
                     variants,
                   },
@@ -1678,7 +1678,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
           state: "evaluating",
           context: {
             vehicle: { brand: model.brand, model: model.model, variant: model.variant, year: model.year, cmu: model.cmu, inCatalog: true },
-            eval: { cost: earlyParsed.cost, repair: earlyParsed.repair || 10000, conTanque: earlyParsed.conTanque },
+            eval: { cost: earlyParsed.cost, repair: earlyParsed.repair !== null ? earlyParsed.repair : 10000, conTanque: earlyParsed.conTanque },
           },
         });
         const fuel = await this.getFuel();
@@ -1696,7 +1696,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         }
         const m = model as any;
         const mData = { brand: m.brand, model: m.model, variant: m.variant, slug: m.slug, purchaseBenchmarkPct: m.purchaseBenchmarkPct || m.purchase_benchmark_pct || 0.60 };
-        const input: EvaluationInput = { modelId: m.id, modelSlug: m.slug, year: displayYear, cmu: m.cmu, insurerPrice: earlyParsed.cost, repairEstimate: earlyParsed.repair || 10000, conTanque: earlyParsed.conTanque };
+        const input: EvaluationInput = { modelId: m.id, modelSlug: m.slug, year: displayYear, cmu: m.cmu, insurerPrice: earlyParsed.cost, repairEstimate: earlyParsed.repair !== null ? earlyParsed.repair : 10000, conTanque: earlyParsed.conTanque };
         const rules = await this.getRules();
         const result = evaluateOpportunity(input, mData, { gnvRevenue: fuel.gnvRevenueMes, marketAvgPrice: validMarketAvg });
         return this.formatEvalResult(result, mkt, fuel.gnvRevenueMes, getThresholds(rules));
@@ -1721,7 +1721,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
             // Build virtual model data for evaluation
             const slug = `${brandFromMap}-${modelName}`.toLowerCase().replace(/\s+/g, "-");
             const mData = { brand: brandFromMap, model: modelName, variant: null as string | null, slug, purchaseBenchmarkPct: 0.65 };
-            const input: EvaluationInput = { modelId: 0, modelSlug: slug, year: searchYear, cmu: marketCmu, insurerPrice: earlyParsed.cost, repairEstimate: earlyParsed.repair || 10000, conTanque: earlyParsed.conTanque };
+            const input: EvaluationInput = { modelId: 0, modelSlug: slug, year: searchYear, cmu: marketCmu, insurerPrice: earlyParsed.cost, repairEstimate: earlyParsed.repair !== null ? earlyParsed.repair : 10000, conTanque: earlyParsed.conTanque };
             const fuel = await this.getFuel();
             const rules = await this.getRules();
             const result = evaluateOpportunity(input, mData, { gnvRevenue: fuel.gnvRevenueMes, marketAvgPrice: mkt.avg });
@@ -1757,7 +1757,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         if (!p.modelQuery || !p.cost) { results.push({ line, result: null }); continue; }
         const model = await this.resolveModel(p.modelQuery, p.year);
         if (!model) { results.push({ line, result: null }); continue; }
-        const input: EvaluationInput = { modelId: model.id, modelSlug: model.slug, year: model.year, cmu: model.cmu, insurerPrice: p.cost, repairEstimate: p.repair || 10000, conTanque: p.conTanque };
+        const input: EvaluationInput = { modelId: model.id, modelSlug: model.slug, year: model.year, cmu: model.cmu, insurerPrice: p.cost, repairEstimate: p.repair !== null ? p.repair : 10000, conTanque: p.conTanque };
         try {
           const r = evaluateOpportunity(input, { brand: model.brand, model: model.model, variant: model.variant, slug: model.slug, purchaseBenchmarkPct: model.purchaseBenchmarkPct }, { gnvRevenue: fuelGnv });
           results.push({ line, result: r });
@@ -1796,7 +1796,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
       if (!parsed.cost) return `${model.brand} ${model.model} ${model.variant || ""} ${model.year}\nCMU: $${model.cmu.toLocaleString()}\n\nCosto de adquisicion?`;
       const fuel2 = await this.getFuel();
       const mkt2 = await this.fetchMarketPrices(model.brand, model.model, model.year, model.variant);
-      const input: EvaluationInput = { modelId: model.id, modelSlug: model.slug, year: model.year, cmu: model.cmu, insurerPrice: parsed.cost, repairEstimate: parsed.repair || 10000, conTanque: parsed.conTanque };
+      const input: EvaluationInput = { modelId: model.id, modelSlug: model.slug, year: model.year, cmu: model.cmu, insurerPrice: parsed.cost, repairEstimate: parsed.repair !== null ? parsed.repair : 10000, conTanque: parsed.conTanque };
       const rules2 = await this.getRules();
       const result = evaluateOpportunity(input, { brand: model.brand, model: model.model, variant: model.variant, slug: model.slug, purchaseBenchmarkPct: model.purchaseBenchmarkPct }, { gnvRevenue: fuel2.gnvRevenueMes, marketAvgPrice: mkt2.avg });
       return this.formatEvalResult(result, mkt2, fuel2.gnvRevenueMes, getThresholds(rules2));
