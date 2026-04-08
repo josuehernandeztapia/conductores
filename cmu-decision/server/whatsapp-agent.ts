@@ -650,7 +650,9 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
     if (yearMatch) year = parseInt(yearMatch[0]);
 
     // Extract repair FIRST (before cost, so we don't confuse "rep 25k" with cost)
-    const repMatch = lower.match(/rep(?:araci[oó]n)?(?:\s+(?:es\s+)?(?:de\s+)?)?\$?\s*(\d{1,3}(?:\.\d+)?)\s*(?:mil|k)/i)
+    const repMatch = lower.match(/(\d{1,3}(?:\.\d+)?)\s*k[,\s]+rep(?:araci[oó]n)?\b/i)   // "10k reparación"
+      || lower.match(/(\d{1,3}(?:\.\d+)?)\s*k\s*,?\s*rep(?:araci[oó]n)?\b/i)           // "10k, reparación"
+      || lower.match(/rep(?:araci[oó]n)?(?:\s+(?:es\s+)?(?:de\s+)?)?\$?\s*(\d{1,3}(?:\.\d+)?)\s*(?:mil|k)/i)
       || lower.match(/rep(?:araci[oó]n)?(?:\s+(?:es\s+)?(?:de\s+)?)?\$?\s*(\d{1,3}),(\d{3})/i)
       || lower.match(/rep(?:araci[oó]n)?(?:\s+(?:es\s+)?(?:de\s+)?)?\$?\s*(\d{4,6})/i)
       || lower.match(/rep\s+(\d{1,3})\s*k?\b/i);
@@ -728,8 +730,9 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
       .replace(/\d{2,3}\s*k\b/g, "") // "130k"
       .replace(/\$?\s*\d{2,3}[,.]\d{3}/g, "") // "$91,500"
       .replace(/\d{2,3}\s*mil/g, "") // "130 mil"
+      .replace(/\d{1,3}(?:\.\d+)?\s*k[,\s]+rep(?:araci[oó]n)?\b/gi, "")  // "10k reparación"
       .replace(/rep(?:araci[oó]n)?(?:\s+(?:es\s+)?(?:de\s+)?)?\$?\s*\d+\s*k?/gi, "")
-      .replace(/\brep\b/gi, "") // clean leftover "rep" after number removal
+      .replace(/\brep(?:araci[oó]n)?\b/gi, "")  // leftover
       .replace(/\$[\d,.]+/g, "").replace(/20\d{2}/g, "").replace(/sin tanque|tanque nuevo/gi, "")
       .replace(/\d{5,6}/g, "") // raw prices
       // v9: Strip common noise words that confuse model detection
@@ -1110,8 +1113,13 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
     }
     
     // Step 1: Detect edit command
+    // GUARD: skip edit flow if this looks like a vehicle evaluation (model + price + rep)
+    const looksLikeEval = (() => {
+      const p = this.parseEvalLine(lower);
+      return p.cost !== null && p.modelQuery !== null && p.modelQuery.length >= 2;
+    })();
     // Flexible: "reparacion aveo 30k" OR "cambiar reparacion del aveo a 30k" OR "costo reparacion march sense 15000"
-    const editFieldMatch = lower.match(/(?:reparaci[o\u00f3]n|rep(?:aracion)?|cmu|precio\s*(?:de\s*)?(?:venta|cmu)|precio\s*aseguradora|costo\s*(?:de\s*)?(?:compra|adquisicion|reparaci[o\u00f3]n)|compra|kit|tanque|gnv)/i);
+    const editFieldMatch = looksLikeEval ? null : lower.match(/(?:reparaci[o\u00f3]n|rep(?:aracion)?|cmu|precio\s*(?:de\s*)?(?:venta|cmu)|precio\s*aseguradora|costo\s*(?:de\s*)?(?:compra|adquisicion|reparaci[o\u00f3]n)|compra|kit|tanque|gnv)/i);
     // Match value at end, but EXCLUDE years (4 digits starting with 20)
     let editValueMatch = lower.match(/(\d[\d,.]*k)\s*$/i) || lower.match(/(?:a|en)\s+(\d[\d,.]*k?)\b/i);
     if (!editValueMatch) {
