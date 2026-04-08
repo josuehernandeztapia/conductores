@@ -1690,7 +1690,9 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
           },
         });
         const fuel = await this.getFuel();
-        const mkt = await this.fetchMarketPrices(model.brand, model.model, model.year, model.variant);
+        // Use user's specified year for market fetch + title (not catalog year)
+        const displayYear = earlyParsed.year || model.year;
+        const mkt = await this.fetchMarketPrices(model.brand, model.model, displayYear, model.variant);
         // Validate market data: if <5 samples or >20% deviation from catalog, don't use for PV rule
         let validMarketAvg: number | null = mkt.avg;
         if (mkt.avg && model.cmu > 0) {
@@ -1702,7 +1704,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         }
         const m = model as any;
         const mData = { brand: m.brand, model: m.model, variant: m.variant, slug: m.slug, purchaseBenchmarkPct: m.purchaseBenchmarkPct || m.purchase_benchmark_pct || 0.60 };
-        const input: EvaluationInput = { modelId: m.id, modelSlug: m.slug, year: m.year, cmu: m.cmu, insurerPrice: earlyParsed.cost, repairEstimate: earlyParsed.repair || 10000, conTanque: earlyParsed.conTanque };
+        const input: EvaluationInput = { modelId: m.id, modelSlug: m.slug, year: displayYear, cmu: m.cmu, insurerPrice: earlyParsed.cost, repairEstimate: earlyParsed.repair || 10000, conTanque: earlyParsed.conTanque };
         const rules = await this.getRules();
         const result = evaluateOpportunity(input, mData, { gnvRevenue: fuel.gnvRevenueMes, marketAvgPrice: validMarketAvg });
         return this.formatEvalResult(result, mkt, fuel.gnvRevenueMes, getThresholds(rules));
