@@ -1113,10 +1113,12 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
     }
     
     // Step 1: Detect edit command
-    // GUARD: skip edit flow if this looks like a vehicle evaluation (model + price + rep)
+    // GUARD: skip edit flow ONLY if message has BOTH a main price AND a repair cost
+    // (i.e. two distinct numbers). Single-number messages like "reparacion aveo 30k" still
+    // go through the edit flow normally.
     const looksLikeEval = (() => {
       const p = this.parseEvalLine(lower);
-      return p.cost !== null && p.modelQuery !== null && p.modelQuery.length >= 2;
+      return p.cost !== null && p.repair !== null && p.modelQuery !== null && p.modelQuery.length >= 2;
     })();
     // Flexible: "reparacion aveo 30k" OR "cambiar reparacion del aveo a 30k" OR "costo reparacion march sense 15000"
     const editFieldMatch = looksLikeEval ? null : lower.match(/(?:reparaci[o\u00f3]n|rep(?:aracion)?|cmu|precio\s*(?:de\s*)?(?:venta|cmu)|precio\s*aseguradora|costo\s*(?:de\s*)?(?:compra|adquisicion|reparaci[o\u00f3]n)|compra|kit|tanque|gnv)/i);
