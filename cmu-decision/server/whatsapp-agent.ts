@@ -769,16 +769,8 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
       const closest = catalogYears.reduce((a, b) => Math.abs(b - year) < Math.abs(a - year) ? b : a);
       const diff = Math.abs(year - closest);
       
-      if (diff <= 1) {
-        // Within 1 year → use closest, note the difference
-        const closestModel = nameMatches.find((m: any) => m.year === closest);
-        if (closestModel) {
-          console.log(`[ResolveModel] ${q} ${year} not in catalog, using closest year ${closest} (diff=${diff})`);
-          return closestModel as Model;
-        }
-      }
-      // More than 1 year off → return undefined to trigger market-based flow
-      console.log(`[ResolveModel] ${q} ${year} not in catalog, closest is ${closest} (diff=${diff}) — triggering market flow`);
+      // Any year mismatch → go to market, fetch real 2024 data, auto-insert into catalog
+      console.log(`[ResolveModel] ${q} ${year} not in catalog (closest=${closest}, diff=${diff}) — triggering market flow`);
       return undefined;
     }
     
