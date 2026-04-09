@@ -198,7 +198,7 @@ export const DOC_EXPLANATIONS: Record<string, string> = {
   comprobante_domicilio: "Un *comprobante de domicilio* reciente — recibo de luz (CFE), agua, teléfono o banco. Máximo 3 meses. Puede estar a nombre de tu esposa o familiar, lo importante es que la *dirección coincida con tu INE*.",
   concesion: "Tu *concesión de taxi vigente* — el documento que te autoriza a operar como taxi en Aguascalientes.",
   estado_cuenta: "Tu *estado de cuenta bancario (carátula)* — donde se vea tu nombre, CLABE a 18 dígitos, y dirección. La dirección debe coincidir con tu INE.",
-  historial_gnv: "Tus *tickets de carga de GNV* — necesito 3 o 4 tickets recientes de cuando cargas gas en la estación NATGAS. Si los tienes en el tablero del carro, con una foto está bien.",
+  historial_gnv: "Tu *historial de consumo GNV* — necesito 3 o 4 comprobantes recientes de carga de gas. Puede ser el ticket físico o captura de pantalla del historial. Si los tienes en el tablero del carro, con una foto está bien.",
   tickets_gasolina: "Tus *tickets de gasolina* — 3 o 4 recientes. Pueden ser de Magna o Premium.",
   carta_membresia: "Tu *Carta de Membresía Gremial* — la carta de tu agrupación de taxis (ACATAXI, CTM, etc.) que confirma que eres miembro activo.",
   selfie_biometrico: "Una *selfie tuya sosteniendo tu INE* — tómala con buena luz, que se vea tu cara y la INE legible.",
@@ -210,7 +210,7 @@ export const DOC_EXPLANATIONS: Record<string, string> = {
 export const DOC_FAQ: Record<string, Record<string, string>> = {
   historial_gnv: {
     'cuantos': 'Mándame 3 o 4 tickets recientes de carga de GNV. Los del último mes están bien.',
-    'donde': 'Los tickets de NATGAS o la estación donde cargas gas. Si los tienes en el tablero del carro, con foto está bien.',
+    'donde': 'El ticket de carga o comprobante de la estación donde cargas GNV. Si los tienes en el tablero del carro, con foto está bien.',
   },
   tickets_gasolina: {
     'cuantos': 'Mándame 3 o 4 tickets recientes de gasolina.',

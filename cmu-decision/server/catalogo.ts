@@ -481,7 +481,7 @@ function renderFicha(v: PublicVehicle, baseUrl: string): string {
 
         <div style="background:rgba(0,196,140,.06);border:1px solid rgba(0,196,140,.15);border-radius:7px;padding:12px 16px;font-size:13px;line-height:1.7;margin-top:14px">
           <strong style="color:var(--verde)">¿Cómo funciona?</strong><br>
-          Cada vez que cargas GNV en la red NATGAS, <strong>$11 por LEQ</strong> abonan automáticamente a tu cuota.<br>
+          Cada vez que cargas GNV en una <strong>estación con convenio CMU</strong>, <strong>$11 por LEQ</strong> abonan automáticamente a tu cuota.<br>
           Con 400 LEQ/mes = <strong>${fmt(recaudo)}/mes</strong> de recaudo. La cuota baja cada mes (amortización alemana) hasta que el GNV la cubre completa.
         </div>
       </div>
