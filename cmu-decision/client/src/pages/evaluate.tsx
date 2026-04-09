@@ -61,6 +61,7 @@ import { apiGetModelOptions, apiSaveEvaluation, apiListEvaluations, apiFetchMark
 import { evaluateOpportunity } from "@/lib/evaluation-engine";
 import { STANDARD, maxAdquisicion, maxReparacion, validarCmu, depositoMes3, updateStandardFromConfig } from "@/lib/cmu-standard";
 import { jsPDF } from "jspdf";
+import { MLClientScraper } from "@/components/MLClientScraper";
 
 function formatMXN(value: number): string {
   return `$${value.toLocaleString("es-MX")}`;
@@ -1318,6 +1319,9 @@ export default function EvaluatePage() {
                   )}
                   {isFetchingPrices ? "Consultando Kavak, MercadoLibre..." : "Consultar precios de mercado"}
                 </Button>
+
+                {/* Client-side ML scraper — runs from director's MX device */}
+                <MLClientScraper />
 
                 {marketData && marketData.count > 0 && (
                   <div className={`mt-2 rounded-lg p-3 ${marketData.fallback ? "bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800" : "bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800"}`} data-testid="market-prices-result">
