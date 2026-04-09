@@ -267,6 +267,7 @@ export async function apiSaveDocument(data: {
         ocrConfidence: data.ocrConfidence || "media",
         editedData: data.editedData || null,
         status: data.status || "captured",
+        source: data.source || "manual",
         createdAt: new Date().toISOString(),
       });
     }
@@ -645,7 +646,7 @@ function normalizeDocument(row: any) {
 // OTP — Twilio Verify Integration
 // ============================================================
 
-export async function apiSendOtp(phone: string, originationId: number): Promise<{ success: boolean; simulated?: boolean; status?: string; note?: string }> {
+export async function apiSendOtp(phone: string, originationId: number): Promise<{ success: boolean; simulated?: boolean; status?: string; note?: string; phone?: string }> {
   try {
     const res = await apiFetch(`/api/originations/${originationId}/otp/send`, {
       method: "POST",

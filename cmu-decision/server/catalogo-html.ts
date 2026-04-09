@@ -1,5 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { storage } from "./storage";
+import { sql } from "./db";
 import { isCatalogoRequest, registerCatalogoRoutes } from "./catalogo-routes";
 
 // ====== CATALOGO HTML SERVER — SSR for catalogo.conductores.lat ======
@@ -87,13 +88,9 @@ export function registerCatalogoHtml(app: Express) {
 
 async function serveCatalogoGrid(_req: Request, res: Response) {
   try {
-    const result = await storage.query(
-      `SELECT id, marca, modelo, variante, anio, color, precio_venta_final, status, foto_url, slug, destacado
-       FROM vehicles_inventory WHERE status != 'vendido'
-       ORDER BY destacado DESC, id DESC`
-    );
+    const rows_grid = await sql`SELECT id, marca, modelo, variante, anio, color, precio_venta_final, status, foto_url, slug, destacado FROM vehicles_inventory WHERE status != 'vendido' ORDER BY destacado DESC, id DESC`;
     
-    const cards = result.rows.map((v: any) => {
+    const cards = rows_grid.map((v: any) => {
       const name = `${v.marca} ${v.modelo} ${v.variante || ''}`.trim();
       const price = v.precio_venta_final ? `$${Number(v.precio_venta_final).toLocaleString('es-MX')} MXN` : 'Consultar';
       const statusClass = v.status === 'disponible' ? 'status-disponible' : 'status-apartado';
@@ -129,19 +126,15 @@ async function serveCatalogoGrid(_req: Request, res: Response) {
 
 async function serveCatalogoFicha(_req: Request, res: Response, slug: string) {
   try {
-    const result = await storage.query(
-      `SELECT id, marca, modelo, variante, anio, color, precio_venta_final, status, foto_url, slug, enganche_minimo, plazo_meses, pago_mensual_estimado
-       FROM vehicles_inventory WHERE slug = $1`,
-      [slug]
-    );
-    
-    if (result.rows.length === 0) {
+    const rows_ficha = await sql`SELECT id, marca, modelo, variante, anio, color, precio_venta_final, status, foto_url, slug, enganche_minimo, plazo_meses, pago_mensual_estimado FROM vehicles_inventory WHERE slug = ${slug}`;
+
+    if (rows_ficha.length === 0) {
       res.status(404);
       const html = catalogoLayout('No encontrado', 'Veh\u00edculo no encontrado', '', '', '<div style="text-align:center;padding:4rem;"><h2>Veh\u00edculo no encontrado</h2><p><a href="/">Ver cat\u00e1logo</a></p></div>');
       return res.send(html);
     }
-    
-    const v = result.rows[0];
+
+    const v = rows_ficha[0];
     const name = `${v.marca} ${v.modelo} ${v.variante || ''}`.trim();
     const price = v.precio_venta_final ? `$${Number(v.precio_venta_final).toLocaleString('es-MX')} MXN` : 'Consultar';
     const img = v.foto_url || 'https://via.placeholder.com/600x400/f0f0f0/999?text=' + encodeURIComponent(name);
