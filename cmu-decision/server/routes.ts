@@ -921,7 +921,12 @@ Responde SOLO con JSON válido:
 
       // === SOURCE 3: Seminuevos.com (SSR HTML — works from server) ===
       try {
-        const snUrl = `https://www.seminuevos.com/autos?marca=${encodeURIComponent(brand.toLowerCase())}&modelo=${encodeURIComponent(model.toLowerCase())}&anio=${year}&precio-desde=100000&precio-hasta=350000`;
+        // Use model-specific price range if we have a verified reference (avoids cross-model contamination)
+        const snVKey = getVerifiedKey(brand, model, variant, parseInt(year));
+        const snRef = snVKey ? VERIFIED_PRICES[snVKey] : null;
+        const snMinPrice = snRef ? Math.round(snRef.median * 0.70) : 100000;
+        const snMaxPrice = snRef ? Math.round(snRef.median * 1.45) : 350000;
+        const snUrl = `https://www.seminuevos.com/autos?marca=${encodeURIComponent(brand.toLowerCase())}&modelo=${encodeURIComponent(model.toLowerCase())}&anio=${year}&precio-desde=${snMinPrice}&precio-hasta=${snMaxPrice}`;
         const snRes = await fetch(snUrl, {
           headers: fetchHeaders,
           signal: AbortSignal.timeout(12000),
@@ -930,12 +935,12 @@ Responde SOLO con JSON válido:
         if (snRes.ok) {
           const html = await snRes.text();
           const beforeCount = prices.length;
-          // Extract $ prices from HTML
+          // Extract $ prices from HTML — use dynamic range to avoid cross-model contamination
           const snPriceRegex = /\$\s*(\d{1,3}(?:,\d{3})+)/g;
           let snMatch;
           while ((snMatch = snPriceRegex.exec(html)) !== null) {
             const p = parseInt(snMatch[1].replace(/,/g, ""));
-            if (p >= PRICE_MIN && p <= PRICE_MAX) {
+            if (p >= snMinPrice && p <= snMaxPrice) {
               prices.push({ price: p, source: "Seminuevos" });
             }
           }
@@ -950,7 +955,7 @@ Responde SOLO con JSON válido:
                 const op = item.item?.offers?.price;
                 if (op) {
                   const p = typeof op === "number" ? op : parseInt(String(op).replace(/[,.]/g, ""));
-                  if (p >= PRICE_MIN && p <= PRICE_MAX) prices.push({ price: p, source: "Seminuevos" });
+                  if (p >= snMinPrice && p <= snMaxPrice) prices.push({ price: p, source: "Seminuevos" });
                 }
               }
             } catch {}
