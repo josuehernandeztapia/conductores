@@ -130,9 +130,6 @@ export interface AgentContext {
   // Prospect corrida data
   modelo?: string;         // selected vehicle model slug
   consumo?: number;        // LEQ/mes
-  fuelType?: string;       // 'gnv' | 'gasolina'
-  folio?: string;          // folio string e.g. CMU-SIN-XXXXXX
-  originationId?: number;  // origination DB id
 
   // Document capture
   docsCollected?: string[];     // keys of docs already captured

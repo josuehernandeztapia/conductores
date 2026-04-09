@@ -1691,21 +1691,37 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         let validMarketAvg: number | null = mkt.avg;
         if (mkt.avg && model.cmu > 0) {
           const ratio = mkt.avg / model.cmu;
-          if (mkt.count < 5 || ratio > 1.20 || ratio < 0.80) {
-            console.log(`[Eval] Market data unreliable: ${mkt.count} samples, ratio=${ratio.toFixed(2)} — using catalog CMU $${model.cmu}`);
+          const isVerified = mkt.sources && mkt.sources.toLowerCase().includes('verificad');
+          const enoughSamples = isVerified ? mkt.count >= 2 : mkt.count >= 5;
+          if (!enoughSamples && !isVerified) {
+            // Scraped prices with insufficient samples — skip cap
+            console.log(`[Eval] Market scraped data insufficient: ${mkt.count} samples — skipping cap`);
             validMarketAvg = null;
+          } else if (ratio > 1.40) {
+            // Market suspiciously HIGH vs CMU — likely bad data
+            console.log(`[Eval] Market data suspiciously high: ratio=${ratio.toFixed(2)} — skipping cap`);
+            validMarketAvg = null;
+          } else if (ratio < 1.0) {
+            // Market LOWER than CMU — MUST apply cap (core PV rule)
+            console.log(`[Eval] Market $${mkt.avg.toLocaleString()} < CMU $${model.cmu.toLocaleString()} (ratio=${ratio.toFixed(2)}) — applying PV cap`);
+            // validMarketAvg stays set
           }
         }
         const m = model as any;
         const mData = { brand: m.brand, model: m.model, variant: m.variant, slug: m.slug, purchaseBenchmarkPct: m.purchaseBenchmarkPct || m.purchase_benchmark_pct || 0.60 };
         const input: EvaluationInput = { modelId: m.id, modelSlug: m.slug, year: displayYear, cmu: m.cmu, insurerPrice: earlyParsed.cost, repairEstimate: earlyParsed.repair !== null ? earlyParsed.repair : 10000, conTanque: earlyParsed.conTanque };
         const rules = await this.getRules();
-        // Load per-model Dif m3 thresholds from business_rules
-        const umbralGlobal = parseInt(rules["umbral_dif_m3_global"] || "7000");
+        // Load per-model Dif m3 thresholds from business_rules (rules is a Map)
+        const umbralGlobalRule = rules.get ? rules.get('umbral_dif_m3_global') : (rules as any)['umbral_dif_m3_global'];
+        const umbralGlobal = parseInt((umbralGlobalRule as any)?.value || umbralGlobalRule || '7000') || 7000;
         const umbralByModel: Record<string, number> = {};
-        for (const [k, v] of Object.entries(rules)) {
+        const rulesEntries = rules.entries ? Array.from(rules.entries()) : Object.entries(rules);
+        for (const [k, v] of rulesEntries) {
           const match = k.match(/^umbral_dif_m3_(.+)$/);
-          if (match && match[1] !== 'global') umbralByModel[match[1]] = parseInt(v as string) || 7000;
+          if (match && match[1] !== 'global') {
+            const val = (v as any)?.value || v;
+            umbralByModel[match[1]] = parseInt(val as string) || 7000;
+          }
         }
         const result = evaluateOpportunity(input, mData, { gnvRevenue: fuel.gnvRevenueMes, marketAvgPrice: validMarketAvg, umbralDifM3Global: umbralGlobal, umbralDifM3ByModel: umbralByModel });
         const formatted = this.formatEvalResult(result, mkt, fuel.gnvRevenueMes, getThresholds(rules));

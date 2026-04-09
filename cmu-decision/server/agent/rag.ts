@@ -344,8 +344,7 @@ async function answerWithLLM(question: string, rules: BusinessRule[]): Promise<s
     // Build full knowledge base from SSOT + business_rules
     let knowledgeBase: string;
     try {
-      const allRules = await getBusinessRules();
-      const rulesMap = new Map(allRules.map((r: any) => [r.key, r]));
+      const rulesMap = await getBusinessRules();
       knowledgeBase = buildClientKnowledge(rulesMap);
     } catch {
       // Fallback to just the DB rules

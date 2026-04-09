@@ -99,7 +99,7 @@ export class EvaluationHandler {
     let modelQuery: string | null = lower.replace(/josu[eé]\s*/i, "").replace(/eval[uú]a?\s*/i, "")
       .replace(/\d{2,3}[.,]\d{1,2}\s*k\b/g, "")
       .replace(/\d{2,3}\s*k\b/g, "")
-      .replace(/\$?\s*\d{2,3}[,.}\d{3}/g, "")
+      .replace(/\$?\s*\d{2,3}[,.]\d{3}/g, "")
       .replace(/\d{2,3}\s*mil/g, "")
       .replace(/\d{1,3}(?:\.\d+)?\s*k[,\s]+rep(?:araci[oó]n)?\b/gi, "")
       .replace(/rep(?:araci[oó]n)?(?:\s+(?:es\s+)?(?:de\s+)?)?\$?\s*\d+\s*k?/gi, "")
@@ -318,7 +318,7 @@ export class EvaluationHandler {
     if (!found) {
       const noise = /\b(precio|precios|mercado|market|dame|dime|dar|del|de|la|el|los|las|un|una|cuanto|cu[aá]nto|cuesta|vale|promedio|busca|buscar|quiero|ver|ahora|tambi[eé]n|nuevo|nueva|sedan|hatchback|me|te|se|nos|si|s[ií]|no|por|para|que|qu[eé]|como|c[oó]mo|con|sin|su|sus|al|pero|ya|hay|puede|puedes|podr[ií]as?|dar|tiene|tengo|cuentas?|cuenta|favor|hola|oye|oiga|bueno|pues|ese|esa|este|esta|esto|estos|estas|esos|esas|solo|s[oó]lo|cual|donde|cuando|porque|porqu[eé]|ser|son|era|fue|api|eso|otro|otra|otros|otras|bien|mal|muy|mas|m[aá]s|algo|nada|todo|todos|cada|mismo|aqu[ií]|ahi|ah[ií]|alla|all[aá]|venden|piden|reparaci[oó]n|reparacion|rep)\b/g;
       const cleaned = lower.replace(noise, "").replace(/20\d{2}/g, "").replace(/[?!¿¡.,;:]/g, "")
-        .replace(/\d{2,3}\s*k\b/g, "").replace(/\$?\s*\d{2,3}[,.}\d{3}/g, "").replace(/\d{5,6}/g, "")
+        .replace(/\d{2,3}\s*k\b/g, "").replace(/\$?\s*\d{2,3}[,.]\d{3}/g, "").replace(/\d{5,6}/g, "")
         .replace(/\s+/g, " ").trim();
       const words = cleaned.split(" ").filter(w => w.length >= 3 && !/^\d+$/.test(w));
 
