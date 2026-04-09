@@ -17,13 +17,29 @@
 import { neon } from "@neondatabase/serverless";
 
 export type ConversationState =
+  // v9 known-role states
   | "idle"
   | "evaluating"
   | "browsing_prices"
   | "asking_info"
   | "onboarding"
   | "capturing_docs"
-  | "simulation";
+  | "simulation"
+  // v4 prospect states (written by orchestrator to shared session)
+  | "prospect_name"
+  | "prospect_fuel_type"
+  | "prospect_consumo"
+  | "prospect_select_model"
+  | "prospect_tank"
+  | "prospect_corrida"
+  | "prospect_confirm"
+  | "docs_capture"
+  | "docs_pending"
+  | "interview_ready"
+  | "interview_q1" | "interview_q2" | "interview_q3" | "interview_q4"
+  | "interview_q5" | "interview_q6" | "interview_q7" | "interview_q8"
+  | "interview_complete"
+  | "completed";
 
 export type ConversationContext = {
   // Vehicle being discussed (catalog or not)
@@ -56,6 +72,21 @@ export type ConversationContext = {
   lastTopic?: string;
   // Promo kit active
   promoKitActiva?: boolean;
+  // v4 prospect agent context (stored as nested object)
+  agentState?: string;
+  agentContext?: Record<string, any>;
+  // Pending corrida formatted text
+  pendingCorrida?: string | null;
+  // Canal and prospect data
+  canal?: string;
+  fuelType?: string;
+  leqMes?: number;
+  modelo?: string;
+  pv?: number;
+  docsComplete?: boolean;
+  pendingEval?: Record<string, any>;
+  pendingEdit?: Record<string, any>;
+  interview?: Record<string, any>;
 };
 
 export type ConversationSession = {

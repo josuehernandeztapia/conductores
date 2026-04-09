@@ -12,8 +12,9 @@ if (!databaseUrl) {
   console.warn("[DB] DATABASE_URL not set — database operations will fail");
 }
 
-const sql = databaseUrl ? neon(databaseUrl) : null;
-export const db = sql ? drizzle(sql, { schema }) : null;
+const _neonSql = databaseUrl ? neon(databaseUrl) : null;
+export const db = _neonSql ? drizzle(_neonSql, { schema }) : null;
+export const sql = _neonSql;
 
 export function getDb() {
   if (!db) {
