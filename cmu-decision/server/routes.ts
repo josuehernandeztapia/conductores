@@ -58,7 +58,7 @@ const PUBLIC_PATHS = [
   "/api/whatsapp/send-outbound",
   "/api/whatsapp/send",
   "/api/ml/authorize",
-  "/api/ml/callback",
+  "/api/ml-callback",
   "/api/recaudo/process",
   "/api/recaudo/fix-ahorro",
   "/api/mifiel/webhook",
