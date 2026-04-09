@@ -59,6 +59,7 @@ const PUBLIC_PATHS = [
   "/api/ml/authorize",
   "/api/ml/callback",
   "/api/recaudo/process",
+  "/api/recaudo/fix-ahorro",
   "/api/mifiel/webhook",
   "/api/business-config",
   "/api/cierre/ejecutar",
@@ -2673,8 +2674,8 @@ Responde SOLO con JSON válido:
     try {
       const { pin, correcciones } = req.body;
       if (pin !== "654321") return res.status(403).json({ message: "PIN incorrecto" });
-      const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN || "";
-      if (!AIRTABLE_TOKEN) return res.status(500).json({ message: "AIRTABLE_TOKEN not set" });
+      const AIRTABLE_TOKEN = process.env.AIRTABLE_PAT || process.env.AIRTABLE_TOKEN || "";
+      if (!AIRTABLE_TOKEN) return res.status(500).json({ message: "AIRTABLE_PAT not set" });
 
       const BASE_ID = "appXxbjjGzXFiX7gk";
       const TABLE_ID = "tblUjkOQ2rWvBRRmw"; // Ahorro Joylong
