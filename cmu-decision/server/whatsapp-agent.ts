@@ -1914,14 +1914,12 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         carteraDirector = "\n" + await buildCarteraDashboard();
       } catch (e: any) { console.error("[Agent] Airtable dashboard error:", e.message); }
     }
-    const sys = SYSTEM_PROMPT_C
-      .replace("{knowledgeBase}", knowledgeC)
-      .replace("{evalData}", "")
-      .replace("{context}", ctx + carteraDirector)
-      .replace("{modelos}", modelList)
-      .replace("{lastModelContext}", lastModelCtx)
-      .replace("{rulesContext}", rulesCtx)
-      .replace("{stateContext}", stateCtx);
+    // Phase 2: Use modular prompt for director
+    const sys = buildSystemPrompt("director", {
+      knowledgeBase: knowledgeC,
+      stateContext: stateCtx + "\n" + lastModelCtx + "\n" + rulesCtx + "\nMODELOS EN CATÁLOGO:\n" + modelList,
+      profile: ctx + carteraDirector
+    });
     const history = this.getHistoryForLLM(phone, 10);
     const messages: any[] = [{ role: "system", content: sys }, ...history, { role: "user", content: body }];
     return await this.llm(messages);
@@ -3107,7 +3105,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
     // v9: Use buildClientKnowledge for Canal A/B (excludes motor financiero)
     const knowledgeAB = role === "director" ? buildKnowledgeBase(rulesAB) : buildClientKnowledge(rulesAB);
     const stateCtx = buildStateContext(convState);
-    
+
     // v9: Inject Airtable cartera context for post-firma clients
     let carteraCtx = "";
     if (isAirtableEnabled() && (role === "cliente" || role === "prospecto" || role === "promotora" || role === "director")) {
@@ -3118,13 +3116,18 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         console.error("[Agent] Airtable cartera error:", e.message);
       }
     }
-    
-    const sys = SYSTEM_PROMPT_AB
-      .replace("{knowledgeBase}", knowledgeAB)
-      .replace("{fuelContext}", fuel.text)
-      .replace("{canal}", canalLabel).replace("{context}", ctx).replace("{profile}", profile).replace("{pending}", pInfo.text)
-      .replace("{simulation}", simulationData ? `\n=== SIMULACION ===\n${simulationData}` : "")
-      .replace("{stateContext}", stateCtx + carteraCtx);
+
+    // Phase 2: Use modular prompt system
+    const sys = buildSystemPrompt(role === "prospecto" ? "prospect" : role, {
+      knowledgeBase: knowledgeAB,
+      fuelContext: fuel.text,
+      canal: canalLabel,
+      profile,
+      pending: pInfo.text,
+      simulation: simulationData ? `\n=== SIMULACION ===\n${simulationData}` : undefined,
+      stateContext: stateCtx + carteraCtx,
+      docOrder: DOC_ORDER.map((d, i) => `${i + 1}. ${d.label}`).join(" | ")
+    });
     let userMsg = body || "(imagen)";
     if (flexSearchNote) userMsg += `\n${flexSearchNote}`;
     if (visionNote) userMsg += `\n[VISION: ${visionNote}]`;
