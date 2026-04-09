@@ -2241,12 +2241,12 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
       );
       
       // ===== PENDING CORRIDA COMPLETA — intercept "Sí" before LLM =====
-      const pendingCorrida = session?.context?.pendingCorrida as string | undefined;
+      const pendingCorrida = convState?.context?.pendingCorrida as string | undefined;
       if (pendingCorrida && /^\s*(s[ií]|yes|dale|ok|quer[oé]|ver|mu[eé]strame|cl?aro|andale|va)\s*[!.]*$/i.test(body || "")) {
         // Clear pendingCorrida from state
         await this.updateState(phone, {
           state: "evaluating",
-          context: { ...session?.context, pendingCorrida: null },
+          context: { ...convState?.context, pendingCorrida: null },
         });
         return await respond(pendingCorrida);
       }
