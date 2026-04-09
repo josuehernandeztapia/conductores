@@ -2668,6 +2668,42 @@ Responde SOLO con JSON válido:
     }
   });
 
+  // POST /api/recaudo/fix-ahorro — Director override to correct Joylong ahorro accumulated values
+  app.post("/api/recaudo/fix-ahorro", async (req, res) => {
+    try {
+      const { pin, correcciones } = req.body;
+      if (pin !== "654321") return res.status(403).json({ message: "PIN incorrecto" });
+      const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN || "";
+      if (!AIRTABLE_TOKEN) return res.status(500).json({ message: "AIRTABLE_TOKEN not set" });
+
+      const BASE_ID = "appXxbjjGzXFiX7gk";
+      const TABLE_ID = "tblUjkOQ2rWvBRRmw"; // Ahorro Joylong
+
+      const results: any[] = [];
+      for (const c of correcciones) {
+        // Find record by Folio
+        const listResp = await fetch(
+          `https://api.airtable.com/v0/${BASE_ID}/${TABLE_ID}?filterByFormula=%7BFolio%7D%3D'${c.folio}'`,
+          { headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}` } }
+        );
+        const listData: any = await listResp.json();
+        if (!listData.records?.length) { results.push({ folio: c.folio, error: "not found" }); continue; }
+        const recId = listData.records[0].id;
+        // Update record
+        const upResp = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${TABLE_ID}/${recId}`, {
+          method: "PATCH",
+          headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ fields: { "Ahorro Acumulado": c.ahorro_acumulado, "Notas": c.notas || "" } })
+        });
+        const upData: any = await upResp.json();
+        results.push({ folio: c.folio, ahorro: upData.fields?.["Ahorro Acumulado"], ok: !upData.error });
+      }
+      return res.json({ success: true, results });
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
   // ===== EVALUACIÓN RÁPIDA TAXI =====
   app.use("/api/evaluacion", evaluacionRoutes);
 
