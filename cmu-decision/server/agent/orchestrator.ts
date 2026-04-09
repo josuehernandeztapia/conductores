@@ -667,45 +667,43 @@ async function processDocImage(
     if (ticketCount < MIN_TICKETS) {
       // Need more tickets
       const remaining = MIN_TICKETS - ticketCount;
-      const avgStr = detectedKey === 'historial_gnv'
-        ? (avgLitros ? `Promedio parcial: *${avgLitros} LEQ/ticket*. ` : '')
-        : (avgMonto ? `Promedio parcial: *$${avgMonto.toLocaleString()}/ticket*. ` : '');
       return {
-        response: `*${detectedLabel2} #${ticketCount}* recibido \u2713\n\n${avgStr}Necesito *${remaining} ticket${remaining > 1 ? 's' : ''} m\u00e1s* (3 en total). Manda el siguiente. \uD83D\uDCF7`,
+        response: `*${detectedLabel2} #${ticketCount}* recibido \u2713\n\nNecesito *${remaining} ticket${remaining > 1 ? 's' : ''} m\u00e1s* (3 en total). Manda el siguiente. \uD83D\uDCF7`,
         newState: state,
         contextUpdates: contextUpTicket,
       };
     }
 
-    // Have 3+ tickets — compute average and cross-check
+    // Have 3+ tickets — compute monthly estimate (avg/ticket × 26 working days)
     const newCollectedTicket = [...collectedDocs];
     if (!newCollectedTicket.includes(detectedKey)) newCollectedTicket.push(detectedKey);
 
-    let crossCheckMsg = '';
-    let crossCheckFlag = false;
+    // Internal flags for director/evaluation (NOT shown to prospect)
+    const internalFlags: string[] = [];
+    let prospectMsg = '';
+
     if (detectedKey === 'historial_gnv' && avgLitros !== null) {
-      if (avgLitros < 300) {
-        crossCheckMsg = `\u26A0\uFE0F Consumo promedio bajo: *${avgLitros} LEQ/ticket* (m\u00ednimo recomendado: 300 LEQ/mes).`;
-        crossCheckFlag = true;
-      } else {
-        crossCheckMsg = `Consumo promedio: *${avgLitros} LEQ/mes* \u2713`;
-      }
+      const monthlyLeq = Math.round(avgLitros * 26);
+      if (monthlyLeq < 300) internalFlags.push('consumo_bajo_gnv');
+      prospectMsg = `Consumo estimado: *${monthlyLeq} LEQ/mes* \u2713`;
+      // Save monthly estimate to existingData for use in evaluation
+      contextUpTicket.existingData = { ...contextUpTicket.existingData, gnv_leq_mensual: monthlyLeq };
     } else if (detectedKey === 'tickets_gasolina' && avgMonto !== null) {
-      if (avgMonto < 6000) {
-        crossCheckMsg = `\u26A0\uFE0F Gasto promedio bajo: *$${avgMonto.toLocaleString()}/mes* (m\u00ednimo recomendado: $6,000).`;
-        crossCheckFlag = true;
-      } else {
-        crossCheckMsg = `Gasto promedio: *$${avgMonto.toLocaleString()}/mes* \u2713`;
-      }
+      const monthlyMonto = Math.round(avgMonto * 26);
+      if (monthlyMonto < 6000) internalFlags.push('gasto_bajo_gasolina');
+      prospectMsg = `Gasto estimado: *$${monthlyMonto.toLocaleString()}/mes* \u2713`;
+      contextUpTicket.existingData = { ...contextUpTicket.existingData, gasolina_monto_mensual: monthlyMonto };
+    }
+
+    // Store flags internally (director sees them in evaluation, prospect does not)
+    if (internalFlags.length > 0) {
+      contextUpTicket.existingData = { ...contextUpTicket.existingData, _ticket_flags: internalFlags };
     }
 
     const nextDocTicket = getNextExpectedDoc([...newCollectedTicket, ...(ctx.skippedDocs || [])]);
-    const crossSuffix = crossCheckFlag
-      ? `\n\n${crossCheckMsg}\n\nPodemos continuar, pero te recomiendo aumentar el consumo para maximizar el recaudo.`
-      : `\n\n${crossCheckMsg}`;
 
     return {
-      response: `*${detectedLabel2} #${ticketCount}* recibido \u2713 — Tengo los *3 tickets*.${crossSuffix}\n\n${
+      response: `*${detectedLabel2} #${ticketCount}* recibido \u2713 — Tengo los *3 tickets*.\n\n${prospectMsg}\n\n${
         nextDocTicket ? `Manda tu *${nextDocTicket.label}* \uD83D\uDCF7` : 'Todos los documentos listos.'
       }`,
       newState: nextDocTicket ? state : ('interview_ready' as ProspectState),
