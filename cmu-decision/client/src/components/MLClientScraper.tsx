@@ -22,20 +22,147 @@ import {
 } from "@/components/ui/dialog";
 import { RefreshCw, CheckCircle2, XCircle, Loader2, ShoppingCart } from "lucide-react";
 
-// ─── CMU catalog: models to scrape ───────────────────────────────────────────
+// ─── CMU catalog: all 120 models (2020–2025) ─────────────────────────────────
 const CMU_MODELS = [
-  { brand: "Nissan",    model: "March",     variant: "Sense",    year: 2021 },
-  { brand: "Nissan",    model: "March",     variant: "Advance",  year: 2021 },
-  { brand: "Nissan",    model: "March",     variant: "Sense",    year: 2022 },
-  { brand: "Nissan",    model: "March",     variant: "Advance",  year: 2022 },
-  { brand: "Nissan",    model: "March",     variant: "Sense",    year: 2023 },
-  { brand: "Chevrolet", model: "Aveo",      variant: null,       year: 2021 },
-  { brand: "Chevrolet", model: "Aveo",      variant: null,       year: 2022 },
-  { brand: "Chevrolet", model: "Aveo",      variant: null,       year: 2023 },
-  { brand: "Renault",   model: "Kwid",      variant: null,       year: 2023 },
-  { brand: "Renault",   model: "Kwid",      variant: null,       year: 2024 },
-  { brand: "Hyundai",   model: "Grand i10", variant: "GL",       year: 2022 },
-  { brand: "Hyundai",   model: "Grand i10", variant: "GL",       year: 2023 },
+  // Chevrolet Aveo
+  { brand: "Chevrolet", model: "Aveo", variant: null, year: 2020 },
+  { brand: "Chevrolet", model: "Aveo", variant: null, year: 2021 },
+  { brand: "Chevrolet", model: "Aveo", variant: "LS", year: 2021 },
+  { brand: "Chevrolet", model: "Aveo", variant: "LT", year: 2021 },
+  { brand: "Chevrolet", model: "Aveo", variant: null, year: 2022 },
+  { brand: "Chevrolet", model: "Aveo", variant: "LS", year: 2022 },
+  { brand: "Chevrolet", model: "Aveo", variant: "LT", year: 2022 },
+  { brand: "Chevrolet", model: "Aveo", variant: null, year: 2023 },
+  { brand: "Chevrolet", model: "Aveo", variant: "LS", year: 2023 },
+  { brand: "Chevrolet", model: "Aveo", variant: "LT", year: 2023 },
+  { brand: "Chevrolet", model: "Aveo", variant: null, year: 2024 },
+  { brand: "Chevrolet", model: "Aveo", variant: "LT", year: 2024 },
+  { brand: "Chevrolet", model: "Aveo", variant: null, year: 2025 },
+  // Nissan March
+  { brand: "Nissan", model: "March", variant: null, year: 2020 },
+  { brand: "Nissan", model: "March", variant: null, year: 2021 },
+  { brand: "Nissan", model: "March", variant: "Sense", year: 2021 },
+  { brand: "Nissan", model: "March", variant: "Advance", year: 2021 },
+  { brand: "Nissan", model: "March", variant: null, year: 2022 },
+  { brand: "Nissan", model: "March", variant: "Sense", year: 2022 },
+  { brand: "Nissan", model: "March", variant: "Advance", year: 2022 },
+  { brand: "Nissan", model: "March", variant: null, year: 2023 },
+  { brand: "Nissan", model: "March", variant: "Sense", year: 2023 },
+  { brand: "Nissan", model: "March", variant: "Advance", year: 2023 },
+  { brand: "Nissan", model: "March", variant: "Exclusive", year: 2023 },
+  { brand: "Nissan", model: "March", variant: null, year: 2024 },
+  { brand: "Nissan", model: "March", variant: "Sense", year: 2024 },
+  { brand: "Nissan", model: "March", variant: "Advance", year: 2024 },
+  // Nissan V-Drive
+  { brand: "Nissan", model: "V-Drive", variant: null, year: 2020 },
+  { brand: "Nissan", model: "V-Drive", variant: null, year: 2021 },
+  { brand: "Nissan", model: "V-Drive", variant: null, year: 2022 },
+  { brand: "Nissan", model: "V-Drive", variant: null, year: 2023 },
+  { brand: "Nissan", model: "V-Drive", variant: null, year: 2024 },
+  { brand: "Nissan", model: "V-Drive", variant: null, year: 2025 },
+  // Nissan Versa
+  { brand: "Nissan", model: "Versa", variant: null, year: 2020 },
+  { brand: "Nissan", model: "Versa", variant: "Sense", year: 2020 },
+  { brand: "Nissan", model: "Versa", variant: "Advance", year: 2020 },
+  { brand: "Nissan", model: "Versa", variant: null, year: 2021 },
+  { brand: "Nissan", model: "Versa", variant: "Sense", year: 2021 },
+  { brand: "Nissan", model: "Versa", variant: "Advance", year: 2021 },
+  { brand: "Nissan", model: "Versa", variant: null, year: 2022 },
+  { brand: "Nissan", model: "Versa", variant: "Sense", year: 2022 },
+  { brand: "Nissan", model: "Versa", variant: "Advance", year: 2022 },
+  { brand: "Nissan", model: "Versa", variant: null, year: 2023 },
+  { brand: "Nissan", model: "Versa", variant: "Sense", year: 2023 },
+  { brand: "Nissan", model: "Versa", variant: "Advance", year: 2023 },
+  { brand: "Nissan", model: "Versa", variant: null, year: 2024 },
+  { brand: "Nissan", model: "Versa", variant: "Sense", year: 2024 },
+  { brand: "Nissan", model: "Versa", variant: "Advance", year: 2024 },
+  // Nissan Sentra
+  { brand: "Nissan", model: "Sentra", variant: null, year: 2020 },
+  { brand: "Nissan", model: "Sentra", variant: null, year: 2021 },
+  { brand: "Nissan", model: "Sentra", variant: null, year: 2022 },
+  { brand: "Nissan", model: "Sentra", variant: null, year: 2023 },
+  { brand: "Nissan", model: "Sentra", variant: null, year: 2024 },
+  // Nissan Kicks
+  { brand: "Nissan", model: "Kicks", variant: null, year: 2021 },
+  { brand: "Nissan", model: "Kicks", variant: null, year: 2022 },
+  { brand: "Nissan", model: "Kicks", variant: null, year: 2023 },
+  { brand: "Nissan", model: "Kicks", variant: null, year: 2024 },
+  // Chevrolet Spark
+  { brand: "Chevrolet", model: "Spark", variant: null, year: 2020 },
+  { brand: "Chevrolet", model: "Spark", variant: null, year: 2021 },
+  { brand: "Chevrolet", model: "Spark", variant: null, year: 2022 },
+  { brand: "Chevrolet", model: "Spark", variant: null, year: 2023 },
+  // Chevrolet Cavalier
+  { brand: "Chevrolet", model: "Cavalier", variant: null, year: 2021 },
+  { brand: "Chevrolet", model: "Cavalier", variant: null, year: 2022 },
+  { brand: "Chevrolet", model: "Cavalier", variant: null, year: 2023 },
+  { brand: "Chevrolet", model: "Cavalier", variant: null, year: 2024 },
+  // Chevrolet Onix
+  { brand: "Chevrolet", model: "Onix", variant: null, year: 2021 },
+  { brand: "Chevrolet", model: "Onix", variant: null, year: 2022 },
+  { brand: "Chevrolet", model: "Onix", variant: null, year: 2023 },
+  { brand: "Chevrolet", model: "Onix", variant: null, year: 2024 },
+  // Volkswagen Vento
+  { brand: "Volkswagen", model: "Vento", variant: null, year: 2020 },
+  { brand: "Volkswagen", model: "Vento", variant: null, year: 2021 },
+  { brand: "Volkswagen", model: "Vento", variant: "Startline", year: 2021 },
+  { brand: "Volkswagen", model: "Vento", variant: "Comfortline", year: 2021 },
+  { brand: "Volkswagen", model: "Vento", variant: null, year: 2022 },
+  { brand: "Volkswagen", model: "Vento", variant: "Startline", year: 2022 },
+  { brand: "Volkswagen", model: "Vento", variant: "Comfortline", year: 2022 },
+  { brand: "Volkswagen", model: "Vento", variant: null, year: 2023 },
+  { brand: "Volkswagen", model: "Vento", variant: null, year: 2024 },
+  // Toyota Yaris
+  { brand: "Toyota", model: "Yaris", variant: null, year: 2021 },
+  { brand: "Toyota", model: "Yaris", variant: "Sedan", year: 2021 },
+  { brand: "Toyota", model: "Yaris", variant: null, year: 2022 },
+  { brand: "Toyota", model: "Yaris", variant: "Sedan", year: 2022 },
+  { brand: "Toyota", model: "Yaris", variant: null, year: 2023 },
+  { brand: "Toyota", model: "Yaris", variant: "Sedan", year: 2023 },
+  { brand: "Toyota", model: "Yaris", variant: null, year: 2024 },
+  // Hyundai Grand i10
+  { brand: "Hyundai", model: "Grand i10", variant: null, year: 2021 },
+  { brand: "Hyundai", model: "Grand i10", variant: "GL", year: 2021 },
+  { brand: "Hyundai", model: "Grand i10", variant: "GLS", year: 2021 },
+  { brand: "Hyundai", model: "Grand i10", variant: null, year: 2022 },
+  { brand: "Hyundai", model: "Grand i10", variant: "GL", year: 2022 },
+  { brand: "Hyundai", model: "Grand i10", variant: "GLS", year: 2022 },
+  { brand: "Hyundai", model: "Grand i10", variant: null, year: 2023 },
+  { brand: "Hyundai", model: "Grand i10", variant: null, year: 2024 },
+  // Kia Rio
+  { brand: "Kia", model: "Rio", variant: null, year: 2021 },
+  { brand: "Kia", model: "Rio", variant: "LX", year: 2021 },
+  { brand: "Kia", model: "Rio", variant: null, year: 2022 },
+  { brand: "Kia", model: "Rio", variant: "LX", year: 2022 },
+  { brand: "Kia", model: "Rio", variant: null, year: 2023 },
+  { brand: "Kia", model: "Rio", variant: null, year: 2024 },
+  // Renault Kwid
+  { brand: "Renault", model: "Kwid", variant: null, year: 2021 },
+  { brand: "Renault", model: "Kwid", variant: null, year: 2022 },
+  { brand: "Renault", model: "Kwid", variant: null, year: 2023 },
+  { brand: "Renault", model: "Kwid", variant: null, year: 2024 },
+  { brand: "Renault", model: "Kwid", variant: null, year: 2025 },
+  // Dodge Attitude
+  { brand: "Dodge", model: "Attitude", variant: null, year: 2021 },
+  { brand: "Dodge", model: "Attitude", variant: null, year: 2022 },
+  { brand: "Dodge", model: "Attitude", variant: null, year: 2023 },
+  { brand: "Dodge", model: "Attitude", variant: null, year: 2024 },
+  // Suzuki Swift
+  { brand: "Suzuki", model: "Swift", variant: null, year: 2021 },
+  { brand: "Suzuki", model: "Swift", variant: null, year: 2022 },
+  { brand: "Suzuki", model: "Swift", variant: null, year: 2023 },
+  // Suzuki Dzire
+  { brand: "Suzuki", model: "Dzire", variant: null, year: 2021 },
+  { brand: "Suzuki", model: "Dzire", variant: null, year: 2022 },
+  { brand: "Suzuki", model: "Dzire", variant: null, year: 2023 },
+  // Volkswagen Gol
+  { brand: "Volkswagen", model: "Gol", variant: null, year: 2020 },
+  { brand: "Volkswagen", model: "Gol", variant: null, year: 2021 },
+  { brand: "Volkswagen", model: "Gol", variant: null, year: 2022 },
+  // Chevrolet Beat
+  { brand: "Chevrolet", model: "Beat", variant: null, year: 2020 },
+  { brand: "Chevrolet", model: "Beat", variant: null, year: 2021 },
+  { brand: "Chevrolet", model: "Beat", variant: null, year: 2022 },
 ] as const;
 
 // Price sanity bounds (MXN)
@@ -227,7 +354,7 @@ export function MLClientScraper() {
           </DialogTitle>
           <p className="text-[11px] text-muted-foreground">
             Corre desde tu dispositivo en México para acceder a ML sin bloqueo de IP.
-            Los precios se guardan en caché del servidor.
+            120 modelos (2020–2025) — los precios se guardan en caché del servidor.
           </p>
         </DialogHeader>
 
@@ -247,8 +374,8 @@ export function MLClientScraper() {
             {running
               ? `Consultando ML... (${done}/${CMU_MODELS.length})`
               : results.length > 0
-              ? "Volver a actualizar"
-              : `Consultar ${CMU_MODELS.length} modelos`}
+              ? `Volver a actualizar (${CMU_MODELS.length} modelos)`
+              : `Consultar ${CMU_MODELS.length} modelos (2020–2025)`}
           </Button>
 
           {/* Progress bar */}
