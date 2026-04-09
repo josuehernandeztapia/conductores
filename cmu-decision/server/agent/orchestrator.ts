@@ -637,6 +637,82 @@ async function processDocImage(
   const detectedKey = visionResult.detected_type;
   const detectedLabel = DOC_LABELS[detectedKey] || detectedKey;
 
+  // ── Multi-ticket accumulation for GNV / gasolina (up to 3 tickets) ──
+  const isTicketDoc = detectedKey === 'historial_gnv' || detectedKey === 'tickets_gasolina';
+  const ticketField = detectedKey === 'historial_gnv' ? 'gnvTickets' : 'gasolinaTickets';
+  const MIN_TICKETS = 3;
+
+  if (isTicketDoc) {
+    const existing = (ctx[ticketField as keyof typeof ctx] as Array<any>) || [];
+    const newTicket = {
+      litros: visionResult.extracted_data?.litros ? parseFloat(visionResult.extracted_data.litros) : undefined,
+      monto: visionResult.extracted_data?.monto ? parseFloat(String(visionResult.extracted_data.monto).replace(/[,$]/g, '')) : undefined,
+      fecha: visionResult.extracted_data?.fecha || undefined,
+    };
+    const updatedTickets = [...existing, newTicket];
+    const ticketCount = updatedTickets.length;
+    const detectedLabel2 = detectedKey === 'historial_gnv' ? 'Ticket GNV' : 'Ticket Gasolina';
+
+    // Calculate average
+    const litrosValues = updatedTickets.map(t => t.litros).filter((v): v is number => typeof v === 'number' && v > 0);
+    const montoValues = updatedTickets.map(t => t.monto).filter((v): v is number => typeof v === 'number' && v > 0);
+    const avgLitros = litrosValues.length > 0 ? Math.round(litrosValues.reduce((a, b) => a + b, 0) / litrosValues.length) : null;
+    const avgMonto = montoValues.length > 0 ? Math.round(montoValues.reduce((a, b) => a + b, 0) / montoValues.length) : null;
+
+    const contextUpTicket: Partial<AgentContext> = {
+      [ticketField]: updatedTickets,
+      existingData: { ...ctx.existingData, [`_${detectedKey}_data`]: visionResult.extracted_data },
+    };
+
+    if (ticketCount < MIN_TICKETS) {
+      // Need more tickets
+      const remaining = MIN_TICKETS - ticketCount;
+      const avgStr = detectedKey === 'historial_gnv'
+        ? (avgLitros ? `Promedio parcial: *${avgLitros} LEQ/ticket*. ` : '')
+        : (avgMonto ? `Promedio parcial: *$${avgMonto.toLocaleString()}/ticket*. ` : '');
+      return {
+        response: `*${detectedLabel2} #${ticketCount}* recibido \u2713\n\n${avgStr}Necesito *${remaining} ticket${remaining > 1 ? 's' : ''} m\u00e1s* (3 en total). Manda el siguiente. \uD83D\uDCF7`,
+        newState: state,
+        contextUpdates: contextUpTicket,
+      };
+    }
+
+    // Have 3+ tickets — compute average and cross-check
+    const newCollectedTicket = [...collectedDocs];
+    if (!newCollectedTicket.includes(detectedKey)) newCollectedTicket.push(detectedKey);
+
+    let crossCheckMsg = '';
+    let crossCheckFlag = false;
+    if (detectedKey === 'historial_gnv' && avgLitros !== null) {
+      if (avgLitros < 300) {
+        crossCheckMsg = `\u26A0\uFE0F Consumo promedio bajo: *${avgLitros} LEQ/ticket* (m\u00ednimo recomendado: 300 LEQ/mes).`;
+        crossCheckFlag = true;
+      } else {
+        crossCheckMsg = `Consumo promedio: *${avgLitros} LEQ/mes* \u2713`;
+      }
+    } else if (detectedKey === 'tickets_gasolina' && avgMonto !== null) {
+      if (avgMonto < 6000) {
+        crossCheckMsg = `\u26A0\uFE0F Gasto promedio bajo: *$${avgMonto.toLocaleString()}/mes* (m\u00ednimo recomendado: $6,000).`;
+        crossCheckFlag = true;
+      } else {
+        crossCheckMsg = `Gasto promedio: *$${avgMonto.toLocaleString()}/mes* \u2713`;
+      }
+    }
+
+    const nextDocTicket = getNextExpectedDoc([...newCollectedTicket, ...(ctx.skippedDocs || [])]);
+    const crossSuffix = crossCheckFlag
+      ? `\n\n${crossCheckMsg}\n\nPodemos continuar, pero te recomiendo aumentar el consumo para maximizar el recaudo.`
+      : `\n\n${crossCheckMsg}`;
+
+    return {
+      response: `*${detectedLabel2} #${ticketCount}* recibido \u2713 — Tengo los *3 tickets*.${crossSuffix}\n\n${
+        nextDocTicket ? `Manda tu *${nextDocTicket.label}* \uD83D\uDCF7` : 'Todos los documentos listos.'
+      }`,
+      newState: nextDocTicket ? state : ('interview_ready' as ProspectState),
+      contextUpdates: { ...contextUpTicket, docsCollected: newCollectedTicket },
+    };
+  }
+
   // Accept it for its correct slot (even if different from expected)
   const newCollected = [...collectedDocs];
   if (!newCollected.includes(detectedKey)) {

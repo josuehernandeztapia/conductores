@@ -134,6 +134,10 @@ export interface AgentContext {
   // Document capture
   docsCollected?: string[];     // keys of docs already captured
   skippedDocs?: string[];       // keys of docs skipped for now
+
+  // Multi-ticket accumulation for GNV / gasolina
+  gnvTickets?: Array<{ litros?: number; monto?: number; fecha?: string }>;
+  gasolinaTickets?: Array<{ litros?: number; monto?: number; fecha?: string }>;
   currentDocIndex?: number;     // index into DOC_ORDER
   existingData?: Record<string, any>; // accumulated OCR data for cross-check
 
