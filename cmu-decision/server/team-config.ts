@@ -67,6 +67,11 @@ export function getNotifyPhones(): string[] {
   ];
 }
 
+// Convenience phone exports (E.164 without + prefix)
+export const JOSUE_PHONE = DIRECTOR.phone;
+export const ANGELES_PHONE = PROMOTORES[0].phone;
+export const LILIA_PHONE = PROVEEDORES[0].phone;
+
 // For display in messages to clients — generic, not name-specific
 export const PROMOTOR_LABEL = "tu asesor(a) CMU";
 

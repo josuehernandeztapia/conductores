@@ -21,7 +21,7 @@ import { sendTemplate, sendFreeform, TEMPLATES } from "./whatsapp-templates";
 
 const AIRTABLE_PAT = () => process.env.AIRTABLE_PAT || "";
 const AIRTABLE_BASE = "appXxbjjGzXFiX7gk";
-const JOSUE_PHONE = "5214422022540";
+import { JOSUE_PHONE } from "./team-config";
 const WA_SEND_URL = "https://cmu-originacion.fly.dev/api/whatsapp/send-outbound";
 
 // Table IDs

@@ -28,7 +28,9 @@ import { buildClientCarteraContext, buildCarteraDashboard, buildEstadoCuenta, is
 import { processPdf, isPdf } from "./pdf-handler";
 import { detectCanal, upsertProspect, updateProspectStatus } from "./pipeline-ventas";
 import { generarCorridaEstimada, getModelosDisponiblesText, MODELOS_PROSPECTO, generarResumen5Modelos, matchModelFromText, getPvForModel } from "./corrida-estimada";
-import { getPromotor, DIRECTOR, PROMOTOR_LABEL } from "./team-config";
+import { getPromotor, DIRECTOR, PROMOTOR_LABEL, JOSUE_PHONE, ANGELES_PHONE, LILIA_PHONE } from "./team-config";
+import { DOC_ORDER as AGENT_DOC_ORDER, DOC_KEYS, DOC_LABELS as VISION_DOC_LABELS } from "./agent/vision";
+import { buildSystemPrompt } from "./prompts";
 import { processNatgasCsv, processNatgasMultiProduct, parseNatgasExcel, parseNatgasCsv as parseNatgasCsvRows, formatRecaudoSummary, cierreMensual, formatCierreReport, isDuplicateFile, markFileProcessed } from "./recaudo-engine";
 import { createFolioFromWhatsApp, associateDocIntelligently } from "./folio-manager";
 import {
@@ -1296,7 +1298,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
     if (sendMsgMatch) {
       const msgBody = sendMsgMatch[1].trim();
       // For now, only Lilia is supported as external contact
-      const liliaPhone = "whatsapp:+524421146330";
+      const liliaPhone = `whatsapp:+${LILIA_PHONE}`;
       try {
         // Use the internal fetch to call our own send endpoint
         await fetch("http://localhost:5000/api/whatsapp/send-outbound", {
@@ -2312,7 +2314,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
               markFileProcessed(buf);
               // Notify Josue too
               try {
-                const josuePhone = "5214422022540";
+                const josuePhone = JOSUE_PHONE;
                 await this.sendWhatsApp(josuePhone, `(Lilia via WhatsApp) ${formatRecaudoSummary(summary)}`);
               } catch (notifyErr) { /* silent */ }
               return await respond(formatRecaudoSummary(summary));
@@ -2661,8 +2663,8 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
       // Helper: send notification to Josué + promotor
       const notifyTeam = async (msg: string) => {
         const endpoints = [
-          { to: "whatsapp:+5214422022540" },  // Josué
-          { to: `whatsapp:+${getPromotor()?.phone || "5214493845228"}` },  // Promotor
+          { to: `whatsapp:+${JOSUE_PHONE}` },  // Josué
+          { to: `whatsapp:+${getPromotor()?.phone || ANGELES_PHONE}` },  // Promotor
         ];
         for (const ep of endpoints) {
           try {

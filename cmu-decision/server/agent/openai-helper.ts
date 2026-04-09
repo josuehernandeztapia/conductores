@@ -4,6 +4,37 @@
 
 const OPENAI_API_URL = "https://api.openai.com/v1";
 
+async function fetchWithRetry(
+  url: string,
+  init: RequestInit,
+  { retries = 2, timeoutMs = 15000 } = {}
+): Promise<Response> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const r = await fetch(url, { ...init, signal: controller.signal });
+      clearTimeout(timer);
+      if (r.status === 429 && attempt < retries) {
+        const retryAfter = parseInt(r.headers.get("retry-after") || "2", 10);
+        const wait = Math.min((retryAfter || 2 ** attempt) * 1000, 8000);
+        console.log(`[OpenAI] 429 rate limit, waiting ${wait}ms (attempt ${attempt + 1})`);
+        await new Promise(res => setTimeout(res, wait));
+        continue;
+      }
+      return r;
+    } catch (e: any) {
+      clearTimeout(timer);
+      if (e.name === "AbortError") {
+        console.log(`[OpenAI] Request timeout after ${timeoutMs}ms (attempt ${attempt + 1})`);
+      }
+      if (attempt === retries) throw e;
+      await new Promise(res => setTimeout(res, 1000 * 2 ** attempt));
+    }
+  }
+  throw new Error("fetchWithRetry exhausted");
+}
+
 function getApiKey(): string {
   return process.env.OPENAI_API_KEY || "";
 }
@@ -13,7 +44,7 @@ export async function chatCompletion(
   options: { model?: string; max_tokens?: number; temperature?: number } = {},
 ): Promise<string> {
   const { model = "gpt-4o-mini", max_tokens = 500, temperature = 0.1 } = options;
-  const r = await fetch(`${OPENAI_API_URL}/chat/completions`, {
+  const r = await fetchWithRetry(`${OPENAI_API_URL}/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -50,7 +81,7 @@ export async function whisperTranscribe(audioBuffer: Buffer): Promise<string> {
   formData.append("model", "whisper-1");
   formData.append("language", "es");
 
-  const r = await fetch(`${OPENAI_API_URL}/audio/transcriptions`, {
+  const r = await fetchWithRetry(`${OPENAI_API_URL}/audio/transcriptions`, {
     method: "POST",
     headers: { Authorization: `Bearer ${getApiKey()}` },
     body: formData,

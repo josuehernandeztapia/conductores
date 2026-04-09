@@ -17,7 +17,8 @@ import evaluacionRoutes from "./evaluacion-routes";
 import { logAudit, initAuditTable, getAuditLog } from "./audit-trail";
 import { detectCanal, upsertProspect, updateProspectStatus, getPipelineStats, getPipelineList, getCanales, getProspectsNeedingFollowup, markFollowupSent, generateWhatsAppLink } from "./pipeline-ventas";
 import { handleProspectMessage } from "./agent/orchestrator";
-import { getPromotor, DIRECTOR, PROMOTOR_LABEL } from "./team-config";
+import { getPromotor, DIRECTOR, PROMOTOR_LABEL, JOSUE_PHONE, ANGELES_PHONE } from "./team-config";
+import { DOC_KEYS as VISION_DOC_KEYS, DOC_LABELS as VISION_DOC_LABELS_MAP } from "./agent/vision";
 
 // ===== SESSION TOKEN (HMAC-signed) =====
 const SESSION_SECRET = process.env.SESSION_SECRET || "cmu-internal-2026";
@@ -1295,7 +1296,7 @@ Responde SOLO con JSON válido:
       await fetch("https://cmu-originacion.fly.dev/api/whatsapp/send-outbound", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to: "5214422022540", body: report }),
+        body: JSON.stringify({ to: JOSUE_PHONE, body: report }),
       }).catch(() => {});
       return res.json({ success: true, report });
     } catch (err: any) {
@@ -1769,7 +1770,7 @@ Responde SOLO con JSON válido:
           // Notify director
           fetch("http://localhost:5000/api/whatsapp/send-outbound", {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ to: "5214422022540", body: `[Mifiel] Contrato enviado para firma.\nFolio: ${originationId}\nFirmante: ${signerName}\n${signingUrl ? `Link: ${signingUrl}` : ""}` }),
+            body: JSON.stringify({ to: JOSUE_PHONE, body: `[Mifiel] Contrato enviado para firma.\nFolio: ${originationId}\nFirmante: ${signerName}\n${signingUrl ? `Link: ${signingUrl}` : ""}` }),
           }).catch(() => {});
 
           return res.json({
@@ -1852,7 +1853,7 @@ Responde SOLO con JSON válido:
           }
           fetch("http://localhost:5000/api/whatsapp/send-outbound", {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ to: "5214422022540", body: `[Mifiel] *Contrato firmado*\nFolio: ${folio}\nCliente: ${taxistaNombre}\nEstado: FIRMADO` }),
+            body: JSON.stringify({ to: JOSUE_PHONE, body: `[Mifiel] *Contrato firmado*\nFolio: ${folio}\nCliente: ${taxistaNombre}\nEstado: FIRMADO` }),
           }).catch(() => {});
         }
       }
@@ -2865,7 +2866,7 @@ Responde SOLO con JSON válido:
           // Notify promotor
           await fetch("http://localhost:5000/api/whatsapp/send-outbound", {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ to: "whatsapp:+" + (getPromotor()?.phone || "5214493845228"), body: msgAngeles }),
+            body: JSON.stringify({ to: "whatsapp:+" + (getPromotor()?.phone || ANGELES_PHONE), body: msgAngeles }),
           });
           await markFollowupSent(p.phone);
           sent++;
@@ -2879,11 +2880,11 @@ Responde SOLO con JSON válido:
         try {
           await fetch("http://localhost:5000/api/whatsapp/send-outbound", {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ to: "whatsapp:+" + (getPromotor()?.phone || "5214493845228"), body: msg }),
+            body: JSON.stringify({ to: "whatsapp:+" + (getPromotor()?.phone || ANGELES_PHONE), body: msg }),
           });
           await fetch("http://localhost:5000/api/whatsapp/send-outbound", {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ to: "whatsapp:+5214422022540", body: msg }),
+            body: JSON.stringify({ to: `whatsapp:+${JOSUE_PHONE}`, body: msg }),
           });
           await markFollowupSent(p.phone);
           sent++;

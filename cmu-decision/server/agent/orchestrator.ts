@@ -1412,17 +1412,22 @@ async function createFolioAndAdvance(
       console.error(`[Orchestrator] notifyTeam failed:`, error.message);
     }
 
+    // Handoff: folio context persists in agent context so WhatsAppAgent (v9) can pick it up
+    const contextUpdates: Partial<AgentContext> = {
+      folio,
+      originationId,
+      taxistaId,
+      docsCollected: [],
+      currentDocIndex: 0,
+      existingData: {},
+    };
+
+    console.log(`[Orchestrator] Folio created: ${folio} (originationId=${originationId}) for ${nombre} — handoff to docs_capture`);
+
     return {
       response: folio_created(firstName, folio),
-      newState: "docs_capture",
-      contextUpdates: {
-        folio,
-        originationId,
-        taxistaId,
-        docsCollected: [],
-        currentDocIndex: 0,
-        existingData: {},
-      },
+      newState: "docs_capture" as ProspectState,
+      contextUpdates,
     };
   } catch (error: any) {
     console.error(`[Orchestrator] createFolioFromWhatsApp failed:`, error.message);

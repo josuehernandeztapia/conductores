@@ -122,8 +122,11 @@ export const DOC_ORDER: DocDefinition[] = [
   },
 ];
 
-export const DOC_LABELS: Record<string, string> = {};
-DOC_ORDER.forEach(d => { DOC_LABELS[d.key] = d.label; });
+export const DOC_KEYS: string[] = DOC_ORDER.map(d => d.key);
+export const DOC_LABELS: Record<string, string> = Object.fromEntries(
+  DOC_ORDER.map(d => [d.key, d.label])
+);
+export const TOTAL_DOCS = DOC_ORDER.length;
 
 // ─── Build GPT-4V prompt ────────────────────────────────────────────────────
 

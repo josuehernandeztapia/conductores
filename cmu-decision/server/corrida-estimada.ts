@@ -7,16 +7,17 @@
  */
 
 import { neon } from "@neondatabase/serverless";
+import { CMU_DEFAULTS } from "./config";
 
-// Constants
-const TASA_ANUAL = 0.299;
+// Constants — sourced from CMU_DEFAULTS SSOT
+const TASA_ANUAL = CMU_DEFAULTS.tasaAnual;
 const TASA_M = TASA_ANUAL / 12;
-const N = 36;
-const ANT = 50000;
-const FG_I = 8000;
-const FG_M = 334;
-const FG_TOP = 20000;
-const SOBREPRECIO_GNV = 11; // $11/LEQ
+const N = CMU_DEFAULTS.plazoMeses;
+const ANT = CMU_DEFAULTS.anticipo;
+const FG_I = CMU_DEFAULTS.fondoInicial;
+const FG_M = CMU_DEFAULTS.fondoMensual;
+const FG_TOP = CMU_DEFAULTS.fondoTecho;
+const SOBREPRECIO_GNV = CMU_DEFAULTS.sobreprecioGnv;
 
 export interface CorridaRow {
   mes: number;

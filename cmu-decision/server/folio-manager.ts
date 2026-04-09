@@ -9,7 +9,7 @@
 import type { IStorage } from "./storage";
 
 // ===== Known phones =====
-const ANGELES_PHONE = "5214493845228";
+import { ANGELES_PHONE } from "./team-config";
 
 /**
  * Create a new folio from WhatsApp.

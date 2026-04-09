@@ -24,10 +24,9 @@ import { isAirtableEnabled, getAllCredits } from "./airtable-client";
 type SendWaFn = (to: string, body: string) => Promise<any>;
 
 // ===== Known phones =====
-import { getPromotor, DIRECTOR } from "./team-config";
+import { getPromotor, DIRECTOR, JOSUE_PHONE, ANGELES_PHONE } from "./team-config";
 const PROMOTOR_1 = getPromotor();
-const PROMOTOR_1_PHONE = PROMOTOR_1?.phone || "5214493845228";
-const JOSUE_PHONE = "5214422022540";
+const PROMOTOR_1_PHONE = PROMOTOR_1?.phone || ANGELES_PHONE;
 
 // ===== Helpers =====
 

@@ -23,25 +23,26 @@ import type {
   AmortizationRow,
   SensitivityPoint,
 } from "@shared/schema";
+import { CMU_DEFAULTS } from "./config";
 
 // ===== Program Constants (NOT assumptions — these are CMU program parameters) =====
-const ANNUAL_RATE = 0.299;
+const ANNUAL_RATE = CMU_DEFAULTS.tasaAnual;
 const MONTHLY_RATE = ANNUAL_RATE / 12; // 2.4917%
-const TERM_MONTHS = 36;
-const ANTICIPO_CAPITAL = 50000;
+const TERM_MONTHS = CMU_DEFAULTS.plazoMeses;
+const ANTICIPO_CAPITAL = CMU_DEFAULTS.anticipo;
 const ANTICIPO_MONTH = 2; // Week 8 ≈ month 2
 // GNV_REVENUE is now passed as parameter from fuel_prices DB
 // Default fallback only used if not provided
-const GNV_REVENUE_DEFAULT = 4400;
-const FONDO_INICIAL = 8000;
-const FONDO_MENSUAL = 334;
-const FONDO_TECHO = 20000;
+const GNV_REVENUE_DEFAULT = CMU_DEFAULTS.recaudoBase;
+const FONDO_INICIAL = CMU_DEFAULTS.fondoInicial;
+const FONDO_MENSUAL = CMU_DEFAULTS.fondoMensual;
+const FONDO_TECHO = CMU_DEFAULTS.fondoTecho;
 const FLOAT_AMEX_DAYS = 50; // Amex pays insurer price only
 const DIAS_REPARACION = 15; // days to repair vehicle
 const DIAS_COLOCACION = 10; // days to place with taxista
 const DIAS_MUERTOS = DIAS_REPARACION + DIAS_COLOCACION; // 25 days before first cuota
-const KIT_CON_TANQUE = 18000;
-const KIT_SIN_TANQUE = 27400;
+const KIT_CON_TANQUE = CMU_DEFAULTS.kitConTanque;
+const KIT_SIN_TANQUE = CMU_DEFAULTS.kitSinTanque;
 const PLUS_SIN_TANQUE = 9400; // CMU increases when sin tanque
 
 // ===== Amortization: German System (capital constante + interés decreciente) =====

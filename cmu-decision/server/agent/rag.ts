@@ -395,8 +395,8 @@ export async function answerQuestion(question: string): Promise<string | null> {
   const rules = await searchBusinessRules(question);
   if (rules.length > 0) {
     // If we got a very clear single rule, return it directly
-    if (rules.length === 1 && rules[0].contenido.length < 300) {
-      return rules[0].contenido;
+    if (rules.length === 1 && (rules[0].value || (rules[0] as any).contenido || "").length < 300) {
+      return rules[0].value || (rules[0] as any).contenido || "";
     }
     // Otherwise, use LLM to synthesize
     const llmAnswer = await answerWithLLM(question, rules);
