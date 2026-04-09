@@ -814,8 +814,8 @@ function DocumentWizard({
           onClick={handleNext}
           disabled={
             currentIdx === totalDocs - 1
-              ? capturedCount < totalDocs || isAnalyzing  // Block advance unless ALL docs captured
-              : isAnalyzing  // Allow skipping to next document (don't block if uncaptured)
+              ? capturedCount < totalDocs || isAnalyzing
+              : isAnalyzing
           }
           data-testid="wizard-next"
         >
@@ -831,6 +831,20 @@ function DocumentWizard({
             </>
           )}
         </Button>
+
+        {/* Skip to interview — visible when at last doc step, some captured but not all */}
+        {currentIdx === totalDocs - 1 && capturedCount > 0 && capturedCount < totalDocs && !isAnalyzing && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-[11px] border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 mt-2 w-full"
+            onClick={() => onAllCaptured()}
+            data-testid="wizard-skip-to-interview"
+          >
+            <ArrowRight className="w-3.5 h-3.5" />
+            Continuar a entrevista ({capturedCount}/{totalDocs} docs — faltan {totalDocs - capturedCount})
+          </Button>
+        )}
       </div>
     </div>
   );

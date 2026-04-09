@@ -143,6 +143,11 @@ const PATTERNS: Array<{ intent: Intent; regex: RegExp; entityExtractor?: (match:
     intent: "want_interview",
     regex: /\b(entrevista|empezar\s+entrevista|quiero\s+(?:la\s+)?entrevista|hagamos\s+(?:la\s+)?entrevista|hacemos\s+(?:la\s+)?entrevista|preguntas|empezamos)\b/i,
   },
+  {
+    // Jump directly to interview skipping remaining docs
+    intent: "jump_to_interview",
+    regex: /\b(saltar\s+(?:a\s+(?:la\s+)?)?entrevista|ir\s+(?:a\s+(?:la\s+)?)?entrevista|brincar\s+(?:a\s+(?:la\s+)?)?entrevista|pasar\s+(?:a\s+(?:la\s+)?)?entrevista|despu[eé]s\s+(?:mando|env[ií]o)\s+(?:los\s+)?docs?|mando\s+(?:los\s+)?docs?\s+despu[eé]s|(?:los\s+)?docs?\s+despu[eé]s|docs?\s+m[aá]s\s+tarde|continuar\s+sin\s+(?:docs?|documentos?)|skip\s+(?:all\s+)?docs?)\b/i,
+  },
 
   // ── Give name: "me llamo X", "soy Pedro", or just "Pedro García" ──
   {
@@ -306,7 +311,7 @@ function getStatePriority(state: string): Intent[] {
     case "prospect_name":
       return ["give_name"];
     case "docs_capture":
-      return ["skip_doc", "ask_progress", "want_interview"];
+      return ["skip_doc", "ask_progress", "want_interview", "jump_to_interview"];
     case "interview_ready":
       return ["affirm", "want_interview"];
     case "interview_q1":

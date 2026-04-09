@@ -1531,6 +1531,29 @@ async function handleDocsText(
     };
   }
 
+  // ── Jump directly to interview (skip ALL remaining docs) ──
+  if (nlu.intent === "jump_to_interview") {
+    if (interviewDone) {
+      const pendingLabels = getPendingDocLabels(collectedDocs);
+      return {
+        response: `Ya completaste la entrevista ✓\n\n` + doc_status(firstName, collectedDocs.length, TOTAL_DOCS, pendingLabels, true),
+        newState: state,
+        contextUpdates: {},
+      };
+    }
+    // Mark ALL remaining docs as skipped
+    const pendingKeys = DOC_ORDER
+      .map((d) => d.key)
+      .filter((k) => !collectedDocs.includes(k) && !(ctx.skippedDocs || []).includes(k));
+    const newSkipped = [...(ctx.skippedDocs || []), ...pendingKeys];
+    const pendingCount = TOTAL_DOCS - collectedDocs.length;
+    return {
+      response: `Entendido, ${firstName}. Vamos a la entrevista ahora — puedes mandarme los *${pendingCount} documento${pendingCount !== 1 ? 's' : ''} pendiente${pendingCount !== 1 ? 's' : ''}* después.\n\n${interview_intro()}`,
+      newState: "interview_ready" as ProspectState,
+      contextUpdates: { skippedDocs: newSkipped },
+    };
+  }
+
   // ── Want to start interview ──
   if (nlu.intent === "want_interview") {
     if (interviewDone) {
