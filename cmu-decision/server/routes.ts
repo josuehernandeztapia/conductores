@@ -2733,17 +2733,17 @@ Responde SOLO con JSON válido:
       debugLog.push(`[Sandbox] Role: ${simRole.role}, Phone: ${sandboxPhone}`);
 
       // Get conversation state for debug
-      const convStateBefore = await agent.getConvState(sandboxPhone);
+      const convStateBefore = await waAgent.getConvState(sandboxPhone);
       debugLog.push(`[State Before] ${JSON.stringify(convStateBefore.state || "idle")}`);
 
       // Call the actual agent handler
-      const result = await agent.handleMessage(
+      const result = await waAgent.handleMessage(
         sandboxPhone, message, null, null,
         null, // no origination ID
         simRole.role, simRole.name, [],
       );
 
-      const convStateAfter = await agent.getConvState(sandboxPhone);
+      const convStateAfter = await waAgent.getConvState(sandboxPhone);
       const elapsed = Date.now() - startTime;
       debugLog.push(`[State After] ${JSON.stringify(convStateAfter.state || "idle")}`);
       debugLog.push(`[Context] ${JSON.stringify(convStateAfter.context || {})}`);
