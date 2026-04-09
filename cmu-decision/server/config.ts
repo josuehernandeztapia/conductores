@@ -44,8 +44,8 @@ export const CMU_DEFAULTS = {
   fondoInicial: 8000,
   fondoMensual: 334,
   fondoTecho: 20000,
-  kitConTanque: 27400,  // Kit GNV con tanque incluido
-  kitSinTanque: 18000,  // Solo kit de conversion, sin tanque
+  kitConTanque: 18000,  // Cliente reutiliza su tanque — solo kit de conversión
+  kitSinTanque: 27400,  // Cliente sin tanque — kit + tanque nuevo ($9,400 extra)
   sobreprecioGnv: 11,
   recaudoBase: 4400,
   moraFee: 250,
