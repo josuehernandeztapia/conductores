@@ -1708,7 +1708,44 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
           if (match && match[1] !== 'global') umbralByModel[match[1]] = parseInt(v as string) || 7000;
         }
         const result = evaluateOpportunity(input, mData, { gnvRevenue: fuel.gnvRevenueMes, marketAvgPrice: validMarketAvg, umbralDifM3Global: umbralGlobal, umbralDifM3ByModel: umbralByModel });
-        return this.formatEvalResult(result, mkt, fuel.gnvRevenueMes, getThresholds(rules));
+        const formatted = this.formatEvalResult(result, mkt, fuel.gnvRevenueMes, getThresholds(rules));
+        // Store full corrida so "Sí" returns it directly (no LLM hallucination)
+        if (result.decision !== "NO COMPRAR") {
+          const corridaLines: string[] = [
+            `*CORRIDA COMPLETA — ${m.brand} ${m.model}${m.variant ? " " + m.variant : ""} ${displayYear}*`,
+            ``,
+            `*COSTOS*`,
+            `  Aseguradora: $${(earlyParsed.cost || 0).toLocaleString()}`,
+            `  Reparación: $${(input.repairEstimate || 0).toLocaleString()}`,
+            `  Kit GNV: $${result.kitGnv.toLocaleString()} (${earlyParsed.conTanque ? "con tanque" : "sin tanque"})`,
+            `  *Total: $${result.totalCost.toLocaleString()}*`,
+            ``,
+            `*PRECIO CMU*`,
+            `  Contado: $${result.precioContado.toLocaleString()}`,
+            `  A plazos (36m): $${result.ventaPlazos.toLocaleString()}`,
+            `  Margen: $${result.margen.toLocaleString()}`,
+            ``,
+            `*RENTABILIDAD*`,
+            `  TIR Base: ${result.irr.base.toFixed(1)}% | Operativa: ${result.irr.operational.toFixed(1)}% | Completa: ${result.irr.complete.toFixed(1)}%`,
+            `  MOIC: ${result.moic.toFixed(2)}x | Payback: mes ${result.paybackMonth ?? "N/A"}`,
+            ``,
+            `*RIESGO CLIENTE ${result.riesgoCliente.nivel === "BAJO" ? "🟢" : result.riesgoCliente.nivel === "MEDIO" ? "🟡" : "🔴"} ${result.riesgoCliente.nivel}*`,
+            `  Diferencial m1: $${result.riesgoCliente.diferencialM1.toLocaleString()} | m3: $${result.riesgoCliente.diferencialM3.toLocaleString()}`,
+            `  Pago extra taxista m1: $${(result.riesgoCliente.diferencialM1 + 334).toLocaleString()}/mes`,
+            `  Pago extra taxista m3+: $${(result.riesgoCliente.diferencialM3 + 334).toLocaleString()}/mes`,
+            ``,
+            `*VEREDICTO: ${result.decision === "COMPRAR" ? "✅" : "⚠️"} ${result.decision}*`,
+          ];
+          await this.updateState(phone, {
+            state: "evaluating",
+            context: {
+              vehicle: { brand: m.brand, model: m.model, variant: m.variant, year: displayYear, cmu: m.cmu, inCatalog: true },
+              eval: { cost: earlyParsed.cost, repair: input.repairEstimate, conTanque: earlyParsed.conTanque },
+              pendingCorrida: corridaLines.join("\n"),
+            },
+          });
+        }
+        return formatted;
       }
       if (model && !earlyParsed.cost) return `${model.brand} ${model.model} ${model.variant || ""} ${model.year}\nCMU: $${model.cmu.toLocaleString()}\n\nCosto de adquisicion?`;
       
@@ -2205,6 +2242,17 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         mediaType.includes("ms-excel") || mediaType.includes("octet-stream")
       );
       
+      // ===== PENDING CORRIDA COMPLETA — intercept "Sí" before LLM =====
+      const pendingCorrida = session?.context?.pendingCorrida as string | undefined;
+      if (pendingCorrida && /^\s*(s[ií]|yes|dale|ok|quer[oé]|ver|mu[eé]strame|cl?aro|andale|va)\s*[!.]*$/i.test(body || "")) {
+        // Clear pendingCorrida from state
+        await this.updateState(phone, {
+          state: "evaluating",
+          context: { ...session?.context, pendingCorrida: null },
+        });
+        return await respond(pendingCorrida);
+      }
+
       // ===== VEHICLE ASSIGNMENT (director only) =====
       const asignaMatch = lower.match(/asign[ao]\s+(.+?)\s+(?:a|al|para)\s+(.+)/i);
       if (asignaMatch) {
