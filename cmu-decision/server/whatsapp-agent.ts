@@ -1586,8 +1586,8 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
     }
 
     // (awaiting_variant moved to handleMessage)
-    if (false && convState) { // DISABLED — this runs in handleMessage now
-      const pe = convState.context.pendingEval as any;
+    if (false as boolean) { // DISABLED — this runs in handleMessage now
+      const pe = (null as any).context.pendingEval as any;
       const variants: string[] = pe.variants || [];
       const matchedVariant = variants.find((v: string) => lower.includes(v.toLowerCase()));
       if (matchedVariant) {
@@ -2650,13 +2650,13 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
             const lines = [
               `💳 *Estado de Cuenta*`,
               `Folio: ${credit.Folio}`,
-              `Mes actual: ${credit.MesActual || 0} de 36`,
-              `Cuota actual: $${(credit.CuotaActual || 0).toLocaleString()}`,
-              `Saldo capital: $${(credit.SaldoCapital || 0).toLocaleString()}`,
-              `Fondo de Garantía: $${(credit.SaldoFG || 0).toLocaleString()}/20,000`,
+              `Mes actual: ${credit["Mes Actual"] || 0} de 36`,
+              `Cuota actual: $${(credit["Cuota Actual"] || 0).toLocaleString()}`,
+              `Saldo capital: $${(credit["Saldo Capital"] || 0).toLocaleString()}`,
+              `Fondo de Garantía: $${(credit["Saldo FG"] || 0).toLocaleString()}/20,000`,
             ];
-            if ((credit.DiasAtraso || 0) > 0) {
-              lines.push(`⚠️ Días de atraso: ${credit.DiasAtraso}`);
+            if ((credit["Dias Atraso"] || 0) > 0) {
+              lines.push(`⚠️ Días de atraso: ${credit["Dias Atraso"]}`);
             }
             if (payments.length > 0) {
               lines.push(``, `Últimos pagos:`);
@@ -2803,7 +2803,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
       if (prospectState.state === "prospect_tank_question") {
         const reusa = /reuso|reusar|1|mi tanque|el m[ií]o|s[ií]|actual|mismo/i.test(lower);
         const nuevo = /nuevo|2|equipo nuevo|completo|todo nuevo/i.test(lower);
-        const modelo = prospectState.context?.modelo;
+        const modelo = prospectState.context?.modelo as any;
         const pvBase = prospectState.context?.pv || 200000;
         const consumo = prospectState.context?.leqMes || 400;
         
@@ -2860,11 +2860,11 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
           const nombre = body.trim();
           try {
             const folioResult = await createFolioFromWhatsApp(this.storage, phone, nombre, phone);
-            await this.updateState(phone, { state: "prospect_docs_capture", context: { ...prospectState.context, nombre, folio: folioResult.folio }, folioId: folioResult.originationId });
+            await this.updateState(phone, { state: "prospect_docs_capture", context: { ...prospectState.context, nombre, folio: folioResult.folio } as any, folioId: folioResult.originationId });
             try { await upsertProspect({ phone, nombre, status: "registrado", folio_id: folioResult.folio }); }
             catch (e: any) { console.error(`[Pipeline] upsertProspect registrado:`, e.message); }
             const canalCtx = prospectState.context?.canal || "ORGANICO";
-            const modelo = prospectState.context?.modelo;
+            const modelo = prospectState.context?.modelo as any;
             const modeloStr = modelo ? `${modelo.marca} ${modelo.modelo} ${modelo.anio}` : "Por definir";
             const notifMsg = `*Nuevo registro* \u2705\nNombre: ${nombre}\nTel: ${phone}\nCanal: ${canalCtx}\nModelo: ${modeloStr}\nConsumo: ${prospectState.context?.leqMes || "?"} LEQ/mes\nFolio: ${folioResult.folio}`;
             await notifyTeam(notifMsg);
@@ -2883,13 +2883,13 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
           // Create folio + register
           try {
             const folioResult = await createFolioFromWhatsApp(this.storage, phone, nombre, phone);
-            await this.updateState(phone, { state: "prospect_docs_capture", context: { ...prospectState.context, nombre, folio: folioResult.folio }, folioId: folioResult.originationId });
+            await this.updateState(phone, { state: "prospect_docs_capture", context: { ...prospectState.context, nombre, folio: folioResult.folio } as any, folioId: folioResult.originationId });
             try { await upsertProspect({ phone, nombre, status: "registrado", folio_id: folioResult.folio }); }
             catch (e: any) { console.error(`[Pipeline] upsertProspect registrado:`, e.message); }
             
             // Notify team
             const canalCtx = prospectState.context?.canal || "ORGANICO";
-            const modelo = prospectState.context?.modelo;
+            const modelo = prospectState.context?.modelo as any;
             const modeloStr = modelo ? `${modelo.marca} ${modelo.modelo} ${modelo.anio}` : "Por definir";
             const notifMsg = `*Nuevo registro* \u2705\nNombre: ${nombre}\nTel: ${phone}\nCanal: ${canalCtx}\nModelo: ${modeloStr}\nCombustible: ${prospectState.context?.fuelType || "?"}\nConsumo: ${prospectState.context?.leqMes || "?"} LEQ/mes\nFolio: ${folioResult.folio}`;
             await notifyTeam(notifMsg);

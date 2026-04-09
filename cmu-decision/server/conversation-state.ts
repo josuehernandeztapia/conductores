@@ -33,9 +33,20 @@ export type ConversationState =
   | "prospect_tank"
   | "prospect_corrida"
   | "prospect_confirm"
+  | "prospect_show_models"
+  | "prospect_post_corrida"
+  | "prospect_gnv_consumo"
+  | "prospect_gasolina_gasto"
+  | "prospect_tank_question"
+  | "prospect_awaiting_name"
+  | "prospect_cold"
+  | "prospect_docs_capture"
+  | "awaiting_variant"
+  | "awaiting_inventory_pin"
   | "docs_capture"
   | "docs_pending"
   | "interview_ready"
+  | "interview_q0"
   | "interview_q1" | "interview_q2" | "interview_q3" | "interview_q4"
   | "interview_q5" | "interview_q6" | "interview_q7" | "interview_q8"
   | "interview_complete"
@@ -81,12 +92,16 @@ export type ConversationContext = {
   canal?: string;
   fuelType?: string;
   leqMes?: number;
-  modelo?: string;
+  modelo?: string | { marca: string; modelo: string; anio: number };
   pv?: number;
   docsComplete?: boolean;
   pendingEval?: Record<string, any>;
   pendingEdit?: Record<string, any>;
   interview?: Record<string, any>;
+  recaudo?: Record<string, any> | number;
+  kitNuevo?: boolean;
+  nombre?: string;
+  gastoGasolina?: number;
 };
 
 export type ConversationSession = {
@@ -123,7 +138,7 @@ export async function getSession(phone: string): Promise<ConversationSession> {
   const sql = getDb();
   if (sql) {
     try {
-      const rows = await sql`SELECT state, context, last_model, folio_id FROM conversation_states WHERE phone = ${phone}`;
+      const rows = await sql`SELECT state, context, last_model, folio_id FROM conversation_states WHERE phone = ${phone}` as any[];
       if (rows.length > 0) {
         const r = rows[0];
         const session: ConversationSession = {

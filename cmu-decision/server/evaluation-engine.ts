@@ -34,7 +34,7 @@ const ANTICIPO_MONTH = 2; // Week 8 ≈ month 2
 // GNV_REVENUE is now passed as parameter from fuel_prices DB
 // Default fallback only used if not provided
 const GNV_REVENUE_DEFAULT = CMU_DEFAULTS.recaudoBase;
-const FONDO_INICIAL = CMU_DEFAULTS.fondoInicial;
+const FONDO_INICIAL: number = CMU_DEFAULTS.fondoInicial;
 const FONDO_MENSUAL = CMU_DEFAULTS.fondoMensual;
 const FONDO_TECHO = CMU_DEFAULTS.fondoTecho;
 const FLOAT_AMEX_DAYS = 50; // Amex pays insurer price only

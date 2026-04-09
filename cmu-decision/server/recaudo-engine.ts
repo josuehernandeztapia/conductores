@@ -340,7 +340,7 @@ export async function processNatgasMultiProduct(rows: NatgasRow[]): Promise<Reca
 
       if (producto === "Joylong Ahorro") {
         // Accumulate by folio (a client can have multiple placas)
-        const existing = joylongByFolio.get(folio) || { recaudo: 0, litros: 0, cliente, placas: [] };
+        const existing = joylongByFolio.get(folio) || { recaudo: 0, litros: 0, cliente, placas: [] as string[] };
         existing.recaudo += agg.recaudo;
         existing.litros += agg.litros;
         existing.placas.push(placa);
@@ -349,7 +349,7 @@ export async function processNatgasMultiProduct(rows: NatgasRow[]): Promise<Reca
         detalle.push({ placa, folio, cliente, producto: "Joylong Ahorro", recaudo: Math.round(agg.recaudo), litros: Math.round(agg.litros) });
 
       } else if (producto === "Kit Conversión") {
-        const existing = kitByFolio.get(folio) || { recaudo: 0, litros: 0, cliente, placas: [] };
+        const existing = kitByFolio.get(folio) || { recaudo: 0, litros: 0, cliente, placas: [] as string[] };
         existing.recaudo += agg.recaudo;
         existing.litros += agg.litros;
         existing.placas.push(placa);
