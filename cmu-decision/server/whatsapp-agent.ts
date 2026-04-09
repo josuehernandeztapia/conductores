@@ -1698,7 +1698,14 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         const mData = { brand: m.brand, model: m.model, variant: m.variant, slug: m.slug, purchaseBenchmarkPct: m.purchaseBenchmarkPct || m.purchase_benchmark_pct || 0.60 };
         const input: EvaluationInput = { modelId: m.id, modelSlug: m.slug, year: displayYear, cmu: m.cmu, insurerPrice: earlyParsed.cost, repairEstimate: earlyParsed.repair !== null ? earlyParsed.repair : 10000, conTanque: earlyParsed.conTanque };
         const rules = await this.getRules();
-        const result = evaluateOpportunity(input, mData, { gnvRevenue: fuel.gnvRevenueMes, marketAvgPrice: validMarketAvg });
+        // Load per-model Dif m3 thresholds from business_rules
+        const umbralGlobal = parseInt(rules["umbral_dif_m3_global"] || "7000");
+        const umbralByModel: Record<string, number> = {};
+        for (const [k, v] of Object.entries(rules)) {
+          const match = k.match(/^umbral_dif_m3_(.+)$/);
+          if (match && match[1] !== 'global') umbralByModel[match[1]] = parseInt(v as string) || 7000;
+        }
+        const result = evaluateOpportunity(input, mData, { gnvRevenue: fuel.gnvRevenueMes, marketAvgPrice: validMarketAvg, umbralDifM3Global: umbralGlobal, umbralDifM3ByModel: umbralByModel });
         return this.formatEvalResult(result, mkt, fuel.gnvRevenueMes, getThresholds(rules));
       }
       if (model && !earlyParsed.cost) return `${model.brand} ${model.model} ${model.variant || ""} ${model.year}\nCMU: $${model.cmu.toLocaleString()}\n\nCosto de adquisicion?`;

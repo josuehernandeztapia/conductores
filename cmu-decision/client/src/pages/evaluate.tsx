@@ -236,6 +236,32 @@ function DecisionCard({ result }: { result: EvaluationResult }) {
         </Card>
       </div>
 
+      {/* Pago extra taxista */}
+      <div className="grid grid-cols-2 gap-3">
+        <Card className={result.riesgoCliente.diferencialM1 <= result.gastoGasolina ? "border-emerald-200 bg-emerald-50/50" : "border-amber-200 bg-amber-50/50"}>
+          <CardContent className="p-3">
+            <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+              Pago extra taxista <span className="text-[9px] bg-slate-100 px-1 rounded">m1</span>
+            </div>
+            <div className={`text-lg font-bold tabular-nums ${result.riesgoCliente.diferencialM1 === 0 ? "text-emerald-600" : result.riesgoCliente.diferencialM1 <= result.gastoGasolina ? "text-amber-600" : "text-red-600"}`}>
+              {result.riesgoCliente.diferencialM1 === 0 ? "GNV cubre" : formatMXN(result.riesgoCliente.diferencialM1) + "/mes"}
+            </div>
+            <div className="text-[10px] text-muted-foreground">Sobre gasolina que ya gasta</div>
+          </CardContent>
+        </Card>
+        <Card className={result.riesgoCliente.diferencialM3 <= result.gastoGasolina * 0.5 ? "border-emerald-200 bg-emerald-50/50" : result.riesgoCliente.diferencialM3 <= result.gastoGasolina ? "border-amber-200 bg-amber-50/50" : "border-red-200 bg-red-50/50"}>
+          <CardContent className="p-3">
+            <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+              Pago extra taxista <span className="text-[9px] bg-slate-100 px-1 rounded">m3+</span>
+            </div>
+            <div className={`text-lg font-bold tabular-nums ${result.riesgoCliente.diferencialM3 === 0 ? "text-emerald-600" : result.riesgoCliente.diferencialM3 <= result.gastoGasolina ? "text-amber-600" : "text-red-600"}`}>
+              {result.riesgoCliente.diferencialM3 === 0 ? "GNV cubre" : formatMXN(result.riesgoCliente.diferencialM3) + "/mes"}
+            </div>
+            <div className="text-[10px] text-muted-foreground">Umbral: {formatMXN(result.gastoGasolina)} ({result.riesgoCliente.nivel})</div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* 3 TIRs */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <TirCard

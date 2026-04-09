@@ -519,13 +519,19 @@ function buildSensitivity(
 export function evaluateOpportunity(
   input: EvaluationInput,
   modelData: { brand: string; model: string; variant: string | null; slug: string; purchaseBenchmarkPct: number },
-  options?: { gnvRevenue?: number; marketAvgPrice?: number | null; gastoGasolina?: number; capitalCMU?: number }
+  options?: { gnvRevenue?: number; marketAvgPrice?: number | null; gastoGasolina?: number; capitalCMU?: number; umbralDifM3Global?: number; umbralDifM3ByModel?: Record<string, number> }
 ): EvaluationResult {
   const { cmu, insurerPrice, repairEstimate, conTanque, city } = input;
   const gnvRevenue = options?.gnvRevenue || GNV_REVENUE_DEFAULT;
   const marketAvgPrice = options?.marketAvgPrice || null;
-  const gastoGasolina = options?.gastoGasolina ?? 7000;
   const capitalCMU = options?.capitalCMU ?? 500000;
+
+  // A+B: umbral Dif m3 — por modelo (DB) con ajuste dinámico por consumo real del prospecto
+  // Prioridad: umbral_modelo_slug > umbral_global (7000)
+  // Si hay consumo real del prospecto: gnvRevenue real ya viene en options.gnvRevenue
+  const modelSlug = modelData.slug?.toLowerCase().replace(/[^a-z0-9]+/g, '_') || '';
+  const umbralDB = options?.umbralDifM3ByModel?.[modelSlug] || options?.umbralDifM3Global || 7000;
+  const gastoGasolina = options?.gastoGasolina ?? umbralDB;
 
   // Kit GNV and precio contado
   const kitGnv = conTanque ? KIT_CON_TANQUE : KIT_SIN_TANQUE;
