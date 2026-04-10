@@ -2206,13 +2206,12 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
       }
       if (role === "promotora") {
         const origs = await this.storage.listOriginations();
-        const activos = origs.filter((o: any) => !["RECHAZADO", "COMPLETADO"].includes(o.estado));
+        const activos = origs.filter((o: any) => !["RECHAZADO", "COMPLETADO", "CANCELADO"].includes(o.estado));
         // Show stale folios (>3 days without update)
         const stale = activos.filter((o: any) => {
           const updated = new Date(o.updatedAt || o.createdAt).getTime();
           return (Date.now() - updated) > 3 * 24 * 60 * 60 * 1000;
         });
-        // Saludo conversacional: resumen de alto nivel, sin abrumar
         const totalActivos = activos.length;
         const totalStale = stale.length;
         let greeting = `${timeGreet} ${name}.`;
@@ -2223,7 +2222,21 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
           }
           greeting += ".";
         }
-        greeting += `\n\n¿Con quién trabajamos hoy?`;
+        // Build numbered shortlist of up to 5 most recent active folios
+        const recientes = activos
+          .sort((a: any, b: any) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime())
+          .slice(0, 5);
+        if (recientes.length > 0) {
+          greeting += `\n\n*Trámites recientes:*`;
+          recientes.forEach((o: any, i: number) => {
+            const nombre = o.taxistaName || o.folio;
+            greeting += `\n${i + 1}. ${nombre}`;
+          });
+          greeting += `\n\n*Nuevo prospecto:* escribe el nombre y teléfono`;
+          greeting += `\n*Retomar:* escribe el número o nombre de arriba`;
+        } else {
+          greeting += `\n\nNo hay trámites activos.\n*Nuevo prospecto:* escribe el nombre y teléfono del taxista.`;
+        }
         return await respond(greeting);
       }
       if (role === "cliente") {
@@ -3324,12 +3337,12 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
           const nameTag = tName ? ` de ${tName}` : "";
 
           if (pendingList.length === 0) {
-            return await respond(`*${docLabel}* recibido ✓\n\nTodos los papeles de${nameTag}${folioTag} están completos (${capturedList.length}/${DOC_ORDER.length}). ¿Hacemos la entrevista ahora?`);
+            return await respond(`*${docLabel}* recibido ✓\n\nTodos los papeles de${nameTag}${folioTag} están completos (${capturedList.length}/${DOC_ORDER.length}). ¿Hacemos la entrevista ahora?\n\n_entrevista · cambiar folio_`);
           } else {
             // Show next pending doc — but don't block if they send a different one
             const nextDocLabel = DOC_LABELS[pendingList[0]] || pendingList[0];
             const remaining = pendingList.length;
-            return await respond(`*${docLabel}* recibido ✓${nameTag}${folioTag}\n\n${capturedList.length}/${DOC_ORDER.length} papeles. Faltan ${remaining}: siguiente es *${nextDocLabel}*. ¿Me lo mandas? (o manda cualquier otro que tengas)`);
+            return await respond(`*${docLabel}* recibido ✓${nameTag}${folioTag}\n\n${capturedList.length}/${DOC_ORDER.length} papeles. Faltan ${remaining}: siguiente es *${nextDocLabel}*. ¿Me lo mandas? (o manda cualquier otro que tengas)\n\n_entrevista · cambiar folio_`);
           }
         }
 
@@ -3369,6 +3382,65 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
     // ===== PROMOTORA: deterministic fallback BEFORE LLM =====
     if (role === "promotora" && body && !docSaved && !mediaUrl) {
       const lo = body.toLowerCase().trim();
+
+      // ── MENU NAVIGATION: number shortcut to select folio from greeting list ──
+      const numMatch = lo.match(/^(\d)$/);
+      if (numMatch && !originationId && convState?.state !== "waiting_folio_name" && convState?.state !== "waiting_folio_phone") {
+        const idx = parseInt(numMatch[1]) - 1;
+        try {
+          const allOrigs = await this.storage.listOriginations();
+          const activos = allOrigs
+            .filter((o: any) => !["RECHAZADO", "COMPLETADO", "CANCELADO"].includes(o.estado))
+            .sort((a: any, b: any) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime())
+            .slice(0, 5);
+          if (idx >= 0 && idx < activos.length) {
+            const selected = activos[idx] as any;
+            originationId = selected.id;
+            await this.updateState(phone, { folioId: selected.id, state: "capturing_docs", context: { folio: { id: selected.id, folio: selected.folio, taxistaName: selected.taxistaName } } });
+            const pI = await this.getPendingInfo(selected.id);
+            const nombre = selected.taxistaName || selected.folio;
+            const pendingStr = pI.count > 0 ? `Faltan: *${pI.text}*` : "Documentos completos";
+            return await respond(`📋 *${nombre}* — ${selected.folio}\n${pendingStr}\n\n_docs · entrevista · cambiar folio_`);
+          }
+        } catch (e: any) {
+          console.error("[PromoMenu] Error selecting folio:", e.message);
+        }
+      }
+
+      // ── FOLIO ACTIVE COMMANDS: docs / entrevista / cambiar folio ──
+      if (originationId) {
+        if (/^docs?$|^documentos?$|^papeles?$/i.test(lo)) {
+          const pI = await this.getPendingInfo(originationId);
+          const pendingStr = pI.count > 0 ? `Faltan: *${pI.text}*\n\nMándame el siguiente documento.` : "Todos los documentos están capturados. ✅";
+          return await respond(pendingStr + `\n\n_entrevista · cambiar folio_`);
+        }
+        if (/^entrevista$|^iniciar\s+entrevista$|^hacer\s+entrevista$/i.test(lo)) {
+          // Set interview mode — fall through to existing interview handler
+          // (just let it fall through, the interview trigger is handled below)
+        }
+        if (/^cambiar\s+folio$|^otro\s+folio$|^cambiar$|^menu$|^menú$/i.test(lo)) {
+          await this.updateState(phone, { state: "idle", folio_id: null, context: {} });
+          originationId = null;
+          try {
+            const allOrigs = await this.storage.listOriginations();
+            const activos = allOrigs
+              .filter((o: any) => !["RECHAZADO", "COMPLETADO", "CANCELADO"].includes(o.estado))
+              .sort((a: any, b: any) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime())
+              .slice(0, 5);
+            let msg = "¿Con quién trabajamos?";
+            if (activos.length > 0) {
+              msg += "\n";
+              activos.forEach((o: any, i: number) => {
+                msg += `\n${i + 1}. ${o.taxistaName || o.folio}`;
+              });
+              msg += "\n\n*Nuevo prospecto:* escribe nombre y teléfono";
+            }
+            return await respond(msg);
+          } catch (e: any) {
+            return await respond("¿Con quién trabajamos? Escribe el nombre o número de folio.");
+          }
+        }
+      }
 
       // Intent: new person / new prospect (natural language variants)
       // Bug fix: detect negation BEFORE checking new prospect intent

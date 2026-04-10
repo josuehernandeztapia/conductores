@@ -402,6 +402,19 @@ export async function handleProspectMessage(
     console.error(`[Orchestrator] State persist failed for ${phone}:`, error.message);
   }
 
+  // ── Append persistent footer so the prospect always knows their options ──
+  const STATES_WITH_FOOTER: ProspectState[] = [
+    "prospect_name", "prospect_fuel_type", "prospect_consumo", "prospect_select_model",
+    "prospect_tank", "prospect_corrida", "prospect_confirm",
+    "docs_capture", "docs_pending", "interview_ready",
+    "interview_q1", "interview_q2", "interview_q3", "interview_q4",
+    "interview_q5", "interview_q6", "interview_q7", "interview_q8",
+  ];
+  const FOOTER = `\n\n────────────────\n_siguiente · estado · entrevista · promotor_`;
+  if (STATES_WITH_FOOTER.includes(newState) && !response.includes("siguiente · estado")) {
+    response = response + FOOTER;
+  }
+
   console.log(`[Orchestrator] ${phone} | ${currentState} → ${newState} | response="${response.slice(0, 60)}..."`);
   return response;
 }
