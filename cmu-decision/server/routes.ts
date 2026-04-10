@@ -1295,6 +1295,63 @@ Responde SOLO con JSON válido:
     }
   });
 
+  // POST /api/test/cross-check-e2e — runs regression tests server-side (temp, director only)
+  app.post("/api/test/cross-check-e2e", async (req, res) => {
+    try {
+      const { classifyAndValidateDoc, DOC_ORDER } = await import("./agent/vision");
+      const fs = await import("fs");
+      const path = await import("path");
+
+      const FIXTURES = path.join(process.cwd(), "test/fixtures/cross-check-real");
+      if (!fs.existsSync(FIXTURES)) {
+        return res.status(404).json({ error: "Fixtures not found — run from server with test/ directory" });
+      }
+
+      const expected = JSON.parse(fs.readFileSync(path.join(FIXTURES, "expected.json"), "utf-8"));
+      const results: any[] = [];
+
+      for (const tc of expected.test_cases) {
+        const imgPath = path.join(FIXTURES, tc.file);
+        if (!fs.existsSync(imgPath)) { results.push({ file: tc.file, skipped: true }); continue; }
+
+        const imgBase64 = `data:image/jpeg;base64,${fs.readFileSync(imgPath).toString("base64")}`;
+        let result: any;
+        try {
+          result = await classifyAndValidateDoc(imgBase64, tc.doc_type, DOC_ORDER, tc.existing_data || {});
+        } catch (e: any) {
+          results.push({ file: tc.file, error: e.message }); continue;
+        }
+
+        const flags = result.cross_check_flags || [];
+        const expectedFlags = tc.expected_flags || [];
+        const notFlags = tc.expected_flags_NOT || [];
+        const missingFlags = expectedFlags.filter((f: string) => !flags.includes(f));
+        const wrongFlags = notFlags.filter((f: string) => flags.includes(f));
+        const classOk = result.detected_type === tc.doc_type;
+
+        results.push({
+          file: tc.file,
+          doc_type: tc.doc_type,
+          detected: result.detected_type,
+          classification_ok: classOk,
+          flags_got: flags,
+          flags_expected: expectedFlags,
+          missing_flags: missingFlags,
+          wrong_flags: wrongFlags,
+          pass: classOk && missingFlags.length === 0 && wrongFlags.length === 0,
+          extracted: result.extracted_data,
+          notes: tc.notes,
+        });
+      }
+
+      const passed = results.filter(r => r.pass).length;
+      const failed = results.filter(r => !r.pass && !r.skipped && !r.error).length;
+      return res.json({ passed, failed, total: results.length, results });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
   // POST /api/originacion/reporte-pdf — Genera y envía PDF de folios a Ángeles
   app.post("/api/originacion/reporte-pdf", async (_req, res) => {
     try {
