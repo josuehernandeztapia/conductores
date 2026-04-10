@@ -2184,15 +2184,16 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
           const updated = new Date(o.updatedAt || o.createdAt).getTime();
           return (Date.now() - updated) > 3 * 24 * 60 * 60 * 1000;
         });
-        // Saludo conversacional — el agente pregunta qué quiere hacer hoy
+        // Saludo conversacional: resumen de alto nivel, sin abrumar
+        const totalActivos = activos.length;
+        const totalStale = stale.length;
         let greeting = `${timeGreet} ${name}.`;
-        if (stale.length > 0) {
-          const staleNames = stale.slice(0, 3).map((s: any) => {
-            const days = Math.floor((Date.now() - new Date(s.updatedAt || s.createdAt).getTime()) / (1000*60*60*24));
-            const tName = s.taxistaName || s.folio;
-            return `${tName} (${days} días sin avance)`;
-          });
-          greeting += `\n\nTienes ${stale.length} trámite${stale.length > 1 ? 's' : ''} sin avance: ${staleNames.join(", ")}.`;
+        if (totalActivos > 0) {
+          greeting += ` Tienes *${totalActivos} trámites activos*`;
+          if (totalStale > 0) {
+            greeting += `, *${totalStale} sin avance*`;
+          }
+          greeting += ".";
         }
         greeting += `\n\n¿Con quién trabajamos hoy?`;
         return await respond(greeting);
@@ -3288,8 +3289,54 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         return await respond("¿Cómo se llama?");
       }
 
+      // Reportes determinísticos — construidos desde Neon, sin LLM
+      const wantsReport = /pendientes?|sin\s+avance|reporte|cuántos?\s+(faltan|tienen|llevan)|listado|todos\s+los\s+tr|todos\s+los\s+fol/i.test(lo);
+      if (wantsReport) {
+        try {
+          const origs = await this.storage.listOriginations();
+          const activos2 = origs.filter((o: any) => !["RECHAZADO", "COMPLETADO"].includes(o.estado));
+          if (activos2.length === 0) return await respond("No hay trámites activos por ahora.");
+
+          const lines: string[] = [];
+          for (const o of activos2) {
+            const pI = await this.getPendingInfo((o as any).id);
+            const name2 = (o as any).taxistaName || (o as any).folio;
+            const days = Math.floor((Date.now() - new Date((o as any).updatedAt || (o as any).createdAt).getTime()) / (1000*60*60*24));
+            const daysStr = days > 0 ? ` (${days}d)` : "";
+            if (pI.count > 0) {
+              lines.push(`• *${name2}*${daysStr}: faltan ${pI.count} papeles — ${pI.text}`);
+            } else {
+              lines.push(`• *${name2}*${daysStr}: papeles completos, falta entrevista`);
+            }
+          }
+          return await respond(`*${activos2.length} trámites activos:*\n\n${lines.join("\n")}`);
+        } catch (e: any) {
+          // fall through to LLM
+        }
+      }
+
+      // "días sin avance" filter
+      const diasMatch = lo.match(/m[aá]s\s+de\s+(\d+)\s+d[ií]as/);
+      if (diasMatch) {
+        const dias = parseInt(diasMatch[1]);
+        try {
+          const origs = await this.storage.listOriginations();
+          const stale2 = origs.filter((o: any) => {
+            if (["RECHAZADO", "COMPLETADO"].includes((o as any).estado)) return false;
+            const d = Math.floor((Date.now() - new Date((o as any).updatedAt || (o as any).createdAt).getTime()) / (1000*60*60*24));
+            return d > dias;
+          });
+          if (stale2.length === 0) return await respond(`Ningún trámite lleva más de ${dias} días sin avance.`);
+          const lines2 = stale2.map((o: any) => {
+            const d = Math.floor((Date.now() - new Date(o.updatedAt || o.createdAt).getTime()) / (1000*60*60*24));
+            return `• *${o.taxistaName || o.folio}* — ${d} días`;
+          });
+          return await respond(`*${stale2.length} trámites sin avance (más de ${dias} días):*\n\n${lines2.join("\n")}`);
+        } catch (e: any) { /* fall through */ }
+      }
+
       // No folio context + vague action keyword → ask who
-      const isVagueAction = /entrevista|documento|foto|imagen|papeles?|pendiente|status|estado|siguiente|cuánto|falta|sigue/i.test(lo);
+      const isVagueAction = /entrevista|documento|foto|imagen|papeles?|status|estado|siguiente|falta|sigue/i.test(lo);
       if (isVagueAction && !originationId) {
         return await respond("¿De quién? Dime el nombre del taxista.");
       }
