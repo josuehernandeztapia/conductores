@@ -78,6 +78,7 @@ const PUBLIC_PATHS = [
   "/api/pipeline",
   "/api/agent/sandbox",
   "/api/market-cache",  // client-side ML scraper (browser sends prices from MX)
+  "/api/originacion/reporte-pdf",  // internal cron + promotora trigger
 ];
 
 function authMiddleware(req: Request, res: Response, next: NextFunction) {
