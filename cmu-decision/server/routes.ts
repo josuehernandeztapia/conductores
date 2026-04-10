@@ -1294,6 +1294,34 @@ Responde SOLO con JSON válido:
     }
   });
 
+  // POST /api/originacion/reporte-pdf — Genera y envía PDF de folios a Ángeles
+  app.post("/api/originacion/reporte-pdf", async (_req, res) => {
+    try {
+      const { generateWeeklyReportPDF, buildReportData } = await import("./report-generator");
+      const { sendWeeklyReportEmail } = await import("./email-sender");
+
+      const rows = await buildReportData();
+      const pdfBuffer = await generateWeeklyReportPDF();
+
+      const total = rows.length;
+      const sinAvance = rows.filter(r => r.diasSinAvance >= 3).length;
+      const completos = rows.filter(r => r.docsFaltantes.length === 0 && r.entrevistaCompleta).length;
+
+      const result = await sendWeeklyReportEmail(pdfBuffer, undefined, { total, sinAvance, completos });
+      if (!result.success) throw new Error(result.error || "Email send failed");
+
+      return res.json({
+        success: true,
+        message: `Reporte enviado a mireles.ageles60@gmail.com`,
+        stats: { total, sinAvance, completos },
+        messageId: result.messageId,
+      });
+    } catch (err: any) {
+      console.error("[ReportePDF]", err.message);
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
   // POST /api/cierre/reporte-semanal — Weekly cartera report (Wednesday cron)
   app.post("/api/cierre/reporte-semanal", async (_req, res) => {
     try {

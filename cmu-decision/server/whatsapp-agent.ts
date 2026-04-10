@@ -3289,6 +3289,22 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         return await respond("¿Cómo se llama?");
       }
 
+      // Ángeles pide que se envíe el reporte PDF por email
+      const wantsEmailReport = /env[ií]a?(?:le)?\s+el\s+reporte|manda\s+el\s+reporte|reporte\s+por\s+(?:correo|email|mail)|env[ií]a?(?:lo)?\s+al\s+correo|mandar\s+(?:el\s+)?reporte/i.test(lo);
+      if (wantsEmailReport) {
+        try {
+          const r = await fetch("https://cmu-originacion.fly.dev/api/originacion/reporte-pdf", { method: "POST" });
+          const d = await r.json() as any;
+          if (d.success) {
+            return await respond(`Listo. Envié el reporte a mireles.ageles60@gmail.com\n\n${d.stats.total} trámites | ${d.stats.sinAvance} sin avance | ${d.stats.completos} listos para firma.`);
+          } else {
+            return await respond(`No pude enviar el reporte: ${d.message || "error desconocido"}. Avísale a Josué.`);
+          }
+        } catch (e: any) {
+          return await respond(`Error al generar el reporte: ${e.message}`);
+        }
+      }
+
       // Reportes determinísticos — construidos desde Neon, sin LLM
       const wantsReport = /pendientes?|sin\s+avance|reporte|cuántos?\s+(faltan|tienen|llevan)|listado|todos\s+los\s+tr|todos\s+los\s+fol/i.test(lo);
       if (wantsReport) {
