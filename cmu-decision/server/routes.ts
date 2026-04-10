@@ -2298,13 +2298,25 @@ Responde SOLO con JSON válido:
     while ((mediaQueues.get(phone)?.length ?? 0) > 0) {
       const next = mediaQueues.get(phone)!.shift()!;
       try {
+        // Wait up to 3s for convState.folioId to be available
+        // (race condition: folio created then image sent immediately)
+        let folioId: number | null = null;
+        for (let attempt = 0; attempt < 6; attempt++) {
+          const neonModule = await import("@neondatabase/serverless");
+          const sqlCs = neonModule.neon(process.env.DATABASE_URL!);
+          const rows = await sqlCs`SELECT folio_id FROM conversation_states WHERE phone = ${next.phone}` as any[];
+          if (rows[0]?.folio_id) { folioId = rows[0].folio_id; break; }
+          await new Promise(r => setTimeout(r, 500));
+        }
+        console.log(`[MediaQueue] Processing media for ${next.phone}, folioId=${folioId}`);
+
         const result = await waAgent.handleMessage(
           next.phone,           // phone
           next.body,            // body
           next.ProfileName,     // profileName
           next.mediaUrl,        // mediaUrl
           next.mediaType,       // mediaType
-          null,                 // originationId (loaded from convState inside handleMessage)
+          folioId,              // originationId (resolved from convState)
           next.role.role,       // role
           next.role.name || next.ProfileName, // roleName
           next.role.permissions || [],         // permissions
