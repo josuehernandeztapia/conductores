@@ -487,8 +487,7 @@ ${updatedDocs.length}/${DOC_ORDER.length} documentos. Siguiente: *${nextPending.
 Todos los documentos completos.`;
     }
     if (warnings.length > 0) {
-      responseText = `⚠️ ${warnings.join('
-⚠️ ')}
+      responseText = `⚠️ ${warnings.join('\n⚠️ ')}
 
 ${responseText}`;
     }
