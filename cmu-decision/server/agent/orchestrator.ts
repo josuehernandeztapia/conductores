@@ -1250,8 +1250,9 @@ async function handleProspectName(
     };
   }
 
-  // Check for name intent
-  if (nlu.intent === "give_name" && nlu.entities.nombre) {
+  // Check for name intent — validate that the extracted nombre is actually a name
+  const FAKE_NAMES = /^(taxista|taxi|gasolina|gas|natural|programa|cartel|acataxi|quiero|busco|necesito|soy|hola|informaci[oó]n|info|siguiente|entrevista)$/i;
+  if (nlu.intent === "give_name" && nlu.entities.nombre && !FAKE_NAMES.test(nlu.entities.nombre.trim().split(/\s+/)[0])) {
     const nombre = nlu.entities.nombre;
     try {
       await upsertProspect({ phone, nombre, status: "interesado" });
