@@ -359,7 +359,7 @@ Rules:
 - "gasto_number" = user gives a peso amount for fuel expense. Extract as {"pesos": N}
 - "select_model" = user mentions a specific vehicle model. Extract as {"modelo": "X"}
   Valid models: Aveo, March Sense, March Advance, Kwid, i10
-- "give_name" = user gives their full name (2+ words). Extract as {"nombre": "Full Name"}
+- "give_name" = user gives their PERSONAL name (2+ words, a real person's name). Extract as {"nombre": "Full Name"}. NEVER classify as give_name if the message starts with a verb (quiero, soy, busco, tengo, hola, vi, me) or contains informational words (información, programa, taxi, cartel, acataxi).
 - "ask_question" = user is asking a question about the program. Extract as {"question": "their question"}
 - "affirm" = yes, ok, si, dale, etc.
 - "deny" = no, nope, etc.
