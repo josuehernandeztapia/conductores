@@ -260,9 +260,10 @@ async function case4_QuieroInformacion(
       t3.state === "prospect_fuel_type" || t3.state === "prospect_name",
       `✅ State stays in fuel_type or name after mid-flow question (got: ${t3.state})`
     ));
-    assertions.push(ok(
-      t3.reply.toLowerCase().includes("36") || t3.reply.toLowerCase().includes("mes") || t3.reply.toLowerCase().includes("programa") || t3.reply.length > 30,
-      "RAG or bot provides meaningful answer to mid-flow question"
+    assertions.push(assert(
+      t3.reply.toLowerCase().includes("36") || t3.reply.toLowerCase().includes("mes") ||
+      t3.reply.toLowerCase().includes("programa") || t3.reply.length > 30,
+      "✅ RAG or bot provides meaningful answer to mid-flow question"
     ));
 
     const pass = assertions.every(a => a.ok);
@@ -297,27 +298,32 @@ async function case5_FraseAmbigua(
     ));
     assertions.push(assert(t1.reply.length > 10, "✅ Non-empty response"));
 
-    // Turn 2: one-word partial greeting
-    await clearPhone(phone);
-    const t2 = await sendTurn(handle, storage, phone, "hola", 2);
+    // Turn 2: one-word partial greeting — fresh phone to avoid state pollution
+    const phone2 = `${TEST_PHONE_PREFIX}5B`;
+    await clearPhone(phone2);
+    const t2 = await sendTurn(handle, storage, phone2, "hola", 2);
     turns.push(t2);
     assertions.push(assertStateIs(t2.state, "prospect_name", "State = prospect_name after bare 'hola'"));
+    await clearPhone(phone2).catch(() => {});
 
-    // Turn 3: "buenos días" — should ask name
-    await clearPhone(phone);
-    const t3 = await sendTurn(handle, storage, phone, "buenos días", 3);
+    // Turn 3: "buenos días" — fresh phone
+    const phone3 = `${TEST_PHONE_PREFIX}5C`;
+    await clearPhone(phone3);
+    const t3 = await sendTurn(handle, storage, phone3, "buenos días", 3);
     turns.push(t3);
     assertions.push(assertStateIs(t3.state, "prospect_name", "State = prospect_name after 'buenos días'"));
+    await clearPhone(phone3).catch(() => {});
 
-    // Turn 4: long phrase that includes a real name mid-sentence — should NOT extract as name
-    // "soy taxista y me llama la atención el cartel"
-    await clearPhone(phone);
-    const t4 = await sendTurn(handle, storage, phone, "soy taxista y me llama la atención el cartel", 4);
+    // Turn 4: long ambiguous phrase — fresh phone
+    const phone4 = `${TEST_PHONE_PREFIX}5D`;
+    await clearPhone(phone4);
+    const t4 = await sendTurn(handle, storage, phone4, "soy taxista y me llama la atención el cartel", 4);
     turns.push(t4);
     assertions.push(assert(
       t4.state === "prospect_name" || t4.state === "idle",
       `Long ambiguous phrase → prospect_name or idle (not fuel_type), got: ${t4.state}`
     ));
+    await clearPhone(phone4).catch(() => {});
 
     const pass = assertions.every(a => a.ok);
     return { name, description: "Frases ambiguas no se aceptan como nombre → estado prospect_name", pass, turns, assertions };

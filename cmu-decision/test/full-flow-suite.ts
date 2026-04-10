@@ -149,15 +149,36 @@ async function P02_PinIncorrectoReauth(agent: any): Promise<CaseResult> {
   const id = "P02", name = "PIN incorrecto en re-auth — error, folio sigue bloqueado";
   const assertions: Array<{ ok: boolean; msg: string }> = [];
   const turns: TurnResult[] = [];
+  const { neon } = await import("@neondatabase/serverless");
+  const sql = neon(process.env.DATABASE_URL!);
   try {
     await clearPhone(phone);
 
-    // Set awaiting_reauth state
-    await setStateManual(phone, "capturing_docs", {
-      folio: { id: 888, folio: "CMU-SIN-TEST-002" },
+    // Register phone as promotora so session expiry block fires
+    await sql`
+      INSERT INTO whatsapp_roles (phone, role, name, active, permissions, phone_verified)
+      VALUES (${phone}, 'promotora', 'Test Promotora P02', true, '{}', true)
+      ON CONFLICT (phone) DO UPDATE SET role = 'promotora', name = 'Test Promotora P02'
+    `;
+
+    // Set awaiting_reauth state (backdated so isExpired=true if needed, but awaiting_reauth is what matters)
+    // awaiting_reauth must be at the top level of context (not inside agentContext)
+    // because whatsapp-agent reads convState.context.awaiting_reauth
+    const { neon: neon2 } = await import("@neondatabase/serverless");
+    const sql2 = neon2(process.env.DATABASE_URL!);
+    const ctx2 = JSON.stringify({
       awaiting_reauth: true,
       reauth_folio_id: 888,
-    }, -(20 * 60 * 1000));
+      agentState: "capturing_docs",
+      agentContext: { folio: { id: 888, folio: "CMU-SIN-TEST-002" } }
+    });
+    const ts2 = new Date(Date.now() - 20 * 60 * 1000).toISOString();
+    await sql2`
+      INSERT INTO conversation_states (phone, state, context, updated_at)
+      VALUES (${phone}, 'simulation', ${ctx2}::jsonb, ${ts2}::timestamptz)
+      ON CONFLICT (phone) DO UPDATE
+        SET state = 'simulation', context = ${ctx2}::jsonb, updated_at = ${ts2}::timestamptz
+    `;
 
     const t1 = await sendPromotor(agent, phone, "000000", 1); // wrong PIN
     turns.push(t1);
@@ -171,7 +192,10 @@ async function P02_PinIncorrectoReauth(agent: any): Promise<CaseResult> {
     return { id, name, pass: assertions.every(a => a.ok), turns, assertions };
   } catch (e: any) {
     return { id, name, pass: false, turns, assertions, error: e.message };
-  } finally { await clearPhone(phone).catch(() => {}); }
+  } finally {
+    await sql`DELETE FROM whatsapp_roles WHERE phone = ${phone}`.catch(() => {});
+    await clearPhone(phone).catch(() => {});
+  }
 }
 
 async function P03_PinCorrectoReauth(agent: any): Promise<CaseResult> {
@@ -191,11 +215,21 @@ async function P03_PinCorrectoReauth(agent: any): Promise<CaseResult> {
       ON CONFLICT (phone) DO UPDATE SET role = 'promotora', name = 'Test Promotora'
     `;
 
-    await setStateManual(phone, "capturing_docs", {
-      folio: { id: 777, folio: "CMU-SIN-TEST-003", taxistaName: "Juan Prueba" },
+    const { neon: neon3 } = await import("@neondatabase/serverless");
+    const sql3 = neon3(process.env.DATABASE_URL!);
+    const ctx3 = JSON.stringify({
       awaiting_reauth: true,
       reauth_folio_id: 777,
-    }, -(20 * 60 * 1000));
+      agentState: "capturing_docs",
+      agentContext: { folio: { id: 777, folio: "CMU-SIN-TEST-003", taxistaName: "Juan Prueba" } }
+    });
+    const ts3 = new Date(Date.now() - 20 * 60 * 1000).toISOString();
+    await sql3`
+      INSERT INTO conversation_states (phone, state, context, updated_at)
+      VALUES (${phone}, 'simulation', ${ctx3}::jsonb, ${ts3}::timestamptz)
+      ON CONFLICT (phone) DO UPDATE
+        SET state = 'simulation', context = ${ctx3}::jsonb, updated_at = ${ts3}::timestamptz
+    `;
 
     const t1 = await sendPromotor(agent, phone, "123456", 1); // correct PIN
     turns.push(t1);
@@ -391,7 +425,7 @@ async function P09_CambiarFolio(agent: any, storage: any): Promise<CaseResult> {
     const t1 = await sendPromotor(agent, phone, "cambiar folio", 1, activo.id);
     turns.push(t1);
     assertions.push(ok(
-      t1.reply.toLowerCase().includes("trabajamos") || t1.reply.toLowerCase().includes("folio") || t1.reply.match(/\d\.\s+\w/),
+      t1.reply.toLowerCase().includes("trabajamos") || t1.reply.toLowerCase().includes("folio") || !!t1.reply.match(/\d\.\s+\w/),
       "Bot shows folio selection menu"
     ));
 
