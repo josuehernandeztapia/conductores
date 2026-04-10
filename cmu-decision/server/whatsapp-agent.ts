@@ -2267,6 +2267,95 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         return await respond(pendingCorrida);
       }
 
+      // ===== DIRECTOR SANDBOX MODE =====
+      // Keywords that activate any flow in test mode (no real folio created)
+      // Director can test any flow without affecting real data
+      const sandboxMatch = lower.match(
+        /^(sandbox|modo\s+test|test\s+flow|activar\s+flujo|flujo)\s+(prospecto|cliente|entrevista|documentos?|promotora|dev|proveedor|otp)(\s+.+)?$/i
+      );
+      if (sandboxMatch) {
+        const targetFlow = sandboxMatch[2].toLowerCase();
+        const extra = (sandboxMatch[3] || "").trim();
+        const sandboxPhone = "+5210000000000";
+        let msg = `*Sandbox* — activando flujo *${targetFlow}*`;
+        if (extra) msg += ` (${extra})`;
+        msg += `\n\n_Modo test: no se crean folios reales ni se envían mensajes al taxista._\n\n`;
+        switch (targetFlow) {
+          case "prospecto":
+            msg += `Flujo prospecto iniciado.\nSimula: el taxista saluda por primera vez.\nRespuesta esperada: bienvenida + pregunta de nombre.`;
+            break;
+          case "entrevista":
+            msg += `Flujo entrevista.\nPreguntas:\n1. Actividad/horario\n2. Servicios/cobro\n3. Ingreso diario\n4. Estructura chofer\n5. Gasto combustible\n6. Gastos vehículo\n7. Carga financiera\n8. Resiliencia`;
+            break;
+          case "documentos":
+          case "documento":
+            msg += `Flujo documentos (14 docs).\nEnvía una imagen — el agente la clasificará y validará en modo test.`;
+            break;
+          case "cliente":
+            msg += `Flujo cliente (folio activo).\nSimula: taxista con contrato activo consulta su status.`;
+            break;
+          case "promotora":
+            msg += `Flujo promotora.\nComandos disponibles: buscar folio, capturar doc, ver pendientes, iniciar entrevista.`;
+            break;
+          case "otp":
+            msg += `Flujo OTP.\nSimula: envío + verificación de OTP.`;
+            break;
+          case "dev":
+          case "proveedor":
+            msg += `Flujo ${targetFlow}.\nAcceso completo a endpoints internos.`;
+            break;
+          default:
+            msg += `Flujo desconocido. Opciones: prospecto, cliente, entrevista, documentos, promotora, otp, dev.`;
+        }
+        return await respond(msg);
+      }
+
+      // ===== DIRECTOR: "extrae" / "qué documento es" / OCR test =====
+      if (/^(extrae|qu[eé]\s+documento\s+es|clasifica|ocr|analiza\s+doc)(\s+.+)?$/i.test(lower) && mediaUrl) {
+        // Run OCR on the image without saving
+        try {
+          const { classifyAndValidateDoc } = await import("./agent/vision");
+          const imgBuf = await (await import("./twilio-helper")).downloadTwilioMedia(mediaUrl);
+          const b64 = imgBuf.toString("base64");
+          const result = await classifyAndValidateDoc(b64, "image/jpeg", null, null);
+          const flags = result.cross_check_flags?.join(", ") || "ninguno";
+          const data = JSON.stringify(result.extracted_data || {}, null, 2).slice(0, 800);
+          return await respond(`*OCR Test* — Documento detectado: *${result.detected_type || "desconocido"}*\n\nDatos extraídos:\n\`\`\`\n${data}\n\`\`\`\n\nFlags: ${flags}`);
+        } catch (e: any) {
+          return await respond(`OCR test fallido: ${e.message}`);
+        }
+      }
+
+      // ===== DIRECTOR: "datos de [nombre]" / "ver expediente [folio]" =====
+      const verExpedienteMatch = lower.match(/^(?:datos|expediente|ver|ocr\s+de)\s+(.+)/i);
+      if (verExpedienteMatch && !mediaUrl) {
+        const query = verExpedienteMatch[1].trim();
+        try {
+          const folio = await this.storage.findFolioFlexible(query);
+          if (!folio || (Array.isArray(folio) && folio.length === 0)) {
+            return await respond(`No encontré folio para "${query}".`);
+          }
+          const f = Array.isArray(folio) ? folio[0] : folio;
+          const sql = (await import("@neondatabase/serverless")).neon(process.env.DATABASE_URL!);
+          const rows = await sql`SELECT datos_ine, datos_csf, datos_comprobante, datos_concesion, datos_estado_cuenta, datos_historial, datos_factura, datos_membresia, interview_data FROM originations WHERE id = ${f.id}` as any[];
+          if (!rows[0]) return await respond(`Folio ${f.folio} encontrado pero sin datos OCR aún.`);
+          const r = rows[0];
+          const summary = ([
+            r.datos_ine ? `INE/Licencia: ${JSON.parse(r.datos_ine).nombre || JSON.parse(r.datos_ine).nombre_titular || '✓'}` : null,
+            r.datos_csf ? `CSF/CURP/RFC: ✓` : null,
+            r.datos_comprobante ? `Comprobante domicilio: ✓` : null,
+            r.datos_concesion ? `Concesión/Circulación: ${JSON.parse(r.datos_concesion).numero_concesion || '✓'}` : null,
+            r.datos_estado_cuenta ? `Estado de cuenta: ✓` : null,
+            r.datos_historial ? `Historial GNV: ${JSON.parse(r.datos_historial).gnv_leq_mensual ? JSON.parse(r.datos_historial).gnv_leq_mensual + ' LEQ/mes' : '✓'}` : null,
+            r.datos_factura ? `Factura: ✓` : null,
+            r.interview_data ? `Entrevista: ✓ (coherencia: ${JSON.parse(r.interview_data).coherencia?.score || '?'})` : null,
+          ] as (string | null)[]).filter(Boolean).join('\n');
+          return await respond(`*Expediente ${f.folio}* — ${f.taxistaName || '?'}\n\n${summary || 'Sin datos capturados aún.'}`);
+        } catch (e: any) {
+          return await respond(`Error consultando expediente: ${e.message}`);
+        }
+      }
+
       // ===== VEHICLE ASSIGNMENT (director only) =====
       const asignaMatch = lower.match(/asign[ao]\s+(.+?)\s+(?:a|al|para)\s+(.+)/i);
       if (asignaMatch) {

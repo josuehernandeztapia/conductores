@@ -152,6 +152,76 @@ function getSQL() {
   return neon(url);
 }
 
+// ─── Map doc key → originations column ─────────────────────────────────────
+const DOC_KEY_TO_ORIGINATIONS_COL: Record<string, string> = {
+  ine_frente:       "datos_ine",
+  ine_reverso:      "datos_ine",          // merged into same field
+  licencia:         "datos_ine",          // license stored alongside INE
+  factura_vehiculo: "datos_factura",
+  csf:              "datos_csf",
+  comprobante_domicilio: "datos_comprobante",
+  tarjeta_circulacion:   "datos_concesion",  // circulation card
+  concesion:        "datos_concesion",
+  estado_cuenta:    "datos_estado_cuenta",
+  historial_gnv:    "datos_historial",
+  tickets_gasolina: "datos_historial",
+  membresia_gremial:"datos_membresia",
+  curp:             "datos_csf",           // CURP alongside CSF
+  rfc:              "datos_csf",           // RFC alongside CSF
+};
+
+// Flush OCR data to originations structured columns
+async function flushOCRToOrigination(
+  phone: string,
+  docKey: string,
+  extractedData: Record<string, any>,
+): Promise<void> {
+  const col = DOC_KEY_TO_ORIGINATIONS_COL[docKey];
+  if (!col) return; // unmapped doc — skip
+  try {
+    const sql = getSQL();
+    // Get folio_id for this phone
+    const rows = await sql`SELECT folio_id FROM conversation_states WHERE phone = ${phone}` as any[];
+    const folioId = rows[0]?.folio_id;
+    if (!folioId) return;
+
+    // Merge with existing column value (JSON merge, so two docs mapping to same column accumulate)
+    const existing = await sql`SELECT ${sql(col)} as val FROM originations WHERE id = ${folioId}` as any[];
+    let merged: Record<string, any> = {};
+    try { merged = existing[0]?.val ? JSON.parse(existing[0].val) : {}; } catch {}
+    const updated = { ...merged, ...extractedData, _doc_key: docKey, _captured_at: new Date().toISOString() };
+
+    await sql`UPDATE originations SET ${sql(col)} = ${JSON.stringify(updated)}, updated_at = NOW() WHERE id = ${folioId}`;
+    console.log(`[OCR→Neon] ${docKey} → originations.${col} (folio_id=${folioId})`);
+  } catch (err: any) {
+    console.error(`[OCR→Neon] flushOCRToOrigination failed for ${docKey}:`, err.message);
+  }
+}
+
+// Flush interview data to originations.interview_data
+async function flushInterviewToOrigination(
+  phone: string,
+  interviewAnswers: Record<string, any>,
+  coherencia?: Record<string, any>,
+): Promise<void> {
+  try {
+    const sql = getSQL();
+    const rows = await sql`SELECT folio_id FROM conversation_states WHERE phone = ${phone}` as any[];
+    const folioId = rows[0]?.folio_id;
+    if (!folioId) return;
+
+    const payload = JSON.stringify({ answers: interviewAnswers, coherencia: coherencia || {}, _saved_at: new Date().toISOString() });
+    // interview_data column may not exist yet — add it if missing
+    await sql`
+      ALTER TABLE originations ADD COLUMN IF NOT EXISTS interview_data jsonb;
+    `;
+    await sql`UPDATE originations SET interview_data = ${payload}::jsonb, updated_at = NOW() WHERE id = ${folioId}`;
+    console.log(`[Interview→Neon] saved interview data (folio_id=${folioId})`);
+  } catch (err: any) {
+    console.error(`[Interview→Neon] flushInterviewToOrigination failed:`, err.message);
+  }
+}
+
 async function saveDocument(
   originationId: number,
   docKey: string,
@@ -702,6 +772,14 @@ async function processDocImage(
 
     const nextDocTicket = getNextExpectedDoc([...newCollectedTicket, ...(ctx.skippedDocs || [])]);
 
+    // Flush ticket summary → originations.datos_historial
+    flushOCRToOrigination(phone, detectedKey, {
+      tickets: updatedTickets,
+      ...(detectedKey === 'historial_gnv' && avgLitros ? { gnv_leq_mensual: Math.round(avgLitros * 26), avg_leq_ticket: avgLitros } : {}),
+      ...(detectedKey === 'tickets_gasolina' && avgMonto ? { gasolina_monto_mensual: Math.round(avgMonto * 26), avg_monto_ticket: avgMonto } : {}),
+      _ticket_flags: internalFlags,
+    }).catch(() => {});
+
     return {
       response: `*${detectedLabel2} #${ticketCount}* recibido \u2713 — Tengo los *3 tickets*.\n\n${prospectMsg}\n\n${
         nextDocTicket ? `Manda tu *${nextDocTicket.label}* \uD83D\uDCF7` : 'Todos los documentos listos.'
@@ -799,7 +877,7 @@ async function processDocImage(
     }
   }
 
-  // Save document to DB
+  // Save document to DB (documents table + originations structured columns)
   if (ctx.originationId) {
     await saveDocument(
       ctx.originationId,
@@ -810,6 +888,8 @@ async function processDocImage(
       visionResult.cross_check_flags,
     );
   }
+  // Always flush OCR → originations.datos_* (fire-and-forget, no-op if no folio)
+  flushOCRToOrigination(phone, detectedKey, visionResult.extracted_data || {}).catch(() => {});
 
   // Update pipeline docs count
   try {
@@ -1911,6 +1991,13 @@ async function processInterviewStep(
         } catch (error: any) {
           console.error(`[Orchestrator] Save evaluation failed:`, error.message);
         }
+
+        // Flush interview answers + coherencia → originations.interview_data
+        flushInterviewToOrigination(
+          phone,
+          result.evaluation.datos || {},
+          result.evaluation.coherencia || {},
+        ).catch(() => {});
       }
 
       // Notify team with evaluation summary
