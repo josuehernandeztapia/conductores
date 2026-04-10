@@ -174,8 +174,14 @@ const PATTERNS: Array<{ intent: Intent; regex: RegExp; entityExtractor?: (match:
         'la verdad', 'ni idea', 'que onda', 'la neta', 'gas natural',
         'gasolina', 'siguiente', 'entrevista', 'empezar', 'buenos dias',
         'buenas tardes', 'buenas noches', 'oiga',
+        // Common info-request words that are not names
+        'quiero informacion', 'quiero info', 'informacion', 'información',
+        'programa', 'acataxi', 'cartel', 'taxista', 'soy taxista',
       ];
+      // Also block if the first word is a common non-name verb/word
+      const FIRST_WORD_BLOCK = /^(quiero|busco|necesito|soy|tengo|hola|hay|vi|me|le|les|nos)\b/i;
       if (NOT_NAMES.some(phrase => lower.includes(phrase))) return {};
+      if (FIRST_WORD_BLOCK.test(lower)) return {};
       return { nombre: name };
     },
   },
