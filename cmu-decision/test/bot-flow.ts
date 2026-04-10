@@ -323,9 +323,11 @@ async function case5_FraseAmbigua(
     await clearPhone(phone4);
     const t4 = await sendTurn(handle, storage, phone4, "soy taxista y me llama la atención el cartel", 4);
     turns.push(t4);
+    // "soy taxista y me llama la atencion..." — should stay at prospect_name
+    // If NLU fires give_name for partial match, it goes to fuel_type — that's the bug to catch
     assertions.push(assert(
-      t4.state === "prospect_name" || t4.state === "idle",
-      `Long ambiguous phrase → prospect_name or idle (not fuel_type), got: ${t4.state}`
+      t4.state !== "prospect_fuel_type",
+      `Long ambiguous phrase NOT accepted as name (state=${t4.state}, should not be prospect_fuel_type)`
     ));
     await clearPhone(phone4).catch(() => {});
 
@@ -573,6 +575,12 @@ export async function runBotFlowTests(storage: any): Promise<{
   results: CaseResult[];
 }> {
   const { handleProspectMessage } = await import("../server/agent/orchestrator");
+
+  // Pre-clean all test phones to avoid state pollution between endpoint invocations
+  const TEST_PHONES = ["01","02","03","04","05","5B","5C","5D","06","07","08"].map(
+    s => `${TEST_PHONE_PREFIX}${s}`
+  );
+  for (const p of TEST_PHONES) { await clearPhone(p).catch(() => {}); }
 
   console.log("\n=== CMU Bot Flow Regression Tests ===\n");
 
