@@ -80,6 +80,7 @@ const PUBLIC_PATHS = [
   "/api/market-cache",  // client-side ML scraper (browser sends prices from MX)
   "/api/originacion/reporte-pdf",  // internal cron + promotora trigger
   "/api/test/cross-check-e2e",     // regression test runner (server-side)
+  "/api/test/cross-check-unit",    // unit tests with mock documents
 ];
 
 function authMiddleware(req: Request, res: Response, next: NextFunction) {
@@ -1294,6 +1295,34 @@ Responde SOLO con JSON válido:
       console.error("[Pago API] Error:", err);
       return res.status(500).json({ message: err.message });
     }
+  });
+
+  // POST /api/test/cross-check-unit — runs unit tests with MOCK documents
+  app.post("/api/test/cross-check-unit", async (req, res) => {
+    try {
+      const { classifyAndValidateDoc, DOC_ORDER } = await import("./agent/vision");
+      const fs = await import("fs");
+      const path = await import("path");
+      const FIXTURES = path.join(process.cwd(), "test/fixtures/cross-check");
+      if (!fs.existsSync(FIXTURES)) return res.status(404).json({ error: "Mock fixtures not found" });
+      const expected = JSON.parse(fs.readFileSync(path.join(FIXTURES, "expected.json"), "utf-8"));
+      const results: any[] = [];
+      for (const tc of expected.test_cases) {
+        const imgPath = path.join(FIXTURES, tc.file);
+        if (!fs.existsSync(imgPath)) { results.push({ file: tc.file, skipped: true }); continue; }
+        const imgBase64 = fs.readFileSync(imgPath).toString("base64");
+        let result: any;
+        try { result = await classifyAndValidateDoc(imgBase64, tc.doc_type, DOC_ORDER, tc.existing_data || {}); }
+        catch (e: any) { results.push({ file: tc.file, error: e.message }); continue; }
+        const flags = result.cross_check_flags || [];
+        const missingFlags = (tc.expected_flags || []).filter((f: string) => !flags.includes(f));
+        const classOk = result.detected_type === tc.doc_type;
+        results.push({ file: tc.file, doc_type: tc.doc_type, detected: result.detected_type, classification_ok: classOk, flags_got: flags, flags_expected: tc.expected_flags || [], missing_flags: missingFlags, pass: classOk && missingFlags.length === 0, extracted: result.extracted_data, notes: tc.notes });
+      }
+      const passed = results.filter(r => r.pass).length;
+      const failed = results.filter(r => !r.pass && !r.skipped && !r.error).length;
+      return res.json({ passed, failed, total: results.length, results });
+    } catch (err: any) { return res.status(500).json({ error: err.message }); }
   });
 
   // POST /api/test/cross-check-e2e — runs regression tests server-side (temp, director only)
