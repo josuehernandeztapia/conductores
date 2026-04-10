@@ -1201,7 +1201,9 @@ async function handleIdle(
   }
 
   // If they already give their name in the first message, accept it
-  if (nlu.intent === "give_name" && nlu.entities.nombre) {
+  // Re-use the same FAKE_NAMES guard as handleProspectName to reject LLM hallucinations
+  const FAKE_NAMES_IDLE = /^(taxista|taxi|gasolina|gas|natural|programa|cartel|acataxi|quiero|busco|necesito|soy|hola|informaci[oó]n|info|siguiente|entrevista)$/i;
+  if (nlu.intent === "give_name" && nlu.entities.nombre && !FAKE_NAMES_IDLE.test(nlu.entities.nombre.trim().split(/\s+/)[0])) {
     const nombre = nlu.entities.nombre;
     const firstName = nombre.split(" ")[0];
 
