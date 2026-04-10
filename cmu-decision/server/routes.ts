@@ -3264,3 +3264,4 @@ Responde SOLO con JSON válido:
 // In-memory PDF cache (in production, use S3 or similar)
 const pdfCache = new Map<number, { buffer: Buffer; folio: string; type: string }>();
 // redeploy 1775833614
+// cal-test 1775861116
