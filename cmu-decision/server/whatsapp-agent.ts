@@ -3011,11 +3011,10 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
             await this.updateState(phone, { state: "prospect_tank_question", context: { ...prospectState.context, modelo: matched, pv } });
             return await respond(`*${matched.marca} ${matched.modelo} ${matched.anio}* \u2014 $${pv.toLocaleString()}\n\nAntes de darte los n\u00fameros: \u00bftu tanque de GNV est\u00e1 en buen estado para reusarlo? Reusarlo no tiene costo extra. Equipo nuevo suma $9,400 al precio.\n\n1\uFE0F\u20E3 *Reuso mi tanque* (sin costo)\n2\uFE0F\u20E3 *Equipo nuevo* (+$9,400)`);
           } else {
-            // Perfil B (gasolina) → always new equipment
-            const pvFinal = pv + 9400;
-            const corrida = generarCorridaEstimada(`${matched.marca} ${matched.modelo}`, matched.anio, pvFinal, consumo);
-            await this.updateState(phone, { state: "prospect_post_corrida", context: { ...prospectState.context, modelo: matched, pv: pvFinal, kitNuevo: true } });
-            return await respond(corrida.resumenWhatsApp + "\n\n\u00bfQuieres empezar el proceso? Solo necesito tu nombre.");
+            // Perfil B (gasolina) → ask about tank too (they may already have one installed)
+            await this.updateState(phone, { state: "prospect_tank_question", context: { ...prospectState.context, modelo: matched, pv } });
+            return await respond(`*${matched.marca} ${matched.modelo} ${matched.anio}* \u2014 $${pv.toLocaleString()}\n\n\u00bfTu taxi ya tiene instalado un tanque de GNV? Si lo tiene y est\u00e1 en buen estado, no tiene costo extra.\n\n1\uFE0F\u20E3 *S\u00ed, ya tengo tanque* (sin costo)
+2\uFE0F\u20E3 *No tengo tanque* (+$9,400)`);
           }
         }
         // Didn't match — show models again

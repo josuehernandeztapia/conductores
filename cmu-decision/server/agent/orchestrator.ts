@@ -1558,10 +1558,14 @@ async function createFolioAndAdvance(
     }
 
     try {
-      const modelo = ctx.modelo || '?';
-      const consumo = ctx.consumo || 0;
+      const modeloRaw = ctx.modelo;
+      const modeloStr = modeloRaw && typeof modeloRaw === 'object'
+        ? `${(modeloRaw as any).marca || ''} ${(modeloRaw as any).modelo || ''} ${(modeloRaw as any).anio || ''}`.trim()
+        : (modeloRaw || '?');
+      const consumo = ctx.consumo || (ctx as any).consumoLeq || 0;
       const combustible = ctx.fuelType || '?';
-      await notifyTeam(`🆕 *Nuevo prospecto*\n\n*Folio:* ${folio}\n*Nombre:* ${nombre}\n*Tel:* ${phone}\n*Modelo:* ${modelo}\n*Combustible:* ${combustible}\n*Consumo:* ${consumo} LEQ/mes`);
+      const pvStr = (ctx as any).pvBase ? `$${((ctx as any).pvBase).toLocaleString()}` : '';
+      await notifyTeam(`🆕 *Nuevo prospecto*\n\n*Folio:* ${folio}\n*Nombre:* ${nombre}\n*Tel:* ${phone}\n*Modelo:* ${modeloStr}${pvStr ? ' ' + pvStr : ''}\n*Combustible:* ${combustible}\n*Consumo:* ${consumo} LEQ/mes`);
     } catch (error: any) {
       console.error(`[Orchestrator] notifyTeam failed:`, error.message);
     }

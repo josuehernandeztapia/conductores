@@ -2394,8 +2394,15 @@ Responde SOLO con JSON válido:
         for (let attempt = 0; attempt < 6; attempt++) {
           const neonModule = await import("@neondatabase/serverless");
           const sqlCs = neonModule.neon(process.env.DATABASE_URL!);
-          const rows = await sqlCs`SELECT folio_id FROM conversation_states WHERE phone = ${next.phone}` as any[];
+          const rows = await sqlCs`SELECT folio_id, context FROM conversation_states WHERE phone = ${next.phone}` as any[];
           if (rows[0]?.folio_id) { folioId = rows[0].folio_id; break; }
+          // Also check context JSON for originationId (prospect flow stores it there)
+          try {
+            const ctx = rows[0]?.context;
+            const parsed = typeof ctx === 'string' ? JSON.parse(ctx) : ctx;
+            const oid = parsed?.agentContext?.originationId || parsed?.originationId;
+            if (oid) { folioId = oid; break; }
+          } catch {}
           await new Promise(r => setTimeout(r, 500));
         }
         console.log(`[MediaQueue] Processing media for ${next.phone}, folioId=${folioId}`);
