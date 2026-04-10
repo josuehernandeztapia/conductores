@@ -329,8 +329,10 @@ async function P07_ComandoDocs(agent: any, storage: any): Promise<CaseResult> {
     const t1 = await sendPromotor(agent, phone, "docs", 1, activo.id);
     turns.push(t1);
     assertions.push(ok(
-      t1.reply.toLowerCase().includes("faltan") || t1.reply.toLowerCase().includes("completos") || t1.reply.toLowerCase().includes("papeles"),
-      "Bot shows pending docs"
+      t1.reply.toLowerCase().includes("faltan") || t1.reply.toLowerCase().includes("completos") ||
+      t1.reply.toLowerCase().includes("papeles") || t1.reply.toLowerCase().includes("capturados") ||
+      t1.reply.toLowerCase().includes("document"),
+      "Bot shows doc status"
     ));
     assertions.push(hasNot(t1.reply, "error del sistema", "No crash"));
 

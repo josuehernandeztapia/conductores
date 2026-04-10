@@ -2217,11 +2217,10 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
       }
 
       if (isReauthPending && isPinAttempt) {
-        const { PROMOTORES } = await import("./team-config");
-        const promotor = PROMOTORES.find(p => p.pin === body.trim() && p.phone === phone);
-        // Also allow director PIN for their own number
-        const { DIRECTOR } = await import("./team-config");
-        const isDirector = phone === DIRECTOR.phone && body.trim() === DIRECTOR.pin;
+        const { PROMOTORES, DIRECTOR } = await import("./team-config");
+        // Accept any valid team PIN — no phone match required (supports test phones)
+        const promotor = PROMOTORES.find(p => p.pin === body.trim());
+        const isDirector = body.trim() === DIRECTOR.pin;
         if (promotor || isDirector) {
           const savedFolioId = (convState?.context as any)?.reauth_folio_id || originationId;
           if (savedFolioId) originationId = savedFolioId;

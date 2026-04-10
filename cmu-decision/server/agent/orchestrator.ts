@@ -1266,10 +1266,12 @@ async function handleProspectName(
     };
   }
 
-  // If body looks like a name (2+ words, letters only) — accept it even without NLU match
+  // If body looks like a name (2–4 words, letters only, ≤35 chars) — accept even without NLU match
+  // Strict limits prevent info phrases like "soy taxista y quiero informacion" from being taken as a name
   const cleanBody = body.trim();
   const words = cleanBody.split(/\s+/);
-  if (words.length >= 2 && /^[A-ZÁÉÍÓÚÑa-záéíóúñ\s]+$/.test(cleanBody) && cleanBody.length >= 4) {
+  const INFO_WORDS = /\b(soy|quiero|busco|necesito|hola|taxi|informaci[oó]n|programa|tengo|ver|saber|cartel|interesa|quisiera|puede|dijeron|acataxi|me\s+llama|vi\s+el|me\s+dieron|me\s+mand)\b/i;
+  if (words.length >= 2 && words.length <= 4 && /^[A-ZÁÉÍÓÚÑa-záéíóúñ\s]+$/.test(cleanBody) && cleanBody.length >= 4 && cleanBody.length <= 35 && !INFO_WORDS.test(cleanBody)) {
     const nombre = cleanBody;
     try {
       await upsertProspect({ phone, nombre, status: "interesado" });
