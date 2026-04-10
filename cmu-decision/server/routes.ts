@@ -83,6 +83,7 @@ const PUBLIC_PATHS = [
   "/api/test/cross-check-unit",    // unit tests with mock documents
   "/api/test/bot-flow",            // bot conversation flow regression tests
   "/api/test/full-flow-suite",     // full promotora + prospecto flow suite (20 cases)
+  "/api/test/flow-cpv-e2e",       // CPV origination flow documentation
 ];
 
 function authMiddleware(req: Request, res: Response, next: NextFunction) {
@@ -1383,6 +1384,18 @@ Responde SOLO con JSON válido:
       const failed = results.filter(r => !r.pass && !r.skipped && !r.error).length;
       return res.json({ passed, failed, total: results.length, results });
     } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/test/flow-cpv-e2e — Full CPV origination flow simulation for documentation
+  app.post("/api/test/flow-cpv-e2e", async (_req, res) => {
+    try {
+      const { runCPVFlowE2E } = await import("../test/flow-cpv-e2e");
+      const result = await runCPVFlowE2E(storage, waAgent);
+      return res.json(result);
+    } catch (err: any) {
+      console.error("[CPVFlowE2E]", err.message);
       return res.status(500).json({ error: err.message });
     }
   });
