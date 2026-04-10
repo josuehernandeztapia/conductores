@@ -325,6 +325,232 @@ async function case5_FraseAmbigua(
   }
 }
 
+// ─── Error Flow Cases ────────────────────────────────────────────────────────
+
+async function case6_OCRIlegible(
+  handle: Function,
+  storage: any
+): Promise<CaseResult> {
+  const phone = `${TEST_PHONE_PREFIX}06`;
+  const name = "case6_OCRIlegible";
+  const assertions: Array<{ ok: boolean; msg: string }> = [];
+  const turns: TurnResult[] = [];
+
+  try {
+    await clearPhone(phone);
+
+    // Setup: get prospect into docs_capture state
+    await sendTurn(handle, storage, phone, "Hola", 0);
+    await sendTurn(handle, storage, phone, "Luis García", 0);
+    await sendTurn(handle, storage, phone, "gasolina", 0);
+    await sendTurn(handle, storage, phone, "8000", 0);
+    // Select model
+    await sendTurn(handle, storage, phone, "march sense 2021", 0);
+    await sendTurn(handle, storage, phone, "sí", 0);
+    // At this point state should be docs_capture — inject mock illegible vision result
+
+    const { handleDocWithMockVision } = await import("../server/agent/orchestrator");
+
+    // Inject illegible vision result (blurry photo)
+    const reply = await handleDocWithMockVision(phone, {
+      detected_type: "ine_frente",
+      is_legible: false,
+      confidence: 0.1,
+      rejection_reason: "La imagen está borrosa, no se pueden leer los datos.",
+    }, storage);
+
+    turns.push({ turn: 1, input: "[imagen borrosa]", reply, state: "docs_capture" });
+
+    assertions.push(assertContains(reply, "borrosa", "Bot mentions image is blurry"));
+    assertions.push(assertNotContains(reply, "recibido", "Doc NOT accepted as collected"));
+    assertions.push(assertNotContains(reply, "error del sistema", "No system crash error"));
+
+    // Verify state did NOT advance to next doc
+    const { getSession } = await import("../server/conversation-state");
+    const session = await getSession(phone);
+    const stateAfter = (session.context as any)?.agentState || "unknown";
+    const ctxAfter = (session.context as any)?.agentContext || {};
+    const docsCollected: string[] = ctxAfter.docsCollected || [];
+
+    assertions.push(assert(
+      !docsCollected.includes("ine_frente"),
+      `✅ ine_frente NOT added to docsCollected (illegible doc rejected)`
+    ));
+
+    // Second attempt: resend — this time legible but wrong type
+    const reply2 = await handleDocWithMockVision(phone, {
+      detected_type: "unknown",
+      is_legible: true,
+      confidence: 0.4,
+      rejection_reason: "No reconozco este documento.",
+    }, storage);
+
+    turns.push({ turn: 2, input: "[imagen tipo desconocido]", reply: reply2, state: "docs_capture" });
+    assertions.push(assertContains(reply2, "reconozco", "Bot says doesn't recognize document type"));
+
+    const pass = assertions.every(a => a.ok);
+    return { name, description: "OCR ilegible — doc no se guarda, bot pide reenviar, no crash", pass, turns, assertions };
+  } catch (e: any) {
+    return { name, description: "OCR ilegible", pass: false, turns, assertions, error: e.message };
+  } finally {
+    await clearPhone(phone).catch(() => {});
+  }
+}
+
+async function case7_OtpIncorrecto3Veces(
+  handle: Function,
+  storage: any
+): Promise<CaseResult> {
+  const phone = `${TEST_PHONE_PREFIX}07`;
+  const name = "case7_OtpIncorrecto3Veces";
+  const assertions: Array<{ ok: boolean; msg: string }> = [];
+  const turns: TurnResult[] = [];
+
+  try {
+    await clearPhone(phone);
+
+    // Setup: get to a state where OTP was sent (ctx.otpSent = true)
+    // Simulate this by manually setting context
+    const { updateSession } = await import("../server/conversation-state");
+    await updateSession(phone, {
+      state: "simulation" as any,
+      context: {
+        agentState: "docs_capture",
+        agentContext: {
+          nombre: "Carlos Peña",
+          folio: "CMU-TEST-000000-001",
+          otpSent: true,
+          otpVerified: false,
+          docsCollected: [],
+          fuelType: "gasolina",
+        },
+      } as any,
+    });
+
+    // Turn 1: wrong OTP
+    const t1 = await sendTurn(handle, storage, phone, "999999", 1);
+    turns.push(t1);
+    assertions.push(assertContains(t1.reply, "correcto", "Bot says code incorrect (turn 1)"));
+    assertions.push(assertStateIs(t1.state, "docs_capture", "State stays docs_capture after wrong OTP"));
+
+    // Turn 2: wrong OTP again
+    const t2 = await sendTurn(handle, storage, phone, "888888", 2);
+    turns.push(t2);
+    assertions.push(assertContains(t2.reply, "correcto", "Bot says code incorrect (turn 2)"));
+    assertions.push(assertStateIs(t2.state, "docs_capture", "State stays docs_capture after 2nd wrong OTP"));
+
+    // Turn 3: wrong OTP third time
+    const t3 = await sendTurn(handle, storage, phone, "777777", 3);
+    turns.push(t3);
+    assertions.push(assert(t3.reply.length > 0, "✅ Bot responds on 3rd wrong attempt (no crash)"));
+    assertions.push(assert(
+      !t3.reply.toLowerCase().includes("verified") && !t3.reply.toLowerCase().includes("verificado ✓"),
+      `✅ Phone NOT verified after 3 wrong codes`
+    ));
+
+    // Turn 4: after 3 wrong codes, bot should still be usable (state not broken)
+    const t4 = await sendTurn(handle, storage, phone, "estado", 4);
+    turns.push(t4);
+    assertions.push(assert(t4.reply.length > 0, "✅ Bot still responsive after failed OTPs"));
+    assertions.push(assertNotContains(t4.reply, "error del sistema", "No system crash after failed OTPs"));
+
+    const pass = assertions.every(a => a.ok);
+    return { name, description: "OTP incorrecto 3 veces — bot rechaza cada intento, flujo no se rompe", pass, turns, assertions };
+  } catch (e: any) {
+    return { name, description: "OTP incorrecto 3 veces", pass: false, turns, assertions, error: e.message };
+  } finally {
+    await clearPhone(phone).catch(() => {});
+  }
+}
+
+async function case8_ClabeInvalida(
+  handle: Function,
+  storage: any
+): Promise<CaseResult> {
+  const phone = `${TEST_PHONE_PREFIX}08`;
+  const name = "case8_ClabeInvalida";
+  const assertions: Array<{ ok: boolean; msg: string }> = [];
+  const turns: TurnResult[] = [];
+
+  try {
+    await clearPhone(phone);
+
+    // Setup: put prospect in docs_capture with some existing data (INE already captured)
+    const { updateSession } = await import("../server/conversation-state");
+    await updateSession(phone, {
+      state: "simulation" as any,
+      context: {
+        agentState: "docs_capture",
+        agentContext: {
+          nombre: "Rosa Domínguez",
+          folio: "CMU-TEST-000000-002",
+          otpSent: true,
+          otpVerified: true,
+          docsCollected: ["ine_frente", "ine_vuelta"],
+          existingData: { nombre_ine: "ROSA DOMÍNGUEZ LÓPEZ" },
+          fuelType: "gasolina",
+        },
+      } as any,
+    });
+
+    const { handleDocWithMockVision } = await import("../server/agent/orchestrator");
+
+    // Inject estado de cuenta with invalid CLABE (only 17 digits)
+    const reply = await handleDocWithMockVision(phone, {
+      detected_type: "estado_cuenta",
+      is_legible: true,
+      confidence: 0.9,
+      extracted_data: {
+        nombre: "ROSA DOMÍNGUEZ LÓPEZ",
+        clabe: "01234567890123456",  // 17 digits (invalid, needs 18)
+        banco: "BBVA",
+      },
+      cross_check_flags: ["clabe_invalid"],
+    }, storage);
+
+    turns.push({ turn: 1, input: "[estado de cuenta con CLABE de 17 dígitos]", reply, state: "docs_capture" });
+
+    // Verify: warning shown AND doc still accepted (warn, not reject)
+    assertions.push(assertContains(reply, "CLABE", "Bot shows CLABE warning"));
+    assertions.push(assertContains(reply, "18", "Bot mentions 18 digits in CLABE warning"));
+    assertions.push(assertContains(reply, "recibido", "Doc IS accepted despite CLABE warning (warn, not reject)"));
+
+    // Verify the doc was actually saved to context
+    const { getSession } = await import("../server/conversation-state");
+    const session = await getSession(phone);
+    const ctxAfter = (session.context as any)?.agentContext || {};
+    const docsCollected: string[] = ctxAfter.docsCollected || [];
+
+    assertions.push(assert(
+      docsCollected.includes("estado_cuenta"),
+      `✅ estado_cuenta added to docsCollected despite invalid CLABE (warning, not rejection)`
+    ));
+
+    // Also test: a CLABE with letters (completely invalid format)
+    const reply2 = await handleDocWithMockVision(phone, {
+      detected_type: "estado_cuenta",
+      is_legible: true,
+      confidence: 0.95,
+      extracted_data: {
+        nombre: "ROSA DOMÍNGUEZ LÓPEZ",
+        clabe: "ABCDEF12345678901",
+        banco: "Santander",
+      },
+      cross_check_flags: ["clabe_invalid"],
+    }, storage);
+
+    turns.push({ turn: 2, input: "[estado de cuenta con CLABE inválida (letras)]", reply: reply2, state: "docs_capture" });
+    assertions.push(assertContains(reply2, "CLABE", "Bot warns about CLABE on second attempt too"));
+
+    const pass = assertions.every(a => a.ok);
+    return { name, description: "CLABE inválida — advertencia mostrada, doc igualmente aceptado (warn not reject)", pass, turns, assertions };
+  } catch (e: any) {
+    return { name, description: "CLABE inválida", pass: false, turns, assertions, error: e.message };
+  } finally {
+    await clearPhone(phone).catch(() => {});
+  }
+}
+
 // ─── Main runner ─────────────────────────────────────────────────────────────
 
 export async function runBotFlowTests(storage: any): Promise<{
@@ -344,6 +570,9 @@ export async function runBotFlowTests(storage: any): Promise<{
   cases.push(await case3_OtpFlow(handleProspectMessage, storage));
   cases.push(await case4_QuieroInformacion(handleProspectMessage, storage));
   cases.push(await case5_FraseAmbigua(handleProspectMessage, storage));
+  cases.push(await case6_OCRIlegible(handleProspectMessage, storage));
+  cases.push(await case7_OtpIncorrecto3Veces(handleProspectMessage, storage));
+  cases.push(await case8_ClabeInvalida(handleProspectMessage, storage));
 
   const passed = cases.filter(c => c.pass).length;
   const failed = cases.filter(c => !c.pass).length;

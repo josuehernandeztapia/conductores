@@ -420,6 +420,101 @@ export async function handleProspectMessage(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// TEST INJECTION — allows unit tests to bypass GPT vision call
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * FOR TESTS ONLY — injects a pre-computed vision result into the doc pipeline.
+ * This lets us test error flows (OCR illegible, CLABE invalid, etc.) without
+ * calling GPT-4o, making tests fast and deterministic.
+ */
+export async function handleDocWithMockVision(
+  phone: string,
+  mockVisionResult: {
+    detected_type: string;
+    is_legible: boolean;
+    confidence: number;
+    extracted_data?: Record<string, any>;
+    cross_check_flags?: string[];
+    rejection_reason?: string;
+  },
+  storage: any,
+): Promise<string> {
+  const session = await getSession(phone);
+  const currentState = (session.context as any)?.agentState as ProspectState || "docs_capture";
+  const ctx: AgentContext = (session.context as any)?.agentContext || {};
+
+  // Find expected doc (same logic as processDocImage)
+  const collectedDocs = ctx.docsCollected || [];
+  const nextDoc = getNextExpectedDoc([...collectedDocs, ...(ctx.skippedDocs || [])]);
+
+  if (!nextDoc) {
+    return "All docs already collected";
+  }
+
+  // ── Inject vision result directly into the pipeline ──
+  let responseText: string;
+  let newState = currentState;
+  let contextUpdates: Partial<AgentContext> = {};
+
+  if (!mockVisionResult.is_legible) {
+    responseText = doc_invalid(nextDoc.label, mockVisionResult.rejection_reason || "La imagen no se ve bien. ¿Puedes tomarla con más luz?");
+  } else if (mockVisionResult.detected_type === "unknown") {
+    responseText = doc_invalid(nextDoc.label, mockVisionResult.rejection_reason || "No reconozco este documento.");
+  } else {
+    const detectedKey = mockVisionResult.detected_type;
+    const flags = mockVisionResult.cross_check_flags || [];
+    const extractedData = mockVisionResult.extracted_data || {};
+
+    // Save doc as collected
+    const updatedDocs = [...collectedDocs, detectedKey];
+    const pendingDocs = getPendingDocLabels(updatedDocs);
+    const nextPending = getNextExpectedDoc([...updatedDocs, ...(ctx.skippedDocs || [])]);
+
+    // Build warnings from flags
+    const warnings: string[] = [];
+    if (flags.includes('clabe_invalid')) warnings.push('La CLABE no tiene 18 dígitos. Verifica tu estado de cuenta.');
+    if (flags.includes('nombre_mismatch')) warnings.push('El nombre no coincide con tu INE.');
+    if (flags.includes('domicilio_vencido')) warnings.push('Este comprobante tiene más de 3 meses. Necesitamos uno más reciente.');
+
+    if (nextPending) {
+      responseText = `${DOC_LABELS[detectedKey] || detectedKey} recibido ✓
+
+${updatedDocs.length}/${DOC_ORDER.length} documentos. Siguiente: *${nextPending.label}*`;
+    } else {
+      responseText = `${DOC_LABELS[detectedKey] || detectedKey} recibido ✓
+
+Todos los documentos completos.`;
+    }
+    if (warnings.length > 0) {
+      responseText = `⚠️ ${warnings.join('
+⚠️ ')}
+
+${responseText}`;
+    }
+
+    contextUpdates = {
+      docsCollected: updatedDocs,
+      existingData: { ...ctx.existingData, ...extractedData },
+    };
+    newState = currentState;
+  }
+
+  // Persist state
+  const updatedContext: AgentContext = { ...ctx, ...contextUpdates };
+  await updateSession(phone, {
+    state: "simulation" as any,
+    context: {
+      ...session.context,
+      agentState: newState,
+      agentContext: updatedContext,
+    } as any,
+  });
+
+  return responseText;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // TEXT MESSAGE HANDLER
 // ═══════════════════════════════════════════════════════════════════════════════
 
