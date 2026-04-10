@@ -27,6 +27,7 @@ RUN npm ci --omit=dev
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/server/templates ./server/templates
 COPY --from=builder /app/public ./public
+COPY --from=builder /app/test ./test
 
 # Port — Express listens on 5000
 ENV PORT=5000

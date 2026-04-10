@@ -79,6 +79,7 @@ const PUBLIC_PATHS = [
   "/api/agent/sandbox",
   "/api/market-cache",  // client-side ML scraper (browser sends prices from MX)
   "/api/originacion/reporte-pdf",  // internal cron + promotora trigger
+  "/api/test/cross-check-e2e",     // regression test runner (server-side)
 ];
 
 function authMiddleware(req: Request, res: Response, next: NextFunction) {
