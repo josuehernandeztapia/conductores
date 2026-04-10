@@ -676,16 +676,25 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
     let conTanque = true;
 
     // Extract year
-    const yearMatch = lower.match(/20(2[1-9]|3[0-9])/);
+    const yearMatch = lower.match(/20(1[5-9]|2[0-9]|3[0-9])/);
     if (yearMatch) year = parseInt(yearMatch[0]);
 
     // Extract repair FIRST (before cost, so we don't confuse "rep 25k" with cost)
-    const repMatch = lower.match(/(\d{1,3}(?:\.\d+)?)\s*k[,\s]+(?:de\s+)?rep(?:araci[oó]n)?\b/i)  // "5k de reparación" "10k reparación"
-      || lower.match(/(\d{1,3}(?:\.\d+)?)\s*k\s*,?\s*(?:de\s+)?rep(?:araci[oó]n)?\b/i)          // "5k, de reparación"
+    // Pattern 0: "0 reparación" / "0 rep" / "0 de reparación" (explicit zero)
+    const zeroRepMatch = lower.match(/\b0\s*(?:k\s*)?(?:de\s+)?rep(?:araci[oó]n)?\b/i)
+      || lower.match(/rep(?:araci[oó]n)?\s*(?:de\s+)?(?:\$\s*)?0\b/i)
+      || lower.match(/\b0\s+reparaci[oó]n\b/i);
+    if (zeroRepMatch) {
+      repair = 0;
+    }
+    const repMatch = !zeroRepMatch ? (
+      lower.match(/(\d{1,3}(?:\.\d+)?)\s*k[,\s]+(?:de\s+)?rep(?:araci[oó]n)?\b/i)
+      || lower.match(/(\d{1,3}(?:\.\d+)?)\s*k\s*,?\s*(?:de\s+)?rep(?:araci[oó]n)?\b/i)
       || lower.match(/rep(?:araci[oó]n)?(?:\s+(?:es\s+)?(?:de\s+)?)?\$?\s*(\d{1,3}(?:\.\d+)?)\s*(?:mil|k)/i)
       || lower.match(/rep(?:araci[oó]n)?(?:\s+(?:es\s+)?(?:de\s+)?)?\$?\s*(\d{1,3}),(\d{3})/i)
       || lower.match(/rep(?:araci[oó]n)?(?:\s+(?:es\s+)?(?:de\s+)?)?\$?\s*(\d{4,6})/i)
-      || lower.match(/rep\s+(\d{1,3})\s*k?\b/i);
+      || lower.match(/rep\s+(\d{1,3})\s*k?\b/i)
+    ) : null;
     if (repMatch) {
       if (repMatch[2]) {
         // "rep 25,000" format
@@ -998,7 +1007,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
       if (lower.includes(m)) { found = m; break; }
     }
     const brand = found ? (WhatsAppAgent.BRAND_MAP[found] || null) : null;
-    const yearMatch = lower.match(/20(2[1-9]|3[0-9])/);
+    const yearMatch = lower.match(/20(1[5-9]|2[0-9]|3[0-9])/);
     if (!found) {
       const noise = /\b(precio|precios|mercado|market|dame|dime|dar|del|de|la|el|los|las|un|una|cuanto|cu[aá]nto|cuesta|vale|promedio|busca|buscar|quiero|ver|ahora|tambi[eé]n|nuevo|nueva|sedan|hatchback|me|te|se|nos|si|s[ií]|no|por|para|que|qu[eé]|como|c[oó]mo|con|sin|su|sus|al|pero|ya|hay|puede|puedes|podr[ií]as?|dar|tiene|tengo|cuentas?|cuenta|favor|hola|oye|oiga|bueno|pues|ese|esa|este|esta|esto|estos|estas|esos|esas|solo|s[oó]lo|cual|donde|cuando|porque|porqu[eé]|ser|son|era|fue|api|eso|otro|otra|otros|otras|bien|mal|muy|mas|m[aá]s|algo|nada|todo|todos|cada|mismo|aqu[ií]|ahi|ah[ií]|alla|all[aá]|venden|piden|reparaci[oó]n|reparacion|rep)\b/g;
       const cleaned = lower.replace(noise, "").replace(/20\d{2}/g, "").replace(/[?!¿¡.,;:]/g, "")
