@@ -1,0 +1,103 @@
+{
+  "description": "E2E cross-check regression — documentos REALES con inconsistencias deliberadas (09-04-2026)",
+  "ground_truth": {
+    "source": "ine-frente-torres-ortiz-dioscoro.jpg",
+    "nombre": "TORRES ORTIZ DIOSCORO",
+    "curp": "TOOD5905188HASRRS07",
+    "domicilio": "PROL IGNACIO ZARAGOZA 1618 FRACC CIRCUNVALACION NTE 20020 AGUASCALIENTES AGS",
+    "fecha_nacimiento": "18/05/1959",
+    "vigencia": "2022-2032"
+  },
+  "test_cases": [
+    {
+      "file": "ine-frente-torres-ortiz-dioscoro.jpg",
+      "doc_type": "ine_frente",
+      "role": "ground_truth",
+      "existing_data": {},
+      "expected_flags": [],
+      "notes": "INE válida. Vigencia 2032 — no vencida. Fuente de verdad del nombre."
+    },
+    {
+      "file": "ine-reverso-torres-ortiz-mrz.jpg",
+      "doc_type": "ine_reverso",
+      "existing_data": {
+        "ine_frente": { "curp": "TOOD5905188HASRRS07" }
+      },
+      "expected_flags": [],
+      "notes": "MRZ: TORRES<ORTIZ<<DIOSCORO. CURP en MRZ debe coincidir con INE frente."
+    },
+    {
+      "file": "csf-elvira-flores-ortiz-NOMBRE-DIFERENTE.jpg",
+      "doc_type": "csf",
+      "existing_data": {
+        "ine_frente": {
+          "nombre": "TORRES ORTIZ DIOSCORO",
+          "curp": "TOOD5905188HASRRS07"
+        }
+      },
+      "expected_flags": ["nombre_mismatch"],
+      "notes": "CSF nombre=ELVIRA FLORES ORTIZ ≠ INE nombre=TORRES ORTIZ DIOSCORO. CURP también diferente: FOOE470210MASLRL08 ≠ TOOD5905188HASRRS07 → también curp_mismatch.",
+      "expected_flags_extended": ["nombre_mismatch", "curp_mismatch"]
+    },
+    {
+      "file": "comprobante-cfe-jorge-lomeli-NOMBRE-DIFERENTE.jpg",
+      "doc_type": "comprobante_domicilio",
+      "existing_data": {
+        "ine_frente": {
+          "nombre": "TORRES ORTIZ DIOSCORO",
+          "domicilio": "PROL IGNACIO ZARAGOZA 1618 FRACC CIRCUNVALACION NTE 20020 AGUASCALIENTES AGS"
+        }
+      },
+      "expected_flags": ["domicilio_mismatch"],
+      "notes": "Titular CFE=JORGE LOMELI CARRILLO — EXCEPCIÓN: comprobante puede tener titular diferente (regla especial). Pero domicilio=OLIVARES SANTANA CP 20010 ≠ INE CIRCUNVALACION NTE. Por tanto domicilio_mismatch SÍ debe dispararse. nombre_mismatch NO (excepción de comprobante).",
+      "expected_flags_NOT": ["nombre_mismatch"]
+    },
+    {
+      "file": "estado-cuenta-banorte-jose-lomeli-NOMBRE-DIFERENTE.jpg",
+      "doc_type": "estado_cuenta",
+      "existing_data": {
+        "ine_frente": {
+          "nombre": "TORRES ORTIZ DIOSCORO",
+          "curp": "TOOD5905188HASRRS07",
+          "domicilio": "PROL IGNACIO ZARAGOZA 1618 FRACC CIRCUNVALACION NTE 20020 AGUASCALIENTES AGS"
+        }
+      },
+      "expected_flags": ["nombre_mismatch"],
+      "notes": "Titular Banorte=JOSE MANUEL LOMELI CARRILLO ≠ TORRES ORTIZ DIOSCORO. CLABE=072 010 01249315326 = 18 dígitos → válida (no clabe_invalid). Domicilio también diferente → domicilio_mismatch.",
+      "expected_flags_extended": ["nombre_mismatch", "domicilio_mismatch"]
+    },
+    {
+      "file": "concesion-elvira-COLECTIVO-tipo_no_taxi.jpg",
+      "doc_type": "concesion",
+      "existing_data": {
+        "ine_frente": {
+          "nombre": "TORRES ORTIZ DIOSCORO"
+        }
+      },
+      "expected_flags": ["tipo_no_taxi", "nombre_mismatch"],
+      "critical_flag": "tipo_no_taxi",
+      "notes": "RECHAZO DIRECTO. Tipo=TRANSPORTE COLECTIVO FORANEO ≠ TAXI. Titular=ELVIRA FLORES ORTIZ ≠ INE. Doble flag crítico.",
+      "rejection": true
+    },
+    {
+      "file": "tarjeta-circulacion-capetillo-ESCOLAR-no_es_taxi.jpg",
+      "doc_type": "tarjeta_circulacion",
+      "existing_data": {
+        "ine_frente": {
+          "nombre": "TORRES ORTIZ DIOSCORO"
+        }
+      },
+      "expected_flags": ["no_es_taxi", "nombre_mismatch"],
+      "critical_flag": "no_es_taxi",
+      "notes": "RECHAZO DIRECTO. Uso=ESCOLAR, tipo_servicio=GASOLINA, propietario=CAPETILLO ZAMORA HECTOR ≠ TORRES. Vehículo Toyota Hiace — no es taxi.",
+      "rejection": true
+    }
+  ],
+  "semaforo_expected": {
+    "overall": "error",
+    "error_count_min": 4,
+    "rejection_docs": ["concesion", "tarjeta_circulacion"],
+    "warning_count": 0,
+    "summary": "4+ errores críticos. 2 rechazos directos (concesión colectivo + tarjeta escolar). Expediente NO APTO."
+  }
+}
