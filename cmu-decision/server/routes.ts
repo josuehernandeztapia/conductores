@@ -87,6 +87,7 @@ const PUBLIC_PATHS = [
   "/api/test/client-flow-suite",  // Client role flow suite (10 cases)
   "/api/test/director-flow-suite", // Director role flow suite (12 cases)
   "/api/market-prices/bulk-update", // Daily bulk price update (cron)
+  "/api/test/calibration-regression", // TIR/MOIC calibration regression (3 cases)
 ];
 
 function authMiddleware(req: Request, res: Response, next: NextFunction) {
@@ -1425,6 +1426,17 @@ Responde SOLO con JSON válido:
       const passed = results.filter(r => r.pass).length;
       const failed = results.filter(r => !r.pass && !r.skipped && !r.error).length;
       return res.json({ passed, failed, total: results.length, results });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/test/calibration-regression — TIR/MOIC calibration regression
+  app.post("/api/test/calibration-regression", async (_req, res) => {
+    try {
+      const { runCalibrationRegression } = await import("../test/calibration-regression");
+      const result = await runCalibrationRegression();
+      return res.json(result);
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
     }
