@@ -85,6 +85,7 @@ const PUBLIC_PATHS = [
   "/api/test/full-flow-suite",     // full promotora + prospecto flow suite (20 cases)
   "/api/test/flow-cpv-e2e",       // CPV origination flow documentation
   "/api/test/client-flow-suite",  // Client role flow suite (10 cases)
+  "/api/test/director-flow-suite", // Director role flow suite (12 cases)
 ];
 
 function authMiddleware(req: Request, res: Response, next: NextFunction) {
@@ -1385,6 +1386,18 @@ Responde SOLO con JSON válido:
       const failed = results.filter(r => !r.pass && !r.skipped && !r.error).length;
       return res.json({ passed, failed, total: results.length, results });
     } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/test/director-flow-suite — Director role flow tests (12 cases)
+  app.post("/api/test/director-flow-suite", async (_req, res) => {
+    try {
+      const { runDirectorFlowSuite } = await import("../test/director-flow-suite");
+      const summary = await runDirectorFlowSuite(storage, waAgent);
+      return res.json(summary);
+    } catch (err: any) {
+      console.error("[DirectorFlowSuite]", err.message);
       return res.status(500).json({ error: err.message });
     }
   });
