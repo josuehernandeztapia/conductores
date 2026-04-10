@@ -576,11 +576,12 @@ export async function runBotFlowTests(storage: any): Promise<{
 }> {
   const { handleProspectMessage } = await import("../server/agent/orchestrator");
 
-  // Pre-clean all test phones to avoid state pollution between endpoint invocations
-  const TEST_PHONES = ["01","02","03","04","05","5B","5C","5D","06","07","08"].map(
+  // Pre-clean basic flow test phones to avoid state pollution between endpoint invocations
+  // Note: error case phones (06,07,08) do their own setup and are NOT pre-cleaned here
+  const BASIC_PHONES = ["01","02","03","04","05","5B","5C","5D"].map(
     s => `${TEST_PHONE_PREFIX}${s}`
   );
-  for (const p of TEST_PHONES) { await clearPhone(p).catch(() => {}); }
+  for (const p of BASIC_PHONES) { await clearPhone(p).catch(() => {}); }
 
   console.log("\n=== CMU Bot Flow Regression Tests ===\n");
 
