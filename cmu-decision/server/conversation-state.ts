@@ -138,9 +138,11 @@ export async function getSession(phone: string): Promise<ConversationSession> {
   const sql = getDb();
   if (sql) {
     try {
-      const rows = await sql`SELECT state, context, last_model, folio_id FROM conversation_states WHERE phone = ${phone}` as any[];
+      const rows = await sql`SELECT state, context, last_model, folio_id, updated_at FROM conversation_states WHERE phone = ${phone}` as any[];
       if (rows.length > 0) {
         const r = rows[0];
+        // Use DB updated_at as lastActivity for accurate inactivity tracking
+        const dbUpdatedAt = r.updated_at ? new Date(r.updated_at).getTime() : Date.now();
         const session: ConversationSession = {
           phone,
           state: r.state as ConversationState,
@@ -148,7 +150,7 @@ export async function getSession(phone: string): Promise<ConversationSession> {
           lastModel: r.last_model ? (typeof r.last_model === "string" ? JSON.parse(r.last_model) : r.last_model) : null,
           folioId: r.folio_id,
           messages: cached?.messages || [], // preserve in-memory messages if any
-          lastActivity: Date.now(),
+          lastActivity: dbUpdatedAt,
         };
         sessions.set(phone, session);
         return session;

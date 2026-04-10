@@ -82,6 +82,7 @@ const PUBLIC_PATHS = [
   "/api/test/cross-check-e2e",     // regression test runner (server-side)
   "/api/test/cross-check-unit",    // unit tests with mock documents
   "/api/test/bot-flow",            // bot conversation flow regression tests
+  "/api/test/full-flow-suite",     // full promotora + prospecto flow suite (20 cases)
 ];
 
 function authMiddleware(req: Request, res: Response, next: NextFunction) {
@@ -1382,6 +1383,18 @@ Responde SOLO con JSON válido:
       const failed = results.filter(r => !r.pass && !r.skipped && !r.error).length;
       return res.json({ passed, failed, total: results.length, results });
     } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/test/full-flow-suite — Full promotora + prospecto flow suite (20 cases)
+  app.post("/api/test/full-flow-suite", async (_req, res) => {
+    try {
+      const { runFullFlowSuite } = await import("../test/full-flow-suite");
+      const summary = await runFullFlowSuite(storage, waAgent);
+      return res.json(summary);
+    } catch (err: any) {
+      console.error("[FullFlowSuite]", err.message);
       return res.status(500).json({ error: err.message });
     }
   });

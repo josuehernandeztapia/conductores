@@ -2193,6 +2193,58 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
       await this.updateState(phone, { state: "idle", context: {} });
     }
 
+    // ===== PROMOTORA SESSION EXPIRY — re-auth after 15 min inactivity =====
+    // The origination (folio BORRADOR) lives in DB → never lost during re-auth.
+    // Only the conversational context (selected folio, state) needs to be confirmed.
+    if (role === "promotora") {
+      const PIN_SESSION_TTL_MS = 15 * 60 * 1000; // 15 minutes
+      const lastActivity = convState?.lastActivity || 0;
+      const elapsed = Date.now() - lastActivity;
+      const isExpired = lastActivity > 0 && elapsed > PIN_SESSION_TTL_MS;
+      const isPinAttempt = /^\d{6}$/.test(body.trim());
+      const isReauthPending = (convState?.context as any)?.awaiting_reauth === true;
+
+      if (isExpired && !isPinAttempt && !isReauthPending) {
+        // Mark that we're awaiting re-auth (to avoid looping)
+        await this.updateState(phone, {
+          state: convState.state,
+          context: { ...convState.context, awaiting_reauth: true, reauth_folio_id: originationId },
+        });
+        const folioHint = originationId
+          ? `\n\nNo te preocupes — tu folio sigue guardado.`
+          : "";
+        return await respond(`🔒 Tu sesión expiró por inactividad. Escribe tu *PIN* para continuar.${folioHint}`);
+      }
+
+      if (isReauthPending && isPinAttempt) {
+        const { PROMOTORES } = await import("./team-config");
+        const promotor = PROMOTORES.find(p => p.pin === body.trim() && p.phone === phone);
+        // Also allow director PIN for their own number
+        const { DIRECTOR } = await import("./team-config");
+        const isDirector = phone === DIRECTOR.phone && body.trim() === DIRECTOR.pin;
+        if (promotor || isDirector) {
+          const savedFolioId = (convState?.context as any)?.reauth_folio_id || originationId;
+          if (savedFolioId) originationId = savedFolioId;
+          await this.updateState(phone, {
+            state: convState.state,
+            context: { ...convState.context, awaiting_reauth: false, reauth_folio_id: undefined },
+          });
+          const name2 = promotor?.nombre || DIRECTOR.nombre;
+          return await respond(`✅ Sesión restaurada, ${name2.split(" ")[0]}. ¿Continuamos?${savedFolioId ? `\n\n_Folio activo: #${savedFolioId}_` : ""}`);
+        } else {
+          return await respond(`❌ PIN incorrecto. Inténtalo de nuevo.`);
+        }
+      }
+
+      // Clear stale reauth flag if present but no longer needed
+      if (isReauthPending && !isPinAttempt) {
+        await this.updateState(phone, {
+          state: convState.state,
+          context: { ...convState.context, awaiting_reauth: false },
+        });
+      }
+    }
+
     // ===== SMART GREETINGS + HELP MENU PER ROLE =====
     const isGreeting = /^(hola|hey|buenos? d[ií]as?|buenas? tardes?|buenas? noches?|buenas|qu[eé] tal|saludos|ey|hi|hello|mande)\s*[!.?]*$/i.test(body.trim());
     const isHelp = /^(ayuda|gu[ií]a|men[uú]|menu|comandos|que puedo hacer|qu[eé] puedo hacer|opciones|help)\s*[!.?]*$/i.test(body.trim());
