@@ -1287,7 +1287,9 @@ async function handleProspectName(
   }
 
   // Single word → accept as first name (many people just say "Juan")
-  if (words.length === 1 && /^[A-ZÁÉÍÓÚÑa-záéíóúñ]{2,}$/.test(cleanBody)) {
+  // Block common non-name words that could slip through
+  const SINGLE_WORD_BLOCKLIST = /^(quiero|hola|buenas?|taxi(?:sta)?|s[ií]|no|ok|bien|gracias|info(?:rmaci[oó]n)?|programa|cartel|acataxi|gasolina|gas|nada|d[ií]game|mande|bueno|claro)$/i;
+  if (words.length === 1 && /^[A-ZÁÉÍÓÚÑa-záéíóúñ]{2,}$/.test(cleanBody) && !SINGLE_WORD_BLOCKLIST.test(cleanBody)) {
     const nombre = cleanBody;
     try {
       await upsertProspect({ phone, nombre, status: "interesado" });
