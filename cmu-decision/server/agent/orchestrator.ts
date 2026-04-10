@@ -1201,9 +1201,12 @@ async function handleIdle(
   }
 
   // If they already give their name in the first message, accept it
-  // Re-use the same FAKE_NAMES guard as handleProspectName to reject LLM hallucinations
+  // Re-use the same guards as handleProspectName to reject LLM hallucinations
   const FAKE_NAMES_IDLE = /^(taxista|taxi|gasolina|gas|natural|programa|cartel|acataxi|quiero|busco|necesito|soy|hola|informaci[oó]n|info|siguiente|entrevista|gracias|bueno|buena|mande|dígame|claro|nada|ok|bien|hay|algo|favor|ahora|aquí|disponible)$/i;
-  if (nlu.intent === "give_name" && nlu.entities.nombre && !nlu.entities.nombre.trim().split(/\s+/).some((w: string) => FAKE_NAMES_IDLE.test(w))) {
+  const BODY_NOT_NAME_IDLE = /\b(gasolina|gas\s+natural|entrevista|informaci[oó]n|programa|acataxi|cartel|por\s+favor|disponible|siguiente|taxi|taxista)\b/i;
+  if (nlu.intent === "give_name" && nlu.entities.nombre
+      && !nlu.entities.nombre.trim().split(/\s+/).some((w: string) => FAKE_NAMES_IDLE.test(w))
+      && !BODY_NOT_NAME_IDLE.test(body)) {
     const nombre = nlu.entities.nombre;
     const firstName = nombre.split(" ")[0];
 
@@ -1252,9 +1255,12 @@ async function handleProspectName(
     };
   }
 
-  // Check for name intent — validate that the extracted nombre is actually a name
+  // Check for name intent — validate extracted nombre AND original body
   const FAKE_NAMES = /^(taxista|taxi|gasolina|gas|natural|programa|cartel|acataxi|quiero|busco|necesito|soy|hola|informaci[oó]n|info|siguiente|entrevista|gracias|bueno|buena|mande|dígame|claro|nada|ok|bien|hay|algo|favor|ahora|aquí|disponible)$/i;
-  if (nlu.intent === "give_name" && nlu.entities.nombre && !nlu.entities.nombre.trim().split(/\s+/).some((w: string) => FAKE_NAMES.test(w))) {
+  const BODY_NOT_NAME = /\b(gasolina|gas\s+natural|entrevista|informaci[oó]n|programa|acataxi|cartel|por\s+favor|disponible|siguiente|taxi|taxista)\b/i;
+  if (nlu.intent === "give_name" && nlu.entities.nombre
+      && !nlu.entities.nombre.trim().split(/\s+/).some((w: string) => FAKE_NAMES.test(w))
+      && !BODY_NOT_NAME.test(body)) {
     const nombre = nlu.entities.nombre;
     try {
       await upsertProspect({ phone, nombre, status: "interesado" });
