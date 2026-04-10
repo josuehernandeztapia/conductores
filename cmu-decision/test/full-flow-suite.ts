@@ -771,11 +771,208 @@ async function Q08_RegresarEnFlujo(handle: Function, storage: any): Promise<Case
   } finally { await clearPhone(phone).catch(() => {}); }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// GUARD REGRESSION: edge cases for the 5 name-extraction guards
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * G01–G05: Each guard is tested with phrases it MUST block + phrases it MUST allow.
+ * All tests run in prospect_name or idle state via handleProspectMessage.
+ * Expected behavior:
+ *   - BLOCKED phrase → state stays prospect_name (bot re-asks for name)
+ *   - ALLOWED phrase → state advances to prospect_fuel_type (name accepted)
+ */
+
+// Helper: run one phrase through the prospect flow and return whether name was accepted
+async function testPhrase(
+  handle: Function, storage: any, phone: string, phrase: string
+): Promise<{ accepted: boolean; state: string; reply: string }> {
+  await clearPhone(phone);
+  // First send greeting to get to prospect_name
+  await handle(phone, "hola", null, null, "Test", storage);
+  // Now send the phrase being tested
+  const reply = await handle(phone, phrase, null, null, "Test", storage);
+  const state = await getState(phone);
+  const accepted = state === "prospect_fuel_type";
+  await clearPhone(phone).catch(() => {});
+  return { accepted, state, reply };
+}
+
+// Helper for idle-state tests (phrase is the FIRST message, no greeting first)
+async function testPhraseIdle(
+  handle: Function, storage: any, phone: string, phrase: string
+): Promise<{ accepted: boolean; state: string; reply: string }> {
+  await clearPhone(phone);
+  const reply = await handle(phone, phrase, null, null, "Test", storage);
+  const state = await getState(phone);
+  const accepted = state === "prospect_fuel_type";
+  await clearPhone(phone).catch(() => {});
+  return { accepted, state, reply };
+}
+
+async function G01_InfoWords(handle: Function, storage: any): Promise<CaseResult> {
+  const id = "G01", name = "INFO_WORDS guard — multi-word info phrases blocked as names";
+  const assertions: Array<{ ok: boolean; msg: string }> = [];
+  const turns: TurnResult[] = [];
+  const base = `${TEST_PHONE_BASE}G01`;
+
+  try {
+    // ── MUST BLOCK (info phrases that look like 2-4 word names) ──
+    const blocked = [
+      { phrase: "quiero saber más", why: "starts with quiero + saber" },
+      { phrase: "busco información", why: "starts with busco + información" },
+      { phrase: "hola taxi", why: "hola + taxi" },
+      { phrase: "tengo interés gracias", why: "tengo + interesa" },
+      { phrase: "vi el cartel", why: "vi el" },
+    ];
+    for (let i = 0; i < blocked.length; i++) {
+      const { phrase, why } = blocked[i];
+      const r = await testPhrase(handle, storage, `${base}${i}`, phrase);
+      turns.push({ turn: i + 1, input: phrase, reply: r.reply.slice(0, 80), state: r.state });
+      assertions.push(ok(!r.accepted, `BLOCKED "${phrase}" (${why}) → state=${r.state}`));
+    }
+
+    // ── MUST ALLOW (real names that pass the guard) ──
+    const allowed = [
+      { phrase: "María López", why: "2-word real name" },
+      { phrase: "Juan Carlos Díaz", why: "3-word real name" },
+      { phrase: "Ana Ruiz", why: "short real name" },
+    ];
+    for (let i = 0; i < allowed.length; i++) {
+      const { phrase, why } = allowed[i];
+      const r = await testPhrase(handle, storage, `${base}A${i}`, phrase);
+      turns.push({ turn: blocked.length + i + 1, input: phrase, reply: r.reply.slice(0, 80), state: r.state });
+      assertions.push(ok(r.accepted, `ALLOWED "${phrase}" (${why}) → state=${r.state}`));
+    }
+
+    return { id, name, pass: assertions.every(a => a.ok), turns, assertions };
+  } catch (e: any) {
+    return { id, name, pass: false, turns, assertions, error: e.message };
+  }
+}
+
+async function G02_SingleWordBlocklist(handle: Function, storage: any): Promise<CaseResult> {
+  const id = "G02", name = "SINGLE_WORD_BLOCKLIST — common non-name single words blocked";
+  const assertions: Array<{ ok: boolean; msg: string }> = [];
+  const turns: TurnResult[] = [];
+  const base = `${TEST_PHONE_BASE}G02`;
+
+  try {
+    // ── MUST BLOCK ──
+    const blocked = ["taxista", "gasolina", "programa", "información", "cartel", "gracias", "bueno", "mande"];
+    for (let i = 0; i < blocked.length; i++) {
+      const r = await testPhrase(handle, storage, `${base}${i}`, blocked[i]);
+      turns.push({ turn: i + 1, input: blocked[i], reply: r.reply.slice(0, 60), state: r.state });
+      assertions.push(ok(!r.accepted, `BLOCKED "${blocked[i]}" → state=${r.state}`));
+    }
+
+    // ── MUST ALLOW (real first names) ──
+    const allowed = ["Pedro", "Guadalupe", "Fernando", "Josefina"];
+    for (let i = 0; i < allowed.length; i++) {
+      const r = await testPhrase(handle, storage, `${base}A${i}`, allowed[i]);
+      turns.push({ turn: blocked.length + i + 1, input: allowed[i], reply: r.reply.slice(0, 60), state: r.state });
+      assertions.push(ok(r.accepted, `ALLOWED "${allowed[i]}" → state=${r.state}`));
+    }
+
+    return { id, name, pass: assertions.every(a => a.ok), turns, assertions };
+  } catch (e: any) {
+    return { id, name, pass: false, turns, assertions, error: e.message };
+  }
+}
+
+async function G03_FirstWordBlock(handle: Function, storage: any): Promise<CaseResult> {
+  const id = "G03", name = "FIRST_WORD_BLOCK (NLU) — verb-starting phrases NOT give_name";
+  const assertions: Array<{ ok: boolean; msg: string }> = [];
+  const turns: TurnResult[] = [];
+  const base = `${TEST_PHONE_BASE}G03`;
+
+  try {
+    // These phrases start with verbs and should NOT be accepted as names
+    // The NLU regex give_name requires ^(letters only)$ and FIRST_WORD_BLOCK checks first word
+    const blocked = [
+      "soy Pedro López",     // starts with "soy" — looks like name intro but FIRST_WORD_BLOCK catches it
+      "me llamo información", // starts with "me" — FIRST_WORD_BLOCK
+      "hay alguien aquí",    // starts with "hay"
+      "nos interesa mucho",  // starts with "nos"
+    ];
+    for (let i = 0; i < blocked.length; i++) {
+      const r = await testPhrase(handle, storage, `${base}${i}`, blocked[i]);
+      turns.push({ turn: i + 1, input: blocked[i], reply: r.reply.slice(0, 60), state: r.state });
+      assertions.push(ok(!r.accepted, `BLOCKED "${blocked[i]}" → state=${r.state}`));
+    }
+
+    // "me llamo" with a real name SHOULD be accepted (different regex path)
+    const r = await testPhrase(handle, storage, `${base}A0`, "me llamo Roberto García");
+    turns.push({ turn: blocked.length + 1, input: "me llamo Roberto García", reply: r.reply.slice(0, 60), state: r.state });
+    assertions.push(ok(r.accepted, `ALLOWED "me llamo Roberto García" → state=${r.state}`));
+
+    return { id, name, pass: assertions.every(a => a.ok), turns, assertions };
+  } catch (e: any) {
+    return { id, name, pass: false, turns, assertions, error: e.message };
+  }
+}
+
+async function G04_FakeNames(handle: Function, storage: any): Promise<CaseResult> {
+  const id = "G04", name = "FAKE_NAMES guard — LLM-extracted non-names rejected in prospect_name";
+  const assertions: Array<{ ok: boolean; msg: string }> = [];
+  const turns: TurnResult[] = [];
+  const base = `${TEST_PHONE_BASE}G04`;
+
+  try {
+    // These could trigger LLM give_name with fake nombres — FAKE_NAMES must block
+    // Since LLM is non-deterministic, we test the whole pipeline end-to-end
+    const shouldBlock = [
+      "Gasolina por favor",  // FAKE_NAMES catches "Gasolina" first word
+      "Taxi numero cinco",   // FAKE_NAMES catches "Taxi"
+      "Entrevista ahora",    // FAKE_NAMES catches "Entrevista"
+    ];
+    for (let i = 0; i < shouldBlock.length; i++) {
+      const r = await testPhrase(handle, storage, `${base}${i}`, shouldBlock[i]);
+      turns.push({ turn: i + 1, input: shouldBlock[i], reply: r.reply.slice(0, 60), state: r.state });
+      assertions.push(ok(!r.accepted, `BLOCKED "${shouldBlock[i]}" → state=${r.state}`));
+    }
+
+    return { id, name, pass: assertions.every(a => a.ok), turns, assertions };
+  } catch (e: any) {
+    return { id, name, pass: false, turns, assertions, error: e.message };
+  }
+}
+
+async function G05_FakeNamesIdle(handle: Function, storage: any): Promise<CaseResult> {
+  const id = "G05", name = "FAKE_NAMES_IDLE guard — non-names rejected on FIRST message (idle state)";
+  const assertions: Array<{ ok: boolean; msg: string }> = [];
+  const turns: TurnResult[] = [];
+  const base = `${TEST_PHONE_BASE}G05`;
+
+  try {
+    // First message to bot (idle state) — these should NOT be treated as names
+    const blocked = [
+      "soy taxista y me interesa",
+      "quiero información del programa",
+      "busco renovar mi taxi",
+    ];
+    for (let i = 0; i < blocked.length; i++) {
+      const r = await testPhraseIdle(handle, storage, `${base}${i}`, blocked[i]);
+      turns.push({ turn: i + 1, input: blocked[i], reply: r.reply.slice(0, 80), state: r.state });
+      assertions.push(ok(!r.accepted, `BLOCKED "${blocked[i]}" in idle → state=${r.state}`));
+    }
+
+    // A real name as first message SHOULD be accepted (some people type their name right away)
+    const r = await testPhraseIdle(handle, storage, `${base}A0`, "Ernesto Mora Jiménez");
+    turns.push({ turn: blocked.length + 1, input: "Ernesto Mora Jiménez", reply: r.reply.slice(0, 60), state: r.state });
+    assertions.push(ok(r.accepted, `ALLOWED "Ernesto Mora Jiménez" in idle → state=${r.state}`));
+
+    return { id, name, pass: assertions.every(a => a.ok), turns, assertions };
+  } catch (e: any) {
+    return { id, name, pass: false, turns, assertions, error: e.message };
+  }
+}
+
 // ─── Main runner ─────────────────────────────────────────────────────────────
 
 export async function runFullFlowSuite(storage: any, whatsappAgent: any): Promise<{
   passed: number; failed: number; total: number; results: CaseResult[];
-  sections: { promotora: CaseResult[]; prospecto: CaseResult[] };
+  sections: { promotora: CaseResult[]; prospecto: CaseResult[]; guards: CaseResult[] };
 }> {
   const { handleProspectMessage } = await import("../server/agent/orchestrator");
   _gPassed = 0;
@@ -799,6 +996,14 @@ export async function runFullFlowSuite(storage: any, whatsappAgent: any): Promis
     await P12_NombreAmbiguoComoMenu(whatsappAgent, storage),
   ];
 
+  const guards: CaseResult[] = [
+    await G01_InfoWords(handleProspectMessage, storage),
+    await G02_SingleWordBlocklist(handleProspectMessage, storage),
+    await G03_FirstWordBlock(handleProspectMessage, storage),
+    await G04_FakeNames(handleProspectMessage, storage),
+    await G05_FakeNamesIdle(handleProspectMessage, storage),
+  ];
+
   const prospecto: CaseResult[] = [
     await Q01_SesionExpiradaProspecto(handleProspectMessage, storage),
     await Q02_FooterEnTodosEstados(handleProspectMessage, storage),
@@ -810,7 +1015,7 @@ export async function runFullFlowSuite(storage: any, whatsappAgent: any): Promis
     await Q08_RegresarEnFlujo(handleProspectMessage, storage),
   ];
 
-  const all = [...promotora, ...prospecto];
+  const all = [...promotora, ...prospecto, ...guards];
   const passed = all.filter(c => c.pass).length;
   const failed = all.filter(c => !c.pass).length;
 
@@ -830,7 +1035,15 @@ export async function runFullFlowSuite(storage: any, whatsappAgent: any): Promis
       if (c.error) console.log(`   Error: ${c.error}`);
     }
   }
+  console.log("\n── Guards ────────────────────────────────────────");
+  for (const c of guards) {
+    console.log(`${c.pass ? "✅" : "❌"} ${c.id}: ${c.name}`);
+    if (!c.pass) {
+      c.assertions.filter(a => !a.ok).forEach(a => console.log(`   ${a.msg}`));
+      if (c.error) console.log(`   Error: ${c.error}`);
+    }
+  }
   console.log(`\n${passed}/${all.length} cases passed\n`);
 
-  return { passed, failed, total: all.length, results: all, sections: { promotora, prospecto } };
+  return { passed, failed, total: all.length, results: all, sections: { promotora, prospecto, guards } };
 }
