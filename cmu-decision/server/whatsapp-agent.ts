@@ -2606,7 +2606,8 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
     let simulationData: string | null = null;
 
     // Flexible folio search (for promotora and director)
-    if (!mediaUrl && body && !originationId && (role === "promotora" || role === "director")) {
+    // Skip if we're waiting for a new folio name (waiting_folio_name state)
+    if (!mediaUrl && body && !originationId && (role === "promotora" || role === "director") && convState?.state !== "waiting_folio_name") {
       const results = await this.findFolio(body.trim());
       if (results.length === 1) {
         originationId = results[0].id;
@@ -2642,10 +2643,16 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
     if (body && (role === "promotora" || role === "director")) {
       const lower = body.toLowerCase().trim();
 
-      // Nuevo folio from promotor
-      // "nuevo folio" solo (sin args) → pedir nombre y tel
-      if (/^nuevo\s+folio\s*$/i.test(body.trim())) {
-        await this.updateState(phone, { state: "waiting_folio_name", context: { ...convState?.context } });
+      // Nuevo folio / nuevo prospecto from promotor
+      // Siempre limpia el folio activo primero para no contaminar con contexto anterior
+      if (/^nuevo\s+(folio|prospecto|cliente|taxista)\s*$/i.test(body.trim())) {
+        await this.updateState(phone, { state: "waiting_folio_name", folio_id: null, context: {} });
+        originationId = null;
+        return await respond("Nombre del taxista y teléfono:\nEjemplo: *Pedro López 4491234567*");
+      }
+      if (/quiero\s+(generar|crear|registrar|agregar|dar\s+de\s+alta)\s+(un\s+)?(nuevo\s+)?(prospecto|folio|cliente|taxista)/i.test(body.trim())) {
+        await this.updateState(phone, { state: "waiting_folio_name", folio_id: null, context: {} });
+        originationId = null;
         return await respond("Nombre del taxista y teléfono:\nEjemplo: *Pedro López 4491234567*");
       }
       // Estado waiting_folio_name: siguiente mensaje = nombre + tel
