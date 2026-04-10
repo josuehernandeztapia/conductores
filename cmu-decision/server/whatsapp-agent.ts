@@ -2184,15 +2184,17 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
           const updated = new Date(o.updatedAt || o.createdAt).getTime();
           return (Date.now() - updated) > 3 * 24 * 60 * 60 * 1000;
         });
-        let greeting = `${timeGreet} ${name}. Tienes *${activos.length} folios activos*.`;
+        // Saludo conversacional — el agente pregunta qué quiere hacer hoy
+        let greeting = `${timeGreet} ${name}.`;
         if (stale.length > 0) {
-          greeting += `\n\n\u26a0\ufe0f *${stale.length} sin avance* (3+ d\u00edas):`;
-          for (const s of stale.slice(0, 3)) {
+          const staleNames = stale.slice(0, 3).map((s: any) => {
             const days = Math.floor((Date.now() - new Date(s.updatedAt || s.createdAt).getTime()) / (1000*60*60*24));
-            greeting += `\n- ${(s as any).folio}: paso ${(s as any).currentStep}/8 (${days}d)`;
-          }
+            const tName = s.taxistaName || s.folio;
+            return `${tName} (${days} días sin avance)`;
+          });
+          greeting += `\n\nTienes ${stale.length} trámite${stale.length > 1 ? 's' : ''} sin avance: ${staleNames.join(", ")}.`;
         }
-        greeting += `\n\n\u00bfCon qu\u00e9 folio trabajamos? Dime el nombre o n\u00famero.`;
+        greeting += `\n\n¿Con quién trabajamos hoy?`;
         return await respond(greeting);
       }
       if (role === "cliente") {
@@ -2609,15 +2611,24 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
     // Skip if we're waiting for a new folio name (waiting_folio_name state)
     if (!mediaUrl && body && !originationId && (role === "promotora" || role === "director") && convState?.state !== "waiting_folio_name") {
       const results = await this.findFolio(body.trim());
-      if (results.length === 1) {
+      if (results[0] && results.length === 1) {
         originationId = results[0].id;
         flexSearchNote = `[FOLIO] ${results[0].folio}${results[0].taxistaName ? ` de ${results[0].taxistaName}` : ""}`;
-        // v9: Persist folio to conversation state
         await this.updateState(phone, {
           folioId: originationId,
           state: "capturing_docs",
           context: { folio: { id: originationId, folio: results[0].folio, estado: "CAPTURANDO", step: 0, docsCapturados: [], docsPendientes: [], taxistaName: results[0].taxistaName || undefined } },
         });
+        // Para promotora: respuesta conversacional inmediata (no esperar al LLM)
+        if (role === "promotora") {
+          const tName = results[0].taxistaName || results[0].folio;
+          const pInfo = await this.getPendingInfo(originationId);
+          if (pInfo.count === 0) {
+            return await respond(`El trámite de ${tName} está completo. ¿Hacemos la entrevista ahora?`);
+          }
+          const nextDoc = pInfo.nextKey ? (DOC_LABELS[pInfo.nextKey] || pInfo.nextKey) : null;
+          return await respond(`El trámite de ${tName} lleva ${14 - pInfo.count} de 14 papeles.\n\n${nextDoc ? `Falta empezar con: *${nextDoc}*. ¿Me mandas la foto?` : `Le faltan: ${pInfo.text}.`}`);
+        }
       }
       else if (results.length > 1) {
         return await respond(`Encontré ${results.length} folios:\n${results.map((r, i) => `${i + 1}. *${r.folio}*${r.taxistaName ? ` — ${r.taxistaName}` : ""}`).join("\n")}\n\n¿Con cuál trabajo?`, null, null);
@@ -2655,13 +2666,34 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         originationId = null;
         return await respond("Nombre del taxista y teléfono:\nEjemplo: *Pedro López 4491234567*");
       }
+      // Estado waiting_folio_phone: Ángeles ya dio el nombre, ahora da el teléfono
+      if (convState?.state === "waiting_folio_phone" && body) {
+        const phoneMatchP = body.match(/(\d{10,13})/);
+        const taxistaPhoneP = phoneMatchP ? phoneMatchP[1] : "";
+        const taxistaNameP = (convState?.context as any)?.pendingName || "Sin nombre";
+        if (!taxistaPhoneP) {
+          return await respond(`Necesito el teléfono de ${taxistaNameP}. Ejemplo: *4491234567*`);
+        }
+        await this.updateState(phone, { state: "idle", context: {} });
+        try {
+          const result = await createFolioFromWhatsApp(this.storage, phone, taxistaNameP, taxistaPhoneP);
+          originationId = result.originationId;
+          await this.updateState(phone, { folioId: result.originationId, state: "capturing_docs", context: { folio: { id: result.originationId, folio: result.folio, estado: "BORRADOR", step: 1, docsCapturados: [], docsPendientes: DOC_ORDER.map((d: any) => d.key), taxistaName: taxistaNameP } } });
+          return await respond(`Listo, ya registré a ${taxistaNameP}.\n\nMandáme foto del frente de su INE.`);
+        } catch (e: any) {
+          return await respond(`No pude crear el expediente: ${e.message}`);
+        }
+      }
+
       // Estado waiting_folio_name: siguiente mensaje = nombre + tel
-      if (convState?.state === "waiting_folio_name" && body && !/^nuevo\s+folio/i.test(body)) {
+      if (convState?.state === "waiting_folio_name" && body && !/^nuevo\s+(folio|prospecto)/i.test(body)) {
         const phoneMatchWait = body.match(/(\d{10,13})/);
         const taxistaPhoneWait = phoneMatchWait ? phoneMatchWait[1] : "";
         const taxistaNameWait = body.replace(/\d{10,13}/, "").trim() || "Sin nombre";
         if (!taxistaPhoneWait) {
-          return await respond(`Necesito el teléfono. Ejemplo: *${taxistaNameWait} 4491234567*`);
+          // Guardó el nombre, ahora pide el teléfono naturalmente
+          await this.updateState(phone, { state: "waiting_folio_phone", context: { ...convState?.context, pendingName: taxistaNameWait } });
+          return await respond(`¿Y el teléfono de ${taxistaNameWait}?`);
         }
         await this.updateState(phone, { state: "idle", context: { ...convState?.context } });
         try {
@@ -3245,26 +3277,25 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
     }
 
     // ===== PROMOTORA: deterministic fallback BEFORE LLM =====
-    // If promotora reaches here without a resolved action, give a menu instead of LLM
     if (role === "promotora" && body && !docSaved && !mediaUrl) {
       const lo = body.toLowerCase().trim();
-      // Commands we know about but didn't resolve — give clear guidance
-      const isDocOrFolioAction = /folio|doc|imagen|entrevista|recordatorio|pendiente|status|estado|paso/i.test(lo);
-      if (isDocOrFolioAction && !originationId) {
-        return await respond(`¿Con qué folio? Dime el nombre del taxista o el número de folio.`);
+
+      // Intent: new person / new prospect (natural language variants)
+      const wantsNewProspect = /tengo\s+(un|una|a\s+un|a\s+una)|nuevo|nueva|registrar|meter|agregar|alta|interesado|viene\s+uno|hay\s+un|hay\s+una|se\s+quiere/i.test(lo);
+      if (wantsNewProspect && !convState?.state?.includes("waiting")) {
+        await this.updateState(phone, { state: "waiting_folio_name", folio_id: null, context: {} });
+        originationId = null;
+        return await respond("¿Cómo se llama?");
       }
-      // Generic unrecognized input — give operative menu
-      const isGeneric = lo.length < 25 && !/\d{4,}/.test(lo);
-      if (isGeneric && !originationId) {
-        return await respond(
-          `Comandos disponibles:\n` +
-          `\u2022 *nuevo folio* — crear expediente\n` +
-          `\u2022 *[nombre taxista]* — buscar folio\n` +
-          `\u2022 *pendientes* — folios sin avance\n` +
-          `\u2022 *entrevista* — iniciar entrevista (necesita folio activo)\n` +
-          `\u2022 Enviar imagen — capturar documento`
-        );
+
+      // No folio context + vague action keyword → ask who
+      const isVagueAction = /entrevista|documento|foto|imagen|papeles?|pendiente|status|estado|siguiente|cuánto|falta|sigue/i.test(lo);
+      if (isVagueAction && !originationId) {
+        return await respond("¿De quién? Dime el nombre del taxista.");
       }
+
+      // With folio context + vague message → let LLM handle with good context
+      // (fall through to LLM with enriched prompt)
     }
 
     // Build prompt with dynamic knowledge base from business_rules
