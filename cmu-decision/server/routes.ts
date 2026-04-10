@@ -81,6 +81,7 @@ const PUBLIC_PATHS = [
   "/api/originacion/reporte-pdf",  // internal cron + promotora trigger
   "/api/test/cross-check-e2e",     // regression test runner (server-side)
   "/api/test/cross-check-unit",    // unit tests with mock documents
+  "/api/test/bot-flow",            // bot conversation flow regression tests
 ];
 
 function authMiddleware(req: Request, res: Response, next: NextFunction) {
@@ -1381,6 +1382,18 @@ Responde SOLO con JSON válido:
       const failed = results.filter(r => !r.pass && !r.skipped && !r.error).length;
       return res.json({ passed, failed, total: results.length, results });
     } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/test/bot-flow — Bot conversation flow regression tests (5 critical cases)
+  app.post("/api/test/bot-flow", async (_req, res) => {
+    try {
+      const { runBotFlowTests } = await import("../test/bot-flow");
+      const summary = await runBotFlowTests(storage);
+      return res.json(summary);
+    } catch (err: any) {
+      console.error("[BotFlowTest]", err.message);
       return res.status(500).json({ error: err.message });
     }
   });
