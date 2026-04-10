@@ -1558,11 +1558,11 @@ async function createFolioAndAdvance(
     }
 
     try {
-      const modeloRaw = ctx.modelo;
+      const modeloRaw = ctx.selectedModel || ctx.modelo;
       const modeloStr = modeloRaw && typeof modeloRaw === 'object'
         ? `${(modeloRaw as any).marca || ''} ${(modeloRaw as any).modelo || ''} ${(modeloRaw as any).anio || ''}`.trim()
-        : (modeloRaw || '?');
-      const consumo = ctx.consumo || (ctx as any).consumoLeq || 0;
+        : ((modeloRaw as any) || '?');
+      const consumo = ctx.consumoLeq || (ctx as any).consumo || 0;
       const combustible = ctx.fuelType || '?';
       const pvStr = (ctx as any).pvBase ? `$${((ctx as any).pvBase).toLocaleString()}` : '';
       await notifyTeam(`🆕 *Nuevo prospecto*\n\n*Folio:* ${folio}\n*Nombre:* ${nombre}\n*Tel:* ${phone}\n*Modelo:* ${modeloStr}${pvStr ? ' ' + pvStr : ''}\n*Combustible:* ${combustible}\n*Consumo:* ${consumo} LEQ/mes`);
