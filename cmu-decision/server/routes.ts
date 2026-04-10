@@ -2404,16 +2404,28 @@ Responde SOLO con JSON válido:
         }
 
         // Route to modular agent v3 for prospectos
-        try {
+        // If sending media: use same queue to avoid race conditions with simultaneous photos
+        const runProspectV3 = async () => {
           const reply = await handleProspectMessage(
             phone, body,
             hasMedia ? mediaUrl : null, mediaType || null,
             ProfileName || "", storage,
           );
           await sendWa(From, reply);
-        } catch (e: any) {
-          console.error(`[AgentV3] Error for ${phone}:`, e.message);
-          await sendWa(From, `Ocurrió un error. Intenta de nuevo o escríbenos al 446 329 3102.`);
+        };
+        if (hasMedia && mediaUrl) {
+          // Wrap in a role-like object for the queue
+          const prospectRole = { role: "prospecto", permissions: [], name: ProfileName || "" };
+          enqueueAndProcessMedia({
+            From, phone, body,
+            mediaUrl: mediaUrl!, mediaType: mediaType || "image/jpeg",
+            role: prospectRole, ProfileName: ProfileName || "",
+          }).catch(e => console.error("[MediaQueue/v3] Fatal:", e.message));
+        } else {
+          runProspectV3().catch(e => {
+            console.error(`[AgentV3] Error for ${phone}:`, e.message);
+            sendWa(From, `Ocurrió un error. Intenta de nuevo.`);
+          });
         }
         return res.status(200).send("<Response></Response>");
       }
@@ -2464,8 +2476,9 @@ Responde SOLO con JSON válido:
 
       // === AI AGENT MODE ===
       if (waAgent && OPENAI_API_KEY) {
-        // For promotora/director sending media: use queue to process multiple images sequentially
-        if (hasMedia && mediaUrl && (role.role === "promotora" || role.role === "director")) {
+        // All roles: queue media to process multiple simultaneous images sequentially
+        // Prevents race conditions when any user sends 4 photos at once from their gallery
+        if (hasMedia && mediaUrl) {
           enqueueAndProcessMedia({
             From, phone, body,
             mediaUrl: mediaUrl!, mediaType: mediaType || "image/jpeg",
