@@ -157,18 +157,30 @@ export async function generarResumen5Modelos(leq: number): Promise<string> {
   if (vehicles.length === 0) return getModelosDisponiblesText(); // fallback
 
   const recaudo = leq * SOBREPRECIO_GNV;
+  const totalUnidades = allVehicles.length;
+
+  // Count units per model
+  const unitCount = new Map<string, number>();
+  for (const v of allVehicles) {
+    const key = `${v.marca}-${v.modelo}-${String(v.variante||'')}-${v.anio}`;
+    unitCount.set(key, (unitCount.get(key) || 0) + 1);
+  }
+
   const lines = vehicles.map(v => {
     const { rows, mesGnvCubre } = buildAmortRows(v.precio, leq);
     const m3 = rows[2];
     const bolsillo = m3.diferencial;
     const gnvLabel = mesGnvCubre ? `mes ${mesGnvCubre}` : "mes 34+";
     const name = [v.marca, v.modelo, v.variante, v.anio].filter(Boolean).join(" ");
-    return `• *${name}* — ${fmt(v.precio)}\n  Cuota mes 3+: ${fmt(m3.cuota)} | Bolsillo: *${fmt(bolsillo)}/mes*\n  GNV cubre todo desde ${gnvLabel}`;
+    const key = `${v.marca}-${v.modelo}-${String(v.variante||'')}-${v.anio}`;
+    const units = unitCount.get(key) || 1;
+    const unitsTag = units > 1 ? ` _(${units} disponibles)_` : "";
+    return `• *${name}* — ${fmt(v.precio)}${unitsTag}\n  Cuota mes 3+: ${fmt(m3.cuota)} | Bolsillo: *${fmt(bolsillo)}/mes*\n  GNV cubre todo desde ${gnvLabel}`;
   });
 
   return [
     `Con ${leq} LEQ/mes, tu recaudo GNV cubre *${fmt(recaudo)}/mes* de la cuota.\n`,
-    `*Vehículos disponibles:*\n`,
+    `*${totalUnidades} unidades disponibles:*\n`,
     ...lines,
     `\n¿Cuál te interesa? Te doy el detalle completo.`,
   ].join("\n");
