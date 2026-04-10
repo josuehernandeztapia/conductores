@@ -1448,6 +1448,7 @@ Responde SOLO con JSON válido:
         skipped: result.skipped,
         errors: result.errors,
         models: summary,
+        cmuUpdates: result.cmuUpdates || [],
       });
     } catch (err: any) {
       console.error("[BulkUpdate]", err.message);

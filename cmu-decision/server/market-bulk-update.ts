@@ -256,8 +256,63 @@ export async function bulkUpdateMarketPrices(): Promise<{
     }
   }
 
-  const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-  console.log(`[BulkUpdate] Done in ${elapsed}s: ${updated} updated, ${skipped} skipped, ${errors.length} errors`);
+  // ─── STEP 3: Update CMU prices in vehicles_inventory ────────────────────
+  // PV rule: PV = min(mercado, max(catálogo, mercado × 0.95))
+  // "CMU price can NEVER exceed the market average for the equivalent vehicle without GNV"
+  console.log(`\n[BulkUpdate] Updating CMU prices in vehicles_inventory...`);
+  const cmuUpdates: { id: number; modelo: string; old_cmu: number; new_cmu: number; mercado: number; reason: string }[] = [];
 
-  return { updated, skipped, errors, results };
+  try {
+    const vehicles = await sql`SELECT id, marca, modelo, variante, anio, cmu_valor, costo_adquisicion, costo_reparacion FROM vehicles_inventory WHERE status = 'disponible'` as any[];
+
+    for (const v of vehicles) {
+      // Find the matching market cache entry
+      const cacheRows = await sql`
+        SELECT median_price, average_price, min_price, max_price, sample_count
+        FROM market_prices_cache
+        WHERE LOWER(brand) = LOWER(${v.marca})
+          AND LOWER(model) = LOWER(${v.modelo})
+          AND year = ${v.anio}
+          AND scraped_at > NOW() - INTERVAL '7 days'
+        ORDER BY scraped_at DESC LIMIT 1
+      ` as any[];
+
+      if (cacheRows.length === 0) {
+        console.log(`[BulkUpdate][CMU] ${v.marca} ${v.modelo} ${v.anio} (id=${v.id}): no recent market data — skipping`);
+        continue;
+      }
+
+      const cache = cacheRows[0];
+      const mercado = cache.median_price;
+      const catalogBase = v.cmu_valor || 0; // current CMU price as "catálogo" baseline
+      
+      // The "catálogo" floor is the acquisition cost + repairs + GNV kit margin
+      // But since cmu_valor IS the catalog price, we use it as the floor
+      const floor = catalogBase;
+      
+      // PV = min(mercado, max(catálogo, mercado × 0.95))
+      const pv = Math.min(mercado, Math.max(floor, Math.round(mercado * 0.95)));
+      
+      // Only update if the new PV is different AND the market data has enough samples
+      if (cache.sample_count >= 3 && pv !== v.cmu_valor) {
+        const old_cmu = v.cmu_valor;
+        await sql`UPDATE vehicles_inventory SET cmu_valor = ${pv}, updated_at = NOW() WHERE id = ${v.id}`;
+        const reason = pv < old_cmu
+          ? `bajó: mercado med $${mercado.toLocaleString()} < CMU anterior $${old_cmu.toLocaleString()}`
+          : `subió: mercado med $${mercado.toLocaleString()} > CMU anterior $${old_cmu.toLocaleString()}`;
+        cmuUpdates.push({ id: v.id, modelo: `${v.marca} ${v.modelo} ${v.anio}`, old_cmu, new_cmu: pv, mercado, reason });
+        console.log(`[BulkUpdate][CMU] ✅ ${v.marca} ${v.modelo} ${v.anio} (id=${v.id}): $${old_cmu.toLocaleString()} → $${pv.toLocaleString()} (mercado med: $${mercado.toLocaleString()})`);
+      } else {
+        console.log(`[BulkUpdate][CMU] ⏭️ ${v.marca} ${v.modelo} ${v.anio} (id=${v.id}): $${v.cmu_valor?.toLocaleString()} — no change needed (mercado med: $${mercado.toLocaleString()}, samples: ${cache.sample_count})`);
+      }
+    }
+  } catch (e: any) {
+    console.error(`[BulkUpdate][CMU] Error updating vehicle prices:`, e.message);
+    errors.push(`CMU update: ${e.message}`);
+  }
+
+  const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+  console.log(`[BulkUpdate] Done in ${elapsed}s: ${updated} market updated, ${cmuUpdates.length} CMU prices adjusted, ${skipped} skipped, ${errors.length} errors`);
+
+  return { updated, skipped, errors, results, cmuUpdates };
 }
