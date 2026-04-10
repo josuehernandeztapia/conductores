@@ -39,7 +39,22 @@ async function sendWhatsApp(phone: string, message: string): Promise<boolean> {
 /**
  * Send a notification to ALL team members (director + active promotores).
  */
+// Test phones (521999*) must NEVER trigger real notifications
+const TEST_PHONE_PATTERN = /^521999/;
+let _suppressNotifications = false;
+
+/** Call this from test runners to suppress real WA notifications */
+export function suppressNotifications(suppress: boolean) { _suppressNotifications = suppress; }
+
+/** Check if a phone is a test phone — if so, skip notification */
+export function isTestPhone(phone: string): boolean { return TEST_PHONE_PATTERN.test(phone); }
+
 export async function notifyTeam(msg: string): Promise<void> {
+  // Skip if notifications are suppressed (test mode) or message contains test phone numbers
+  if (_suppressNotifications || TEST_PHONE_PATTERN.test(msg)) {
+    console.log("[Notifications] SUPPRESSED (test phone detected):", msg.slice(0, 60));
+    return;
+  }
   const phones = getNotifyPhones();
   const results = await Promise.allSettled(
     phones.map(phone => sendWhatsApp(phone, msg))
