@@ -3244,6 +3244,24 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         const { updateProspectDocs } = await import("./pipeline-ventas");
         updateProspectDocs(phone, capturedList.length, DOC_ORDER.length).catch(() => {});
         
+        // === PROMOTORA: Deterministic doc response — accept any order, show folio always ===
+        if ((role === "promotora" || role === "director") && docSaved) {
+          const docLabel = DOC_LABELS[docSaved] || docSaved;
+          const folioStr = (convState.context as any)?.folio?.folio || "";
+          const folioTag = folioStr ? ` (${folioStr})` : "";
+          const tName = (convState.context as any)?.folio?.taxistaName || "";
+          const nameTag = tName ? ` de ${tName}` : "";
+
+          if (pendingList.length === 0) {
+            return await respond(`*${docLabel}* recibido ✓\n\nTodos los papeles de${nameTag}${folioTag} están completos (${capturedList.length}/${DOC_ORDER.length}). ¿Hacemos la entrevista ahora?`);
+          } else {
+            // Show next pending doc — but don't block if they send a different one
+            const nextDocLabel = DOC_LABELS[pendingList[0]] || pendingList[0];
+            const remaining = pendingList.length;
+            return await respond(`*${docLabel}* recibido ✓${nameTag}${folioTag}\n\n${capturedList.length}/${DOC_ORDER.length} papeles. Faltan ${remaining}: siguiente es *${nextDocLabel}*. ¿Me lo mandas? (o manda cualquier otro que tengas)`);
+          }
+        }
+
         // === PROSPECT: Guided doc-by-doc response (deterministic, not LLM) ===
         if (role === "prospecto" && docSaved) {
           const docLabel = DOC_LABELS[docSaved] || docSaved;

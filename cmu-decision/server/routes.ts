@@ -2279,19 +2279,43 @@ Responde SOLO con JSON válido:
   const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
   let waAgent: any = null;
 
-  // v9: Debounce for media messages — wait 3s to batch multiple images
-  const mediaDebounce = new Map<string, { timer: any; count: number; lastProcessed: number }>();
-  const MEDIA_DEBOUNCE_MS = 3000; // 3 seconds
-  function shouldDebounceMedia(phone: string): boolean {
-    const now = Date.now();
-    const existing = mediaDebounce.get(phone);
-    if (existing && now - existing.lastProcessed < MEDIA_DEBOUNCE_MS) {
-      existing.count++;
-      console.log(`[WhatsApp] Debouncing media for ${phone} (${existing.count} in flight)`);
-      return true; // skip this one, the first one is still processing
+  // Media queue: process multiple simultaneous images sequentially
+  // When promotora sends 4 photos at once, Twilio fires 4 simultaneous requests.
+  // Queue them and process one by one — each gets its own OCR + response.
+  type MediaQueueItem = {
+    From: string; phone: string; body: string;
+    mediaUrl: string; mediaType: string; role: any; ProfileName: string;
+  };
+  const mediaQueues = new Map<string, MediaQueueItem[]>();
+  const mediaProcessing = new Map<string, boolean>();
+
+  async function enqueueAndProcessMedia(item: MediaQueueItem): Promise<void> {
+    const { phone } = item;
+    if (!mediaQueues.has(phone)) mediaQueues.set(phone, []);
+    mediaQueues.get(phone)!.push(item);
+    if (mediaProcessing.get(phone)) return; // already running, item will be picked up
+    mediaProcessing.set(phone, true);
+    while ((mediaQueues.get(phone)?.length ?? 0) > 0) {
+      const next = mediaQueues.get(phone)!.shift()!;
+      try {
+        const result = await waAgent.handleMessage(
+          next.phone, next.body, next.mediaUrl, next.mediaType,
+          next.role.role, next.ProfileName, next.role.permissions || [], next.phone,
+        );
+        if (result.reply) await sendWa(next.From, result.reply);
+      } catch (e: any) {
+        console.error(`[MediaQueue] Error for ${next.phone}:`, e.message);
+        await sendWa(next.From, `No pude procesar esa imagen. Mándala de nuevo.`);
+      }
+      if ((mediaQueues.get(phone)?.length ?? 0) > 0) {
+        await new Promise(r => setTimeout(r, 1000)); // wait between images
+      }
     }
-    mediaDebounce.set(phone, { timer: null, count: 1, lastProcessed: now });
-    return false;
+    mediaProcessing.set(phone, false);
+  }
+
+  function shouldDebounceMedia(_phone: string): boolean {
+    return false; // replaced by media queue
   }
   if (OPENAI_API_KEY) {
     import("./whatsapp-agent").then(mod => {
@@ -2440,6 +2464,16 @@ Responde SOLO con JSON válido:
 
       // === AI AGENT MODE ===
       if (waAgent && OPENAI_API_KEY) {
+        // For promotora/director sending media: use queue to process multiple images sequentially
+        if (hasMedia && mediaUrl && (role.role === "promotora" || role.role === "director")) {
+          enqueueAndProcessMedia({
+            From, phone, body,
+            mediaUrl: mediaUrl!, mediaType: mediaType || "image/jpeg",
+            role, ProfileName: ProfileName || "",
+          }).catch(e => console.error("[MediaQueue] Fatal:", e.message));
+          return res.status(200).send("<Response></Response>");
+        }
+
         const result = await waAgent.handleMessage(
           phone, body, ProfileName || "",
           hasMedia ? mediaUrl : null, mediaType, originationId,

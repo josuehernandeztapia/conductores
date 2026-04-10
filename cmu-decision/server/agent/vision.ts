@@ -74,9 +74,9 @@ export const DOC_ORDER: DocDefinition[] = [
   {
     key: "historial_gnv",
     label: "Tickets/Historial GNV",
-    visualId: "Texto 'NATGAS', voucher/ticket de carga de gas natural, litros LEQ",
-    extract: "litros (litros equivalentes LEQ), monto (pesos), fecha, estacion (nombre de la estación)",
-    crossCheck: "El promedio mensual de LEQ debe ser >= 300. Si es menor → flag 'consumo_bajo_gnv'.",
+    visualId: "Ticket de papel (recibo térmico) con encabezado 'NATGAS' o 'gas natural vehicular', 'GAS NATURAL VEHICULAR COMPRIMIDO', datos de estación de servicio, No. de Ticket 'AGP...', litros cargados, precio por litro ($11/LEQ aprox), nombre del operador, placa del vehículo. NO es una credencial, NO tiene foto de persona.",
+    extract: "placa (placa del vehículo que cargó, ej: FXK1001105), litros (cantidad en litros/LEQ cargados, ej: 7.8 o 144.02), precio_leq (precio por litro en pesos, ej: 11.04), monto (total en pesos, ej: 86.11 o 1589.97), fecha (fecha de la carga, formato YYYY-MM-DD), no_ticket (número de ticket, ej: AGP260048896), estacion (nombre de la estación, ej: EDS Aguascalientes Poniente), operador (nombre del operador que atendió)",
+    crossCheck: "La placa extraida DEBE coincidir con la placa de la tarjeta de circulación si ya está capturada. Si no coincide → flag 'placa_mismatch_gnv'. El promedio mensual de LEQ (litros * 26 días) debe ser >= 300. Si es menor → flag 'consumo_bajo_gnv'.",
   },
   {
     key: "tickets_gasolina",
@@ -181,10 +181,17 @@ TAREA: Analiza esta imagen y realiza 4 pasos:
 
 ── PASO 1: CLASIFICACIÓN ──
 DOCUMENTO ESPERADO: "${expectedDoc?.label || expectedType}" (key: ${expectedType})
-Indicadores visuales esperados:
+Indicadores visuales ESPERADOS en esta imagen:
   ${expectedDoc?.visualId || "N/A"}
 
-Todos los tipos de documentos válidos (si la imagen no es el esperado, identifica cuál es):
+⚠️ REGLA DE CLASIFICACIÓN PRIORITARIA:
+- Si ves un TICKET DE PAPEL TÉRMICO con la palabra NATGAS, gas natural, LEQ, litros cargados → es 'historial_gnv' SIN IMPORTAR qué esperabas.
+- Si ves una CREDENCIAL con FOTO DE PERSONA, nombre, CURP → es 'ine_frente' o 'ine_reverso'.
+- Si ves una LICENCIA DE CONDUCIR con foto → es 'licencia'.
+- NUNCA confundas un ticket de papel (recibo) con una credencial de identidad. Son completamente diferentes.
+- PRIORIZA lo que VES en la imagen sobre lo que se esperaba.
+
+Todos los tipos de documentos válidos:
 ${allDocTypes}
 
 ── PASO 2: LEGIBILIDAD ──
