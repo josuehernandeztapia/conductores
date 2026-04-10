@@ -34,7 +34,7 @@ export const DOC_ORDER: DocDefinition[] = [
     label: "Tarjeta de Circulación",
     visualId: "Texto 'TARJETA DE CIRCULACIÓN', logo del gobierno estatal, datos del vehículo, placa",
     extract: "propietario (nombre completo), rfc, placa, marca, linea (modelo/línea), anio (año/modelo), niv (número de serie, 17 caracteres), tipo_servicio (leer EXACTAMENTE: particular/público/taxi/servicio público), combustible, color",
-    crossCheck: "El campo 'propietario' DEBE coincidir con el nombre completo de la INE frente. Si no coincide → flag 'nombre_mismatch'.\nREGLA CRÍTICA TIPO: Si tipo_servicio NO es 'público', 'taxi' ni 'servicio público' (es decir, si es 'particular') → flag 'no_es_taxi'. Esto es un RECHAZO.",
+    crossCheck: "PRIMERO verifica nombre: el campo 'propietario' DEBE coincidir con el nombre completo de la INE frente. Si NO coincide → flag 'nombre_mismatch' SIEMPRE. SEGUNDO verifica tipo: Si tipo_servicio NO es 'público', 'taxi' ni 'servicio público' (si es 'particular', 'escolar', 'carga', etc.) → flag 'no_es_taxi'. IMPORTANTE: ambos checks son INDEPENDIENTES — verifica el nombre AUNQUE ya hayas encontrado no_es_taxi.",
   },
   {
     key: "factura_vehiculo",
@@ -48,7 +48,7 @@ export const DOC_ORDER: DocDefinition[] = [
     label: "Constancia de Situación Fiscal (CSF del SAT)",
     visualId: "Texto 'SERVICIO DE ADMINISTRACIÓN TRIBUTARIA', 'CÉDULA DE IDENTIFICACIÓN FISCAL', 'CONSTANCIA DE SITUACIÓN FISCAL'",
     extract: "rfc, curp, nombre (nombre completo), domicilio_fiscal, regimen (régimen fiscal), fecha_emision",
-    crossCheck: "El campo 'nombre' DEBE coincidir con el nombre de la INE frente. Si no → flag 'nombre_mismatch'. El CURP DEBE coincidir con el CURP de la INE frente. Si no → flag 'curp_mismatch'. La fecha_emision debe ser de los últimos 30 días desde hoy. Si es más antigua → flag 'csf_vencida'.",
+    crossCheck: "PRIMERO verifica nombre: el campo 'nombre' (o nombre completo = nombre(s) + primer_apellido + segundo_apellido) DEBE coincidir con el nombre completo de la INE frente. Si NO coincide → flag 'nombre_mismatch' SIEMPRE, independientemente de otros flags. SEGUNDO verifica CURP: DEBE coincidir con el CURP de la INE frente. Si no → flag 'curp_mismatch'. TERCERO verifica fecha: la fecha_emision debe ser de los últimos 30 días desde hoy. Si es más antigua → flag 'csf_vencida'. IMPORTANTE: todos estos checks son INDEPENDIENTES — un flag NO bloquea a los demás.",
   },
   {
     key: "comprobante_domicilio",
@@ -225,8 +225,10 @@ Reglas específicas para "${expectedDoc?.label || expectedType}":
 ${expectedDoc?.crossCheck || "N/A"}
 
 Reglas generales de cross-check:
+⚠️ REGLA CRÍTICA DE EXHAUSTIVIDAD: Debes ejecutar TODOS los checks siempre. Encontrar un flag NO te exime de buscar los demás. El array cross_check_flags debe contener TODOS los problemas encontrados, no solo el primero.
 - La INE frente es FUENTE DE VERDAD para nombre completo Y domicilio.
 - Si el nombre en este documento ≠ nombre de INE frente → flag "nombre_mismatch" (EXCEPCIÓN: comprobante_domicilio puede tener nombre diferente)
+- COMPARACIÓN DE NOMBRES: ignora acentos y mayúsculas/minúsculas. "ELVIRA FLORES ORTIZ" ≠ "TORRES ORTIZ DIOSCORO" → nombre_mismatch. "CAPETILLO ZAMORA HECTOR" ≠ "TORRES ORTIZ DIOSCORO" → nombre_mismatch.
 - Si CURP en este documento ≠ CURP de INE → flag "curp_mismatch"
 - Si vigencia/fecha está vencida → flag "expired"
 - Si CLABE no tiene exactamente 18 dígitos → flag "clabe_invalid"
