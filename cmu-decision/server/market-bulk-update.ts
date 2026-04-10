@@ -267,11 +267,13 @@ export async function bulkUpdateMarketPrices(): Promise<{
 
     for (const v of vehicles) {
       // Find the matching market cache entry
+      // Use LIKE for fuzzy model matching (e.g., "i10" matches "Grand i10")
+      const modelPattern = `%${v.modelo}%`;
       const cacheRows = await sql`
         SELECT median_price, average_price, min_price, max_price, sample_count
         FROM market_prices_cache
         WHERE LOWER(brand) = LOWER(${v.marca})
-          AND LOWER(model) = LOWER(${v.modelo})
+          AND LOWER(model) LIKE LOWER(${modelPattern})
           AND year = ${v.anio}
           AND scraped_at > NOW() - INTERVAL '7 days'
         ORDER BY scraped_at DESC LIMIT 1
