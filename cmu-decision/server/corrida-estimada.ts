@@ -54,7 +54,7 @@ let cachedPrices: VehiclePrice[] = [];
 let cacheTime = 0;
 
 async function getVehiclePrices(): Promise<VehiclePrice[]> {
-  if (cachedPrices.length > 0 && Date.now() - cacheTime < 300000) return cachedPrices;
+  if (cachedPrices.length > 0 && Date.now() - cacheTime < 60000) return cachedPrices; // 1 min cache (was 5 min)
   try {
     const sql = neon(process.env.DATABASE_URL!);
     const rows = await sql`
@@ -144,7 +144,16 @@ export function generarCorridaEstimada(
  * Generate a summary of ALL 5 available models with key numbers
  */
 export async function generarResumen5Modelos(leq: number): Promise<string> {
-  const vehicles = await getVehiclePrices();
+  const allVehicles = await getVehiclePrices();
+  // Deduplicate by modelo+anio — prospect chooses model, not unit
+  // Show the first occurrence (lowest id) of each unique model
+  const seen = new Set<string>();
+  const vehicles = allVehicles.filter(v => {
+    const key = `${v.marca}-${v.modelo}-${String(v.variante||'')}-${v.anio}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
   if (vehicles.length === 0) return getModelosDisponiblesText(); // fallback
 
   const recaudo = leq * SOBREPRECIO_GNV;
