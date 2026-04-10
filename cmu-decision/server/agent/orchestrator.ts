@@ -1091,6 +1091,21 @@ async function handleIdle(
     console.error(`[Orchestrator] upsertProspect failed:`, error.message);
   }
 
+  // Block human-escalation phrases from being accepted as names
+  const isHumanRequestIdle = /\b(con[eé]ct[ae]me?|quiero\s+(?:hablar|platicar)|hablar\s+con|\bpromotor[ae]?\b|\basesor[ae]?\b|en\s+persona|una\s+persona|alguien\s+real)\b/i.test(body);
+  if (isHumanRequestIdle) {
+    try {
+      await notifyTeam(`📲 *Prospecto solicita atención personal*\n\n*Tel:* ${phone}\n*Folio:* Sin folio aún\n\nFavor de contactarlo directamente.`);
+    } catch (e: any) {
+      console.error('[Orchestrator] notifyTeam (human idle) failed:', e.message);
+    }
+    return {
+      response: `Claro, le aviso a tu asesor(a) para que te contacte.\n\n¿Me dices tu nombre para que sepa a quién buscar?`,
+      newState: "prospect_name" as ProspectState,
+      contextUpdates: { canal },
+    };
+  }
+
   // If they already give their name in the first message, accept it
   if (nlu.intent === "give_name" && nlu.entities.nombre) {
     const nombre = nlu.entities.nombre;
