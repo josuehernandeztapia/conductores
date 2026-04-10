@@ -193,7 +193,7 @@ const PATTERNS: Array<{ intent: Intent; regex: RegExp; entityExtractor?: (match:
   // ── Escalate to human ──
   {
     intent: "ask_question",
-    regex: /\b((?:puedo|quiero)\s+hablar\s+con\s+(?:alguien|una\s+persona|un\s+asesor)|hay\s+alguien\s+(?:real|humano)|me\s+puede\s+(?:hablar|llamar|atender)\s+(?:alguien|una\s+persona))\b/i,
+    regex: /\b((?:puedo|quiero|qu[eé]siero)\s+hablar\s+con\s+(?:alguien|una\s+persona|un\s+(?:asesor|promotor))|hay\s+alguien\s+(?:real|humano)|me\s+puede\s+(?:hablar|llamar|atender)\s+(?:alguien|una\s+persona)|con[eé]ct[ae]me?\s+con\s+(?:un|una|el|la)?\s*(?:promotor[ae]?|asesor[ae]?|persona|alguien)|qu[eé]ro?\s+(?:hablar|platicar)\s+con\s+(?:alguien|una?\s+persona|un\s+(?:asesor|promotor))|necesito\s+(?:hablar\s+con|que\s+me\s+at(?:ienda|iendan))|me\s+(?:puede[sn]?|podr[ií]a[sn]?)\s+(?:llamar|contactar)|quiero\s+(?:que\s+me\s+llamen|atenci[oó]n\s+(?:personal|en\s+persona)))\b/i,
     entityExtractor: () => ({ question: "hablar con persona" }),
   },
   // ── "No entiendo" ──

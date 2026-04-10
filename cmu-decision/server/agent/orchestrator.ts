@@ -490,7 +490,26 @@ async function handleTextMessage(
 
   // ── Check for off-flow questions (any state except idle/prospect_name) ──
   if (nlu.intent === "ask_question" && state !== "idle" && state !== "prospect_name") {
-    const answer = await answerQuestion(nlu.entities.question || body);
+    const question = nlu.entities.question || body;
+    const isHumanRequest = /hablar con persona|promotor|asesor|en persona/i.test(question);
+
+    if (isHumanRequest) {
+      // Notify promotora so they can reach out
+      const folio = ctx.folio || '?';
+      const nombre = ctx.nombre || phone;
+      try {
+        await notifyTeam(`📲 *Prospecto solicita atención personal*\n\n*Nombre:* ${nombre}\n*Tel:* ${phone}\n*Folio:* ${folio}\n\nFavor de contactarlo directamente.`);
+      } catch (e: any) {
+        console.error('[Orchestrator] notifyTeam (human request) failed:', e.message);
+      }
+      return {
+        response: `Listo, ${ctx.nombre ? ctx.nombre.split(' ')[0] : 'amigo/a'}, le aviso a tu asesor(a) para que te contacte personalmente.\n\nMientras tanto, si tienes documentos a la mano puedes irlos mandando aquí — yo los guardo en tu expediente.`,
+        newState: state,
+        contextUpdates: {},
+      };
+    }
+
+    const answer = await answerQuestion(question);
     if (answer) {
       return { response: answer, newState: state, contextUpdates: {} };
     }
@@ -1093,6 +1112,21 @@ async function handleProspectName(
   nlu: NLUResult,
   ctx: AgentContext,
 ): Promise<{ response: string; newState: ProspectState; contextUpdates: Partial<AgentContext> }> {
+
+  // Check if user is asking for a human before we accept their text as a name
+  const isHumanRequest = /\b(con[eé]ct[ae]me?|quiero\s+(?:hablar|platicar)|hablar\s+con|promotor[ae]?|asesor[ae]?|en\s+persona|una\s+persona|alguien\s+real)\b/i.test(body);
+  if (isHumanRequest) {
+    try {
+      await notifyTeam(`📲 *Prospecto solicita atención personal*\n\n*Tel:* ${phone}\n*Folio:* Sin folio aún\n\nFavor de contactarlo directamente.`);
+    } catch (e: any) {
+      console.error('[Orchestrator] notifyTeam (human request - prospect_name) failed:', e.message);
+    }
+    return {
+      response: `Claro, le aviso a tu asesor(a) para que te contacte. \u00bfMe dices tu nombre para que sepa a quién buscar?`,
+      newState: 'prospect_name' as ProspectState,
+      contextUpdates: {},
+    };
+  }
 
   // Check for name intent
   if (nlu.intent === "give_name" && nlu.entities.nombre) {
