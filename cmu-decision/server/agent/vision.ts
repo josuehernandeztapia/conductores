@@ -48,7 +48,7 @@ export const DOC_ORDER: DocDefinition[] = [
     label: "Constancia de Situación Fiscal (CSF del SAT)",
     visualId: "Texto 'SERVICIO DE ADMINISTRACIÓN TRIBUTARIA', 'CÉDULA DE IDENTIFICACIÓN FISCAL', 'CONSTANCIA DE SITUACIÓN FISCAL'",
     extract: "rfc, curp, nombre (nombre completo), domicilio_fiscal, regimen (régimen fiscal), fecha_emision",
-    crossCheck: "PRIMERO verifica nombre: el campo 'nombre' (o nombre completo = nombre(s) + primer_apellido + segundo_apellido) DEBE coincidir con el nombre completo de la INE frente. Si NO coincide → flag 'nombre_mismatch' SIEMPRE, independientemente de otros flags. SEGUNDO verifica CURP: DEBE coincidir con el CURP de la INE frente. Si no → flag 'curp_mismatch'. TERCERO verifica fecha: la fecha_emision debe ser de los últimos 30 días desde hoy. Si es más antigua → flag 'csf_vencida'. IMPORTANTE: todos estos checks son INDEPENDIENTES — un flag NO bloquea a los demás.",
+    crossCheck: "PRIMERO verifica nombre: el campo 'nombre' (o nombre completo = nombre(s) + primer_apellido + segundo_apellido) DEBE coincidir con el nombre completo de la INE frente. Si NO coincide → flag 'nombre_mismatch' SIEMPRE, independientemente de otros flags. SEGUNDO verifica CURP: DEBE coincidir con el CURP de la INE frente. Si no → flag 'curp_mismatch'. TERCERO verifica fecha: la fecha_emision debe ser de los últimos 30 días desde hoy. Si es más antigua → flag 'csf_vencida'. CUARTO verifica RFC: para persona física debe tener exactamente 13 caracteres (4 letras + 6 dígitos fecha + 3 homonimia). Si tiene menos de 12 o más de 13 caracteres → flag 'rfc_invalido'. IMPORTANTE: todos estos checks son INDEPENDIENTES — un flag NO bloquea a los demás.",
   },
   {
     key: "comprobante_domicilio",
