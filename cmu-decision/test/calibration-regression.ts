@@ -48,7 +48,7 @@ export async function runCalibrationRegression(): Promise<{
   total: number;
   results: CalResult[];
 }> {
-  const { evaluateOpportunity } = await import("../server/agent/evaluation-engine");
+  const { evaluateOpportunity } = await import("../server/evaluation-engine");
   const results: CalResult[] = [];
 
   // ═══════════════════════════════════════════════════════════════════════
