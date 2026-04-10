@@ -979,6 +979,45 @@ Responde SOLO con JSON válido:
         errors.push(`Seminuevos: ${err.message}`);
       }
 
+      // === SOURCE 4: BBVA AutoMarket (GraphQL — works from server, no auth) ===
+      try {
+        const bbvaQuery = `query { products(filter: { name: { match: "${brand} ${model}" } }, pageSize: 20, sort: { price: ASC }) { total_count items { name price_range { minimum_price { final_price { value } } } } } }`;
+        const bbvaRes = await fetch("https://automarket.bbva.mx/graphql", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "User-Agent": fetchHeaders["User-Agent"] },
+          body: JSON.stringify({ query: bbvaQuery }),
+          signal: AbortSignal.timeout(12000),
+        });
+        console.log(`[MarketPrices][BBVA] HTTP ${bbvaRes.status}`);
+        if (bbvaRes.ok) {
+          const bbvaData: any = await bbvaRes.json();
+          const bbvaItems = bbvaData?.data?.products?.items || [];
+          const bbvaTotal = bbvaData?.data?.products?.total_count || 0;
+          const beforeCount = prices.length;
+          const yearNum = parseInt(year);
+          for (const item of bbvaItems) {
+            const p = item?.price_range?.minimum_price?.final_price?.value;
+            const itemName = (item?.name || "").toLowerCase();
+            // Filter by year: name contains the year string
+            if (p && p >= 80000 && p <= 400000 && itemName.includes(String(yearNum))) {
+              prices.push({ price: Math.round(p), source: "BBVA AutoMarket" });
+            }
+            // Also accept year ±1 for better coverage
+            if (p && p >= 80000 && p <= 400000 && !itemName.includes(String(yearNum)) &&
+                (itemName.includes(String(yearNum - 1)) || itemName.includes(String(yearNum + 1)))) {
+              prices.push({ price: Math.round(p), source: "BBVA AutoMarket" });
+            }
+          }
+          const bbvaFound = prices.length - beforeCount;
+          console.log(`[MarketPrices][BBVA] Found ${bbvaFound} prices (from ${bbvaTotal} total results)`);
+        } else {
+          errors.push(`BBVA: HTTP ${bbvaRes.status}`);
+        }
+      } catch (err: any) {
+        console.log(`[MarketPrices][BBVA] Error: ${err.message}`);
+        errors.push(`BBVA: ${err.message}`);
+      }
+
       // Deduplicate, filter outliers, and calculate stats
       let rawUnique = [...new Set(prices.map(p => p.price))].sort((a, b) => a - b);
       console.log(`[MarketPrices] External sources found ${rawUnique.length} unique prices (raw): ${rawUnique.join(", ")}`);
