@@ -593,9 +593,37 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
       return { classifiedAs: "otro", isValid: false, extractedData: {}, note: "PDF recibido pero no pude clasificar." };
     }
 
-    // Regular image or PDF-converted-to-image: use Vision
+    // Regular image or PDF-converted-to-image: use full Vision pipeline (same as Canal A)
+    // This ensures cross-check rules, existingData comparison, and full field extraction run
     if (media.base64) {
-      return await this.vision(media.base64, profile, expectedKey);
+      try {
+        const { classifyAndValidateDoc, DOC_ORDER: docOrder } = await import("./agent/vision");
+        // Build existingData from already-extracted OCR data passed in profile context
+        // Parse structured data from the profile string for cross-check
+        const existingData: Record<string, any> = {};
+        // Also try to parse from originationExistingData if available (set by caller)
+        if ((media as any)._existingData) {
+          Object.assign(existingData, (media as any)._existingData);
+        }
+        const result = await classifyAndValidateDoc(
+          media.base64,
+          expectedKey || "otro",
+          docOrder,
+          existingData,
+        );
+        const flags = result.cross_check_flags || [];
+        const flagStr = flags.length > 0 ? ` | \u26a0\ufe0f ${flags.join(", ")}` : "";
+        return {
+          classifiedAs: result.detected_type || expectedKey || "otro",
+          isValid: result.is_legible !== false && result.detected_type !== "otro",
+          extractedData: result.extracted_data || {},
+          note: `${result.detected_type || "otro"}${flagStr}`,
+        };
+      } catch (e: any) {
+        console.error("[processDocument] classifyAndValidateDoc error:", e.message);
+        // Fallback to old vision
+        return await this.vision(media.base64, profile, expectedKey);
+      }
     }
 
     return { classifiedAs: "otro", isValid: false, extractedData: {}, note: "Archivo no procesable." };
@@ -3206,6 +3234,27 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         } catch (e: any) { return await respond(`Error procesando Excel: ${e.message}`); }
       }
       
+      // Build existingData from origination datos_* columns for cross-check
+      if (originationId) {
+        try {
+          const origForCross = await this.storage.getOrigination(originationId) as any;
+          const existingData: Record<string, any> = {};
+          const colMap: Record<string, string> = {
+            datos_ine: "ine_frente", datos_csf: "csf", datos_comprobante: "comprobante_domicilio",
+            datos_concesion: "concesion", datos_estado_cuenta: "estado_cuenta",
+            datos_historial: "historial_gnv", datos_factura: "factura_vehiculo",
+          };
+          for (const [col, key] of Object.entries(colMap)) {
+            const raw = origForCross?.[col] || origForCross?.[col.replace('datos_','')];
+            if (raw) {
+              try { existingData[key] = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch {}
+            }
+          }
+          if (Object.keys(existingData).length > 0) {
+            (media as any)._existingData = existingData;
+          }
+        } catch {}
+      }
       const analysis = await this.processDocument(media, profile, pInfo.nextKey || undefined);
       const img = media.base64 || ""; // for saving to DB (empty for text-only PDFs)
       visionNote = `${DOC_LABELS[analysis.classifiedAs] || analysis.classifiedAs}. ${analysis.note}`;

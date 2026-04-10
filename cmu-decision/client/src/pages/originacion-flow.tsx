@@ -65,6 +65,7 @@ import {
   getTaxista,
 } from "@/lib/api";
 import { getVehicle, listVehicles } from "@/lib/storage";
+import { ExpedienteSemaforo } from "@/components/ExpedienteSemaforo";
 import {
   generateConvenioValidacion,
   generateContratoCompraventa,
@@ -2588,6 +2589,11 @@ function StepContent({
           <h3 className="text-sm font-medium">Documentos Capturados</h3>
           <p className="text-xs text-muted-foreground">Resumen de todos los documentos del expediente</p>
           <DocumentSummary origination={origination} docs={docs} stepKeys={step2Keys} />
+          {/* Semáforo de validaciones cruzadas */}
+          <div className="mt-3">
+            <h4 className="text-xs font-medium mb-2">Validaciones cruzadas</h4>
+            <ExpedienteSemaforo originationId={origination.id} />
+          </div>
         </div>
       );
     }
