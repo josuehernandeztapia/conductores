@@ -2270,12 +2270,15 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
       // ===== DIRECTOR SANDBOX MODE =====
       // Keywords that activate any flow in test mode (no real folio created)
       // Director can test any flow without affecting real data
-      const sandboxMatch = lower.match(
-        /^(sandbox|modo\s+test|test\s+flow|activar\s+flujo|flujo)\s+(prospecto|cliente|entrevista|documentos?|promotora|dev|proveedor|otp)(\s+.+)?$/i
-      );
+      // Director escribiendo solo "prospecto", "entrevista", etc. (palabra exacta sola)
+      // O con prefijo: "sandbox prospecto", "flujo entrevista", etc.
+      const SANDBOX_FLOWS = ["prospecto","cliente","entrevista","documento","documentos","promotora","dev","proveedor","otp"];
+      const sandboxPrefixMatch = lower.match(/^(?:sandbox|modo\s+test|test\s+flow|activar\s+flujo|flujo)\s+(\S+)(?:\s+.*)?$/i);
+      const sandboxExactMatch = SANDBOX_FLOWS.includes(lower.trim());
+      const sandboxMatch = sandboxPrefixMatch || sandboxExactMatch;
       if (sandboxMatch) {
-        const targetFlow = sandboxMatch[2].toLowerCase();
-        const extra = (sandboxMatch[3] || "").trim();
+        const targetFlow = (sandboxPrefixMatch ? sandboxPrefixMatch[1] : lower.trim()).toLowerCase();
+        const extra = "";
         const sandboxPhone = "+5210000000000";
         let msg = `*Sandbox* — activando flujo *${targetFlow}*`;
         if (extra) msg += ` (${extra})`;
