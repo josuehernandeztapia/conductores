@@ -72,7 +72,7 @@ export async function buildReportData(): Promise<FolioReportRow[]> {
 
     // Check interview
     const evalRow = await sql`
-      SELECT id FROM evaluaciones_taxi WHERE folio = ${orig.folio} LIMIT 1
+      SELECT id FROM evaluaciones_taxi WHERE folio_id = ${orig.folio} LIMIT 1
     ` as any[];
 
     const updatedAt = new Date(orig.updated_at || orig.created_at);
