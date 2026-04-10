@@ -1202,7 +1202,7 @@ async function handleIdle(
 
   // If they already give their name in the first message, accept it
   // Re-use the same FAKE_NAMES guard as handleProspectName to reject LLM hallucinations
-  const FAKE_NAMES_IDLE = /^(taxista|taxi|gasolina|gas|natural|programa|cartel|acataxi|quiero|busco|necesito|soy|hola|informaci[oó]n|info|siguiente|entrevista)$/i;
+  const FAKE_NAMES_IDLE = /^(taxista|taxi|gasolina|gas|natural|programa|cartel|acataxi|quiero|busco|necesito|soy|hola|informaci[oó]n|info|siguiente|entrevista|gracias|bueno|buena|mande|dígame|claro|nada|ok|bien)$/i;
   if (nlu.intent === "give_name" && nlu.entities.nombre && !FAKE_NAMES_IDLE.test(nlu.entities.nombre.trim().split(/\s+/)[0])) {
     const nombre = nlu.entities.nombre;
     const firstName = nombre.split(" ")[0];
@@ -1253,7 +1253,7 @@ async function handleProspectName(
   }
 
   // Check for name intent — validate that the extracted nombre is actually a name
-  const FAKE_NAMES = /^(taxista|taxi|gasolina|gas|natural|programa|cartel|acataxi|quiero|busco|necesito|soy|hola|informaci[oó]n|info|siguiente|entrevista)$/i;
+  const FAKE_NAMES = /^(taxista|taxi|gasolina|gas|natural|programa|cartel|acataxi|quiero|busco|necesito|soy|hola|informaci[oó]n|info|siguiente|entrevista|gracias|bueno|buena|mande|dígame|claro|nada|ok|bien)$/i;
   if (nlu.intent === "give_name" && nlu.entities.nombre && !FAKE_NAMES.test(nlu.entities.nombre.trim().split(/\s+/)[0])) {
     const nombre = nlu.entities.nombre;
     try {
