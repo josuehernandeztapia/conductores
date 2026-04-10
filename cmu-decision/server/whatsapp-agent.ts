@@ -2272,12 +2272,12 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
       // Director can test any flow without affecting real data
       // Director escribiendo solo "prospecto", "entrevista", etc. (palabra exacta sola)
       // O con prefijo: "sandbox prospecto", "flujo entrevista", etc.
-      const SANDBOX_FLOWS = ["prospecto","cliente","entrevista","documento","documentos","promotora","dev","proveedor","otp"];
+      // Sandbox mode: solo se activa con prefijo explícito "sandbox X" o "flujo X"
+      // NUNCA intercepta palabras solas como "prospecto", "cliente" — esas son operaciones reales
       const sandboxPrefixMatch = lower.match(/^(?:sandbox|modo\s+test|test\s+flow|activar\s+flujo|flujo)\s+(\S+)(?:\s+.*)?$/i);
-      const sandboxExactMatch = SANDBOX_FLOWS.includes(lower.trim());
-      const sandboxMatch = sandboxPrefixMatch || sandboxExactMatch;
+      const sandboxMatch = sandboxPrefixMatch;
       if (sandboxMatch) {
-        const targetFlow = (sandboxPrefixMatch ? sandboxPrefixMatch[1] : lower.trim()).toLowerCase();
+        const targetFlow = sandboxPrefixMatch![1].toLowerCase();
         const extra = "";
         const sandboxPhone = "+5210000000000";
         let msg = `*Sandbox* — activando flujo *${targetFlow}*`;
