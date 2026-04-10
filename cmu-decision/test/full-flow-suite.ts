@@ -975,6 +975,131 @@ async function G05_FakeNamesIdle(handle: Function, storage: any): Promise<CaseRe
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// OTP FLOW CASES
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function Q09_OtpAfterINE(handle: Function, storage: any): Promise<CaseResult> {
+  const phone = `${TEST_PHONE_BASE}Q09`;
+  const id = "Q09", name = "OTP enviado tras INE frente — prospecto responde código incorrecto sin crash";
+  const assertions: Array<{ ok: boolean; msg: string }> = [];
+  const turns: TurnResult[] = [];
+  try {
+    await clearPhone(phone);
+
+    // Setup: prospect in docs_capture with otpSent=true (simulating INE was captured)
+    await setStateManual(phone, "docs_capture", {
+      nombre: "Test OTP User",
+      folio: "CMU-SIN-TEST-Q09",
+      originationId: 26,
+      docsCollected: ["ine_frente"],
+      skippedDocs: [],
+      fuelType: "gasolina",
+      otpSent: true,
+      otpVerified: false,
+    });
+
+    // Turn 1: prospect sends a wrong 6-digit code → should be treated as OTP attempt
+    const t1 = await sendProspect(handle, storage, phone, "999999", 1);
+    turns.push(t1);
+    assertions.push(ok(
+      t1.reply.toLowerCase().includes("correcto") || t1.reply.toLowerCase().includes("código"),
+      "Bot recognizes 6-digit code as OTP attempt and says it's incorrect"
+    ));
+    assertions.push(stateIs(t1.state, "docs_capture"));
+
+    // Turn 2: prospect sends another wrong code
+    const t2 = await sendProspect(handle, storage, phone, "111111", 2);
+    turns.push(t2);
+    assertions.push(ok(
+      t2.reply.toLowerCase().includes("correcto") || t2.reply.toLowerCase().includes("código"),
+      "Bot still handles 2nd wrong OTP without crash"
+    ));
+    assertions.push(stateIs(t2.state, "docs_capture"));
+
+    // Turn 3: prospect sends non-OTP message → should continue normal doc flow
+    const t3 = await sendProspect(handle, storage, phone, "siguiente", 3);
+    turns.push(t3);
+    assertions.push(ok(t3.reply.length > 0, "Bot responds to 'siguiente' after failed OTP attempts"));
+    assertions.push(hasNot(t3.reply, "error del sistema", "No system crash after OTP failures"));
+
+    return { id, name, pass: assertions.every(a => a.ok), turns, assertions };
+  } catch (e: any) {
+    return { id, name, pass: false, turns, assertions, error: e.message };
+  } finally { await clearPhone(phone).catch(() => {}); }
+}
+
+async function Q10_OtpNotSentBeforeINE(handle: Function, storage: any): Promise<CaseResult> {
+  const phone = `${TEST_PHONE_BASE}Q10`;
+  const id = "Q10", name = "6-digit code before OTP sent — NOT treated as OTP, no crash";
+  const assertions: Array<{ ok: boolean; msg: string }> = [];
+  const turns: TurnResult[] = [];
+  try {
+    await clearPhone(phone);
+
+    // Setup: prospect in docs_capture WITHOUT otpSent (INE not yet captured)
+    await setStateManual(phone, "docs_capture", {
+      nombre: "Test Pre-OTP User",
+      folio: "CMU-SIN-TEST-Q10",
+      docsCollected: [],
+      skippedDocs: [],
+      fuelType: "gasolina",
+      otpSent: false,
+      otpVerified: false,
+    });
+
+    // Send 6-digit code when OTP hasn't been sent yet
+    const t1 = await sendProspect(handle, storage, phone, "654321", 1);
+    turns.push(t1);
+    // Should NOT be treated as OTP (otpSent=false) — should fall through to normal flow
+    assertions.push(ok(
+      !t1.reply.toLowerCase().includes("verificado"),
+      "Bot does NOT verify phone when OTP was never sent"
+    ));
+    assertions.push(ok(t1.reply.length > 0, "Bot responds normally"));
+    assertions.push(hasNot(t1.reply, "error del sistema", "No crash"));
+
+    return { id, name, pass: assertions.every(a => a.ok), turns, assertions };
+  } catch (e: any) {
+    return { id, name, pass: false, turns, assertions, error: e.message };
+  } finally { await clearPhone(phone).catch(() => {}); }
+}
+
+async function P13_PromotoraFolioNoOtpToTaxista(agent: any, storage: any): Promise<CaseResult> {
+  const phone = `${TEST_PHONE_BASE}P13`;
+  const id = "P13", name = "Promotora crea folio — no envía OTP al taxista directamente";
+  const assertions: Array<{ ok: boolean; msg: string }> = [];
+  const turns: TurnResult[] = [];
+  try {
+    await clearPhone(phone);
+
+    // Promotora creates a new folio
+    const t1 = await sendPromotor(agent, phone, "nuevo prospecto", 1);
+    turns.push(t1);
+
+    const t2 = await sendPromotor(agent, phone, "Carmen Sánchez 4497778899", 2);
+    turns.push(t2);
+    assertions.push(ok(
+      t2.reply.toLowerCase().includes("folio") || t2.reply.toLowerCase().includes("cmu"),
+      "Folio created successfully"
+    ));
+    // OTP should NOT be mentioned in the reply to promotora
+    assertions.push(ok(
+      !t2.reply.toLowerCase().includes("código") && !t2.reply.toLowerCase().includes("otp") && !t2.reply.toLowerCase().includes("verificar tu número"),
+      "No OTP mention to promotora — OTP goes to taxista when they send INE"
+    ));
+    // Reply should ask for documents, not OTP
+    assertions.push(ok(
+      t2.reply.toLowerCase().includes("ine") || t2.reply.toLowerCase().includes("documento"),
+      "Bot asks promotora for first document (INE)"
+    ));
+
+    return { id, name, pass: assertions.every(a => a.ok), turns, assertions };
+  } catch (e: any) {
+    return { id, name, pass: false, turns, assertions, error: e.message };
+  } finally { await clearPhone(phone).catch(() => {}); }
+}
+
 // ─── Main runner ─────────────────────────────────────────────────────────────
 
 export async function runFullFlowSuite(storage: any, whatsappAgent: any): Promise<{
@@ -986,7 +1111,7 @@ export async function runFullFlowSuite(storage: any, whatsappAgent: any): Promis
   _gFailed = 0;
 
   console.log("\n=== CMU Full Flow Suite ===");
-  console.log("Promotora (12) + Prospecto (8) = 20 cases\n");
+  console.log("Promotora (13) + Prospecto (10) + Guards (5) = 28 cases\n");
 
   const promotora: CaseResult[] = [
     await P01_SesionExpirada(whatsappAgent),
@@ -1001,6 +1126,7 @@ export async function runFullFlowSuite(storage: any, whatsappAgent: any): Promis
     await P10_ReportePendientes(whatsappAgent),
     await P11_NombreSinTelefono(whatsappAgent),
     await P12_NombreAmbiguoComoMenu(whatsappAgent, storage),
+    await P13_PromotoraFolioNoOtpToTaxista(whatsappAgent, storage),
   ];
 
   const guards: CaseResult[] = [
@@ -1020,6 +1146,8 @@ export async function runFullFlowSuite(storage: any, whatsappAgent: any): Promis
     await Q06_ConsultaEstado(handleProspectMessage, storage),
     await Q07_SaltoEntrevista(handleProspectMessage, storage),
     await Q08_RegresarEnFlujo(handleProspectMessage, storage),
+    await Q09_OtpAfterINE(handleProspectMessage, storage),
+    await Q10_OtpNotSentBeforeINE(handleProspectMessage, storage),
   ];
 
   const all = [...promotora, ...prospecto, ...guards];
