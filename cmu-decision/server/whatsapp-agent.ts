@@ -3324,27 +3324,47 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
       }
 
       // Reportes determinísticos — construidos desde Neon, sin LLM
-      const wantsReport = /pendientes?|sin\s+avance|reporte|cuántos?\s+(faltan|tienen|llevan)|listado|todos\s+los\s+tr|todos\s+los\s+fol/i.test(lo);
+      const wantsReport = /pendientes?|sin\s+avance|reporte|cu[aá]ntos?\s+(faltan|tienen|llevan)|listado|todos\s+los\s+tr|todos\s+los\s+fol/i.test(lo);
       if (wantsReport) {
         try {
-          const origs = await this.storage.listOriginations();
-          const activos2 = origs.filter((o: any) => !["RECHAZADO", "COMPLETADO"].includes(o.estado));
-          if (activos2.length === 0) return await respond("No hay trámites activos por ahora.");
+          // Single optimized query — join originations + document counts in one shot
+          const { neon } = await import("@neondatabase/serverless");
+          const sql = neon(process.env.DATABASE_URL!);
+          const rows = await sql`
+            SELECT
+              o.id, o.folio, o.estado, o.updated_at, o.created_at,
+              t.nombre as taxista_nombre,
+              COUNT(d.id) FILTER (WHERE d.image_data IS NOT NULL OR d.ocr_result IS NOT NULL) as docs_count,
+              EXISTS(SELECT 1 FROM evaluaciones_taxi e WHERE e.folio_id = o.folio) as entrevista_ok
+            FROM originations o
+            LEFT JOIN taxistas t ON t.id = o.taxista_id
+            LEFT JOIN documents d ON d.origination_id = o.id
+            WHERE o.estado NOT IN ('RECHAZADO', 'COMPLETADO', 'CANCELADO')
+            GROUP BY o.id, o.folio, o.estado, o.updated_at, o.created_at, t.nombre
+            ORDER BY o.updated_at ASC
+          ` as any[];
 
+          if (rows.length === 0) return await respond("No hay trámites activos por ahora.");
+
+          const TOTAL = 14;
           const lines: string[] = [];
-          for (const o of activos2) {
-            const pI = await this.getPendingInfo((o as any).id);
-            const name2 = (o as any).taxistaName || (o as any).folio;
-            const days = Math.floor((Date.now() - new Date((o as any).updatedAt || (o as any).createdAt).getTime()) / (1000*60*60*24));
+          for (const r of rows) {
+            const name2 = r.taxista_nombre || r.folio;
+            const days = Math.floor((Date.now() - new Date(r.updated_at || r.created_at).getTime()) / (1000*60*60*24));
             const daysStr = days > 0 ? ` (${days}d)` : "";
-            if (pI.count > 0) {
-              lines.push(`• *${name2}*${daysStr}: faltan ${pI.count} papeles — ${pI.text}`);
-            } else {
+            const docsCount = parseInt(r.docs_count) || 0;
+            const faltanCount = TOTAL - docsCount;
+            if (faltanCount > 0) {
+              lines.push(`• *${name2}*${daysStr}: ${docsCount}/${TOTAL} papeles`);
+            } else if (!r.entrevista_ok) {
               lines.push(`• *${name2}*${daysStr}: papeles completos, falta entrevista`);
+            } else {
+              lines.push(`• *${name2}*${daysStr}: completo ✓`);
             }
           }
-          return await respond(`*${activos2.length} trámites activos:*\n\n${lines.join("\n")}`);
+          return await respond(`*${rows.length} trámites activos:*\n\n${lines.join("\n")}`);
         } catch (e: any) {
+          console.error("[Reporte]", e.message);
           // fall through to LLM
         }
       }

@@ -2299,8 +2299,15 @@ Responde SOLO con JSON válido:
       const next = mediaQueues.get(phone)!.shift()!;
       try {
         const result = await waAgent.handleMessage(
-          next.phone, next.body, next.mediaUrl, next.mediaType,
-          next.role.role, next.ProfileName, next.role.permissions || [], next.phone,
+          next.phone,           // phone
+          next.body,            // body
+          next.ProfileName,     // profileName
+          next.mediaUrl,        // mediaUrl
+          next.mediaType,       // mediaType
+          null,                 // originationId (loaded from convState inside handleMessage)
+          next.role.role,       // role
+          next.role.name || next.ProfileName, // roleName
+          next.role.permissions || [],         // permissions
         );
         if (result.reply) await sendWa(next.From, result.reply);
       } catch (e: any) {
