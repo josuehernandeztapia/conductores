@@ -1315,10 +1315,13 @@ Responde SOLO con JSON válido:
         const imgPath = path.join(FIXTURES, tc.file);
         if (!fs.existsSync(imgPath)) { results.push({ file: tc.file, skipped: true }); continue; }
 
-        const imgBase64 = `data:image/jpeg;base64,${fs.readFileSync(imgPath).toString("base64")}`;
+        // Pass raw base64 WITHOUT data: prefix — classifyAndValidateDoc adds it internally
+        const imgBase64 = fs.readFileSync(imgPath).toString("base64");
+        const existingDataForTest = tc.existing_data || {};
+        console.log(`[TestE2E] ${tc.doc_type} existingData keys: [${Object.keys(existingDataForTest).join(", ")}]`);
         let result: any;
         try {
-          result = await classifyAndValidateDoc(imgBase64, tc.doc_type, DOC_ORDER, tc.existing_data || {});
+          result = await classifyAndValidateDoc(imgBase64, tc.doc_type, DOC_ORDER, existingDataForTest);
         } catch (e: any) {
           results.push({ file: tc.file, error: e.message }); continue;
         }
