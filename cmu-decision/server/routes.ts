@@ -84,6 +84,7 @@ const PUBLIC_PATHS = [
   "/api/test/bot-flow",            // bot conversation flow regression tests
   "/api/test/full-flow-suite",     // full promotora + prospecto flow suite (20 cases)
   "/api/test/flow-cpv-e2e",       // CPV origination flow documentation
+  "/api/test/client-flow-suite",  // Client role flow suite (10 cases)
 ];
 
 function authMiddleware(req: Request, res: Response, next: NextFunction) {
@@ -1384,6 +1385,18 @@ Responde SOLO con JSON válido:
       const failed = results.filter(r => !r.pass && !r.skipped && !r.error).length;
       return res.json({ passed, failed, total: results.length, results });
     } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/test/client-flow-suite — Client role flow tests (10 cases)
+  app.post("/api/test/client-flow-suite", async (_req, res) => {
+    try {
+      const { runClientFlowSuite } = await import("../test/client-flow-suite");
+      const summary = await runClientFlowSuite(storage, waAgent);
+      return res.json(summary);
+    } catch (err: any) {
+      console.error("[ClientFlowSuite]", err.message);
       return res.status(500).json({ error: err.message });
     }
   });
