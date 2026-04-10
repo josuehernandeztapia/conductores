@@ -2571,7 +2571,8 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
       if (wantsInterview && originationId) {
         const orig = await this.storage.getOrigination(originationId);
         const folioStr = (orig as any)?.folio || `FOL-${originationId}`;
-        const { getInterviewWelcome, getCurrentQuestion } = await import("./entrevista-whatsapp");
+        const taxistaName = (orig as any)?.taxistaName || (convState?.context as any)?.folio?.taxistaName || "el taxista";
+        const { getCurrentQuestion } = await import("./entrevista-whatsapp");
         const iState = {
           folioId: folioStr,
           currentQuestion: 0,
@@ -2582,9 +2583,10 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
           state: "interview_q0",
           context: { interview: iState },
         });
-        const welcome = getInterviewWelcome();
         const q1 = getCurrentQuestion(iState);
-        return await respond(`${welcome}\n\n${q1}`);
+        // Promotora-specific intro: she is conducting, not answering
+        const intro = `Iniciando entrevista para *${taxistaName}* (${folioStr}).\n\nHaz las siguientes preguntas al taxista y escribe (o manda nota de voz con) sus respuestas.\n\n`;
+        return await respond(`${intro}${q1}`);
       }
     }
 
@@ -3300,7 +3302,9 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
       const lo = body.toLowerCase().trim();
 
       // Intent: new person / new prospect (natural language variants)
-      const wantsNewProspect = /tengo\s+(un|una|a\s+un|a\s+una)|nuevo|nueva|registrar|meter|agregar|alta|interesado|viene\s+uno|hay\s+un|hay\s+una|se\s+quiere/i.test(lo);
+      // Bug fix: detect negation BEFORE checking new prospect intent
+      const hasNegation = /^no\b|\bno\s+quiero|\bno\s+nuevo|\bno\s+registr|\bno\s+meter/i.test(lo);
+      const wantsNewProspect = !hasNegation && /tengo\s+(un|una|a\s+un|a\s+una)|(^|\s)(nuevo|nueva)(\s|$)|\bregistrar\b|\bmeter\b|\bagregar\b|\balta\b|interesado|viene\s+uno|hay\s+un|hay\s+una|se\s+quiere/i.test(lo);
       if (wantsNewProspect && !convState?.state?.includes("waiting")) {
         await this.updateState(phone, { state: "waiting_folio_name", folio_id: null, context: {} });
         originationId = null;
@@ -3333,14 +3337,14 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
           const rows = await sql`
             SELECT
               o.id, o.folio, o.estado, o.updated_at, o.created_at,
-              t.nombre as taxista_nombre,
+              CONCAT(t.nombre, CASE WHEN t.apellido_paterno IS NOT NULL THEN ' ' || t.apellido_paterno ELSE '' END, CASE WHEN t.apellido_materno IS NOT NULL THEN ' ' || t.apellido_materno ELSE '' END) as taxista_nombre,
               COUNT(d.id) FILTER (WHERE d.image_data IS NOT NULL OR d.ocr_result IS NOT NULL) as docs_count,
               EXISTS(SELECT 1 FROM evaluaciones_taxi e WHERE e.folio_id = o.folio) as entrevista_ok
             FROM originations o
             LEFT JOIN taxistas t ON t.id = o.taxista_id
             LEFT JOIN documents d ON d.origination_id = o.id
             WHERE o.estado NOT IN ('RECHAZADO', 'COMPLETADO', 'CANCELADO')
-            GROUP BY o.id, o.folio, o.estado, o.updated_at, o.created_at, t.nombre
+            GROUP BY o.id, o.folio, o.estado, o.updated_at, o.created_at, t.nombre, t.apellido_paterno, t.apellido_materno
             ORDER BY o.updated_at ASC
           ` as any[];
 
@@ -3387,6 +3391,28 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
           });
           return await respond(`*${stale2.length} trámites sin avance (más de ${dias} días):*\n\n${lines2.join("\n")}`);
         } catch (e: any) { /* fall through */ }
+      }
+
+      // "continuar con documentos" / "seguir con papeles" post-entrevista
+      const wantsContinueDocs = /continuar\s+(con\s+)?(los\s+)?(documentos?|papeles?)|seguir\s+(con\s+)?(los\s+)?(documentos?|papeles?)|volver\s+a\s+(documentos?|papeles?)/i.test(lo);
+      if (wantsContinueDocs && originationId) {
+        // Query real doc count from DB
+        const { neon: neon2 } = await import("@neondatabase/serverless");
+        const sql2 = neon2(process.env.DATABASE_URL!);
+        const docRows = await sql2`
+          SELECT tipo FROM documents
+          WHERE origination_id = ${originationId}
+          AND (image_data IS NOT NULL OR ocr_result IS NOT NULL)
+        ` as any[];
+        const capturedKeys2 = new Set(docRows.map((d: any) => d.tipo));
+        const pendingDocs = DOC_ORDER.filter(d => !capturedKeys2.has(d.key));
+        const tName = (convState?.context as any)?.folio?.taxistaName || "el taxista";
+        const folioStr2 = (convState?.context as any)?.folio?.folio || "";
+        if (pendingDocs.length === 0) {
+          return await respond(`Los papeles de ${tName} están completos (${DOC_ORDER.length}/${DOC_ORDER.length}). La entrevista ya quedó hecha. El expediente está listo para revisión.`);
+        }
+        const nextLabel = pendingDocs[0].label;
+        return await respond(`De ${tName}${folioStr2 ? ` (${folioStr2})` : ""} tenemos ${capturedKeys2.size}/${DOC_ORDER.length} papeles.\n\nSiguiente: *${nextLabel}*. Mándame la foto cuando la tengas.`);
       }
 
       // No folio context + vague action keyword → ask who
