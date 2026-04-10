@@ -36,11 +36,31 @@ interface ModelResult {
 
 // ─── Seminuevos.com scraper ──────────────────────────────────────────────
 
+// Expected price ranges per model family (based on verified references + market data)
+const MODEL_PRICE_RANGES: Record<string, [number, number]> = {
+  "march": [120000, 280000],
+  "aveo": [130000, 280000],
+  "kwid": [120000, 250000],
+  "i10": [160000, 320000],
+  "v-drive": [150000, 300000],
+  "versa": [180000, 380000],
+  "rio": [180000, 350000],
+  "yaris": [180000, 350000],
+  "vento": [150000, 300000],
+};
+
+function getPriceRange(model: string): [number, number] {
+  const key = model.toLowerCase().replace(/\s+/g, "");
+  for (const [k, v] of Object.entries(MODEL_PRICE_RANGES)) {
+    if (key.includes(k)) return v;
+  }
+  return [100000, 350000]; // fallback
+}
+
 async function scrapeSeminuevos(brand: string, model: string, year: number): Promise<PriceEntry[]> {
   const prices: PriceEntry[] = [];
   try {
-    const minP = 80000;
-    const maxP = 400000;
+    const [minP, maxP] = getPriceRange(model);
     const url = `https://www.seminuevos.com/autos?marca=${encodeURIComponent(brand.toLowerCase())}&modelo=${encodeURIComponent(model.toLowerCase())}&anio=${year}&precio-desde=${minP}&precio-hasta=${maxP}`;
     const res = await fetch(url, {
       headers: FETCH_HEADERS,
@@ -97,10 +117,11 @@ async function scrapeBBVA(brand: string, model: string, year: number): Promise<P
     const yearPrev = String(year - 1);
     const yearNext = String(year + 1);
 
+    const [bbvaMinP, bbvaMaxP] = getPriceRange(model);
     for (const item of items) {
       const p = item?.price_range?.minimum_price?.final_price?.value;
       const name = (item?.name || "").toLowerCase();
-      if (p && p >= 80000 && p <= 400000) {
+      if (p && p >= bbvaMinP && p <= bbvaMaxP) {
         if (name.includes(yearStr) || name.includes(yearPrev) || name.includes(yearNext)) {
           prices.push({ price: Math.round(p), source: "BBVA AutoMarket" });
         }
