@@ -2344,19 +2344,40 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         return await respond(msg);
       }
 
-      // ===== DIRECTOR: "extrae" / "qué documento es" / OCR test =====
-      if (/^(extrae|qu[eé]\s+documento\s+es|clasifica|ocr|analiza\s+doc)(\s+.+)?$/i.test(lower) && mediaUrl) {
-        // Run OCR on the image without saving
+      // ===== DIRECTOR: OCR sin folio =====
+      // Cualquier imagen sin folio activo → extrae y muestra, NO guarda
+      // También responde a 'extrae', 'qué documento es', 'ocr', 'clasifica'
+      const isOcrCommand = /^(extrae|qu[eé]\s+documento\s+es|clasifica|ocr|analiza\s+doc)(\s+.+)?$/i.test(lower);
+      if (mediaUrl && (!originationId || isOcrCommand)) {
         try {
-          const { classifyAndValidateDoc } = await import("./agent/vision");
+          const { classifyAndValidateDoc, DOC_ORDER: docOrder } = await import("./agent/vision");
           const imgBuf = await (await import("./twilio-helper")).downloadTwilioMedia(mediaUrl);
           const b64 = imgBuf.toString("base64");
-          const result = await classifyAndValidateDoc(b64, "image/jpeg", null, null);
-          const flags = result.cross_check_flags?.join(", ") || "ninguno";
-          const data = JSON.stringify(result.extracted_data || {}, null, 2).slice(0, 800);
-          return await respond(`*OCR Test* — Documento detectado: *${result.detected_type || "desconocido"}*\n\nDatos extraídos:\n\`\`\`\n${data}\n\`\`\`\n\nFlags: ${flags}`);
+          const result = await classifyAndValidateDoc(b64, "otro", docOrder, {});
+          const ext = result.extracted_data || {};
+          const flags = result.cross_check_flags || [];
+
+          // Format fields in readable way
+          const fieldLines = Object.entries(ext)
+            .filter(([_, v]) => v !== null && v !== undefined && v !== "")
+            .map(([k, v]) => `  *${k}*: ${v}`)
+            .join("\n");
+
+          const flagStr = flags.length > 0
+            ? `\n\n⚠️ *Flags:* ${flags.join(", ")}`
+            : "";
+
+          const docLabel = result.detected_type
+            ? docOrder.find((d: any) => d.key === result.detected_type)?.label || result.detected_type
+            : "Desconocido";
+
+          return await respond(
+            `*${docLabel}* — sin folio (no guardado)\n\n` +
+            (fieldLines || "Sin campos extraidos") +
+            flagStr
+          );
         } catch (e: any) {
-          return await respond(`OCR test fallido: ${e.message}`);
+          return await respond(`OCR fallido: ${e.message}`);
         }
       }
 
