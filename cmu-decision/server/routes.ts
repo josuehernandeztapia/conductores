@@ -79,15 +79,8 @@ const PUBLIC_PATHS = [
   "/api/agent/sandbox",
   "/api/market-cache",  // client-side ML scraper (browser sends prices from MX)
   "/api/originacion/reporte-pdf",  // internal cron + promotora trigger
-  "/api/test/cross-check-e2e",     // regression test runner (server-side)
-  "/api/test/cross-check-unit",    // unit tests with mock documents
-  "/api/test/bot-flow",            // bot conversation flow regression tests
-  "/api/test/full-flow-suite",     // full promotora + prospecto flow suite (20 cases)
-  "/api/test/flow-cpv-e2e",       // CPV origination flow documentation
-  "/api/test/client-flow-suite",  // Client role flow suite (10 cases)
-  "/api/test/director-flow-suite", // Director role flow suite (12 cases)
+  "/api/test/",                    // ALL test endpoints
   "/api/market-prices/bulk-update", // Daily bulk price update (cron)
-  "/api/test/calibration-regression", // TIR/MOIC calibration regression (3 cases)
 ];
 
 function authMiddleware(req: Request, res: Response, next: NextFunction) {
