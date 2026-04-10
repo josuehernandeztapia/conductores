@@ -2559,7 +2559,12 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
       }
 
       // Trigger interview if docs_completo and promotora/agent says to start
-      const wantsInterview = /iniciar entrevista|empezar entrevista|hacer entrevista|entrevista.*whatsapp|evaluar.*whatsapp/i.test(body.toLowerCase());
+      // Bug fix: accept just "entrevista" as trigger — promotora no necesita decir "iniciar entrevista"
+      const wantsInterview = /\bentrevista\b|iniciar entrevista|empezar entrevista|hacer entrevista|entrevista.*whatsapp|evaluar.*whatsapp/i.test(body.toLowerCase());
+      if (wantsInterview && !originationId) {
+        // No folio activo — pedir que seleccione primero
+        return await respond("\u00bfPara qué folio? Dime el nombre del taxista.");
+      }
       if (wantsInterview && originationId) {
         const orig = await this.storage.getOrigination(originationId);
         const folioStr = (orig as any)?.folio || `FOL-${originationId}`;
@@ -2638,6 +2643,29 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
       const lower = body.toLowerCase().trim();
 
       // Nuevo folio from promotor
+      // "nuevo folio" solo (sin args) → pedir nombre y tel
+      if (/^nuevo\s+folio\s*$/i.test(body.trim())) {
+        await this.updateState(phone, { state: "waiting_folio_name", context: { ...convState?.context } });
+        return await respond("Nombre del taxista y teléfono:\nEjemplo: *Pedro López 4491234567*");
+      }
+      // Estado waiting_folio_name: siguiente mensaje = nombre + tel
+      if (convState?.state === "waiting_folio_name" && body && !/^nuevo\s+folio/i.test(body)) {
+        const phoneMatchWait = body.match(/(\d{10,13})/);
+        const taxistaPhoneWait = phoneMatchWait ? phoneMatchWait[1] : "";
+        const taxistaNameWait = body.replace(/\d{10,13}/, "").trim() || "Sin nombre";
+        if (!taxistaPhoneWait) {
+          return await respond(`Necesito el teléfono. Ejemplo: *${taxistaNameWait} 4491234567*`);
+        }
+        await this.updateState(phone, { state: "idle", context: { ...convState?.context } });
+        try {
+          const result = await createFolioFromWhatsApp(this.storage, phone, taxistaNameWait, taxistaPhoneWait);
+          originationId = result.originationId;
+          await this.updateState(phone, { folioId: result.originationId, state: "capturing_docs", context: { folio: { id: result.originationId, folio: result.folio, estado: "BORRADOR", step: 1, docsCapturados: [], docsPendientes: DOC_ORDER.map((d: any) => d.key), taxistaName: taxistaNameWait } } });
+          return await respond(`Folio creado: *${result.folio}*\n${taxistaNameWait} | ${taxistaPhoneWait}\n\nEnvía los documentos. Primero: *INE (frente y vuelta)*`);
+        } catch (e: any) {
+          return await respond(`Error al crear folio: ${e.message}`);
+        }
+      }
       const nuevoFolioMatch = body.match(/^nuevo\s+folio\s+(.+)/i);
       if (nuevoFolioMatch) {
         const args = nuevoFolioMatch[1].trim();
@@ -2645,7 +2673,8 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         const taxistaPhone = phoneMatch ? phoneMatch[1] : "";
         const taxistaName = args.replace(/\d{10,13}/, "").trim() || "Sin nombre";
         if (!taxistaPhone) {
-          return await respond("Formato: *nuevo folio [nombre] [teléfono]*\nEjemplo: nuevo folio Juan Pérez 4491234567");
+          await this.updateState(phone, { state: "waiting_folio_name", context: { ...convState?.context, pendingName: taxistaName } });
+          return await respond(`Teléfono de ${taxistaName}:`);
         }
         try {
           const result = await createFolioFromWhatsApp(this.storage, phone, taxistaName, taxistaPhone);
@@ -3205,6 +3234,29 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         } catch (e: any) {
           console.error("[RAG] Error in old agent:", e.message);
         }
+      }
+    }
+
+    // ===== PROMOTORA: deterministic fallback BEFORE LLM =====
+    // If promotora reaches here without a resolved action, give a menu instead of LLM
+    if (role === "promotora" && body && !docSaved && !mediaUrl) {
+      const lo = body.toLowerCase().trim();
+      // Commands we know about but didn't resolve — give clear guidance
+      const isDocOrFolioAction = /folio|doc|imagen|entrevista|recordatorio|pendiente|status|estado|paso/i.test(lo);
+      if (isDocOrFolioAction && !originationId) {
+        return await respond(`¿Con qué folio? Dime el nombre del taxista o el número de folio.`);
+      }
+      // Generic unrecognized input — give operative menu
+      const isGeneric = lo.length < 25 && !/\d{4,}/.test(lo);
+      if (isGeneric && !originationId) {
+        return await respond(
+          `Comandos disponibles:\n` +
+          `\u2022 *nuevo folio* — crear expediente\n` +
+          `\u2022 *[nombre taxista]* — buscar folio\n` +
+          `\u2022 *pendientes* — folios sin avance\n` +
+          `\u2022 *entrevista* — iniciar entrevista (necesita folio activo)\n` +
+          `\u2022 Enviar imagen — capturar documento`
+        );
       }
     }
 
