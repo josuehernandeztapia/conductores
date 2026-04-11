@@ -993,13 +993,8 @@ Responde SOLO con JSON válido:
           for (const item of bbvaItems) {
             const p = item?.price_range?.minimum_price?.final_price?.value;
             const itemName = (item?.name || "").toLowerCase();
-            // Filter by year: name contains the year string
+            // STRICT: only exact year match in vehicle name
             if (p && p >= 80000 && p <= 400000 && itemName.includes(String(yearNum))) {
-              prices.push({ price: Math.round(p), source: "BBVA AutoMarket" });
-            }
-            // Also accept year ±1 for better coverage
-            if (p && p >= 80000 && p <= 400000 && !itemName.includes(String(yearNum)) &&
-                (itemName.includes(String(yearNum - 1)) || itemName.includes(String(yearNum + 1)))) {
               prices.push({ price: Math.round(p), source: "BBVA AutoMarket" });
             }
           }

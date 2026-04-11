@@ -114,17 +114,14 @@ async function scrapeBBVA(brand: string, model: string, year: number): Promise<P
     const data: any = await res.json();
     const items = data?.data?.products?.items || [];
     const yearStr = String(year);
-    const yearPrev = String(year - 1);
-    const yearNext = String(year + 1);
-
     const [bbvaMinP, bbvaMaxP] = getPriceRange(model);
+
     for (const item of items) {
       const p = item?.price_range?.minimum_price?.final_price?.value;
       const name = (item?.name || "").toLowerCase();
-      if (p && p >= bbvaMinP && p <= bbvaMaxP) {
-        if (name.includes(yearStr) || name.includes(yearPrev) || name.includes(yearNext)) {
-          prices.push({ price: Math.round(p), source: "BBVA AutoMarket" });
-        }
+      // STRICT: only exact year match — no ±1 year bleed
+      if (p && p >= bbvaMinP && p <= bbvaMaxP && name.includes(yearStr)) {
+        prices.push({ price: Math.round(p), source: "BBVA AutoMarket" });
       }
     }
   } catch (e: any) {
@@ -189,12 +186,11 @@ export async function bulkUpdateMarketPrices(): Promise<{
 
       try {
         // Scrape both sources in parallel
-        const [snPrices, bbvaPrices] = await Promise.all([
-          scrapeSeminuevos(brand, model, year),
-          scrapeBBVA(brand, model, year),
-        ]);
+        // Seminuevos disabled: returns ad prices not real listings (SPA, no year filter)
+        // BBVA AutoMarket is the only reliable server-side source with year in name
+        const bbvaPrices = await scrapeBBVA(brand, model, year);
 
-        const allPrices = [...snPrices, ...bbvaPrices];
+        const allPrices = [...bbvaPrices];
         const stats = calcStats(allPrices);
 
         // Build source counts
