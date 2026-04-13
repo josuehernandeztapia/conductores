@@ -306,10 +306,11 @@ export type EvaluationResult = {
   costoPctCmu: number; // totalCost / precioContado
   asegPctCmu: number; // insurerPrice / cmu
   margin: number; // precioContado - totalCost
-  // Market price cap
-  precioMaxCMU: number; // min(precioContado, marketAvgPrice) — max price CMU can charge
-  marketAvgPrice: number | null; // average market price from Kavak/ML
-  precioCapped: boolean; // true if precioContado was capped to market price
+  // Market price cap (PM CMU = P70)
+  precioMaxCMU: number; // min(precioContado, PM_CMU) — max price CMU can charge
+  marketAvgPrice: number | null; // average market price from Kavak/ML (legacy)
+  marketP70: number | null; // PM CMU = P70 of market (preferred cap)
+  precioCapped: boolean; // true if precioContado was capped to PM CMU (P70)
   // Amortization (German system — constant principal, decreasing interest)
   ventaPlazos: number; // sum of all 36 cuotas
   cuotaMes1: number;

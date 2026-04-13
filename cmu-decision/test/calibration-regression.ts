@@ -249,10 +249,104 @@ export async function runCalibrationRegression(): Promise<{
     }
   }
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // CAL04 — PM CMU = P70 cap rule verification
+  // March Sense 2021 with P70 market cap lower than CMU
+  // When P70 is passed, it should cap precioContado to P70
+  // ═══════════════════════════════════════════════════════════════════════
+  {
+    const calP70 = {
+      id: "CAL04",
+      name: "March Sense 2021 — PM CMU P70 cap at $190k",
+      input: {
+        modelId: 1,
+        modelSlug: "nissan-march-sense",
+        year: 2021,
+        cmu: 223298,  // catalog CMU higher than P70
+        insurerPrice: 123000,
+        repairEstimate: 10000,
+        conTanque: true,
+      },
+      modelData: {
+        brand: "Nissan",
+        model: "March",
+        variant: "Sense" as string | null,
+        slug: "nissan-march-sense",
+        purchaseBenchmarkPct: 0.60,
+      },
+    };
+
+    const assertions: Array<{ ok: boolean; msg: string }> = [];
+    let actual: Record<string, any> = {};
+
+    try {
+      const resultWithP70 = evaluateOpportunity(
+        calP70.input,
+        calP70.modelData,
+        { gnvRevenue: 4400, marketAvgPrice: 200000, marketP70: 190000 }
+      );
+
+      actual = {
+        precioContado: resultWithP70.precioContado,
+        precioCapped: resultWithP70.precioCapped,
+        precioMaxCMU: resultWithP70.precioMaxCMU,
+        marketP70: resultWithP70.marketP70,
+        marketAvgPrice: resultWithP70.marketAvgPrice,
+        totalCost: resultWithP70.totalCost,
+        margin: resultWithP70.margin,
+      };
+
+      // P70 = 190k which is less than CMU 223k → precioContado should be capped to 190k
+      assertions.push(ok(resultWithP70.precioCapped === true, `PV capped to P70: precioCapped=${resultWithP70.precioCapped}`));
+      assertions.push(near(resultWithP70.precioContado, 190000, 0, "PV capped to P70"));
+      assertions.push(near(resultWithP70.precioMaxCMU, 190000, 0, "precioMaxCMU = P70"));
+      assertions.push(ok(resultWithP70.marketP70 === 190000, `marketP70 in result: ${resultWithP70.marketP70} = 190000`));
+      assertions.push(ok(resultWithP70.marketAvgPrice === 200000, `marketAvgPrice preserved: ${resultWithP70.marketAvgPrice} = 200000`));
+      // Margin = 190000 - 151000 = 39000
+      assertions.push(near(resultWithP70.margin, 39000, 500, "Margin with P70 cap"));
+
+      // Now test P70 > CMU — should NOT cap but may apply floor (PM×0.95)
+      // P70=240k, floor=228k > CMU=223k → PV bumped to floor=228k (precioAjustado=true, not capped)
+      const resultP70High = evaluateOpportunity(
+        calP70.input,
+        calP70.modelData,
+        { gnvRevenue: 4400, marketAvgPrice: 250000, marketP70: 240000 }
+      );
+      assertions.push(ok(resultP70High.precioCapped === false, `P70 > CMU: not capped (precioCapped=${resultP70High.precioCapped})`));
+      assertions.push(near(resultP70High.precioContado, 228000, 0, "PV = P70*0.95 floor when P70 > CMU"));
+
+      // Test P70 = null but avg provided — should use avg as fallback
+      const resultFallback = evaluateOpportunity(
+        calP70.input,
+        calP70.modelData,
+        { gnvRevenue: 4400, marketAvgPrice: 185000, marketP70: null }
+      );
+      assertions.push(ok(resultFallback.precioCapped === true, `Avg fallback when P70=null: capped=${resultFallback.precioCapped}`));
+      assertions.push(near(resultFallback.precioContado, 185000, 0, "PV = avg when P70 is null"));
+
+      results.push({
+        id: calP70.id,
+        name: calP70.name,
+        pass: assertions.every(a => a.ok),
+        assertions,
+        actual,
+      });
+    } catch (err: any) {
+      results.push({
+        id: "CAL04",
+        name: "March Sense 2021 — PM CMU P70 cap at $190k",
+        pass: false,
+        assertions,
+        actual,
+        error: err.message,
+      });
+    }
+  }
+
   const passed = results.filter(r => r.pass).length;
   const failed = results.filter(r => !r.pass).length;
 
-  console.log("\n=== Calibration Regression (3 cases) ===\n");
+  console.log(`\n=== Calibration Regression (${results.length} cases) ===\n`);
   for (const r of results) {
     console.log(`${r.pass ? "✅" : "❌"} ${r.id}: ${r.name}`);
     if (!r.pass) {

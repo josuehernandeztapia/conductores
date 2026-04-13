@@ -339,6 +339,12 @@ function renderGrid(vehicles: PublicVehicle[], baseUrl: string): string {
     const mesLabel = mesGnvCubre >= 0 ? `$0 de bolsillo desde mes ${mesGnvCubre + 1}` : "";
     const bolsilloM3 = Math.max(0, cuotaM3 - recaudo) + FG_M;
 
+    // Count units with same slug (same model, multiple physical units)
+    const unitsOfModel = vehicles.filter(u => u.slug === v.slug && u.status === "disponible").length;
+    const unitsTag = unitsOfModel > 1
+      ? `<div class="card-units">${unitsOfModel} unidades disponibles</div>`
+      : "";
+
     return `
     <a href="/${v.slug}" class="card">
       ${v.destacado ? '<div class="card-tag-popular">Más popular</div>' : ""}
@@ -347,6 +353,7 @@ function renderGrid(vehicles: PublicVehicle[], baseUrl: string): string {
       <div class="card-body">
         <div class="card-name">${name}</div>
         <div class="card-details">${v.color || "Blanco"} · Kit GNV instalado · Listo para trabajar</div>
+        ${unitsTag}
         <div class="card-price">${fmt(v.precio)}</div>
         <div class="card-cuota">De tu bolsillo: ${fmt(bolsilloM3)}/mes (post-anticipo) · ${mesLabel}</div>
         <div class="card-gnv">⛽ Recaudo GNV: ${fmt(recaudo)}/mes</div>
@@ -354,11 +361,13 @@ function renderGrid(vehicles: PublicVehicle[], baseUrl: string): string {
     </a>`;
   }).join("\n");
 
+  // Real-time count: total available + unique models
   const available = vehicles.filter((v) => v.status === "disponible").length;
+  const uniqueModels = new Set(vehicles.filter(v => v.status === "disponible").map(v => v.slug)).size;
 
   const body = `
   <div class="container">
-    <div class="section-title">${available} vehículos disponibles · Inventario actualizado</div>
+    <div class="section-title">${available} unidades disponibles · ${uniqueModels} modelos · Inventario actualizado</div>
     <div class="grid">${cards}</div>
     <div class="cta-section" style="margin-top:32px">
       <div class="cta-section-title">¿Listo para renovar tu taxi?</div>

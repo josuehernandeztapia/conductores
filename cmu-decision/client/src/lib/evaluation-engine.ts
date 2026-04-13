@@ -514,12 +514,15 @@ function buildSensitivity(
 export function evaluateOpportunity(
   input: EvaluationInput,
   modelData: { brand: string; model: string; variant: string | null; slug: string; purchaseBenchmarkPct: number },
-  options?: { gnvRevenue?: number; marketAvgPrice?: number | null; gastoGasolina?: number; capitalCMU?: number }
+  options?: { gnvRevenue?: number; marketAvgPrice?: number | null; marketP70?: number | null; gastoGasolina?: number; capitalCMU?: number }
 ): EvaluationResult {
   const c = S();
   const { cmu, insurerPrice, repairEstimate, conTanque, city } = input;
   const gnvRevenue = options?.gnvRevenue ?? c.GNV_REVENUE;
+  // PM CMU = P70 (preferred), fallback to average for backward compat
+  const marketP70 = options?.marketP70 || null;
   const marketAvgPrice = options?.marketAvgPrice ?? null;
+  const pmCMU = marketP70 || marketAvgPrice || null; // P70 takes priority
   const gastoGasolina = options?.gastoGasolina ?? 7000;
   const capitalCMU = options?.capitalCMU ?? 500000;
 
@@ -527,24 +530,24 @@ export function evaluateOpportunity(
   const kitGnv = conTanque ? c.KIT_CON_TANQUE : c.KIT_SIN_TANQUE;
   let precioContado = conTanque ? cmu : cmu + c.PLUS_SIN_TANQUE;
 
-  // PRICE RULES:
-  // 1. PV floor: if catalog price < market×0.95, bump to market×0.95
-  // 2. PV cap: PV cannot exceed market average price
-  // Result: PV = min(marketAvg, max(catalog, market×0.95))
+  // PRICE RULES (PM CMU = P70):
+  // 1. PV floor: if catalog price < PM_CMU×0.95, bump to PM_CMU×0.95
+  // 2. PV cap: PV cannot exceed PM CMU (P70)
+  // Result: PV = min(PM_CMU, max(catalog, PM_CMU×0.95))
   let precioCapped = false;
   let precioAjustado = false;
   let precioMaxCMU = precioContado;
   let precioOriginal = precioContado;
-  if (marketAvgPrice && marketAvgPrice > 0) {
-    const marketFloor = Math.round(marketAvgPrice * 0.95);
+  if (pmCMU && pmCMU > 0) {
+    const marketFloor = Math.round(pmCMU * 0.95);
     if (precioContado < marketFloor) {
       precioContado = marketFloor;
       precioAjustado = true;
     }
-    precioMaxCMU = marketAvgPrice;
-    if (precioContado > marketAvgPrice) {
+    precioMaxCMU = pmCMU;
+    if (precioContado > pmCMU) {
       precioCapped = true;
-      precioContado = marketAvgPrice;
+      precioContado = pmCMU;
     }
   }
 
@@ -631,6 +634,7 @@ export function evaluateOpportunity(
     margin,
     precioMaxCMU,
     marketAvgPrice,
+    marketP70: pmCMU,
     precioCapped,
     ventaPlazos,
     cuotaMes1,

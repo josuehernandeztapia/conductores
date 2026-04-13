@@ -268,7 +268,7 @@ export async function registerRoutes(
   });
 
   // Get cached price for specific model (used by market-prices endpoint)
-  async function getCachedPrice(brand: string, model: string, variant: string | null, year: number): Promise<{ min: number; max: number; median: number; average: number; count: number; scrapedAt: string } | null> {
+  async function getCachedPrice(brand: string, model: string, variant: string | null, year: number): Promise<{ min: number; max: number; median: number; average: number; count: number; scrapedAt: string; p25: number | null; p70: number | null; p75: number | null; avg_band: number | null; sourceCount: number; warnings: string[] } | null> {
     try {
       const dbUrl = process.env.DATABASE_URL;
       if (!dbUrl) return null;
@@ -293,7 +293,13 @@ export async function registerRoutes(
         console.log(`[MarketCache] Cache for ${brand} ${model} ${year} is ${Math.round(age / 86400000)}d old — stale`);
         return null;
       }
-      return { min: r.min_price, max: r.max_price, median: r.median_price, average: r.average_price, count: r.sample_count, scrapedAt: r.scraped_at };
+      return {
+        min: r.min_price, max: r.max_price, median: r.median_price, average: r.average_price,
+        count: r.sample_count, scrapedAt: r.scraped_at,
+        p25: r.p25 || null, p70: r.p70 || null, p75: r.p75 || null,
+        avg_band: r.avg_band || null, sourceCount: r.source_count || 0,
+        warnings: r.warnings || [],
+      };
     } catch { return null; }
   }
 
@@ -778,6 +784,9 @@ Responde SOLO con JSON válido:
           brand, model, year, variant,
           prices: [], count: cached.count,
           min: cached.min, max: cached.max, median: cached.median, average: cached.average,
+          p25: cached.p25 || null, p70: cached.p70 || null, p75: cached.p75 || null,
+          avg_band: cached.avg_band || null, sourceCount: cached.sourceCount || 0,
+          warnings: cached.warnings || [],
           sources: [{ name: "Cache (Kavak+MercadoLibre)", count: cached.count }],
           fallback: false,
           note: `Precios actualizados ${new Date(cached.scrapedAt).toLocaleDateString("es-MX")}`,

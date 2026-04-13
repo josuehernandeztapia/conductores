@@ -646,6 +646,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
   // ===== Market Prices (Kavak + MercadoLibre) =====
   private async fetchMarketPrices(brand: string, model: string, year: number, variant?: string | null): Promise<{
     avg: number | null; min: number | null; max: number | null; median: number | null; count: number; sources: string; fallback: boolean;
+    p25: number | null; p70: number | null; p75: number | null; avg_band: number | null; sourceCount: number; warnings: string[];
   }> {
     try {
       const r = await fetch("http://localhost:5000/api/cmu/market-prices", {
@@ -660,10 +661,14 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         avg: data.average || null, min: data.min || null, max: data.max || null,
         median: data.median || null, count: data.count || 0,
         sources: srcList || "sin datos", fallback: data.fallback ?? true,
+        p25: data.p25 || null, p70: data.p70 || null, p75: data.p75 || null,
+        avg_band: data.avg_band || null, sourceCount: data.sourceCount || 0,
+        warnings: data.warnings || [],
       };
     } catch (e: any) {
       console.error("[Agent] Market prices error:", e.message);
-      return { avg: null, min: null, max: null, median: null, count: 0, sources: "error", fallback: true };
+      return { avg: null, min: null, max: null, median: null, count: 0, sources: "error", fallback: true,
+        p25: null, p70: null, p75: null, avg_band: null, sourceCount: 0, warnings: [] };
     }
   }
 
@@ -853,7 +858,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
     }
   }
 
-  private formatEvalResult(r: EvaluationResult, marketData?: { avg: number | null; min: number | null; max: number | null; median: number | null; count: number; sources: string; fallback: boolean }, gnvRevenue?: number, thresholds?: ReturnType<typeof getThresholds>): string {
+  private formatEvalResult(r: EvaluationResult, marketData?: { avg: number | null; min: number | null; max: number | null; median: number | null; count: number; sources: string; fallback: boolean; p25?: number | null; p70?: number | null; p75?: number | null; avg_band?: number | null; sourceCount?: number; warnings?: string[] }, gnvRevenue?: number, thresholds?: ReturnType<typeof getThresholds>): string {
     const pctCmu = (r.costoPctCmu * 100).toFixed(1);
     const tirB = (r.tirBase * 100).toFixed(1);
     const tirO = (r.tirOperativa * 100).toFixed(1);
@@ -878,18 +883,32 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
       `%CMU: *${pctCmu}%*`,
       `Margen: *$${r.margin.toLocaleString()}*`,
       `PV mínimo: $${r.pvMinimo.toLocaleString()}${r.precioContado >= r.pvMinimo ? " ✅" : " ❌"}`,
-      r.precioCapped ? `⚠️ Precio tope: ajustado a mercado $${r.precioMaxCMU.toLocaleString()}` : 
+      r.precioCapped ? `⚠️ Precio tope: ajustado a PM CMU (P70) $${r.precioMaxCMU.toLocaleString()}` : 
       (r as any).precioAjustado ? `🟢 PV ajustado: catálogo $${((r as any).precioOriginal || r.cmu).toLocaleString()} → mercado×0.95 = $${r.precioContado.toLocaleString()}` : "",
     ];
 
-    if (marketData && marketData.avg && marketData.count > 0) {
-      lines.push(
+    if (marketData && marketData.count > 0) {
+      const mktLines = [
         ``,
-        `*MERCADO* (${marketData.count} listings)`,
-        `Promedio: $${marketData.avg.toLocaleString()} | Mediana: $${(marketData.median || 0).toLocaleString()}`,
-        `Rango: $${(marketData.min || 0).toLocaleString()} — $${(marketData.max || 0).toLocaleString()}`,
-        `Fuentes: ${marketData.sources}${marketData.fallback ? " (catálogo)" : ""}`,
-      );
+        `*MERCADO* (${marketData.count} listings, ${marketData.sourceCount || "?"} fuentes)`,
+      ];
+      if (marketData.p25 && marketData.p75) {
+        mktLines.push(`Rango P25-P75: $${marketData.p25.toLocaleString()} – $${marketData.p75.toLocaleString()}`);
+      }
+      if (marketData.avg_band) {
+        mktLines.push(`Promedio banda: $${marketData.avg_band.toLocaleString()}`);
+      }
+      if (marketData.p70) {
+        mktLines.push(`PM CMU (P70): $${marketData.p70.toLocaleString()}`);
+      }
+      mktLines.push(`Fuentes: ${marketData.sources}${marketData.fallback ? " (catálogo)" : ""}`);
+      // Warnings
+      if (marketData.warnings && marketData.warnings.length > 0) {
+        for (const w of marketData.warnings) {
+          mktLines.push(`⚠️ ${w}`);
+        }
+      }
+      lines.push(...mktLines);
     }
 
     lines.push(
@@ -1646,7 +1665,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
           const mData = { brand: model.brand, model: model.model, variant: model.variant, slug: model.slug, purchaseBenchmarkPct: model.purchaseBenchmarkPct };
           const input: EvaluationInput = { modelId: model.id, modelSlug: model.slug, year: model.year, cmu: model.cmu, insurerPrice: pe.cost, repairEstimate: pe.repair, conTanque: pe.conTanque ?? true };
           const rules = await this.getRules();
-          const result = evaluateOpportunity(input, mData, { gnvRevenue: fuel.gnvRevenueMes, marketAvgPrice: mkt.avg });
+          const result = evaluateOpportunity(input, mData, { gnvRevenue: fuel.gnvRevenueMes, marketAvgPrice: mkt.avg, marketP70: mkt.p70 });
           return this.formatEvalResult(result, mkt, fuel.gnvRevenueMes, getThresholds(rules));
         }
         // Model+variant not found in catalog → market-based (same flow as non-catalog)
@@ -1660,7 +1679,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
             const input: EvaluationInput = { modelId: 0, modelSlug: slug, year: pe.year, cmu: marketCmu, insurerPrice: pe.cost, repairEstimate: pe.repair, conTanque: pe.conTanque ?? true };
             const fuel = await this.getFuel();
             const rules = await this.getRules();
-            const result = evaluateOpportunity(input, mData, { gnvRevenue: fuel.gnvRevenueMes, marketAvgPrice: mkt.avg });
+            const result = evaluateOpportunity(input, mData, { gnvRevenue: fuel.gnvRevenueMes, marketAvgPrice: mkt.avg, marketP70: mkt.p70 });
             await this.autoInsertCatalogModel(brandFromMap, pe.modelName, matchedVariant, pe.year, marketCmu);
             return `\u26a0\ufe0f *No est\u00e1 en cat\u00e1logo CMU* \u2014 usando precio de mercado\nPV = mercado $${mkt.avg.toLocaleString()} \u00d7 0.95 = *$${marketCmu.toLocaleString()}*\n\n` + this.formatEvalResult(result, mkt, fuel.gnvRevenueMes, getThresholds(rules));
           }
@@ -1730,24 +1749,29 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         // Use user's specified year for market fetch + title (not catalog year)
         const displayYear = earlyParsed.year || model.year;
         const mkt = await this.fetchMarketPrices(model.brand, model.model, displayYear, model.variant);
-        // Validate market data: if <5 samples or >20% deviation from catalog, don't use for PV rule
+        // Validate market data: PM CMU = P70 (preferred), fallback to avg
+        // If <5 samples or >40% deviation from catalog, don't use for PV rule
+        const rawPM = mkt.p70 || mkt.avg; // P70 takes priority
         let validMarketAvg: number | null = mkt.avg;
-        if (mkt.avg && model.cmu > 0) {
-          const ratio = mkt.avg / model.cmu;
+        let validMarketP70: number | null = mkt.p70 || null;
+        if (rawPM && model.cmu > 0) {
+          const ratio = rawPM / model.cmu;
           const isVerified = mkt.sources && mkt.sources.toLowerCase().includes('verificad');
           const enoughSamples = isVerified ? mkt.count >= 2 : mkt.count >= 5;
           if (!enoughSamples && !isVerified) {
             // Scraped prices with insufficient samples — skip cap
             console.log(`[Eval] Market scraped data insufficient: ${mkt.count} samples — skipping cap`);
             validMarketAvg = null;
+            validMarketP70 = null;
           } else if (ratio > 1.40) {
             // Market suspiciously HIGH vs CMU — likely bad data
             console.log(`[Eval] Market data suspiciously high: ratio=${ratio.toFixed(2)} — skipping cap`);
             validMarketAvg = null;
+            validMarketP70 = null;
           } else if (ratio < 1.0) {
             // Market LOWER than CMU — MUST apply cap (core PV rule)
-            console.log(`[Eval] Market $${mkt.avg.toLocaleString()} < CMU $${model.cmu.toLocaleString()} (ratio=${ratio.toFixed(2)}) — applying PV cap`);
-            // validMarketAvg stays set
+            console.log(`[Eval] PM CMU $${rawPM.toLocaleString()} < CMU $${model.cmu.toLocaleString()} (ratio=${ratio.toFixed(2)}) — applying PV cap`);
+            // validMarketP70/validMarketAvg stays set
           }
         }
         const m = model as any;
@@ -1766,7 +1790,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
             umbralByModel[match[1]] = parseInt(val as string) || 7000;
           }
         }
-        const result = evaluateOpportunity(input, mData, { gnvRevenue: fuel.gnvRevenueMes, marketAvgPrice: validMarketAvg, umbralDifM3Global: umbralGlobal, umbralDifM3ByModel: umbralByModel });
+        const result = evaluateOpportunity(input, mData, { gnvRevenue: fuel.gnvRevenueMes, marketAvgPrice: validMarketAvg, marketP70: validMarketP70, umbralDifM3Global: umbralGlobal, umbralDifM3ByModel: umbralByModel });
         const formatted = this.formatEvalResult(result, mkt, fuel.gnvRevenueMes, getThresholds(rules));
         // Store full corrida so "Sí" returns it directly (no LLM hallucination)
         if (result.decision !== "NO COMPRAR") {
@@ -1829,7 +1853,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
             const input: EvaluationInput = { modelId: 0, modelSlug: slug, year: searchYear, cmu: marketCmu, insurerPrice: earlyParsed.cost, repairEstimate: earlyParsed.repair !== null ? earlyParsed.repair : 10000, conTanque: earlyParsed.conTanque };
             const fuel = await this.getFuel();
             const rules = await this.getRules();
-            const result = evaluateOpportunity(input, mData, { gnvRevenue: fuel.gnvRevenueMes, marketAvgPrice: mkt.avg });
+            const result = evaluateOpportunity(input, mData, { gnvRevenue: fuel.gnvRevenueMes, marketAvgPrice: mkt.avg, marketP70: mkt.p70 });
             
             // Auto-insert into catalog for future lookups
             await this.autoInsertCatalogModel(brandFromMap, modelName, null, searchYear, marketCmu);
@@ -1903,7 +1927,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
       const mkt2 = await this.fetchMarketPrices(model.brand, model.model, model.year, model.variant);
       const input: EvaluationInput = { modelId: model.id, modelSlug: model.slug, year: model.year, cmu: model.cmu, insurerPrice: parsed.cost, repairEstimate: parsed.repair !== null ? parsed.repair : 10000, conTanque: parsed.conTanque };
       const rules2 = await this.getRules();
-      const result = evaluateOpportunity(input, { brand: model.brand, model: model.model, variant: model.variant, slug: model.slug, purchaseBenchmarkPct: model.purchaseBenchmarkPct }, { gnvRevenue: fuel2.gnvRevenueMes, marketAvgPrice: mkt2.avg });
+      const result = evaluateOpportunity(input, { brand: model.brand, model: model.model, variant: model.variant, slug: model.slug, purchaseBenchmarkPct: model.purchaseBenchmarkPct }, { gnvRevenue: fuel2.gnvRevenueMes, marketAvgPrice: mkt2.avg, marketP70: mkt2.p70 });
       return this.formatEvalResult(result, mkt2, fuel2.gnvRevenueMes, getThresholds(rules2));
     }
 
@@ -2176,19 +2200,19 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
           await this.setLastModel(phone, model);
           const fuel = await this.getFuel();
           // Market prices are optional — evaluation works with catalog CMU alone
-          const mkt = await this.fetchMarketPrices(model.brand, model.model, model.year, model.variant).catch(() => ({ count: 0, avg: null as number | null, min: null, max: null, median: null }));
+          const mkt = await this.fetchMarketPrices(model.brand, model.model, model.year, model.variant).catch(() => ({ count: 0, avg: null as number | null, min: null, max: null, median: null, p70: null as number | null, p25: null, p75: null, avg_band: null, sourceCount: 0, warnings: [] as string[], sources: "error", fallback: true }));
           const m = model as any;
           const mData = { brand: m.brand, model: m.model, variant: m.variant, slug: m.slug, purchaseBenchmarkPct: m.purchaseBenchmarkPct || m.purchase_benchmark_pct || 0.60 };
           const input: EvaluationInput = { modelId: m.id, modelSlug: m.slug, year: m.year, cmu: m.cmu, insurerPrice: pe.cost, repairEstimate: pe.repair, conTanque: pe.conTanque ?? true };
           const rules = await this.getRules();
-          const result = evaluateOpportunity(input, mData, { gnvRevenue: fuel.gnvRevenueMes, marketAvgPrice: mkt.avg });
+          const result = evaluateOpportunity(input, mData, { gnvRevenue: fuel.gnvRevenueMes, marketAvgPrice: mkt.avg, marketP70: mkt.p70 });
           return await respond(this.formatEvalResult(result, mkt, fuel.gnvRevenueMes, getThresholds(rules)));
         }
         // Not in catalog for that year → try market-based
         const brandFromMap = WhatsAppAgent.BRAND_MAP[(pe.modelName || "").toLowerCase()] || null;
         if (brandFromMap) {
           const searchName = `${pe.modelName} ${matchedVariant}`;
-          const mkt = await this.fetchMarketPrices(brandFromMap, searchName, pe.year).catch(() => ({ count: 0, avg: null as number | null, min: null, max: null, median: null }));
+          const mkt = await this.fetchMarketPrices(brandFromMap, searchName, pe.year).catch(() => ({ count: 0, avg: null as number | null, min: null, max: null, median: null, p70: null as number | null, p25: null, p75: null, avg_band: null, sourceCount: 0, warnings: [] as string[], sources: "error", fallback: true }));
           if (mkt.count > 0 && mkt.avg) {
             const marketCmu = Math.round(mkt.avg * 0.95 / 1000) * 1000;
             const slug = `${brandFromMap}-${pe.modelName}-${matchedVariant}`.toLowerCase().replace(/\s+/g, "-");
@@ -2196,7 +2220,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
             const input: EvaluationInput = { modelId: 0, modelSlug: slug, year: pe.year, cmu: marketCmu, insurerPrice: pe.cost, repairEstimate: pe.repair, conTanque: pe.conTanque ?? true };
             const fuel = await this.getFuel();
             const rules = await this.getRules();
-            const result = evaluateOpportunity(input, mData, { gnvRevenue: fuel.gnvRevenueMes, marketAvgPrice: mkt.avg });
+            const result = evaluateOpportunity(input, mData, { gnvRevenue: fuel.gnvRevenueMes, marketAvgPrice: mkt.avg, marketP70: mkt.p70 });
             await this.autoInsertCatalogModel(brandFromMap, pe.modelName, matchedVariant, pe.year, marketCmu);
             return await respond(`\u26a0\ufe0f *No est\u00e1 en cat\u00e1logo CMU* \u2014 usando precio de mercado\nPV = mercado $${mkt.avg.toLocaleString()} \u00d7 0.95 = *$${marketCmu.toLocaleString()}*\n\n` + this.formatEvalResult(result, mkt, fuel.gnvRevenueMes, getThresholds(rules)));
           }
