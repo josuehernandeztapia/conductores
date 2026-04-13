@@ -48,7 +48,7 @@ async function callClaude(messages: any[], options: any = {}): Promise<{ text: s
 
   const t0 = Date.now();
   const resp = await client.messages.create({
-    model: "claude-3-5-haiku-20241022",
+    model: "claude-3-haiku-20240307",
     max_tokens: options.max_tokens || 500,
     system: systemMsg?.content || undefined,
     messages: userMsgs.map((m: any) => ({ role: m.role, content: m.content })),
