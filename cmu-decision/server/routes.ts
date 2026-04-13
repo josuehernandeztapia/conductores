@@ -1430,6 +1430,17 @@ Responde SOLO con JSON válido:
     }
   });
 
+  // POST /api/test/llm-ab-benchmark — gpt-4o-mini vs Claude Haiku A/B test
+  app.post("/api/test/llm-ab-benchmark", async (_req, res) => {
+    try {
+      const { runLLMABBenchmark } = await import("../test/llm-ab-benchmark");
+      const result = await runLLMABBenchmark();
+      return res.json(result);
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
   // POST /api/test/vision-benchmark — GPT-4o vs Claude Sonnet head-to-head on 10 real documents
   app.post("/api/test/vision-benchmark", async (_req, res) => {
     try {
