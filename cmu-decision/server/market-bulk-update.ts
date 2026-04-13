@@ -252,7 +252,12 @@ export async function bulkUpdateMarketPrices(): Promise<{
     }
   }
 
-  // ─── STEP 3: Update CMU prices in vehicles_inventory ────────────────────
+  // ─── STEP 3: CMU price update DISABLED ──────────────────────────────────
+  // CMU prices are set manually by the director based on real evaluations.
+  // The bulk updater only refreshes market_prices_cache for reference.
+  // Auto-updating cmu_valor caused prices to inflate with unreliable market data.
+  const cmuUpdates: any[] = [];
+  /*
   // PV rule: PV = min(mercado, max(catálogo, mercado × 0.95))
   // "CMU price can NEVER exceed the market average for the equivalent vehicle without GNV"
   console.log(`\n[BulkUpdate] Updating CMU prices in vehicles_inventory...`);
@@ -308,6 +313,8 @@ export async function bulkUpdateMarketPrices(): Promise<{
     console.error(`[BulkUpdate][CMU] Error updating vehicle prices:`, e.message);
     errors.push(`CMU update: ${e.message}`);
   }
+
+  */
 
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
   console.log(`[BulkUpdate] Done in ${elapsed}s: ${updated} market updated, ${cmuUpdates.length} CMU prices adjusted, ${skipped} skipped, ${errors.length} errors`);
