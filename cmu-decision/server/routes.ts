@@ -2156,7 +2156,7 @@ Responde SOLO con JSON válido:
   const CONEKTA_PRIVATE_KEY = process.env.CONEKTA_PRIVATE_KEY;
   const CONEKTA_PUBLIC_KEY = process.env.CONEKTA_PUBLIC_KEY;
   const conektaEnabled = !!CONEKTA_PRIVATE_KEY;
-  if (conektaEnabled) console.log("[Conekta] Enabled (sandbox)");
+  if (conektaEnabled) console.log("[Conekta] Enabled (production)");
   else console.log("[Conekta] No credentials — pagos will be placeholder");
 
   app.post("/api/payments/create-order", async (req, res) => {

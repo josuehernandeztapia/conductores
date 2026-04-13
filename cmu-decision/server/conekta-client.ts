@@ -8,16 +8,16 @@
  * API docs: https://developers.conekta.com/reference/payment-link
  */
 
-const CONEKTA_API_KEY = () => process.env.CONEKTA_API_KEY || "";
+const CONEKTA_PRIVATE_KEY = () => process.env.CONEKTA_PRIVATE_KEY || process.env.CONEKTA_API_KEY || "";
 const CONEKTA_BASE = "https://api.conekta.io";
 const CONEKTA_VERSION = "application/vnd.conekta-v2.2.0+json";
 
 // ===== API HELPERS =====
 
 async function conektaFetch(path: string, method: string = "GET", body?: any): Promise<any> {
-  const key = CONEKTA_API_KEY();
+  const key = CONEKTA_PRIVATE_KEY();
   if (!key) {
-    console.warn("[Conekta] No API key configured");
+    console.warn("[Conekta] No API key configured (set CONEKTA_PRIVATE_KEY)");
     return null;
   }
 
@@ -25,7 +25,7 @@ async function conektaFetch(path: string, method: string = "GET", body?: any): P
     "Accept": CONEKTA_VERSION,
     "Content-Type": "application/json",
     "Accept-Language": "es",
-    "Authorization": `Bearer ${key}`,
+    "Authorization": "Basic " + Buffer.from(`${key}:`).toString("base64"),
   };
 
   const options: RequestInit = { method, headers, signal: AbortSignal.timeout(15000) };
@@ -203,5 +203,5 @@ export function parseConektaWebhook(body: any): ConektaWebhookEvent | null {
  * Check if Conekta is configured
  */
 export function isConektaEnabled(): boolean {
-  return !!CONEKTA_API_KEY();
+  return !!CONEKTA_PRIVATE_KEY();
 }
