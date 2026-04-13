@@ -16,7 +16,10 @@ import * as fs from "fs";
 import * as path from "path";
 import Anthropic from "@anthropic-ai/sdk";
 
-const FIXTURES = path.join(__dirname, "fixtures/cross-check-real");
+// In production, __dirname is /app/dist/ but fixtures are at /app/test/fixtures/
+const FIXTURES = fs.existsSync(path.join(__dirname, "fixtures/cross-check-real"))
+  ? path.join(__dirname, "fixtures/cross-check-real")
+  : path.join(process.cwd(), "test/fixtures/cross-check-real");
 
 interface BenchResult {
   file: string;
