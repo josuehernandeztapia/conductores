@@ -429,17 +429,23 @@ export class WhatsAppAgent {
     return { text: `Siguiente: ${pending[0].label} | Faltan: ${pending.map(d => d.label).join(", ")}`, nextKey: pending[0].key, count: captured.size };
   }
 
-  // ===== LLM =====
+  // ===== LLM (Claude Haiku with OpenAI fallback) =====
   private async llm(messages: any[], maxTok = 600): Promise<string> {
     try {
-      const r = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST", headers: { "Authorization": `Bearer ${this.key}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model: "gpt-4o-mini", messages, max_tokens: maxTok, temperature: 0.5 }),
-      });
-      const d = await r.json();
-      if (d.error) { console.error("[Agent]", d.error.message); return "Tuve un problema, intenta de nuevo."; }
-      return d.choices?.[0]?.message?.content || "Sin respuesta.";
-    } catch (e: any) { console.error("[Agent]", e.message); return "Error de conexión."; }
+      const { claudeCompletion } = await import("./agent/claude-helper");
+      return await claudeCompletion(messages, { max_tokens: maxTok, module: "conversational" });
+    } catch (e: any) {
+      console.error("[Agent] Claude failed, trying OpenAI:", e.message);
+      try {
+        const r = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST", headers: { "Authorization": `Bearer ${this.key}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ model: "gpt-4o-mini", messages, max_tokens: maxTok, temperature: 0.5 }),
+        });
+        const d = await r.json();
+        if (d.error) { console.error("[Agent]", d.error.message); return "Tuve un problema, intenta de nuevo."; }
+        return d.choices?.[0]?.message?.content || "Sin respuesta.";
+      } catch (e2: any) { console.error("[Agent]", e2.message); return "Error de conexión."; }
+    }
   }
 
   // ===== Vision =====

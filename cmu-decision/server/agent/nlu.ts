@@ -11,6 +11,7 @@
 
 import type { Intent, NLUResult } from "./types";
 import { chatCompletion } from "./openai-helper";
+import { claudeCompletion } from "./claude-helper";
 
 // ─── Regex Patterns ──────────────────────────────────────────────────────────
 
@@ -370,12 +371,12 @@ Rules:
 
 Respond ONLY with valid JSON: {"intent": "...", "entities": {...}, "confidence": 0.N}`;
 
-    const text = await chatCompletion(
+    const text = await claudeCompletion(
       [
         { role: "system", content: systemPrompt },
         { role: "user", content: body },
       ],
-      { max_tokens: 150, temperature: 0 },
+      { max_tokens: 150, temperature: 0, module: "nlu" },
     );
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {

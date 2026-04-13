@@ -12,6 +12,7 @@
 
 import { neon } from "@neondatabase/serverless";
 import { chatCompletion } from "./openai-helper";
+import { claudeCompletion } from "./claude-helper";
 import { buildClientKnowledge } from "../cmu-knowledge";
 import { getBusinessRules } from "../business-rules";
 
@@ -353,13 +354,14 @@ async function answerWithLLM(question: string, rules: BusinessRule[]): Promise<s
         : "";
     }
 
-    const text = await chatCompletion(
+    const text = await claudeCompletion(
       [
         {
           role: "system",
           content: `Eres el asistente de CMU (Conductores del Mundo), un programa de renovación de taxis en Aguascalientes.
 Responde la pregunta del taxista usando SOLO la información del knowledge base. Si no encuentras la respuesta, di "No tengo esa información, pero tu asesor CMU te puede ayudar."
 Respuesta corta (2-3 líneas), español coloquial mexicano. Amigable y directo. NO inventes datos.
+Usa los términos exactos: "mora" para pagos vencidos, "recargo" para cargos adicionales, "FG" o "Fondo de Garantía" para el depósito de seguridad, "diferencial" para lo que el taxista paga de su bolsillo.
 
 KNOWLEDGE BASE CMU:
 ${knowledgeBase}`,
