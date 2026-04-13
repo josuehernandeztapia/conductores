@@ -18,6 +18,12 @@ jobs:
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
+      - name: Set Fly secrets
+        run: |
+          flyctl secrets set ANTHROPIC_API_KEY="${{ secrets.ANTHROPIC_API_KEY }}" --app cmu-originacion 2>/dev/null || true
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
       - name: Deploy to Fly.io
         run: flyctl deploy --remote-only --no-cache --wait-timeout 300
         working-directory: cmu-decision
