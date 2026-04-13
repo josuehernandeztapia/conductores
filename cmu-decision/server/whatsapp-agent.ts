@@ -1694,7 +1694,12 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
     const earlyParsed = this.parseEvalLine(cmd);
     const earlyEvalSignals = earlyParsed.cost || earlyParsed.repair || lower.startsWith("evalua") || lower.startsWith("eval\u00faa");
     
-    if (earlyEvalSignals) {
+    // GUARD: If the message is a conversational question referencing previous evals
+    // (e.g. "me conviene ofertar por los dos 300k", "tomando en cuenta...", "crees que vale la pena..."),
+    // skip the eval parser and let the LLM handle it with conversation context.
+    const isConversationalQuestion = /(?:conviene|vale la pena|crees|opinas|recomiendas|tomando en cuenta|considerando|los (?:dos|tres|ultimos)|ambos|comparando|que piensas|deber[ií]a|me sale|es buena|buena opci[oó]n|qu[eé] tal si)/i.test(lower);
+    
+    if (earlyEvalSignals && !isConversationalQuestion) {
       let model: Model | undefined;
       if (earlyParsed.modelQuery) model = await this.resolveModel(earlyParsed.modelQuery, earlyParsed.year);
 
