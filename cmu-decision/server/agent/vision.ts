@@ -130,7 +130,7 @@ export const TOTAL_DOCS = DOC_ORDER.length;
 
 // ─── Build GPT-4V prompt ────────────────────────────────────────────────────
 
-function buildVisionPrompt(
+export function buildVisionPrompt(
   expectedType: string,
   docOrder: DocDefinition[],
   existingData: Record<string, any>,

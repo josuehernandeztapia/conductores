@@ -1430,6 +1430,18 @@ Responde SOLO con JSON válido:
     }
   });
 
+  // POST /api/test/vision-benchmark — GPT-4o vs Claude Sonnet head-to-head on 10 real documents
+  app.post("/api/test/vision-benchmark", async (_req, res) => {
+    try {
+      const { runVisionBenchmark } = await import("../test/vision-benchmark");
+      const result = await runVisionBenchmark();
+      return res.json(result);
+    } catch (err: any) {
+      console.error("[VisionBenchmark]", err.message);
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
   // POST /api/market-prices/bulk-update — Daily bulk update of market prices for all catalog models
   app.post("/api/market-prices/bulk-update", async (_req, res) => {
     try {
