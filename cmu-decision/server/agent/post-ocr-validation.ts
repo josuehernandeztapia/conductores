@@ -23,12 +23,27 @@ function namesMatch(a: string | null | undefined, b: string | null | undefined):
   const na = normalizeName(a);
   const nb = normalizeName(b);
   if (!na || !nb) return true; // can't compare if either is missing
-  // Check if one contains the other (handles "JOSE PEREZ" vs "JOSE LUIS PEREZ GARCIA")
-  const tokensA = na.split(' ').filter(t => t.length > 2);
-  const tokensB = nb.split(' ').filter(t => t.length > 2);
-  // At least 2 tokens must match
-  const matches = tokensA.filter(t => tokensB.includes(t));
-  return matches.length >= 2;
+  if (na.length < 4 || nb.length < 4) return true; // too short to compare reliably
+  
+  const tokensA = na.split(' ').filter(t => t.length > 1);
+  const tokensB = nb.split(' ').filter(t => t.length > 1);
+  
+  // Count matching tokens (handles abbreviations: "M" matches start of "MANUEL")
+  let matchCount = 0;
+  for (const ta of tokensA) {
+    for (const tb of tokensB) {
+      if (ta === tb) { matchCount++; break; }
+      // Abbreviation: "M" or "MA" matches "MANUEL", "J" matches "JOSE"
+      if (ta.length <= 2 && tb.startsWith(ta)) { matchCount += 0.5; break; }
+      if (tb.length <= 2 && ta.startsWith(tb)) { matchCount += 0.5; break; }
+    }
+  }
+  
+  // Need at least 2 solid matches (apellidos typically)
+  // Or 1 solid + abbreviation matches for short names
+  const minTokens = Math.min(tokensA.length, tokensB.length);
+  const threshold = minTokens <= 2 ? 1.5 : 2;
+  return matchCount >= threshold;
 }
 
 // ===== HELPER: CURP validation (RENAPO format) =====
@@ -127,8 +142,10 @@ export function postOCRValidation(
 
   // Get INE frente data as source of truth
   const ine = existingData.ine_frente || existingData.datos_ine || {};
-  const ineNombre = ine.nombre || ine.nombre_completo || 
-    [ine.nombre, ine.apellido_paterno, ine.apellido_materno].filter(Boolean).join(' ') || '';
+  // Build full name: prefer nombre_completo, then join nombre + apellidos
+  const ineNombre = ine.nombre_completo || 
+    [ine.nombre, ine.apellido_paterno, ine.apellido_materno].filter(Boolean).join(' ') || 
+    ine.nombre || '';
   const ineCURP = ine.curp || '';
   const ineDomicilio = ine.domicilio || '';
   const ineVigencia = ine.vigencia || '';
