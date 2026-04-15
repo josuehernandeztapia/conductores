@@ -167,13 +167,16 @@ export function postOCRValidation(
     // Vigencia check
     if (ineVigencia || extractedData.vigencia) {
       const vig = extractedData.vigencia || ineVigencia;
-      // INE vigencia format is typically "2025" or "2025-2035" — check year
       const yearMatch = String(vig).match(/(\d{4})/);
       if (yearMatch) {
         const vigYear = parseInt(yearMatch[1]);
-        if (vigYear < new Date().getFullYear()) {
+        const currentYear = new Date().getFullYear();
+        if (vigYear < currentYear) {
           addFlag('ine_vencida');
           log.push(`[INE] Vigencia vencida: ${vig}`);
+        } else if (vigYear === currentYear) {
+          addFlag('ine_proxima_vencer');
+          log.push(`[INE] Vigencia expira este año (${vigYear})`);
         }
       }
     }
@@ -312,6 +315,30 @@ export function postOCRValidation(
       if (!mun.includes('aguascalientes') && !mun.includes('ags')) {
         addFlag('municipio_no_ags');
         log.push(`[Concesión] Municipio: "${extractedData.municipio}" (no es AGS)`);
+      }
+    }
+    // Vigencia: próxima a vencer (< 30 días)
+    if (extractedData.vigencia) {
+      try {
+        const vigStr = String(extractedData.vigencia);
+        // Handle "2028" (year only) or "2026-04-30" (full date)
+        let vigDate: Date;
+        if (/^\d{4}$/.test(vigStr)) {
+          vigDate = new Date(parseInt(vigStr), 11, 31); // end of year
+        } else {
+          vigDate = new Date(vigStr);
+        }
+        const now = new Date();
+        const daysLeft = Math.floor((vigDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        if (daysLeft < 0) {
+          addFlag('concesion_vencida');
+          log.push(`[Concesión] Vigencia vencida: ${vigStr} (hace ${Math.abs(daysLeft)} días)`);
+        } else if (daysLeft <= 30) {
+          addFlag('concesion_proxima_vencer');
+          log.push(`[Concesión] Vigencia en ${daysLeft} días: ${vigStr}`);
+        }
+      } catch (e) {
+        // Can't parse date — skip
       }
     }
   }
