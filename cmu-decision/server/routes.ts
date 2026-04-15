@@ -3067,6 +3067,51 @@ Responde SOLO con JSON válido:
     }
   });
 
+  // POST /api/recaudo/admin — Generic Airtable admin operations (director PIN required)
+  app.post("/api/recaudo/admin", async (req, res) => {
+    try {
+      const { pin, action, table, fields, recordId, formula } = req.body;
+      if (pin !== "654321") return res.status(403).json({ message: "PIN incorrecto" });
+      const AIRTABLE_TOKEN = process.env.AIRTABLE_PAT || process.env.AIRTABLE_TOKEN || "";
+      if (!AIRTABLE_TOKEN) return res.status(500).json({ message: "AIRTABLE_PAT not set" });
+      const BASE_ID = "appXxbjjGzXFiX7gk";
+      const headers = { Authorization: `Bearer ${AIRTABLE_TOKEN}`, "Content-Type": "application/json" };
+
+      if (action === "create") {
+        const resp = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${table}`, {
+          method: "POST", headers,
+          body: JSON.stringify({ records: [{ fields }], typecast: true }),
+        });
+        const data: any = await resp.json();
+        return res.json({ success: !data.error, data });
+      }
+      if (action === "update" && recordId) {
+        const resp = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${table}/${recordId}`, {
+          method: "PATCH", headers,
+          body: JSON.stringify({ fields }),
+        });
+        const data: any = await resp.json();
+        return res.json({ success: !data.error, data });
+      }
+      if (action === "delete" && recordId) {
+        const resp = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${table}/${recordId}`, {
+          method: "DELETE", headers,
+        });
+        const data: any = await resp.json();
+        return res.json({ success: !data.error, data });
+      }
+      if (action === "list") {
+        const qs = formula ? `?filterByFormula=${encodeURIComponent(formula)}` : "";
+        const resp = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${table}${qs}`, { headers });
+        const data: any = await resp.json();
+        return res.json({ success: true, records: (data.records || []).map((r: any) => ({ id: r.id, ...r.fields })) });
+      }
+      return res.status(400).json({ message: "action must be create|update|delete|list" });
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
   // ===== EVALUACIÓN RÁPIDA TAXI =====
   app.use("/api/evaluacion", evaluacionRoutes);
 
