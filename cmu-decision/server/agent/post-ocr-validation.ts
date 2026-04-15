@@ -19,32 +19,62 @@ function normalizeName(name: string | null | undefined): string {
     .trim();
 }
 
+// Common Mexican surname abbreviations
+const MX_ABBREVIATIONS: Record<string, string> = {
+  'HDZ': 'HERNANDEZ', 'HDEZ': 'HERNANDEZ',
+  'GZZ': 'GONZALEZ', 'GLEZ': 'GONZALEZ', 'GLZ': 'GONZALEZ',
+  'MTZ': 'MARTINEZ', 'MTNEZ': 'MARTINEZ',
+  'RDZ': 'RODRIGUEZ', 'RDGZ': 'RODRIGUEZ', 'RGEZ': 'RODRIGUEZ',
+  'GRRO': 'GUERRERO', 'GRO': 'GUERRERO',
+  'FDZ': 'FERNANDEZ', 'FDEZ': 'FERNANDEZ',
+  'LPZ': 'LOPEZ', 'LPEZ': 'LOPEZ',
+  'RMZ': 'RAMIREZ', 'RMREZ': 'RAMIREZ',
+  'DVZ': 'DAVILA',
+  'MA': 'MARIA',
+  'GPE': 'GUADALUPE',
+  'FCO': 'FRANCISCO',
+  'STO': 'SANTO', 'STA': 'SANTA',
+  'PROFR': 'PROFESOR', 'PROFRA': 'PROFESORA',
+  'ING': 'INGENIERO', 'LIC': 'LICENCIADO',
+  'DR': 'DOCTOR', 'DRA': 'DOCTORA',
+};
+
+/** Expand Mexican abbreviations in a token */
+function expandAbbreviation(token: string): string {
+  // Remove trailing dots
+  const clean = token.replace(/\.$/, '');
+  return MX_ABBREVIATIONS[clean] || clean;
+}
+
 function namesMatch(a: string | null | undefined, b: string | null | undefined): boolean {
   const na = normalizeName(a);
   const nb = normalizeName(b);
   if (!na || !nb) return true; // can't compare if either is missing
   if (na.length < 4 || nb.length < 4) return true; // too short to compare reliably
   
-  const tokensA = na.split(' ').filter(t => t.length > 1);
-  const tokensB = nb.split(' ').filter(t => t.length > 1);
+  // Expand abbreviations before comparing
+  const tokensA = na.split(' ').filter(t => t.length > 1).map(expandAbbreviation);
+  const tokensB = nb.split(' ').filter(t => t.length > 1).map(expandAbbreviation);
   
-  // Count matching tokens (handles abbreviations: "M" matches start of "MANUEL")
+  // Count matching tokens
   let matchCount = 0;
   for (const ta of tokensA) {
     for (const tb of tokensB) {
       if (ta === tb) { matchCount++; break; }
-      // Abbreviation: "M" or "MA" matches "MANUEL", "J" matches "JOSE"
+      // Short abbreviation (1-2 chars after expand): partial match
       if (ta.length <= 2 && tb.startsWith(ta)) { matchCount += 0.5; break; }
       if (tb.length <= 2 && ta.startsWith(tb)) { matchCount += 0.5; break; }
     }
   }
   
   // Need at least 2 solid matches (apellidos typically)
-  // Or 1 solid + abbreviation matches for short names
   const minTokens = Math.min(tokensA.length, tokensB.length);
   const threshold = minTokens <= 2 ? 1.5 : 2;
   return matchCount >= threshold;
 }
+
+// Export for testing
+export { namesMatch as _namesMatch, expandAbbreviation as _expandAbbreviation, normalizeName as _normalizeName };
 
 // ===== HELPER: CURP validation (RENAPO format) =====
 function validateCURP(curp: string | null | undefined): { valid: boolean; reason?: string } {
