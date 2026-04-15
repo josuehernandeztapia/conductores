@@ -106,7 +106,7 @@ const FAQ: FAQEntry[] = [
   // ═══════════════════════════════════════
   {
     patterns: [/requisitos/i, /qu[eé]\s+necesito/i, /qu[eé]\s+(?:me\s+)?pid(?:en|es)/i, /qu[eé]\s+(?:documentos|papeles)/i, /checklist/i],
-    answer: "Documentos necesarios (14 en total):\n1. INE frente\n2. INE reverso\n3. Comprobante de domicilio\n4. Tarjeta de circulación\n5. Factura del taxi actual\n6. Concesión de taxi\n7. Constancia de situación fiscal (SAT)\n8. Estado de cuenta bancario\n9. Historial de cargas GNV\n10. Carta de agrupación\n11. Selfie con INE\n12. Comprobante de ingresos\n13. CURP\n14. Acta de nacimiento\n\nTodo se manda por foto aquí por WhatsApp. Después: entrevista rápida + firma digital del contrato.",
+    answer: "Requisitos (14 documentos + entrevista + firma):\n\n*Documentos con vigencia:*\n1. INE vigente (frente y reverso)\n2. Comprobante de domicilio (max 3 meses)\n3. Constancia de Situación Fiscal SAT (max 3 meses)\n4. Estado de cuenta bancario (max 3 meses)\n5. Concesión de taxi vigente\n\n*Documentos sin vigencia:*\n6. Tarjeta de circulación\n7. Factura del taxi actual\n8. CURP\n9. Acta de nacimiento\n10. Carta de agrupación/gremial\n11. Historial de cargas (tickets gas o gasolina)\n12. Comprobante de ingresos\n13. Selfie con tu INE\n14. Fotos de tu unidad (4 fotos)\n\nDespués: entrevista por WhatsApp (10 min) + firma digital del contrato.\nTodo se manda por foto aquí. Si no tienes alguno, escribe *saltar*.",
   },
   {
     patterns: [/concesi[oó]n/i, /vigente/i, /no\s+tengo\s+concesi/i, /concesi[oó]n.*vencid/i],
@@ -281,12 +281,17 @@ const FAQ: FAQEntry[] = [
     answer: "Por ahora el trámite es por WhatsApp, pero si prefieres atención en persona, escribe 'promotor' y coordinamos una visita. Es más rápido y seguro por aquí porque las fotos de tus documentos se procesan al instante.",
   },
 
+  {
+    patterns: [/(?:de\s+)?(?:cu[aá]ntos|m[aá]ximo|max)\s+meses/i, /antig[uü]edad/i, /vigencia.*(?:documento|comprobante|constancia)/i, /(?:qu[eé]\s+tan).*(?:reciente|actual)/i],
+    answer: "Vigencias máximas de documentos:\n\u2022 Comprobante de domicilio: max 3 meses\n\u2022 Constancia de Situación Fiscal (SAT): max 3 meses\n\u2022 Estado de cuenta bancario: max 3 meses\n\u2022 INE: debe estar vigente (no vencida)\n\u2022 Concesión: debe estar vigente\n\nLos demás documentos (factura, CURP, acta de nacimiento, etc.) no tienen vigencia.",
+  },
+
   // ═══════════════════════════════════════
   // DOCUMENTOS — AYUDA PRÁCTICA
   // ═══════════════════════════════════════
   {
-    patterns: [/constancia.*(?:sat|fiscal)/i, /qu[eé]\s+es.*(?:csf|situaci[oó]n\s+fiscal)/i, /d[oó]nde.*(?:saco|consigo|bajo).*(?:sat|fiscal)/i],
-    answer: "La Constancia de Situación Fiscal la sacas gratis en la página del SAT (sat.gob.mx) con tu RFC y contraseña, o en cualquier oficina del SAT con tu INE. Si no sabes cómo, tu promotor te puede ayudar.",
+    patterns: [/constancia.*(?:sat|fiscal)/i, /qu[eé]\s+es.*(?:csf|situaci[oó]n\s+fiscal)/i, /d[oó]nde.*(?:saco|consigo|bajo).*(?:sat|fiscal)/i, /csf/i],
+    answer: "La Constancia de Situación Fiscal (CSF) debe tener máximo 3 meses de antigüedad. La sacas gratis en la página del SAT (sat.gob.mx) con tu RFC y contraseña, o en cualquier oficina del SAT con tu INE. Si no sabes cómo, tu promotor te puede ayudar.",
   },
   {
     patterns: [/qu[eé]\s+es.*curp/i, /d[oó]nde.*(?:saco|consigo|bajo).*curp/i, /no\s+tengo.*curp/i],
