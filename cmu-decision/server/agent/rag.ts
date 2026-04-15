@@ -174,7 +174,7 @@ const FAQ: FAQEntry[] = [
   },
   {
     patterns: [/ahorro/i, /cu[aá]nto\s+(?:me\s+)?ahorro/i, /(?:conviene|sale).*gas/i],
-    answer: "El ahorro por usar gas natural vs gasolina ronda entre 40-50%. Ejemplo: si gastas $7,000/mes en gasolina, con GNV gastarías ~$3,500-4,200. Esa diferencia cubre gran parte de tu cuota mensual.",
+    answer: "El ahorro por usar gas natural vs gasolina ronda entre 40-50%. Ejemplo: si gastas $9,600/mes en gasolina (400 litros a $24), con GNV gastarías ~$4,800-5,800. Esa diferencia cubre gran parte de tu cuota mensual.",
   },
 
   // ═══════════════════════════════════════

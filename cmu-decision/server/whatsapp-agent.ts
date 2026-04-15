@@ -2292,7 +2292,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
     const isGreeting = /^(hola|hey|buenos? d[ií]as?|buenas? tardes?|buenas? noches?|buenas|qu[eé] tal|saludos|ey|hi|hello|mande)\s*[!.?]*$/i.test(body.trim());
     const isHelp = /^(ayuda|gu[ií]a|men[uú]|menu|comandos|que puedo hacer|qu[eé] puedo hacer|opciones|help)\s*[!.?]*$/i.test(body.trim());
     if ((isGreeting || isHelp) && !mediaUrl) {
-      const hour = new Date().getHours();
+      const hour = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Mexico_City" })).getHours();
       const timeGreet = hour < 12 ? "Buenos días" : hour < 18 ? "Buenas tardes" : "Buenas noches";
       const name = roleName || profileName || "";
       
@@ -3036,7 +3036,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         try { await upsertProspect({ phone, canal_origen: canal, status: "curioso" }); }
         catch (e: any) { console.error(`[Pipeline] upsertProspect:`, e.message); }
         await this.updateState(phone, { state: "prospect_fuel_type", context: { canal } });
-        const hour = new Date().getHours();
+        const hour = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Mexico_City" })).getHours();
         const timeGreet = hour < 12 ? "Buenos d\u00edas" : hour < 18 ? "Buenas tardes" : "Buenas noches";
         const name = profileName || "";
         return await respond(`${timeGreet}${name ? " " + name : ""}. Soy el asistente de *Conductores del Mundo*. Tenemos un programa para renovar tu taxi con veh\u00edculo seminuevo y kit de gas natural. Gran parte del pago se cubre con tu ahorro en GNV.\n\n\u00bfTu taxi ya usa *gas natural* o est\u00e1s con *gasolina*?`);
@@ -3582,7 +3582,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
             ORDER BY o.updated_at ASC
           ` as any[];
 
-          const hour = new Date().getHours();
+          const hour = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Mexico_City" })).getHours();
           const saludo = hour < 12 ? "Buenos d\u00edas" : hour < 18 ? "Buenas tardes" : "Buenas noches";
 
           const lines: string[] = [`${saludo} \ud83d\udc4b`];

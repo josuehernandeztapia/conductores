@@ -28,7 +28,7 @@ Zona: EXCLUSIVAMENTE Aguascalientes, Mexico
 --- PROPUESTA DE VALOR (PARA EL CLIENTE) ---
 Renueva tu taxi. Paga con lo que ya gastas en GNV.
 CMU te ofrece un vehiculo seminuevo con kit GNV instalado, sin buro, sin aval.
-Tu consumo de gas natural en la red NATGAS abona automaticamente a tu cuota cada mes.
+Tu consumo de gas natural en estaciones con convenio CMU abona automaticamente a tu cuota cada mes.
 Das 8 semanas para vender tu unidad actual sin presion — ese dinero abona directo a tu credito.
 Al terminar el credito en regla, recuperas hasta $20,000 de tu Fondo de Garantia.
 Sin buro. Sin aval. Cuota decrece cada mes. Fondo devuelto mes 37.
@@ -36,7 +36,7 @@ Sin buro. Sin aval. Cuota decrece cada mes. Fondo devuelto mes 37.
 --- CONTEXTO PROMOTOR ---
 Programa TSR (Taxi Renewal) dirigido exclusivamente a taxistas de Aguascalientes con concesion vigente.
 CMU compra vehiculos siniestrados a aseguradoras, los repara, instala kit GNV, y financia directamente al taxista.
-El recaudo del sobreprecio GNV en red NATGAS funciona como canal de cobro automatico.
+El recaudo del sobreprecio GNV en estaciones con convenio CMU funciona como canal de cobro automatico.
 Exito del promotor = folios llevados a estado FIRMADO.
 El sistema valida eligibilidad automaticamente — el promotor captura documentos y acompana al cliente.`;
 
@@ -56,32 +56,32 @@ REQUISITOS GENERALES (todos los perfiles):
 - El solicitante debe ser el TITULAR de la concesion — NO el operador
 - Zona: exclusivamente Aguascalientes, Ags.
 - Unidad actual operando activamente
-- Sin adeudos en red GNV
 
 PERFIL A — Usuario GNV Activo:
-- Antiguedad en red NATGAS: minimo 2 anos
 - Consumo promedio: >= 400 LEQ/mes comprobable
-- Sin adeudos GNV
-- Documento: Historial GNV de la red
+- Minimo 10 tickets del ultimo mes para inferir consumo
+- Documento: Historial de cargas GNV
 
 PERFIL B — Gasolina / New Entrant:
-- Tickets/facturas gasolina: >= $6,000/mes
-- Historial minimo: 3 meses recientes
-- Odometro congruente con uso taxi activo
-- Declaracion jurada requerida`;
+- Consumo equivalente: >= 400 litros gasolina/mes (aprox $9,600/mes a $24/L)
+- Minimo 10 tickets del ultimo mes para inferir consumo mensual
+- Documento: Tickets o facturas de gasolina recientes`;
 
 const SSOT_DOCUMENTOS = `--- DOCUMENTOS REQUERIDOS (11) ---
 01. INE Frente — Titular de la concesion, vigente
 02. INE Reverso — Misma INE
 03. Tarjeta de Circulacion — Unidad actual
 04. Factura del Vehiculo Actual — Unidad que opera hoy
-05. Constancia de Situacion Fiscal — SAT, maximo 30 dias de antiguedad
+05. Constancia de Situacion Fiscal — SAT, maximo 3 meses de antiguedad
 06. Comprobante de Domicilio — Maximo 3 meses de antiguedad
 07. Concesion de Taxi — Vigente, Aguascalientes
 08. Estado de Cuenta Bancario — Caratula con CLABE 18 digitos visible
-09. Historial GNV (Perfil A) o Tickets Gasolina 3 meses (Perfil B)
+09. Historial GNV (Perfil A) o Tickets Gasolina (Perfil B) — minimo 10 tickets del ultimo mes
 10. Carta de Membresia Gremial — Agrupacion de taxistas
 11. Selfie con INE — Foto en tiempo real, INE legible junto al rostro
+12. CURP — descarga gratuita en gob.mx/curp
+13. Acta de nacimiento
+14. Fotos de la unidad actual (4 fotos: frente, trasera, laterales)
 
 Adicional: INE y licencia del/los operador(es) + 4 fotos unidad actual (frente, trasera, laterales).
 INE = FUENTE DE VERDAD para cross-check de todos los demas documentos.`;
@@ -108,7 +108,7 @@ SITUACION → QUE HACE CMU → TU PAGAS:
 const SSOT_FAQ = `--- FAQ CONVERSACIONAL (respuestas exactas para el agente) ---
 
 P: Necesito tener buen historial crediticio?
-R: No. CMU no consulta buro de credito. La calificacion se basa en tu historial de consumo GNV (Perfil A) o en tus tickets de gasolina de los ultimos 3 meses (Perfil B). Si consumes gas regularmente, eso es tu garantia.
+R: No. CMU no consulta buro de credito. La calificacion se basa en tu historial de consumo GNV (Perfil A) o en tus tickets de gasolina del ultimo mes (Perfil B, minimo 10 tickets). Si consumes gas regularmente, eso es tu garantia.
 
 P: Que pasa si un mes no consumo suficiente GNV?
 R: CMU aplica automaticamente el diferencial de tu Fondo de Garantia. No caes en mora ni tienes que hacer nada. Solo recibes un WhatsApp con el saldo actualizado de tu Fondo.
@@ -141,7 +141,7 @@ const SSOT_ORIGINACION = `--- FLUJO DE ORIGINACION (10 PASOS — GUIA PROMOTOR) 
 1. CREAR FOLIO (PWA): Abrir PWA, crear folio. Sistema genera ID. Estado: BORRADOR.
 2. CAPTURAR INE (OCR automatico): Fotografiar INE frente y reverso. OCR extrae nombre, CURP, INE#, vigencia.
 3. SELECCIONAR PERFIL: Preguntar si consume GNV (A) o gasolina (B). Capturar historial segun perfil.
-4. VALIDAR ELEGIBILIDAD (Sistema): Concesion vigente, zona AGS, consumo/tickets, sin adeudos. Si falla, indica motivo.
+4. VALIDAR ELEGIBILIDAD (Sistema): Concesion vigente, zona AGS, consumo >= 400 LEQ/mes (o equivalente gasolina). Si falla, indica motivo.
 5. CAPTURAR DOCUMENTOS 3-11: OCR valida vigencias. Si calidad mala, indica recaptura.
 6. SELECCIONAR VEHICULO: Mostrar disponibles con amortizacion. Verificar promo kit. Confirmar.
 7. GENERAR CONTRATO (Auto): Sistema genera Compraventa + Pagare con datos del folio.
@@ -189,9 +189,8 @@ DEL VEHICULO:
 - Mantener kit GNV instalado y en operacion — no desinstalar ni modificar
 
 GNV Y RECAUDO:
-- Consumir GNV exclusivamente en la red NATGAS para efectos del recaudo
+- Consumir GNV exclusivamente en estaciones con convenio CMU para efectos del recaudo
 - Mantener consumo minimo recomendado de 400 LEQ/mes
-- Sin adeudos en red GNV durante toda la vigencia del credito
 - Notificar a CMU cualquier cambio en placa, concesion o datos bancarios
 
 FINANCIERAS:

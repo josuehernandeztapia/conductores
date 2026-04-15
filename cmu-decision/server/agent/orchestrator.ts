@@ -938,7 +938,7 @@ async function processDocImage(
       contextUpTicket.existingData = { ...contextUpTicket.existingData, gnv_leq_mensual: monthlyLeq };
     } else if (detectedKey === 'tickets_gasolina' && avgMonto !== null) {
       const monthlyMonto = Math.round(avgMonto * 26);
-      if (monthlyMonto < 6000) internalFlags.push('gasto_bajo_gasolina');
+      if (monthlyMonto < 9600) internalFlags.push('gasto_bajo_gasolina');
       prospectMsg = `Gasto estimado: *$${monthlyMonto.toLocaleString()}/mes* \u2713`;
       contextUpTicket.existingData = { ...contextUpTicket.existingData, gasolina_monto_mensual: monthlyMonto };
     }
@@ -1197,7 +1197,7 @@ async function processDocImage(
     if (flags.includes('licencia_vencida')) warnings.push('La licencia de conducir est\u00e1 vencida.');
     if (flags.includes('rostro_no_coincide')) warnings.push('El rostro en la selfie no parece coincidir con la foto de tu INE.');
     if (flags.includes('consumo_bajo_gnv')) warnings.push('Tu consumo de GNV parece bajo (< 300 LEQ/mes).');
-    if (flags.includes('gasto_bajo_gasolina')) warnings.push('Tu gasto de gasolina parece bajo (< $6,000/mes).');
+    if (flags.includes('gasto_bajo_gasolina')) warnings.push('Tu gasto de gasolina parece bajo (< $9,600/mes, equivalente a 400 litros). Para el programa se necesitan al menos 400 litros mensuales.');
     // Catch any unhandled flags
     const handledFlags = ['nombre_prospecto_mismatch','nombre_mismatch','expired','vigencia_vencida','ine_vencida','ine_proxima_vencer','curp_mismatch','curp_formato_invalido','domicilio_mismatch','address_mismatch','domicilio_vencido','csf_vencida','clabe_invalid','clabe_check_digit','rfc_invalido','niv_mismatch','niv_formato_invalido','placa_mismatch','ine_operador_vencida','licencia_vencida','rostro_no_coincide','consumo_bajo_gnv','gasto_bajo_gasolina','tipo_no_taxi','no_es_taxi','municipio_no_ags','concesion_proxima_vencer','concesion_vencida'];
     const unhandled = flags.filter((f: string) => !handledFlags.includes(f));
