@@ -3563,6 +3563,79 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         }
       }
 
+      // ===== PROMOTOR GREETING WITH MENU + PENDING FOLIOS =====
+      const isGreeting = /^(?:hola|buenas?\s*(?:tardes?|d[ií]as?|noches?)|hey|qu[eé]\s*tal|buenos?\s*d[ií]as?|ola)\s*[!.?]*$/i.test(lo.trim());
+      if (isGreeting) {
+        try {
+          const { neon: neonImport } = await import("@neondatabase/serverless");
+          const sqlG = neonImport(process.env.DATABASE_URL!);
+          const gRows = await sqlG`
+            SELECT o.id, o.folio, o.estado, o.updated_at, o.created_at,
+              CONCAT(t.nombre, CASE WHEN t.apellido_paterno IS NOT NULL THEN ' ' || t.apellido_paterno ELSE '' END) as taxista_nombre,
+              COUNT(d.id) FILTER (WHERE d.image_data IS NOT NULL OR d.ocr_result IS NOT NULL) as docs_count
+            FROM originations o
+            LEFT JOIN taxistas t ON t.id = o.taxista_id
+            LEFT JOIN documents d ON d.origination_id = o.id
+            WHERE o.estado NOT IN ('RECHAZADO', 'COMPLETADO', 'CANCELADO')
+              AND (t.telefono IS NULL OR t.telefono NOT LIKE '521999%')
+            GROUP BY o.id, o.folio, o.estado, o.updated_at, o.created_at, t.nombre, t.apellido_paterno
+            ORDER BY o.updated_at ASC
+          ` as any[];
+
+          const hour = new Date().getHours();
+          const saludo = hour < 12 ? "Buenos d\u00edas" : hour < 18 ? "Buenas tardes" : "Buenas noches";
+
+          const lines: string[] = [`${saludo} \ud83d\udc4b`];
+
+          if (gRows.length > 0) {
+            lines.push(``, `\ud83d\udccb *${gRows.length} tr\u00e1mite${gRows.length > 1 ? "s" : ""} activo${gRows.length > 1 ? "s" : ""}:*`);
+            for (const r of gRows) {
+              const name2 = r.taxista_nombre || r.folio;
+              const days = Math.floor((Date.now() - new Date(r.updated_at || r.created_at).getTime()) / (1000*60*60*24));
+              const daysStr = days > 0 ? ` (${days}d)` : "";
+              const docsCount = parseInt(r.docs_count) || 0;
+              lines.push(`\u2022 *${name2}*${daysStr}: ${docsCount}/14 docs`);
+            }
+          } else {
+            lines.push(``, `No hay tr\u00e1mites activos por ahora.`);
+          }
+
+          lines.push(``, `\u00bfQu\u00e9 necesitas?`, `1\ufe0f\u20e3 Dudas del programa`, `2\ufe0f\u20e3 Nuevo prospecto`, `3\ufe0f\u20e3 Evaluar oportunidad`, `4\ufe0f\u20e3 Ver inventario`);
+
+          return await respond(lines.join("\n"));
+        } catch (e: any) {
+          console.error("[Promotor Greeting]", e.message);
+          // fall through to LLM
+        }
+      }
+
+      // ===== PROMOTOR MENU RESPONSES =====
+      // Handle "1", "2", "3", "4" as menu selections
+      if (lo === "4" || /(?:inventario|veh[i\u00ed]culos?\s+(?:disponibles?|tenemos)|carros?\s+(?:disponibles?|tenemos)|qu[e\u00e9]\s+(?:hay|tienen))/i.test(lo)) {
+        try {
+          const { neon: neonInv } = await import("@neondatabase/serverless");
+          const sqlI = neonInv(process.env.DATABASE_URL!);
+          const inv = await sqlI`
+            SELECT brand, model, variant, year, cmu AS cmu_valor, status
+            FROM vehicles_inventory
+            WHERE status = 'disponible'
+            ORDER BY brand, model, year
+          ` as any[];
+
+          if (inv.length === 0) return await respond("No hay veh\u00edculos disponibles en este momento.");
+
+          const lines: string[] = [`\ud83d\ude97 *Inventario CMU* (${inv.length} disponibles):`, ``];
+          for (const v of inv) {
+            const name = `${v.brand} ${v.model}${v.variant ? " " + v.variant : ""} ${v.year}`;
+            lines.push(`\u2022 *${name}* \u2014 $${Number(v.cmu_valor).toLocaleString()}`);
+          }
+          lines.push(``, `Dime el modelo y te calculo la cuota con tu consumo de combustible.`);
+          return await respond(lines.join("\n"));
+        } catch (e: any) {
+          console.error("[Inventario]", e.message);
+        }
+      }
+
       // Reportes determinísticos — construidos desde Neon, sin LLM
       const wantsReport = /pendientes?|sin\s+avance|reporte|cu[aá]ntos?\s+(faltan|tienen|llevan)|listado|todos\s+los\s+tr|todos\s+los\s+fol/i.test(lo);
       if (wantsReport) {
@@ -3580,6 +3653,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
             LEFT JOIN taxistas t ON t.id = o.taxista_id
             LEFT JOIN documents d ON d.origination_id = o.id
             WHERE o.estado NOT IN ('RECHAZADO', 'COMPLETADO', 'CANCELADO')
+              AND (t.telefono IS NULL OR t.telefono NOT LIKE '521999%')
             GROUP BY o.id, o.folio, o.estado, o.updated_at, o.created_at, t.nombre, t.apellido_paterno, t.apellido_materno
             ORDER BY o.updated_at ASC
           ` as any[];
