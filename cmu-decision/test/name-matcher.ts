@@ -24,6 +24,26 @@ import {
   _joinParticles as joinParticles,
 } from "../server/agent/post-ocr-validation";
 
+export function runNameMatcherTests() {
+    function testMatch(id: string, description: string, a: string, b: string, expected: boolean) {
+    const result = namesMatch(a, b);
+    const pass = result === expected;
+    const entry: TestResult = { id, description, pass, a, b, expected, got: result };
+    if (!pass) {
+      const rawA = normalizeName(a).split(" ").filter(t => t.length > 0).map(expandAbbreviation);
+      const rawB = normalizeName(b).split(" ").filter(t => t.length > 0).map(expandAbbreviation);
+      entry.tokensA = joinParticles(rawA);
+      entry.tokensB = joinParticles(rawB);
+    }
+    results.push(entry);
+  }
+
+  function testJoin(id: string, description: string, input: string[], expected: string[]) {
+    const result = joinParticles(input);
+    const pass = JSON.stringify(result) === JSON.stringify(expected);
+    results.push({ id, description, pass, expected, got: result });
+  }
+
 // ═══════════════════════════════════════════════════════════════
 // TEST RUNNER
 // ═══════════════════════════════════════════════════════════════
@@ -299,7 +319,7 @@ testMatch("ED09", "Nombre con Ü (raro pero posible)",
 // RESULTS
 // ═══════════════════════════════════════════════════════════════
 
-export function runNameMatcherTests() {
+
   // Force execution of all tests above (they run on import)
   const passed = results.filter(r => r.pass).length;
   const failed = results.filter(r => !r.pass).length;
@@ -337,9 +357,8 @@ export function runNameMatcherTests() {
   return { passed, failed, total: results.length, results };
 }
 
-// Run if executed directly (not via import)
-const isDirectRun = require.main === module || process.argv[1]?.includes('name-matcher');
-if (isDirectRun) {
-  runNameMatcherTests();
-  if (results.some(r => !r.pass)) process.exit(1);
+// Run if executed directly
+if (process.argv[1]?.includes('name-matcher')) {
+  const r = runNameMatcherTests();
+  if (r.failed > 0) process.exit(1);
 }
