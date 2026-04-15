@@ -410,8 +410,10 @@ export async function handleProspectMessage(
     "interview_q1", "interview_q2", "interview_q3", "interview_q4",
     "interview_q5", "interview_q6", "interview_q7", "interview_q8",
   ];
-  const FOOTER = `\n\n────────────────\n_siguiente · estado · entrevista · promotor_`;
-  if (STATES_WITH_FOOTER.includes(newState) && !response.includes("siguiente · estado")) {
+  const FOOTER_DOCS = `\n\n_Escribe *saltar* si no lo tienes, o *promotor* si necesitas ayuda._`;
+  const FOOTER_FLOW = `\n\n_¿Necesitas ayuda? Escribe *promotor* y te contactamos._`;
+  const FOOTER = newState === "docs_capture" ? FOOTER_DOCS : FOOTER_FLOW;
+  if (STATES_WITH_FOOTER.includes(newState) && !response.includes("promotor")) {
     response = response + FOOTER;
   }
 
@@ -605,7 +607,14 @@ async function handleTextMessage(
       const folio = ctx.folio || '?';
       const nombre = ctx.nombre || phone;
       try {
-        await notifyTeam(`📲 *Prospecto solicita atención personal*\n\n*Nombre:* ${nombre}\n*Tel:* ${phone}\n*Folio:* ${folio}\n\nFavor de contactarlo directamente.`);
+        const docsCount = (ctx.docsCollected || []).length;
+        const skippedCount = (ctx.skippedDocs || []).length;
+        const modelStr = ctx.selectedModel ? `\n*Modelo:* ${ctx.selectedModel}` : '';
+        const docsStr = docsCount > 0 ? `\n*Docs:* ${docsCount}/14 capturados` : '';
+        const skippedStr = skippedCount > 0 ? `\n*Saltados:* ${(ctx.skippedDocs || []).join(', ')}` : '';
+        const stepMap: Record<string, string> = { idle: 'Inicio', prospect_name: 'Registro', prospect_fuel_type: 'Combustible', prospect_consumo: 'Consumo', prospect_select_model: 'Selección vehículo', prospect_tank: 'Tanque', prospect_corrida: 'Corrida', prospect_confirm: 'Confirmación', docs_capture: 'Captura documentos', docs_pending: 'Docs pendientes', interview_ready: 'Pre-entrevista', interview_q1: 'Entrevista', interview_q2: 'Entrevista', interview_q3: 'Entrevista', interview_q4: 'Entrevista', interview_q5: 'Entrevista', interview_q6: 'Entrevista', interview_q7: 'Entrevista', interview_q8: 'Entrevista', completed: 'Completado' };
+        const stepName = stepMap[state] || state;
+        await notifyTeam(`📲 *Solicitud de ayuda*\n\n*Nombre:* ${nombre}\n*Tel:* ${phone}\n*Folio:* ${folio}\n*Paso:* ${stepName}${modelStr}${docsStr}${skippedStr}\n\nEl prospecto pidió ayuda. Contactarlo directo.`);
       } catch (e: any) {
         console.error('[Orchestrator] notifyTeam (human request) failed:', e.message);
       }
@@ -1825,6 +1834,17 @@ async function handleDocsText(
     const newSkipped = [...skippedDocs, currentDoc.key];
     const nextDoc = getNextExpectedDoc([...collectedDocs, ...newSkipped]);
     const pendingCount = TOTAL_DOCS - collectedDocs.length;
+
+    // Auto-escalation: if 2+ docs skipped, notify promotora
+    if (newSkipped.length === 2) {
+      const nombre = ctx.nombre || phone;
+      const folio = ctx.folio || '?';
+      try {
+        await notifyTeam(`\u26a0\ufe0f *Auto-escalaci\u00f3n: prospecto con dificultad*\n\n*Nombre:* ${nombre}\n*Tel:* ${phone}\n*Folio:* ${folio}\n*Docs saltados:* ${newSkipped.join(', ')}\n*Docs capturados:* ${collectedDocs.length}/14\n\nEl prospecto lleva 2 documentos saltados. Puede necesitar apoyo.`);
+      } catch (e: any) {
+        console.error('[Orchestrator] Auto-escalation notify failed:', e.message);
+      }
+    }
 
     if (!nextDoc) {
       if (interviewDone) {

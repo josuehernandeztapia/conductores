@@ -3610,7 +3610,23 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
       }
 
       // ===== PROMOTOR MENU RESPONSES =====
-      // Handle "1", "2", "3", "4" as menu selections
+      // Option 1: Dudas del programa
+      if (lo === "1" || /^dudas?$/i.test(lo)) {
+        return await respond(`*Temas frecuentes:*\n\n\u2022 *requisitos* \u2014 14 documentos + vigencias\n\u2022 *proceso* \u2014 paso a paso del tr\u00e1mite\n\u2022 *kit* \u2014 kit GNV incluido\n\u2022 *enganche* \u2014 anticipo y d\u00eda 56\n\u2022 *cuota* \u2014 c\u00f3mo funciona la amortizaci\u00f3n\n\u2022 *fondo de garant\u00eda* \u2014 FG y mora\n\u2022 *gas* \u2014 estaciones, ahorro, bicombustible\n\u2022 *seguro* \u2014 responsabilidad del taxista\n\u2022 *firma* \u2014 contrato digital o presencial\n\nEscribe cualquier tema o pregunta directa.`);
+      }
+
+      // Option 2: Nuevo prospecto
+      if (lo === "2" || /^nuevo$/i.test(lo)) {
+        await this.updateState(phone, { state: "waiting_folio_name" as any, folio_id: null, context: {} });
+        return await respond("Nombre del taxista y tel\u00e9fono:\nEjemplo: *Pedro L\u00f3pez 4491234567*");
+      }
+
+      // Option 3: Evaluar oportunidad
+      if (lo === "3" || /^evaluar$/i.test(lo)) {
+        return await respond(`Para evaluar, escribe el modelo con precio y reparaci\u00f3n:\n\n*march 120k rep 10k*\n*aveo 100k 0 rep*\n*vento 2020 150k rep 5k*\n\nTambi\u00e9n puedes pedir precios de mercado:\n*mercado march 2021*`);
+      }
+
+      // Option 4: Ver inventario
       if (lo === "4" || /(?:inventario|veh[i\u00ed]culos?\s+(?:disponibles?|tenemos)|carros?\s+(?:disponibles?|tenemos)|qu[e\u00e9]\s+(?:hay|tienen))/i.test(lo)) {
         try {
           const { neon: neonInv } = await import("@neondatabase/serverless");
