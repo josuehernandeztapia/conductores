@@ -846,6 +846,23 @@ async function processDocImage(
     }
   }
 
+  // ── Post-OCR server-side cross-validation (catches what LLM misses) ──
+  if (visionResult.is_legible && visionResult.detected_type !== 'unknown') {
+    const { postOCRValidation } = await import('./post-ocr-validation');
+    const postOCR = postOCRValidation(
+      visionResult.detected_type,
+      visionResult.extracted_data || {},
+      ctx.existingData || {},
+      visionResult.cross_check_flags,
+    );
+    // Merge flags
+    for (const flag of postOCR.addedFlags) {
+      if (!visionResult.cross_check_flags.includes(flag)) {
+        visionResult.cross_check_flags.push(flag);
+      }
+    }
+  }
+
   // ── Not legible ──
   if (!visionResult.is_legible) {
     return {
@@ -1168,6 +1185,9 @@ async function processDocImage(
     if (flags.includes('csf_vencida')) warnings.push('Tu CSF tiene m\u00e1s de 30 d\u00edas. Saca una nueva en el portal del SAT.');
     if (flags.includes('clabe_invalid')) warnings.push('La CLABE no tiene 18 d\u00edgitos. Verifica tu estado de cuenta.');
     if (flags.includes('clabe_check_digit')) warnings.push('La CLABE tiene un d\u00edgito incorrecto \u2014 puede ser un error de lectura. Verifica los 18 d\u00edgitos en tu estado de cuenta o app del banco.');
+    if (flags.includes('curp_formato_invalido')) warnings.push('El formato del CURP no es v\u00e1lido (debe ser 18 caracteres: 4 letras + 6 d\u00edgitos + 1 letra sexo + 2 letras estado + 3 consonantes + 2 d\u00edgitos). Verifica tu CURP en gob.mx/curp.');
+    if (flags.includes('rfc_invalido')) warnings.push('El RFC no tiene el formato correcto (13 caracteres para persona f\u00edsica). Verifica en tu CSF del SAT.');
+    if (flags.includes('niv_formato_invalido')) warnings.push('El n\u00famero de serie (NIV) no tiene el formato est\u00e1ndar de 17 caracteres. Verifica en tu tarjeta de circulaci\u00f3n o factura.');
     if (flags.includes('niv_mismatch')) warnings.push('El NIV/n\u00famero de serie no coincide con tu tarjeta de circulaci\u00f3n.');
     if (flags.includes('placa_mismatch')) warnings.push('La placa no coincide con tu tarjeta de circulaci\u00f3n.');
     if (flags.includes('ine_operador_vencida')) warnings.push('La INE del operador est\u00e1 vencida.');
@@ -1176,7 +1196,7 @@ async function processDocImage(
     if (flags.includes('consumo_bajo_gnv')) warnings.push('Tu consumo de GNV parece bajo (< 300 LEQ/mes).');
     if (flags.includes('gasto_bajo_gasolina')) warnings.push('Tu gasto de gasolina parece bajo (< $6,000/mes).');
     // Catch any unhandled flags
-    const handledFlags = ['nombre_prospecto_mismatch','nombre_mismatch','expired','vigencia_vencida','ine_vencida','curp_mismatch','domicilio_mismatch','address_mismatch','domicilio_vencido','csf_vencida','clabe_invalid','clabe_check_digit','niv_mismatch','placa_mismatch','ine_operador_vencida','licencia_vencida','rostro_no_coincide','consumo_bajo_gnv','gasto_bajo_gasolina','tipo_no_taxi','no_es_taxi','municipio_no_ags'];
+    const handledFlags = ['nombre_prospecto_mismatch','nombre_mismatch','expired','vigencia_vencida','ine_vencida','curp_mismatch','curp_formato_invalido','domicilio_mismatch','address_mismatch','domicilio_vencido','csf_vencida','clabe_invalid','clabe_check_digit','rfc_invalido','niv_mismatch','niv_formato_invalido','placa_mismatch','ine_operador_vencida','licencia_vencida','rostro_no_coincide','consumo_bajo_gnv','gasto_bajo_gasolina','tipo_no_taxi','no_es_taxi','municipio_no_ags'];
     const unhandled = flags.filter((f: string) => !handledFlags.includes(f));
     if (unhandled.length > 0 && warnings.length === 0) warnings.push(unhandled.join(', '));
 
