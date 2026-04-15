@@ -14,6 +14,7 @@ function normalizeName(name: string | null | undefined): string {
   return name
     .toUpperCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')  // remove accents
+    .replace(/\./g, '. ')  // dots become dot+space (MA.GPE. → MA. GPE. )
     .replace(/[^A-Z\s]/g, '')  // keep only letters and spaces
     .replace(/\s+/g, ' ')
     .trim();

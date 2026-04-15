@@ -1429,6 +1429,17 @@ Responde SOLO con JSON válido:
     }
   });
 
+  // POST /api/test/name-matcher — 67 name matching regression tests
+  app.post("/api/test/name-matcher", async (_req, res) => {
+    try {
+      const { runNameMatcherTests } = await import("../test/name-matcher");
+      const result = runNameMatcherTests();
+      return res.json(result);
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
   // POST /api/test/calibration-regression — TIR/MOIC calibration regression
   app.post("/api/test/calibration-regression", async (_req, res) => {
     try {
