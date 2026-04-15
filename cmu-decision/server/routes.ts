@@ -61,6 +61,7 @@ const PUBLIC_PATHS = [
   "/api/ml-callback",
   "/api/recaudo/process",
   "/api/recaudo/fix-ahorro",
+  "/api/recaudo/admin",
   "/api/mifiel/webhook",
   "/api/business-config",
   "/api/cierre/ejecutar",
