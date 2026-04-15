@@ -3005,8 +3005,8 @@ Responde SOLO con JSON válido:
       
       const buffer = Buffer.from(fileBase64, "base64");
       
-      // Dedup check: skip if this exact file was already processed
-      if (isDuplicateFile(buffer)) {
+      // Dedup check: skip if this exact file was already processed (persistent in Neon DB)
+      if (await isDuplicateFile(buffer)) {
         console.log(`[Recaudo API] Duplicate file detected (${filename}) — skipping`);
         return res.json({ success: true, duplicate: true, message: "Este archivo ya fue procesado anteriormente. No se volvio a sumar." });
       }
@@ -3022,8 +3022,8 @@ Responde SOLO con JSON válido:
       // Process through multi-product engine
       const summary = await processNatgasMultiProduct(rows);
       
-      // Mark as processed AFTER successful processing
-      markFileProcessed(buffer);
+      // Mark as processed AFTER successful processing (persistent in Neon DB)
+      await markFileProcessed(buffer, filename);
       
       return res.json({ success: true, summary, formatted: formatRecaudoSummary(summary) });
     } catch (err: any) {

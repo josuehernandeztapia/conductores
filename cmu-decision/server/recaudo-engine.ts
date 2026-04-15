@@ -15,30 +15,72 @@
 
 import * as XLSX from "xlsx";
 import { createHash } from "crypto";
+import { neon } from "@neondatabase/serverless";
 
 const AIRTABLE_PAT = () => process.env.AIRTABLE_PAT || "";
 const AIRTABLE_BASE = "appXxbjjGzXFiX7gk";
 
-// ===== DEDUP: track processed file hashes to prevent double-processing =====
-// Persists in memory (resets on deploy). Covers WhatsApp, Gmail cron, and API.
-const processedFileHashes = new Set<string>();
+// ===== DEDUP: Persistent in Neon DB =====
+// Table: processed_files (sha256 TEXT PRIMARY KEY, filename TEXT, processed_at TIMESTAMPTZ)
 
-/** Compute SHA-256 hash of file content (Buffer or string) */
+function getSQL() {
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl) return null;
+  return neon(dbUrl);
+}
+
+async function ensureDedupTable() {
+  const sql = getSQL();
+  if (!sql) return;
+  await sql`CREATE TABLE IF NOT EXISTS processed_files (
+    sha256 TEXT PRIMARY KEY,
+    filename TEXT,
+    processed_at TIMESTAMPTZ DEFAULT NOW()
+  )`;
+}
+
+// In-memory fallback for when DB is unavailable
+const memoryHashes = new Set<string>();
+
+/** Compute SHA-256 hash of file content */
 export function hashFileContent(content: Buffer | string): string {
   return createHash("sha256").update(content).digest("hex").slice(0, 16);
 }
 
-/** Check if file was already processed. Returns true if duplicate. */
-export function isDuplicateFile(content: Buffer | string): boolean {
+/** Check if file was already processed (DB + memory). Returns true if duplicate. */
+export async function isDuplicateFile(content: Buffer | string): Promise<boolean> {
   const hash = hashFileContent(content);
-  if (processedFileHashes.has(hash)) return true;
+  if (memoryHashes.has(hash)) return true;
+  try {
+    const sql = getSQL();
+    if (sql) {
+      await ensureDedupTable();
+      const rows = await sql`SELECT 1 FROM processed_files WHERE sha256 = ${hash}`;
+      if (rows.length > 0) {
+        memoryHashes.add(hash);
+        return true;
+      }
+    }
+  } catch (e: any) {
+    console.warn(`[Dedup] DB check failed: ${e.message}`);
+  }
   return false;
 }
 
-/** Mark file as processed */
-export function markFileProcessed(content: Buffer | string): void {
+/** Mark file as processed (DB + memory) */
+export async function markFileProcessed(content: Buffer | string, filename?: string): Promise<void> {
   const hash = hashFileContent(content);
-  processedFileHashes.add(hash);
+  memoryHashes.add(hash);
+  try {
+    const sql = getSQL();
+    if (sql) {
+      await ensureDedupTable();
+      await sql`INSERT INTO processed_files (sha256, filename) VALUES (${hash}, ${filename || 'unknown'}) ON CONFLICT (sha256) DO NOTHING`;
+      console.log(`[Dedup] Stored hash ${hash} for ${filename || 'unknown'} in DB`);
+    }
+  } catch (e: any) {
+    console.warn(`[Dedup] DB store failed: ${e.message}`);
+  }
 }
 
 // Table IDs
@@ -376,26 +418,49 @@ export async function processNatgasMultiProduct(rows: NatgasRow[]): Promise<Reca
         detalle.push({ placa, folio: credito.Folio, cliente: credito.Taxista, producto: "Taxi Renovación", recaudo: Math.round(agg.recaudo), litros: Math.round(agg.litros) });
         creditosActualizados++;
       } else {
-        placasNoEncontradas.push(placa);
+        placasNoEncontradas.push(`${placa} ($${Math.round(agg.recaudo).toLocaleString()}, ${Math.round(agg.litros)} LEQ)`);
       }
     }
   }
 
-  // 4. Process Joylong ahorro: update Ahorro Joylong table
+  // 4. Process Joylong ahorro: create Pago record + RECONCILE from all Pagos
   for (const [folio, data] of joylongByFolio) {
+    // Create Pago record (auditable, like Kit Conversión)
+    await airtableCreate(TABLE_PAGOS, {
+      "Folio": folio,
+      "Mes": 0,
+      "Concepto": "Recaudo GNV",
+      "Monto": Math.round(data.recaudo),
+      "Método": "Recaudo GNV (NATGAS)",
+      "Estatus": "Confirmado",
+      "Fecha Pago": new Date().toISOString().slice(0, 10),
+      "Notas": `Joylong | ${data.litros.toFixed(0)} LEQ | ${periodo} | Placas: ${data.placas.join(", ")}`,
+    });
+
+    // RECONCILE: recalculate Ahorro Acumulado from ALL Pagos for this folio
+    const allPagos = await airtableFetch(TABLE_PAGOS, {
+      filterByFormula: `AND({Folio}="${folio}",{Estatus}="Confirmado",{Concepto}="Recaudo GNV")`,
+    });
+    const totalFromPagos = allPagos.reduce((sum: number, p: any) => sum + (p.Monto || 0), 0);
+
     const records = await airtableFetch(TABLE_AHORRO_JOYLONG, {
       filterByFormula: `{Folio}="${folio}"`,
       maxRecords: "1",
     });
     if (records.length > 0) {
       const record = records[0];
-      const nuevoAhorro = (record["Ahorro Acumulado"] || 0) + Math.round(data.recaudo);
+      const prevAhorro = record["Ahorro Acumulado"] || 0;
       const precioVehiculo = record["Precio Vehiculo"] || 799000;
-      const pctAvance = nuevoAhorro / precioVehiculo;
-      const nuevoEstatus = nuevoAhorro >= (record.Gatillo || 399500) ? "Gatillo Alcanzado" : "Ahorrando";
+      const pctAvance = totalFromPagos / precioVehiculo;
+      const nuevoEstatus = totalFromPagos >= (record.Gatillo || 399500) ? "Gatillo Alcanzado" : "Ahorrando";
+
+      // Log reconciliation delta
+      if (Math.abs(totalFromPagos - prevAhorro - Math.round(data.recaudo)) > 10) {
+        console.warn(`[Recaudo] RECONCILE ${folio}: prev=${prevAhorro} + new=${Math.round(data.recaudo)} = ${prevAhorro + Math.round(data.recaudo)}, but sum(Pagos)=${totalFromPagos}`);
+      }
 
       await airtableUpdate(TABLE_AHORRO_JOYLONG, record._id, {
-        "Ahorro Acumulado": nuevoAhorro,
+        "Ahorro Acumulado": totalFromPagos,
         "Pct Avance": pctAvance,
         "Estatus": nuevoEstatus,
       });
@@ -412,7 +477,7 @@ export async function processNatgasMultiProduct(rows: NatgasRow[]): Promise<Reca
     });
   }
 
-  // 5. Process Kit Conversión: update Kit Conversion table
+  // 5. Process Kit Conversión: create Pago + RECONCILE Saldo from all Pagos
   for (const [folio, data] of kitByFolio) {
     const records = await airtableFetch(TABLE_KIT_CONVERSION, {
       filterByFormula: `{Folio}="${folio}"`,
@@ -420,8 +485,6 @@ export async function processNatgasMultiProduct(rows: NatgasRow[]): Promise<Reca
     });
     if (records.length > 0) {
       const record = records[0];
-      // Kit works like taxi: recaudo covers monthly cuota
-      // We don't do cierre here — just track the recaudo in RecaudoGNV and Pagos
       const mesActual = record["Mes Actual"] || 1;
 
       // Create Pago record
@@ -434,6 +497,18 @@ export async function processNatgasMultiProduct(rows: NatgasRow[]): Promise<Reca
         "Estatus": "Confirmado",
         "Fecha Pago": new Date().toISOString().slice(0, 10),
         "Notas": `Kit Conv | ${data.litros.toFixed(0)} LEQ | ${periodo} | Placas: ${data.placas.join(", ")}`,
+      });
+
+      // RECONCILE: recalculate Saldo Pendiente from ALL Pagos
+      const allPagos = await airtableFetch(TABLE_PAGOS, {
+        filterByFormula: `AND({Folio}="${folio}",{Estatus}="Confirmado",{Concepto}="Recaudo GNV")`,
+      });
+      const totalPagado = allPagos.reduce((sum: number, p: any) => sum + (p.Monto || 0), 0);
+      const precioKit = record["Precio Kit"] || 55500;
+      const saldoPendiente = Math.max(0, precioKit - totalPagado);
+
+      await airtableUpdate(TABLE_KIT_CONVERSION, record._id, {
+        "Saldo Pendiente": saldoPendiente,
       });
 
       creditosActualizados++;
@@ -664,7 +739,10 @@ export function formatRecaudoSummary(summary: RecaudoSummary): string {
   }
 
   if (summary.placasNoEncontradas.length > 0) {
-    lines.push(``, `Placas sin contrato: ${summary.placasNoEncontradas.join(", ")}`);
+    lines.push(``, `⚠️ *PLACAS NO REGISTRADAS* (recaudo perdido):`);
+    for (const p of summary.placasNoEncontradas) {
+      lines.push(`  ❌ ${p} — registrar en Placas Recaudo para que se contabilice`);
+    }
   }
 
   return lines.join("\n");
