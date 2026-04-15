@@ -46,35 +46,93 @@ function expandAbbreviation(token: string): string {
   return MX_ABBREVIATIONS[clean] || clean;
 }
 
+// Particles that form compound surnames (should be joined before comparing)
+const PARTICLES = new Set(['DE', 'LA', 'LAS', 'DEL', 'LOS', 'EL', 'Y', 'E', 'SAN', 'SANTA']);
+
+/** Join particles with the following word to form compound tokens.
+ *  "DE LA CRUZ" → ["DE LA CRUZ"]
+ *  "DEL CASTILLO" → ["DEL CASTILLO"]
+ *  "DE LOS SANTOS" → ["DE LOS SANTOS"]
+ *  "MARIA" → ["MARIA"]
+ */
+function joinParticles(tokens: string[]): string[] {
+  const result: string[] = [];
+  let i = 0;
+  while (i < tokens.length) {
+    if (PARTICLES.has(tokens[i]) && i + 1 < tokens.length) {
+      // Accumulate consecutive particles + the next real word
+      let compound = tokens[i];
+      i++;
+      while (i < tokens.length && PARTICLES.has(tokens[i])) {
+        compound += ' ' + tokens[i];
+        i++;
+      }
+      if (i < tokens.length) {
+        compound += ' ' + tokens[i];
+        i++;
+      }
+      result.push(compound);
+    } else {
+      result.push(tokens[i]);
+      i++;
+    }
+  }
+  return result;
+}
+
 function namesMatch(a: string | null | undefined, b: string | null | undefined): boolean {
   const na = normalizeName(a);
   const nb = normalizeName(b);
   if (!na || !nb) return true; // can't compare if either is missing
   if (na.length < 4 || nb.length < 4) return true; // too short to compare reliably
   
-  // Expand abbreviations before comparing
-  const tokensA = na.split(' ').filter(t => t.length > 1).map(expandAbbreviation);
-  const tokensB = nb.split(' ').filter(t => t.length > 1).map(expandAbbreviation);
+  // Expand abbreviations, then join particles into compound tokens
+  const rawA = na.split(' ').filter(t => t.length > 0).map(expandAbbreviation);
+  const rawB = nb.split(' ').filter(t => t.length > 0).map(expandAbbreviation);
+  const tokensA = joinParticles(rawA);
+  const tokensB = joinParticles(rawB);
   
   // Count matching tokens
   let matchCount = 0;
+  let mismatchCompound = 0; // penalty for compounds that explicitly differ
+  const usedB = new Set<number>();
+  
   for (const ta of tokensA) {
-    for (const tb of tokensB) {
-      if (ta === tb) { matchCount++; break; }
+    let matched = false;
+    for (let j = 0; j < tokensB.length; j++) {
+      if (usedB.has(j)) continue;
+      const tb = tokensB[j];
+      if (ta === tb) { matchCount++; usedB.add(j); matched = true; break; }
+      // Compound contains: "DE LA CRUZ" matches "CRUZ" and vice versa
+      if (ta.includes(' ') && tb === ta.split(' ').pop()) { matchCount++; usedB.add(j); matched = true; break; }
+      if (tb.includes(' ') && ta === tb.split(' ').pop()) { matchCount++; usedB.add(j); matched = true; break; }
       // Short abbreviation (1-2 chars after expand): partial match
-      if (ta.length <= 2 && tb.startsWith(ta)) { matchCount += 0.5; break; }
-      if (tb.length <= 2 && ta.startsWith(tb)) { matchCount += 0.5; break; }
+      if (ta.length <= 2 && tb.startsWith(ta)) { matchCount += 0.5; usedB.add(j); matched = true; break; }
+      if (tb.length <= 2 && ta.startsWith(tb)) { matchCount += 0.5; usedB.add(j); matched = true; break; }
+    }
+    // Penalty: if this is a compound and there's a DIFFERENT compound in B, penalize
+    if (!matched && ta.includes(' ')) {
+      for (const tb of tokensB) {
+        if (tb.includes(' ') && ta !== tb) {
+          // Both are compounds but different (DE LA CRUZ vs DE LA TORRE)
+          const lastA = ta.split(' ').pop();
+          const lastB = tb.split(' ').pop();
+          if (lastA !== lastB) mismatchCompound++;
+        }
+      }
     }
   }
   
   // Need at least 2 solid matches (apellidos typically)
   const minTokens = Math.min(tokensA.length, tokensB.length);
   const threshold = minTokens <= 2 ? 1.5 : 2;
-  return matchCount >= threshold;
+  // Compound mismatches raise the threshold (explicit disagreement)
+  const adjustedThreshold = threshold + mismatchCompound;
+  return matchCount >= adjustedThreshold;
 }
 
 // Export for testing
-export { namesMatch as _namesMatch, expandAbbreviation as _expandAbbreviation, normalizeName as _normalizeName };
+export { namesMatch as _namesMatch, expandAbbreviation as _expandAbbreviation, normalizeName as _normalizeName, joinParticles as _joinParticles };
 
 // ===== HELPER: CURP validation (RENAPO format) =====
 function validateCURP(curp: string | null | undefined): { valid: boolean; reason?: string } {
