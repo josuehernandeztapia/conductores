@@ -1432,11 +1432,13 @@ Responde SOLO con JSON válido:
   // POST /api/test/name-matcher — 67 name matching regression tests
   app.post("/api/test/name-matcher", async (_req, res) => {
     try {
-      const { runNameMatcherTests } = await import("../test/name-matcher");
-      const result = runNameMatcherTests();
+      const mod = await import("../test/name-matcher");
+      if (!mod.runNameMatcherTests) return res.status(500).json({ error: "runNameMatcherTests not found in module", keys: Object.keys(mod) });
+      const result = mod.runNameMatcherTests();
       return res.json(result);
     } catch (err: any) {
-      return res.status(500).json({ error: err.message });
+      console.error("[Test] name-matcher import error:", err);
+      return res.status(500).json({ error: err.message, stack: err.stack?.split("\n").slice(0, 5) });
     }
   });
 
