@@ -820,6 +820,32 @@ async function processDocImage(
 
   console.log(`[Orchestrator] Vision: detected=${visionResult.detected_type} expected=${nextDoc.key} legible=${visionResult.is_legible} confidence=${visionResult.confidence}`);
 
+  // ── Post-OCR CLABE validation (algorithmic, catches OCR errors the LLM misses) ──
+  if (visionResult.detected_type === 'estado_cuenta' && visionResult.extracted_data?.clabe) {
+    const rawClabe = String(visionResult.extracted_data.clabe).replace(/\D/g, '');
+    if (rawClabe.length !== 18) {
+      if (!visionResult.cross_check_flags.includes('clabe_invalid')) {
+        visionResult.cross_check_flags.push('clabe_invalid');
+      }
+    } else {
+      // CLABE check digit verification (Banxico algorithm)
+      const weights = [3, 7, 1, 3, 7, 1, 3, 7, 1, 3, 7, 1, 3, 7, 1, 3, 7];
+      let sum = 0;
+      for (let i = 0; i < 17; i++) {
+        sum += (parseInt(rawClabe[i]) * weights[i]) % 10;
+      }
+      const checkDigit = (10 - (sum % 10)) % 10;
+      if (checkDigit !== parseInt(rawClabe[17])) {
+        if (!visionResult.cross_check_flags.includes('clabe_invalid')) {
+          visionResult.cross_check_flags.push('clabe_check_digit');
+        }
+        console.log(`[CLABE] Check digit failed: ${rawClabe} — expected ${checkDigit}, got ${rawClabe[17]}`);
+      } else {
+        console.log(`[CLABE] Valid: ${rawClabe.slice(0, 3)}...${rawClabe.slice(-4)}`);
+      }
+    }
+  }
+
   // ── Not legible ──
   if (!visionResult.is_legible) {
     return {
@@ -1141,6 +1167,7 @@ async function processDocImage(
     if (flags.includes('domicilio_vencido')) warnings.push('Este comprobante tiene m\u00e1s de 3 meses. Necesitamos uno m\u00e1s reciente.');
     if (flags.includes('csf_vencida')) warnings.push('Tu CSF tiene m\u00e1s de 30 d\u00edas. Saca una nueva en el portal del SAT.');
     if (flags.includes('clabe_invalid')) warnings.push('La CLABE no tiene 18 d\u00edgitos. Verifica tu estado de cuenta.');
+    if (flags.includes('clabe_check_digit')) warnings.push('La CLABE tiene un d\u00edgito incorrecto \u2014 puede ser un error de lectura. Verifica los 18 d\u00edgitos en tu estado de cuenta o app del banco.');
     if (flags.includes('niv_mismatch')) warnings.push('El NIV/n\u00famero de serie no coincide con tu tarjeta de circulaci\u00f3n.');
     if (flags.includes('placa_mismatch')) warnings.push('La placa no coincide con tu tarjeta de circulaci\u00f3n.');
     if (flags.includes('ine_operador_vencida')) warnings.push('La INE del operador est\u00e1 vencida.');
@@ -1149,7 +1176,7 @@ async function processDocImage(
     if (flags.includes('consumo_bajo_gnv')) warnings.push('Tu consumo de GNV parece bajo (< 300 LEQ/mes).');
     if (flags.includes('gasto_bajo_gasolina')) warnings.push('Tu gasto de gasolina parece bajo (< $6,000/mes).');
     // Catch any unhandled flags
-    const handledFlags = ['nombre_prospecto_mismatch','nombre_mismatch','expired','vigencia_vencida','ine_vencida','curp_mismatch','domicilio_mismatch','address_mismatch','domicilio_vencido','csf_vencida','clabe_invalid','niv_mismatch','placa_mismatch','ine_operador_vencida','licencia_vencida','rostro_no_coincide','consumo_bajo_gnv','gasto_bajo_gasolina','tipo_no_taxi','no_es_taxi','municipio_no_ags'];
+    const handledFlags = ['nombre_prospecto_mismatch','nombre_mismatch','expired','vigencia_vencida','ine_vencida','curp_mismatch','domicilio_mismatch','address_mismatch','domicilio_vencido','csf_vencida','clabe_invalid','clabe_check_digit','niv_mismatch','placa_mismatch','ine_operador_vencida','licencia_vencida','rostro_no_coincide','consumo_bajo_gnv','gasto_bajo_gasolina','tipo_no_taxi','no_es_taxi','municipio_no_ags'];
     const unhandled = flags.filter((f: string) => !handledFlags.includes(f));
     if (unhandled.length > 0 && warnings.length === 0) warnings.push(unhandled.join(', '));
 
