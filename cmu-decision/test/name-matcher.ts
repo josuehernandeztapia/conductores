@@ -337,6 +337,9 @@ export function runNameMatcherTests() {
   return { passed, failed, total: results.length, results };
 }
 
-// Run if executed directly
-runNameMatcherTests();
-if (results.some(r => !r.pass)) process.exit(1);
+// Run if executed directly (not via import)
+const isDirectRun = require.main === module || process.argv[1]?.includes('name-matcher');
+if (isDirectRun) {
+  runNameMatcherTests();
+  if (results.some(r => !r.pass)) process.exit(1);
+}
