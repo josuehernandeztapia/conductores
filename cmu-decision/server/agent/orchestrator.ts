@@ -484,9 +484,23 @@ export async function handleDocWithMockVision(
 
 ${updatedDocs.length}/${DOC_ORDER.length} documentos. Siguiente: *${nextPending.label}*`;
     } else {
+      // All docs complete — run full expediente audit
+      let auditMsg = '';
+      try {
+        const { auditExpediente } = await import('./post-ocr-validation');
+        const allExtracted = { ...ctx.existingData, ...extractedData };
+        const audit = auditExpediente(allExtracted);
+        if (audit.alerts.length > 0) {
+          auditMsg = `\n\n${audit.summary}`;
+        } else {
+          auditMsg = `\n\n✅ *Auditoría cruzada:* todos los datos coinciden entre documentos.`;
+        }
+      } catch (e: any) {
+        console.error('[Orchestrator] Audit error:', e.message);
+      }
       responseText = `${DOC_LABELS[detectedKey] || detectedKey} recibido ✓
 
-Todos los documentos completos.`;
+Todos los documentos completos.${auditMsg}`;
     }
     if (warnings.length > 0) {
       responseText = `⚠️ ${warnings.join('\n⚠️ ')}

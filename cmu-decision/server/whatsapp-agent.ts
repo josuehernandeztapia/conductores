@@ -3621,6 +3621,38 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         return await respond("Nombre del taxista y tel\u00e9fono:\nEjemplo: *Pedro L\u00f3pez 4491234567*");
       }
 
+      // Auditar expediente: run cross-validation on a folio
+      if (/^(?:auditar|validar|verificar|check)\s*(?:expediente)?/i.test(lo) || lo === "auditar") {
+        try {
+          const { neon: neonAudit } = await import("@neondatabase/serverless");
+          const sqlA = neonAudit(process.env.DATABASE_URL!);
+          // Get the most recent active folio
+          const folios = await sqlA`
+            SELECT o.id, o.folio, o.estado,
+              CONCAT(t.nombre, ' ', t.apellido_paterno, ' ', COALESCE(t.apellido_materno, '')) as nombre,
+              o.extracted_data
+            FROM originations o
+            LEFT JOIN taxistas t ON t.id = o.taxista_id
+            WHERE o.estado NOT IN ('RECHAZADO','CANCELADO')
+              AND (t.telefono IS NULL OR t.telefono NOT LIKE '521999%')
+            ORDER BY o.updated_at DESC LIMIT 5
+          ` as any[];
+          if (folios.length === 0) return await respond("No hay expedientes activos para auditar.");
+          // If multiple, list them
+          if (folios.length > 1) {
+            const list = folios.map((f: any, i: number) => `${i+1}. *${f.folio}* \u2014 ${f.nombre || '?'} (${f.estado})`).join('\n');
+            return await respond(`\u00bfCu\u00e1l expediente auditar?\n\n${list}\n\nEscribe *auditar [folio]*`);
+          }
+          const folio = folios[0];
+          const allDocs = folio.extracted_data || {};
+          const { auditExpediente } = await import("./agent/post-ocr-validation");
+          const audit = auditExpediente(allDocs);
+          return await respond(`${audit.summary}\n\n_Folio: ${folio.folio} \u2014 ${folio.nombre}_`);
+        } catch (e: any) {
+          return await respond(`Error al auditar: ${e.message}`);
+        }
+      }
+
       // Option 3: Evaluar oportunidad
       if (lo === "3" || /^evaluar$/i.test(lo)) {
         return await respond(`Para evaluar, escribe el modelo con precio y reparaci\u00f3n:\n\n*march 120k rep 10k*\n*aveo 100k 0 rep*\n*vento 2020 150k rep 5k*\n\nTambi\u00e9n puedes pedir precios de mercado:\n*mercado march 2021*`);

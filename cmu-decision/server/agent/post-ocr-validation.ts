@@ -484,3 +484,252 @@ export function postOCRValidation(
 
   return { addedFlags, log };
 }
+
+// ═══════════════════════════════════════════════════════════════
+// FULL EXPEDIENTE AUDIT — Cross-validate ALL collected docs
+// Run after docs are complete or on-demand via "auditar expediente"
+// ═══════════════════════════════════════════════════════════════
+
+export interface AuditAlert {
+  severity: 'error' | 'warning' | 'info';
+  field: string;
+  docs: string[];  // which documents are involved
+  message: string;
+  values: Record<string, string>;  // doc → value
+}
+
+export function auditExpediente(allDocs: Record<string, Record<string, any>>): {
+  alerts: AuditAlert[];
+  summary: string;
+} {
+  const alerts: AuditAlert[] = [];
+
+  // ── Helper: extract name from a doc ──
+  function getName(doc: Record<string, any>): string | null {
+    return doc.nombre_completo || doc.nombre ||
+      [doc.nombre, doc.apellido_paterno, doc.apellido_materno].filter(Boolean).join(' ') ||
+      doc.propietario || doc.titular || doc.receptor_nombre || doc.nombre_miembro || null;
+  }
+
+  // ── 1. NOMBRE consistency across all docs vs INE ──
+  const ine = allDocs.ine_frente;
+  if (ine) {
+    const ineNombre = getName(ine);
+    if (ineNombre) {
+      const docsWithName: { key: string; label: string; name: string }[] = [];
+      const docLabels: Record<string, string> = {
+        tarjeta_circulacion: 'Tarjeta Circulación',
+        factura_vehiculo: 'Factura',
+        csf: 'CSF (SAT)',
+        concesion: 'Concesión',
+        estado_cuenta: 'Estado de Cuenta',
+        carta_membresia: 'Carta Membresía',
+      };
+
+      for (const [key, label] of Object.entries(docLabels)) {
+        const doc = allDocs[key];
+        if (!doc) continue;
+        const docName = getName(doc);
+        if (!docName) continue;
+        docsWithName.push({ key, label, name: docName });
+
+        if (!namesMatch(docName, ineNombre)) {
+          alerts.push({
+            severity: 'error',
+            field: 'nombre',
+            docs: ['INE Frente', label],
+            message: `Nombre no coincide entre INE y ${label}`,
+            values: { 'INE Frente': normalizeName(ineNombre), [label]: normalizeName(docName) },
+          });
+        }
+      }
+
+      // Cross-check each pair (not just vs INE)
+      for (let i = 0; i < docsWithName.length; i++) {
+        for (let j = i + 1; j < docsWithName.length; j++) {
+          const a = docsWithName[i];
+          const b = docsWithName[j];
+          if (!namesMatch(a.name, b.name)) {
+            // Only alert if BOTH matched INE (otherwise already caught above)
+            const aMatchesIne = namesMatch(a.name, ineNombre);
+            const bMatchesIne = namesMatch(b.name, ineNombre);
+            if (aMatchesIne && bMatchesIne) {
+              alerts.push({
+                severity: 'warning',
+                field: 'nombre',
+                docs: [a.label, b.label],
+                message: `Nombres difieren entre ${a.label} y ${b.label} (ambos coinciden con INE pero no entre sí)`,
+                values: { [a.label]: normalizeName(a.name), [b.label]: normalizeName(b.name) },
+              });
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // ── 2. CURP consistency: INE frente vs INE reverso vs CSF ──
+  const curps: { doc: string; curp: string }[] = [];
+  if (allDocs.ine_frente?.curp) curps.push({ doc: 'INE Frente', curp: allDocs.ine_frente.curp.toUpperCase().trim() });
+  if (allDocs.ine_reverso?.curp_mrz) curps.push({ doc: 'INE Reverso (MRZ)', curp: allDocs.ine_reverso.curp_mrz.toUpperCase().trim() });
+  if (allDocs.csf?.curp) curps.push({ doc: 'CSF', curp: allDocs.csf.curp.toUpperCase().trim() });
+
+  if (curps.length >= 2) {
+    const base = curps[0];
+    for (let i = 1; i < curps.length; i++) {
+      if (curps[i].curp !== base.curp && curps[i].curp.length >= 16 && base.curp.length >= 16) {
+        alerts.push({
+          severity: 'error',
+          field: 'curp',
+          docs: [base.doc, curps[i].doc],
+          message: `CURP no coincide: ${base.doc} vs ${curps[i].doc}`,
+          values: { [base.doc]: base.curp, [curps[i].doc]: curps[i].curp },
+        });
+      }
+    }
+  }
+
+  // ── 3. NIV consistency: tarjeta vs factura ──
+  const nivTarjeta = allDocs.tarjeta_circulacion?.niv?.toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/g, '');
+  const nivFactura = allDocs.factura_vehiculo?.niv?.toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/g, '');
+  if (nivTarjeta && nivFactura && nivTarjeta.length >= 10 && nivFactura.length >= 10 && nivTarjeta !== nivFactura) {
+    alerts.push({
+      severity: 'error',
+      field: 'niv',
+      docs: ['Tarjeta Circulación', 'Factura'],
+      message: 'NIV (número de serie) no coincide entre tarjeta y factura',
+      values: { 'Tarjeta Circulación': nivTarjeta, 'Factura': nivFactura },
+    });
+  }
+
+  // ── 4. PLACA consistency: tarjeta vs tickets vs fotos ──
+  const placaTarjeta = allDocs.tarjeta_circulacion?.placa?.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const placaSources: { doc: string; placa: string }[] = [];
+  if (placaTarjeta) placaSources.push({ doc: 'Tarjeta Circulación', placa: placaTarjeta });
+  for (const key of ['historial_gnv', 'tickets_gasolina', 'fotos_unidad']) {
+    const p = allDocs[key]?.placa?.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (p && p.length >= 5) {
+      const label = key === 'historial_gnv' ? 'Tickets GNV' : key === 'tickets_gasolina' ? 'Tickets Gasolina' : 'Fotos Unidad';
+      placaSources.push({ doc: label, placa: p });
+    }
+  }
+  if (placaSources.length >= 2) {
+    const base = placaSources[0];
+    for (let i = 1; i < placaSources.length; i++) {
+      if (placaSources[i].placa !== base.placa) {
+        alerts.push({
+          severity: 'error',
+          field: 'placa',
+          docs: [base.doc, placaSources[i].doc],
+          message: `Placa no coincide: ${base.doc} vs ${placaSources[i].doc}`,
+          values: { [base.doc]: base.placa, [placaSources[i].doc]: placaSources[i].placa },
+        });
+      }
+    }
+  }
+
+  // ── 5. RFC consistency: CSF vs factura ──
+  const rfcCsf = allDocs.csf?.rfc?.toUpperCase().trim();
+  const rfcFactura = allDocs.factura_vehiculo?.receptor_rfc?.toUpperCase().trim();
+  if (rfcCsf && rfcFactura && rfcCsf.length >= 10 && rfcFactura.length >= 10 && rfcCsf !== rfcFactura) {
+    alerts.push({
+      severity: 'error',
+      field: 'rfc',
+      docs: ['CSF', 'Factura'],
+      message: 'RFC no coincide entre CSF y factura',
+      values: { 'CSF': rfcCsf, 'Factura': rfcFactura },
+    });
+  }
+
+  // ── 6. CLABE format (if not caught earlier) ──
+  const clabe = allDocs.estado_cuenta?.clabe?.replace(/\D/g, '');
+  if (clabe && clabe.length === 18) {
+    const weights = [3,7,1,3,7,1,3,7,1,3,7,1,3,7,1,3,7];
+    let sum = 0;
+    for (let i = 0; i < 17; i++) sum += (parseInt(clabe[i]) * weights[i]) % 10;
+    const check = (10 - (sum % 10)) % 10;
+    if (check !== parseInt(clabe[17])) {
+      alerts.push({
+        severity: 'error',
+        field: 'clabe',
+        docs: ['Estado de Cuenta'],
+        message: `CLABE dígito verificador incorrecto (esperado ${check}, tiene ${clabe[17]})`,
+        values: { 'Estado de Cuenta': clabe },
+      });
+    }
+  }
+
+  // ── 7. Vigencias ──
+  const now = new Date();
+  // CSF vigencia (3 meses)
+  if (allDocs.csf?.fecha_emision) {
+    const d = new Date(allDocs.csf.fecha_emision);
+    const limit = new Date(); limit.setDate(limit.getDate() - 90);
+    if (d < limit) {
+      alerts.push({
+        severity: 'warning',
+        field: 'vigencia',
+        docs: ['CSF'],
+        message: `CSF emitida hace más de 3 meses (${allDocs.csf.fecha_emision})`,
+        values: { 'CSF': allDocs.csf.fecha_emision },
+      });
+    }
+  }
+  // Comprobante domicilio (3 meses)
+  if (allDocs.comprobante_domicilio?.fecha_periodo) {
+    const d = new Date(allDocs.comprobante_domicilio.fecha_periodo);
+    const limit = new Date(); limit.setDate(limit.getDate() - 90);
+    if (d < limit) {
+      alerts.push({
+        severity: 'warning',
+        field: 'vigencia',
+        docs: ['Comp. Domicilio'],
+        message: `Comprobante de domicilio tiene más de 3 meses (${allDocs.comprobante_domicilio.fecha_periodo})`,
+        values: { 'Comp. Domicilio': allDocs.comprobante_domicilio.fecha_periodo },
+      });
+    }
+  }
+  // Concesión vigencia
+  if (allDocs.concesion?.vigencia) {
+    const vigStr = String(allDocs.concesion.vigencia);
+    let vigDate: Date;
+    if (/^\d{4}$/.test(vigStr)) vigDate = new Date(parseInt(vigStr), 11, 31);
+    else vigDate = new Date(vigStr);
+    const daysLeft = Math.floor((vigDate.getTime() - now.getTime()) / (86400000));
+    if (daysLeft < 0) {
+      alerts.push({ severity: 'error', field: 'vigencia', docs: ['Concesión'], message: `Concesión vencida (${vigStr})`, values: { 'Concesión': vigStr } });
+    } else if (daysLeft <= 30) {
+      alerts.push({ severity: 'warning', field: 'vigencia', docs: ['Concesión'], message: `Concesión vence en ${daysLeft} días (${vigStr})`, values: { 'Concesión': vigStr } });
+    }
+  }
+
+  // ── Build summary ──
+  const errors = alerts.filter(a => a.severity === 'error');
+  const warnings = alerts.filter(a => a.severity === 'warning');
+  const docsAudited = Object.keys(allDocs).length;
+
+  let summary = `*AUDITORÍA DE EXPEDIENTE*\n`;
+  summary += `Documentos revisados: ${docsAudited}\n`;
+
+  if (errors.length === 0 && warnings.length === 0) {
+    summary += `\n✅ *Sin discrepancias.* Todos los datos coinciden entre documentos.`;
+  } else {
+    if (errors.length > 0) {
+      summary += `\n❌ *${errors.length} error${errors.length > 1 ? 'es' : ''}:*\n`;
+      for (const e of errors) {
+        summary += `• ${e.message}\n`;
+        for (const [doc, val] of Object.entries(e.values)) {
+          summary += `  ${doc}: ${val}\n`;
+        }
+      }
+    }
+    if (warnings.length > 0) {
+      summary += `\n⚠️ *${warnings.length} advertencia${warnings.length > 1 ? 's' : ''}:*\n`;
+      for (const w of warnings) {
+        summary += `• ${w.message}\n`;
+      }
+    }
+  }
+
+  return { alerts, summary };
+}
