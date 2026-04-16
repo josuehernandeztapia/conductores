@@ -62,6 +62,7 @@ const PUBLIC_PATHS = [
   "/api/recaudo/process",
   "/api/recaudo/fix-ahorro",
   "/api/recaudo/admin",
+  "/api/expedientes/bloqueados",
   "/api/mifiel/webhook",
   "/api/business-config",
   "/api/cierre/ejecutar",
@@ -3092,6 +3093,59 @@ Responde SOLO con JSON válido:
       return res.json({ success: true, results });
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
+    }
+  });
+
+  // GET /api/expedientes/bloqueados — folios with audit errors (promotor/director)
+  app.get("/api/expedientes/bloqueados", async (_req, res) => {
+    try {
+      const { neon: neonExp } = await import("@neondatabase/serverless");
+      const sqlE = neonExp(process.env.DATABASE_URL!);
+      const rows = await sqlE`
+        SELECT o.id, o.folio, o.estado, o.updated_at, o.created_at,
+          o.extracted_data, o.docs_collected, o.skipped_docs,
+          CONCAT(t.nombre, ' ', t.apellido_paterno, ' ', COALESCE(t.apellido_materno, '')) as nombre,
+          t.telefono
+        FROM originations o
+        LEFT JOIN taxistas t ON t.id = o.taxista_id
+        WHERE o.estado IN ('docs_pending', 'interview_complete', 'completed')
+          AND (t.telefono IS NULL OR t.telefono NOT LIKE '521999%')
+        ORDER BY o.updated_at DESC
+      ` as any[];
+
+      const { auditExpediente } = await import("./agent/post-ocr-validation");
+
+      const bloqueados = [];
+      for (const row of rows) {
+        const allDocs = row.extracted_data || {};
+        const docsCollected = row.docs_collected || [];
+        if (Object.keys(allDocs).length === 0) continue; // no docs yet
+        
+        const audit = auditExpediente(allDocs);
+        const errors = audit.alerts.filter((a: any) => a.severity === 'error');
+        
+        if (errors.length > 0) {
+          bloqueados.push({
+            folio: row.folio,
+            nombre: row.nombre?.trim(),
+            telefono: row.telefono,
+            estado: row.estado,
+            docsCollected: docsCollected.length,
+            updatedAt: row.updated_at,
+            errors: errors.map((e: any) => ({
+              field: e.field,
+              message: e.message,
+              docs: e.docs,
+              values: e.values,
+            })),
+            warnings: audit.alerts.filter((a: any) => a.severity === 'warning').map((w: any) => w.message),
+          });
+        }
+      }
+
+      return res.json({ total: bloqueados.length, bloqueados });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
     }
   });
 

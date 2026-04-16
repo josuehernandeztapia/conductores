@@ -36,6 +36,8 @@ import {
   ArrowRight,
   TrendingUp,
   FileWarning,
+  ShieldAlert,
+  RefreshCw,
 } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 import { Link } from "wouter";
@@ -598,6 +600,9 @@ export default function PanelPage() {
         )}
       </div>
 
+      {/* Blocked Expedientes */}
+      <BlockedExpedientes />
+
       {/* Detail Dialog */}
       <Dialog open={!!selectedFolio} onOpenChange={(v) => { if (!v) setSelectedFolio(null); }}>
         <DialogContent className="max-w-lg">
@@ -612,3 +617,141 @@ export default function PanelPage() {
     </div>
   );
 }
+
+// ═══════════════════════════════════════════════════════════════
+// Blocked Expedientes — folios with audit errors
+// ═══════════════════════════════════════════════════════════════
+
+interface AuditError {
+  field: string;
+  message: string;
+  docs: string[];
+  values: Record<string, string>;
+}
+
+interface BlockedFolio {
+  folio: string;
+  nombre: string;
+  telefono: string;
+  estado: string;
+  docsCollected: number;
+  updatedAt: string;
+  errors: AuditError[];
+  warnings: string[];
+}
+
+function BlockedExpedientes() {
+  const [data, setData] = useState<{ total: number; bloqueados: BlockedFolio[] } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  const fetchBlocked = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/expedientes/bloqueados");
+      const json = await res.json();
+      setData(json);
+    } catch (e) {
+      console.error("Failed to fetch blocked expedientes:", e);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchBlocked(); }, []);
+
+  if (!data || data.total === 0) return null;
+
+  return (
+    <Card className="border-red-500/30 bg-red-950/10 mt-4">
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <ShieldAlert className="w-5 h-5 text-red-400" />
+            <h3 className="font-semibold text-red-300">
+              {data.total} expediente{data.total > 1 ? "s" : ""} bloqueado{data.total > 1 ? "s" : ""}
+            </h3>
+          </div>
+          <Button variant="ghost" size="sm" onClick={fetchBlocked} disabled={loading}>
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+          </Button>
+        </div>
+
+        <div className="space-y-2">
+          {data.bloqueados.map((b) => (
+            <div key={b.folio} className="bg-zinc-900/50 rounded-lg border border-red-500/20 overflow-hidden">
+              <button
+                className="w-full px-3 py-2 flex items-center justify-between text-left hover:bg-zinc-800/50 transition-colors"
+                onClick={() => setExpanded(expanded === b.folio ? null : b.folio)}
+              >
+                <div className="flex items-center gap-3">
+                  <div>
+                    <span className="font-medium text-sm">{b.nombre || b.folio}</span>
+                    <div className="flex items-center gap-2 text-xs text-zinc-400">
+                      <span>{b.folio}</span>
+                      <span>·</span>
+                      <span>{b.docsCollected}/14 docs</span>
+                      <span>·</span>
+                      <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+                        {b.errors.length} error{b.errors.length > 1 ? "es" : ""}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+                {expanded === b.folio ? (
+                  <ChevronUp className="w-4 h-4 text-zinc-500" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-zinc-500" />
+                )}
+              </button>
+
+              {expanded === b.folio && (
+                <div className="px-3 pb-3 space-y-2 border-t border-zinc-800">
+                  <div className="pt-2 space-y-1.5">
+                    {b.errors.map((e, i) => (
+                      <div key={i} className="bg-red-950/30 rounded p-2 text-xs">
+                        <div className="flex items-start gap-1.5">
+                          <XCircle className="w-3.5 h-3.5 text-red-400 mt-0.5 shrink-0" />
+                          <div>
+                            <p className="font-medium text-red-300">{e.message}</p>
+                            <div className="mt-1 space-y-0.5 text-zinc-400">
+                              {Object.entries(e.values).map(([doc, val]) => (
+                                <p key={doc}>{doc}: <span className="text-zinc-300">{val}</span></p>
+                              ))}
+                            </div>
+                            <p className="mt-1 text-zinc-500">
+                              Recapturar: {e.docs.join(", ")}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {b.warnings.length > 0 && (
+                      <div className="text-xs text-yellow-400/70 mt-1">
+                        {b.warnings.map((w, i) => (
+                          <p key={i} className="flex items-center gap-1">
+                            <AlertTriangle className="w-3 h-3" /> {w}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {b.telefono && (
+                    <a
+                      href={`https://wa.me/${b.telefono}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs text-green-400 hover:text-green-300 mt-1"
+                    >
+                      <Phone className="w-3 h-3" /> Contactar por WhatsApp
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+

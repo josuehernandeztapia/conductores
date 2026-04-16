@@ -1883,6 +1883,52 @@ async function handleDocsText(
   const collectedDocs = ctx.docsCollected || [];
   const interviewDone = ctx.interviewState?.currentQuestion === 8;
 
+  // ── Doc number/name selection for recapture (e.g. "4" or "factura") ──
+  const docNumMatch = body.trim().match(/^(\d{1,2})$/);
+  const DOC_NAME_MAP: Record<string, number> = {
+    'ine': 1, 'ine frente': 1, 'frente': 1,
+    'reverso': 2, 'ine reverso': 2,
+    'tarjeta': 3, 'circulacion': 3, 'tarjeta circulacion': 3,
+    'factura': 4, 'factura vehiculo': 4,
+    'csf': 5, 'sat': 5, 'constancia': 5, 'fiscal': 5, 'situacion fiscal': 5,
+    'domicilio': 6, 'comprobante': 6, 'comprobante domicilio': 6, 'luz': 6, 'agua': 6,
+    'concesion': 7, 'concesión': 7,
+    'estado de cuenta': 8, 'bancario': 8, 'clabe': 8, 'cuenta': 8,
+    'tickets': 9, 'gnv': 9, 'gasolina': 9, 'historial': 9, 'cargas': 9,
+    'membresia': 10, 'membresía': 10, 'agrupacion': 10, 'carta': 10,
+    'selfie': 11, 'foto': 11,
+    'curp': 12,
+    'acta': 13, 'nacimiento': 13, 'acta nacimiento': 13,
+    'fotos': 14, 'unidad': 14, 'fotos unidad': 14,
+  };
+  let selectedDocIdx = docNumMatch ? parseInt(docNumMatch[1]) : (DOC_NAME_MAP[body.trim().toLowerCase()] || 0);
+  
+  if (selectedDocIdx >= 1 && selectedDocIdx <= DOC_ORDER.length) {
+    const targetDoc = DOC_ORDER[selectedDocIdx - 1];
+    // Check if this doc has an audit error
+    let errorMsg = '';
+    try {
+      const { auditExpediente } = await import('./post-ocr-validation');
+      const audit = auditExpediente(ctx.existingData || {});
+      const relatedErrors = audit.alerts.filter(a => 
+        a.severity === 'error' && a.docs.some(d => d.toLowerCase().includes(targetDoc.key.replace(/_/g, ' ').toLowerCase()) || 
+          DOC_LABELS[targetDoc.key]?.toLowerCase().includes(d.toLowerCase()))
+      );
+      if (relatedErrors.length > 0) {
+        errorMsg = `\n\n\u26a0\ufe0f *Error a corregir:*\n${relatedErrors.map(e => `\u274c ${e.message}`).join('\n')}`;
+      }
+    } catch {}
+    
+    const isCollected = collectedDocs.includes(targetDoc.key);
+    const action = isCollected ? 'Recapturar' : 'Capturar';
+    
+    return {
+      response: `\ud83d\udcf7 *${action}: ${targetDoc.label}*\n\nManda la foto de tu *${targetDoc.label}*.${errorMsg}${isCollected ? '\n\n_La foto anterior ser\u00e1 reemplazada._' : ''}`,
+      newState: state,
+      contextUpdates: { _targetDocOverride: targetDoc.key } as any,
+    };
+  }
+
   // ── Skip current doc ──
   if (nlu.intent === "skip_doc") {
     const skippedDocs: string[] = ctx.skippedDocs || [];
