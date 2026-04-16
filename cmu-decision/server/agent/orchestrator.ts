@@ -591,7 +591,7 @@ async function handleTextMessage(
     // Reset skipped docs so they can re-send
     const { welcome_back } = await import('./templates');
     return {
-      response: welcome_back(firstName, nextDocLabel, interviewDone, collectedDocs.length, TOTAL_DOCS),
+      response: welcome_back(firstName, nextDocLabel, interviewDone, collectedDocs.length, TOTAL_DOCS, collectedDocs, ctx.skippedDocs || []),
       newState: state.startsWith("interview_") && !state.includes("complete") ? "docs_pending" as ProspectState : state as ProspectState,
       contextUpdates: { skippedDocs: [] },
     };

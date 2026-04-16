@@ -2644,20 +2644,34 @@ Responde SOLO con JSON válido:
         }
       }
 
-      const { From, Body, NumMedia, MediaUrl0, MediaContentType0, ProfileName } = req.body;
+      const { From, Body, NumMedia, ProfileName } = req.body;
       const phone = (From || "").replace("whatsapp:", "").replace(/\+/g, "");
       const body = (Body || "").trim();
-      const hasMedia = parseInt(NumMedia || "0") > 0;
-      const mediaUrl = MediaUrl0 || null;
-      const mediaType = MediaContentType0 || null;
+      const numMedia = parseInt(NumMedia || "0");
+      const hasMedia = numMedia > 0;
+      // Collect ALL media URLs (Twilio sends MediaUrl0, MediaUrl1, ...MediaUrlN)
+      const allMediaUrls: { url: string; type: string }[] = [];
+      for (let i = 0; i < numMedia; i++) {
+        const url = req.body[`MediaUrl${i}`];
+        const type = req.body[`MediaContentType${i}`] || 'image/jpeg';
+        if (url) allMediaUrls.push({ url, type });
+      }
+      const mediaUrl = allMediaUrls[0]?.url || null;
+      const mediaType = allMediaUrls[0]?.type || null;
 
       console.log(`[WhatsApp] Incoming from ${phone} (${ProfileName}): "${body}" media:${hasMedia}`);
       await logWaMessage("inbound", phone, body, undefined, mediaUrl);
 
-      // v9: Debounce rapid-fire media (multiple photos sent in burst)
-      if (hasMedia && shouldDebounceMedia(phone)) {
-        // Silently acknowledge — the first message in the burst will process
+      // Debounce rapid-fire single-image messages
+      if (hasMedia && numMedia <= 1 && shouldDebounceMedia(phone)) {
         return res.status(200).send("<Response></Response>");
+      }
+
+      // Multi-image: ask user to send one at a time
+      if (numMedia > 1) {
+        console.log(`[WhatsApp] Multi-image rejected: ${numMedia} images from ${phone}`);
+        const twiml = `<Response><Message>Recib\u00ed ${numMedia} fotos a la vez. Para que pueda verificar cada documento correctamente, m\u00e1ndalos *de uno en uno*. Empieza con el primero \ud83d\udcf7</Message></Response>`;
+        return res.status(200).type('text/xml').send(twiml);
       }
 
       // ===== STEP 1: ROLE LOOKUP =====

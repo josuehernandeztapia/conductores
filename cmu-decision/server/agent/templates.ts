@@ -233,20 +233,60 @@ export function doc_request_with_explanation(docKey: string, docLabel: string, c
 // RETOMAR CONVERSACIÓN (cuando vuelve después de un rato)
 // ═══════════════════════════════════════════════════════════════
 
-export function welcome_back(firstName: string, pendingDocLabel: string | null, interviewDone: boolean, docsCompleted: number, docsTotal: number): string {
-  let msg = `Hola de nuevo, ${firstName}.`;
-  
-  if (pendingDocLabel) {
-    msg += ` La última vez nos quedamos en tu *${pendingDocLabel}*. ¿La tienes? Si no, escribe *siguiente* y pasamos al que sigue.`;
-  } else if (!interviewDone) {
-    msg += ` Tienes ${docsCompleted}/${docsTotal} documentos. ¿Quieres seguir con los docs o prefieres hacer la *entrevista* primero?`;
-  } else if (docsCompleted < docsTotal) {
-    msg += ` Te faltan ${docsTotal - docsCompleted} documentos. Mándame el que tengas o escribe *estado* para ver cuáles faltan.`;
+export function welcome_back(
+  firstName: string, pendingDocLabel: string | null, interviewDone: boolean,
+  docsCompleted: number, docsTotal: number,
+  collectedDocs?: string[], skippedDocs?: string[],
+): string {
+  let msg = `Hola de nuevo, ${firstName}.\n`;
+
+  // Show checklist if we have doc details
+  if (collectedDocs && docsTotal > 0) {
+    const DOC_SHORT: Record<string, string> = {
+      ine_frente: 'INE Frente', ine_reverso: 'INE Reverso',
+      tarjeta_circulacion: 'Tarjeta Circulación', factura_vehiculo: 'Factura Vehículo',
+      csf: 'CSF (SAT)', comprobante_domicilio: 'Comp. Domicilio',
+      concesion: 'Concesión', estado_cuenta: 'Estado de Cuenta',
+      historial_gnv: 'Tickets GNV/Gasolina', carta_membresia: 'Carta Membresía',
+      selfie: 'Selfie con INE', curp_doc: 'CURP', acta_nacimiento: 'Acta Nacimiento',
+      fotos_unidad: 'Fotos Unidad',
+    };
+    const ALL_KEYS = ['ine_frente','ine_reverso','tarjeta_circulacion','factura_vehiculo','csf','comprobante_domicilio','concesion','estado_cuenta','historial_gnv','carta_membresia','selfie','curp_doc','acta_nacimiento','fotos_unidad'];
+    const collected = new Set(collectedDocs);
+    const skipped = new Set(skippedDocs || []);
+    let nextIdx = -1;
+    msg += `\n📋 *Expediente (${docsCompleted}/${docsTotal}):*\n`;
+    for (let i = 0; i < ALL_KEYS.length; i++) {
+      const k = ALL_KEYS[i];
+      const label = DOC_SHORT[k] || k;
+      if (collected.has(k)) {
+        msg += `✅ ${i+1}. ${label}\n`;
+      } else if (skipped.has(k)) {
+        msg += `⏭️ ${i+1}. ${label} _(saltado)_\n`;
+      } else {
+        if (nextIdx === -1) nextIdx = i;
+        msg += `⬜ ${i+1}. ${label}\n`;
+      }
+    }
+    if (nextIdx >= 0) {
+      msg += `\nSiguiente: *${DOC_SHORT[ALL_KEYS[nextIdx]] || ALL_KEYS[nextIdx]}*`;
+      msg += `\nManda la foto o escribe el *número* del doc que tengas a la mano.`;
+    }
   } else {
-    msg += ` Tu expediente está completo y en revisión. Te avisamos pronto.`;
+    if (pendingDocLabel) {
+      msg += `Nos quedamos en tu *${pendingDocLabel}*. ¿La tienes?`;
+    } else if (docsCompleted < docsTotal) {
+      msg += `Te faltan ${docsTotal - docsCompleted} documentos.`;
+    } else {
+      msg += `Tu expediente está completo y en revisión.`;
+    }
   }
-  
-  msg += `\n\n_Si prefieres que alguien te ayude en persona, dime y te conecto con nuestro promotor._`;
+
+  if (!interviewDone && docsCompleted >= docsTotal) {
+    msg += `\n\nDocs completos. ¿Hacemos la *entrevista*?`;
+  }
+
+  msg += `\n\n_¿Necesitas ayuda? Escribe *promotor* y te contactamos._`;
   return msg;
 }
 
