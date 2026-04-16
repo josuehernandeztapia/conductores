@@ -2332,8 +2332,41 @@ async function handleInterviewCompleteText(
   const collectedDocs = ctx.docsCollected || [];
   const pendingCount = TOTAL_DOCS - collectedDocs.length;
 
-  // If all docs are done → all_complete
+  // If all docs are done → run audit before advancing to contract
   if (pendingCount === 0) {
+    // Gate: run full audit — block contract if there are errors
+    try {
+      const { auditExpediente } = await import('./post-ocr-validation');
+      const audit = auditExpediente(ctx.existingData || {});
+      const errors = audit.alerts.filter(a => a.severity === 'error');
+      
+      if (errors.length > 0) {
+        // BLOCK: errors must be resolved before contract
+        const docsToRecapture = [...new Set(errors.flatMap(e => e.docs))];
+        let blockMsg = `⛔ *No podemos avanzar al contrato todavía.*\n\n`;
+        blockMsg += `La auditoría encontró ${errors.length} error${errors.length > 1 ? 'es' : ''} que debes corregir:\n\n`;
+        for (const e of errors) {
+          blockMsg += `❌ ${e.message}\n`;
+          for (const [doc, val] of Object.entries(e.values)) {
+            blockMsg += `  ${doc}: ${val}\n`;
+          }
+        }
+        blockMsg += `\n📋 *Documentos a recapturar:*\n`;
+        for (const doc of docsToRecapture) {
+          blockMsg += `• ${doc}\n`;
+        }
+        blockMsg += `\nManda la foto correcta del documento que necesites corregir.`;
+        
+        return {
+          response: blockMsg,
+          newState: "docs_pending" as ProspectState,
+          contextUpdates: {},
+        };
+      }
+    } catch (e: any) {
+      console.error('[Orchestrator] Pre-contract audit failed:', e.message);
+    }
+    
     try { await updateProspectStatus(phone, "expediente_completo"); } catch (e: any) { console.error(e.message); }
     return {
       response: already_complete(),
@@ -2404,8 +2437,23 @@ async function handleCompletedText(
   const collectedDocs = ctx.docsCollected || [];
   const pendingCount = TOTAL_DOCS - collectedDocs.length;
 
-  // If truly complete (all 14 captured), stay completed
+  // If truly complete (all 14 captured), check for audit errors before allowing contract
   if (pendingCount === 0) {
+    try {
+      const { auditExpediente } = await import('./post-ocr-validation');
+      const audit = auditExpediente(ctx.existingData || {});
+      const errors = audit.alerts.filter(a => a.severity === 'error');
+      if (errors.length > 0) {
+        const docsToRecapture = [...new Set(errors.flatMap(e => e.docs))];
+        let blockMsg = `⛔ *Expediente con errores — contrato bloqueado*\n\n`;
+        for (const e of errors) {
+          blockMsg += `❌ ${e.message}\n`;
+        }
+        blockMsg += `\n📋 *Recapturar:* ${docsToRecapture.join(', ')}\n`;
+        blockMsg += `\nManda la foto correcta para corregir.`;
+        return { response: blockMsg, newState: "docs_pending" as ProspectState, contextUpdates: {} };
+      }
+    } catch (e: any) { console.error('[Audit] completed gate:', e.message); }
     return { response: already_complete(), newState: "completed" as ProspectState, contextUpdates: {} };
   }
 
