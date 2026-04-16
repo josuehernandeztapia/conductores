@@ -2297,7 +2297,54 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
       const name = roleName || profileName || "";
       
       if (role === "director") {
-        return await respond(`${timeGreet} ${name}. \u00bfEn qu\u00e9 te ayudo?\n\nComandos r\u00e1pidos:\n\u2022 *n\u00fameros* \u2014 dashboard KPIs\n\u2022 *inventario* \u2014 veh\u00edculos disponibles\n\u2022 *folios* \u2014 expedientes activos\n\u2022 *cartera* \u2014 cr\u00e9ditos y mora\n\u2022 *mercado [marca modelo a\u00f1o]* \u2014 precios\n\u2022 *[precio]k rep [rep]k* \u2014 evaluaci\u00f3n r\u00e1pida\n\u2022 *corrida [modelo]* \u2014 simulaci\u00f3n financiera\n\u2022 *nuevo folio [nombre] [tel]* \u2014 crear folio\n\u2022 *cierre* \u2014 cierre mensual\n\u2022 Enviar CSV/Excel \u2014 procesar recaudo`);
+        // Same structured menu as promotora + director-specific commands
+        try {
+          const { neon: neonDir } = await import("@neondatabase/serverless");
+          const sqlDir = neonDir(process.env.DATABASE_URL!);
+          const gRows = await sqlDir`
+            SELECT o.id, o.folio, o.estado, o.updated_at, o.created_at,
+              CONCAT(t.nombre, CASE WHEN t.apellido_paterno IS NOT NULL THEN ' ' || t.apellido_paterno ELSE '' END) as taxista_nombre,
+              COUNT(d.id) FILTER (WHERE d.image_data IS NOT NULL OR d.ocr_result IS NOT NULL) as docs_count
+            FROM originations o
+            LEFT JOIN taxistas t ON t.id = o.taxista_id
+            LEFT JOIN documents d ON d.origination_id = o.id
+            WHERE o.estado NOT IN ('RECHAZADO', 'COMPLETADO', 'CANCELADO')
+              AND (t.telefono IS NULL OR t.telefono NOT LIKE '521999%')
+            GROUP BY o.id, o.folio, o.estado, o.updated_at, o.created_at, t.nombre, t.apellido_paterno
+            ORDER BY o.updated_at ASC
+          ` as any[];
+
+          const lines: string[] = [`${timeGreet} ${name} 👋`];
+
+          if (gRows.length > 0) {
+            lines.push(``, `📋 *${gRows.length} trámite${gRows.length > 1 ? "s" : ""} activo${gRows.length > 1 ? "s" : ""}:*`);
+            for (const r of gRows) {
+              const n2 = r.taxista_nombre || r.folio;
+              const days = Math.floor((Date.now() - new Date(r.updated_at || r.created_at).getTime()) / (1000*60*60*24));
+              const daysStr = days > 0 ? ` (${days}d)` : "";
+              lines.push(`• *${n2}*${daysStr}: ${parseInt(r.docs_count) || 0}/14 docs`);
+            }
+          } else {
+            lines.push(``, `No hay trámites activos.`);
+          }
+
+          lines.push(``, `¿Qué necesitas?`);
+          lines.push(`1️⃣ Dudas del programa`);
+          lines.push(`2️⃣ Nuevo prospecto`);
+          lines.push(`3️⃣ Evaluar oportunidad`);
+          lines.push(`4️⃣ Ver inventario`);
+          lines.push(``, `📊 *Director:*`);
+          lines.push(`• *números* — dashboard KPIs`);
+          lines.push(`• *cartera* — créditos y mora`);
+          lines.push(`• *mercado [modelo año]* — precios`);
+          lines.push(`• *cierre* — cierre mensual`);
+          lines.push(`• *auditar* — auditar expediente`);
+
+          return await respond(lines.join("\n"));
+        } catch (e: any) {
+          console.error("[Director Greeting]", e.message);
+          return await respond(`${timeGreet} ${name}. ¿En qué te ayudo?`);
+        }
       }
       if (role === "promotora") {
         const origs = await this.storage.listOriginations();
@@ -2585,6 +2632,55 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         /cartera|cobranza|mora|contratos/i.test(lower) ||
         /pago\s+(?:folio|efectivo|spei|transferencia)|confirmar\s+pago/i.test(lower) ||
         /alta|iniciar proceso|registrar cliente|nuevo cliente|proceso de alta/i.test(lower);
+
+      // ===== DIRECTOR MENU OPTIONS (same as promotora) =====
+      if (lower === "1" || /^dudas?$/i.test(lower)) {
+        return await respond(`*Temas frecuentes:*\n\n\u2022 *requisitos* \u2014 14 documentos + vigencias\n\u2022 *proceso* \u2014 paso a paso del tr\u00e1mite\n\u2022 *kit* \u2014 kit GNV incluido\n\u2022 *enganche* \u2014 anticipo y d\u00eda 56\n\u2022 *cuota* \u2014 c\u00f3mo funciona la amortizaci\u00f3n\n\u2022 *fondo de garant\u00eda* \u2014 FG y mora\n\u2022 *gas* \u2014 estaciones, ahorro, bicombustible\n\u2022 *seguro* \u2014 responsabilidad del taxista\n\u2022 *firma* \u2014 contrato digital o presencial\n\nEscribe cualquier tema o pregunta directa.`);
+      }
+      if (lower === "2" || /^nuevo$/i.test(lower)) {
+        await this.updateState(phone, { state: "waiting_folio_name" as any, folio_id: null, context: {} });
+        return await respond("Nombre del taxista y tel\u00e9fono:\nEjemplo: *Pedro L\u00f3pez 4491234567*");
+      }
+      if (lower === "3" || /^evaluar$/i.test(lower)) {
+        return await respond(`Para evaluar, escribe el modelo con precio y reparaci\u00f3n:\n\n*march 120k rep 10k*\n*aveo 100k 0 rep*\n*vento 2020 150k rep 5k*\n\nTambi\u00e9n puedes pedir precios de mercado:\n*mercado march 2021*`);
+      }
+      if (lower === "4" || /(?:inventario|veh[i\u00ed]culos?\s+(?:disponibles?|tenemos)|carros?\s+(?:disponibles?|tenemos)|qu[e\u00e9]\s+(?:hay|tienen))/i.test(lower)) {
+        try {
+          const { neon: neonInv2 } = await import("@neondatabase/serverless");
+          const sqlI2 = neonInv2(process.env.DATABASE_URL!);
+          const inv2 = await sqlI2`SELECT brand, model, variant, year, cmu AS cmu_valor, status FROM vehicles_inventory WHERE status = 'disponible' ORDER BY brand, model, year` as any[];
+          if (inv2.length === 0) return await respond("No hay veh\u00edculos disponibles.");
+          const lines2 = [`\ud83d\ude97 *Inventario CMU* (${inv2.length} disponibles):`, ``];
+          for (const v of inv2) {
+            lines2.push(`\u2022 *${v.brand} ${v.model}${v.variant ? " " + v.variant : ""} ${v.year}* \u2014 $${Number(v.cmu_valor).toLocaleString()}`);
+          }
+          lines2.push(``, `Dime el modelo y te calculo la cuota.`);
+          return await respond(lines2.join("\n"));
+        } catch (e: any) { console.error("[Inventario Dir]", e.message); }
+      }
+      // Auditar expediente
+      if (/^(?:auditar|validar|verificar|check)\s*(?:expediente)?/i.test(lower)) {
+        try {
+          const { neon: neonAudit2 } = await import("@neondatabase/serverless");
+          const sqlA2 = neonAudit2(process.env.DATABASE_URL!);
+          const folios2 = await sqlA2`
+            SELECT o.id, o.folio, o.estado, CONCAT(t.nombre, ' ', t.apellido_paterno) as nombre
+            FROM originations o LEFT JOIN taxistas t ON t.id = o.taxista_id
+            WHERE o.estado NOT IN ('RECHAZADO','CANCELADO') AND (t.telefono IS NULL OR t.telefono NOT LIKE '521999%')
+            ORDER BY o.updated_at DESC LIMIT 5
+          ` as any[];
+          if (folios2.length === 0) return await respond("No hay expedientes activos.");
+          if (folios2.length > 1) {
+            const list2 = folios2.map((f: any, i: number) => `${i+1}. *${f.folio}* \u2014 ${f.nombre || '?'} (${f.estado})`).join('\n');
+            return await respond(`\u00bfCu\u00e1l expediente auditar?\n\n${list2}\n\nEscribe *auditar [folio]*`);
+          }
+          const cs2 = await sqlA2`SELECT context FROM conversation_states WHERE folio_id = ${folios2[0].id} LIMIT 1` as any[];
+          const ctx2 = cs2[0]?.context ? (typeof cs2[0].context === 'string' ? JSON.parse(cs2[0].context) : cs2[0].context) : {};
+          const { auditExpediente } = await import("./agent/post-ocr-validation");
+          const audit2 = auditExpediente(ctx2.existingData || {});
+          return await respond(`${audit2.summary}\n\n_Folio: ${folios2[0].folio} \u2014 ${folios2[0].nombre}_`);
+        } catch (e: any) { return await respond(`Error: ${e.message}`); }
+      }
 
       if (isCanalCDirect || isCsvOrExcelMedia || (!mediaUrl && !originationId)) {
         // RAG first: check FAQ/knowledge base before LLM (prevents hallucinated answers)
