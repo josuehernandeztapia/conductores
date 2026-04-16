@@ -2587,6 +2587,16 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         /alta|iniciar proceso|registrar cliente|nuevo cliente|proceso de alta/i.test(lower);
 
       if (isCanalCDirect || isCsvOrExcelMedia || (!mediaUrl && !originationId)) {
+        // RAG first: check FAQ/knowledge base before LLM (prevents hallucinated answers)
+        if (body && !isCsvOrExcelMedia) {
+          try {
+            const { answerQuestion } = await import("./agent/rag");
+            const ragAnswer = await answerQuestion(body);
+            if (ragAnswer) return await respond(ragAnswer);
+          } catch (e: any) {
+            console.error("[RAG Director]", e.message);
+          }
+        }
         // Eval, market, dashboard, recaudo, conversational — all through Canal C
         const reply = await this.handleCanalC(phone, body, mediaUrl, mediaType);
         return await respond(reply);
