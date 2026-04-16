@@ -49,7 +49,7 @@ const FAQ: FAQEntry[] = [
     answer: "Las cuotas son decrecientes (amortización alemana): capital fijo + interés sobre saldo. Mes 1 es la cuota más alta, mes 36 la más baja. El recaudo GNV cubre una parte — mientras más cargas gas, menos pagas de tu bolsillo. Dime tu gasto mensual en combustible y te calculo.",
   },
   {
-    patterns: [/plazo/i, /cu[aá]ntos\s+meses/i, /36\s+meses/i, /cu[aá]ndo.*m[ií]o/i, /en\s+cu[aá]nto.*(?:a[ñn]os|meses)/i],
+    patterns: [/plazo/i, /cu[aá]ntos\s+meses\s+(?:es|son|dura|pago|tarda|el\s+programa)/i, /36\s+meses/i, /cu[aá]ndo.*m[ií]o/i, /en\s+cu[aá]nto.*(?:a[ñn]os)/i],
     answer: "El programa es a 36 meses con cuota decreciente. Al terminar y liquidar, el vehículo se transfiere a tu nombre. Es 100% tuyo.",
   },
   {
@@ -105,7 +105,7 @@ const FAQ: FAQEntry[] = [
   // REQUISITOS Y DOCUMENTOS
   // ═══════════════════════════════════════
   {
-    patterns: [/requisitos/i, /qu[eé]\s+necesito/i, /qu[eé]\s+(?:me\s+)?pid(?:en|es)/i, /qu[eé]\s+(?:documentos|papeles)/i, /checklist/i],
+    patterns: [/requisitos/i, /qu[eé]\s+necesito/i, /qu[eé]\s+(?:me\s+)?pid(?:en|es)/i, /qu[eé]\s+(?:documentos|papeles)/i, /checklist/i, /\bdocumentos\b/i, /cu[aá]les.*documento/i, /dime.*(?:documento|papeles|requisit)/i],
     answer: "Requisitos (14 documentos + entrevista + firma):\n\n*Documentos con vigencia:*\n1. INE vigente (frente y reverso)\n2. Comprobante de domicilio (max 3 meses)\n3. Constancia de Situación Fiscal SAT (max 3 meses)\n4. Estado de cuenta bancario (max 3 meses)\n5. Concesión de taxi vigente\n\n*Documentos sin vigencia:*\n6. Tarjeta de circulación\n7. Factura del taxi actual\n8. CURP\n9. Acta de nacimiento\n10. Carta de agrupación/gremial\n11. Historial de cargas (tickets gas o gasolina)\n12. Comprobante de ingresos\n13. Selfie con tu INE\n14. Fotos de tu unidad (4 fotos)\n\nDespués: entrevista por WhatsApp (10 min) + firma digital del contrato.\nTodo se manda por foto aquí. Si no tienes alguno, escribe *saltar*.",
   },
   {
@@ -282,7 +282,7 @@ const FAQ: FAQEntry[] = [
   },
 
   {
-    patterns: [/(?:de\s+)?(?:cu[aá]ntos|m[aá]ximo|max)\s+meses/i, /antig[uü]edad/i, /vigencia.*(?:documento|comprobante|constancia)/i, /(?:qu[eé]\s+tan).*(?:reciente|actual)/i],
+    patterns: [/(?:de\s+)?(?:cu[aá]ntos|m[aá]ximo|max)\s+meses/i, /antig[uü]edad/i, /vigencia.*(?:documento|comprobante|constancia)/i, /(?:qu[eé]\s+tan).*(?:reciente|actual)/i, /meses.*(?:comprobante|domicilio|csf|constancia|estado\s+de\s+cuenta)/i, /(?:comprobante|domicilio|csf).*meses/i],
     answer: "Vigencias máximas de documentos:\n\u2022 Comprobante de domicilio: max 3 meses\n\u2022 Constancia de Situación Fiscal (SAT): max 3 meses\n\u2022 Estado de cuenta bancario: max 3 meses\n\u2022 INE: debe estar vigente (no vencida)\n\u2022 Concesión: debe estar vigente\n\nLos demás documentos (factura, CURP, acta de nacimiento, etc.) no tienen vigencia.",
   },
 

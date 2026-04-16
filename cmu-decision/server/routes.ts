@@ -1538,6 +1538,17 @@ Responde SOLO con JSON válido:
     }
   });
 
+  // POST /api/test/rag-roles — RAG answers across all 3 roles
+  app.post("/api/test/rag-roles", async (_req, res) => {
+    try {
+      const { runRAGRolesTests } = await import("../test/rag-roles");
+      const result = await runRAGRolesTests();
+      return res.json(result);
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
   // POST /api/test/name-matcher — 67 name matching regression tests
   app.post("/api/test/name-matcher", async (_req, res) => {
     try {
