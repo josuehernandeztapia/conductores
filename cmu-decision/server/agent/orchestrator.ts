@@ -612,7 +612,16 @@ async function handleTextMessage(
   }
 
   // ── Check for off-flow questions (any state except idle/prospect_name) ──
-  if (nlu.intent === "ask_question" && state !== "idle" && state !== "prospect_name") {
+  // Also catches imperatives like "dime los requisitos" that NLU doesn't classify as ask_question
+  const isExplicitQuestion = nlu.intent === "ask_question";
+  const ragCanAnswer = !isExplicitQuestion && state !== "idle" && state !== "prospect_name" && body.length > 4;
+  let ragFallbackAnswer: string | null = null;
+  if (ragCanAnswer) {
+    // Pre-check RAG — if it has an answer, we'll use it as fallback after the state handler
+    try { ragFallbackAnswer = await answerQuestion(body); } catch {}
+  }
+
+  if ((isExplicitQuestion || ragFallbackAnswer) && state !== "idle" && state !== "prospect_name") {
     const question = nlu.entities.question || body;
     const isHumanRequest = /hablar con persona|promotor|asesor|en persona/i.test(question);
 
@@ -639,7 +648,7 @@ async function handleTextMessage(
       };
     }
 
-    const answer = await answerQuestion(question);
+    const answer = ragFallbackAnswer || await answerQuestion(question);
     if (answer) {
       return { response: answer, newState: state, contextUpdates: {} };
     }
