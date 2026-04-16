@@ -263,7 +263,7 @@ export async function registerRoutes(
       if (!dbUrl) return res.json([]);
       const { neon } = await import("@neondatabase/serverless");
       const sql = neon(dbUrl);
-      const rows = await sql`SELECT brand, model, variant, year, min_price, max_price, median_price, average_price, sample_count, sources, scraped_at FROM market_prices_cache ORDER BY brand, model, variant, year`;
+      const rows = await sql`SELECT brand, model, variant, year, min_price, max_price, median_price, average_price, sample_count, sources, scraped_at, p25, p70, p75, avg_band, source_count, warnings FROM market_prices_cache ORDER BY brand, model, variant, year`;
       res.json(rows);
     } catch (e: any) {
       res.json([]);
@@ -1409,26 +1409,20 @@ Responde SOLO con JSON válido:
       const sumStates = (states: string[]): number =>
         states.reduce((acc, s) => acc + (countMap.get(s) || 0), 0);
 
-      // Docs-based steps: count from originations + documents
-      const docsStarted = await sql`
-        SELECT COUNT(DISTINCT o.id) as c
-        FROM originations o
-        JOIN documents d ON d.origination_id = o.id
-        WHERE o.otp_phone NOT LIKE '521999%' OR o.otp_phone IS NULL
+      // Docs-based steps: count from conversation_states context (same source as total)
+      // context.docsCollected is an array of doc keys
+      const allContexts = await sql`
+        SELECT cs.context FROM conversation_states cs
+        WHERE cs.phone NOT LIKE '521999%'
       ` as any[];
-      const docsStartedCount = parseInt(docsStarted[0]?.c) || 0;
-
-      const docsComplete = await sql`
-        SELECT COUNT(*) as c FROM (
-          SELECT o.id, COUNT(d.id) as dc
-          FROM originations o
-          JOIN documents d ON d.origination_id = o.id
-          WHERE o.otp_phone NOT LIKE '521999%' OR o.otp_phone IS NULL
-          GROUP BY o.id
-          HAVING COUNT(d.id) >= 14
-        ) sub
-      ` as any[];
-      const docsCompleteCount = parseInt(docsComplete[0]?.c) || 0;
+      let docsStartedCount = 0;
+      let docsCompleteCount = 0;
+      for (const row of allContexts) {
+        const ctx = typeof row.context === 'string' ? JSON.parse(row.context) : (row.context || {});
+        const docs = ctx.docsCollected || [];
+        if (docs.length > 0) docsStartedCount++;
+        if (docs.length >= 14) docsCompleteCount++;
+      }
 
       const steps = [
         { name: "Registro", count: total },
@@ -3217,12 +3211,13 @@ Responde SOLO con JSON válido:
       const sqlE = neonExp(process.env.DATABASE_URL!);
       const rows = await sqlE`
         SELECT o.id, o.folio, o.estado, o.updated_at, o.created_at,
-          o.extracted_data, o.docs_collected, o.skipped_docs,
+          cs.context,
           CONCAT(t.nombre, ' ', t.apellido_paterno, ' ', COALESCE(t.apellido_materno, '')) as nombre,
           t.telefono
         FROM originations o
         LEFT JOIN taxistas t ON t.id = o.taxista_id
-        WHERE o.estado IN ('docs_pending', 'interview_complete', 'completed')
+        LEFT JOIN conversation_states cs ON cs.folio_id = o.id
+        WHERE o.estado NOT IN ('RECHAZADO', 'CANCELADO')
           AND (t.telefono IS NULL OR t.telefono NOT LIKE '521999%')
         ORDER BY o.updated_at DESC
       ` as any[];
@@ -3231,8 +3226,9 @@ Responde SOLO con JSON válido:
 
       const bloqueados = [];
       for (const row of rows) {
-        const allDocs = row.extracted_data || {};
-        const docsCollected = row.docs_collected || [];
+        const ctx = typeof row.context === 'string' ? JSON.parse(row.context) : (row.context || {});
+        const allDocs = ctx.existingData || {};
+        const docsCollected = ctx.docsCollected || [];
         if (Object.keys(allDocs).length === 0) continue; // no docs yet
         
         const audit = auditExpediente(allDocs);
