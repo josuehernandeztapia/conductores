@@ -1728,7 +1728,13 @@ async function handleCorridaResponse(
 
   const firstName = getFirstName(ctx);
 
-  if (nlu.intent === "affirm" || nlu.intent === "want_register") {
+  // Recognize many ways of saying "yes" or "let's proceed"
+  const wantsToAdvance = nlu.intent === "affirm" || nlu.intent === "want_register"
+    || /^[1s]$/i.test(body.trim())  // "1", "s", "sí"
+    || /\b(dale|va|vamos|rale|sale|ok|orale|claro|por\s*supuesto|arre|si[\s,!.]*$|le\s+entr|mand[oa]|dime|procedamos|empecemos|adelante)\b/i.test(body)
+    || /\b(document|cuales|qu[eé]\s+(?:te\s+)?mand|qu[eé]\s+necesit|qu[eé]\s+(?:son|me\s+pid)|papeles|requisit|empez)\b/i.test(body);
+  
+  if (wantsToAdvance) {
     // Create folio immediately
     return createFolioAndAdvance(phone, ctx, storage);
   }
@@ -1763,8 +1769,8 @@ async function handleCorridaResponse(
   }
 
   return {
-    response: `${firstName}, ¿le entramos al proceso? Son 14 documentos por foto + una entrevista rápida.`,
-    newState: "prospect_corrida",
+    response: `${firstName}, si quieres avanzar escribe *sí* o *dale*. Si tienes dudas, pregúntame lo que quieras.\n\nTambién puedes escribir *promotor* si prefieres que te atienda una persona.`,
+    newState: "prospect_corrida" as ProspectState,
     contextUpdates: {},
   };
 }
