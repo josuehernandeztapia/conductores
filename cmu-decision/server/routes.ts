@@ -83,6 +83,7 @@ const PUBLIC_PATHS = [
   "/api/originacion/reporte-pdf",  // internal cron + promotora trigger
   "/api/test/",                    // ALL test endpoints
   "/api/market-prices/bulk-update", // Daily bulk price update (cron)
+  "/api/metrics/funnel",
 ];
 
 function authMiddleware(req: Request, res: Response, next: NextFunction) {
@@ -1339,6 +1340,119 @@ Responde SOLO con JSON válido:
     } catch (err: any) {
       console.error("[Pago API] Error:", err);
       return res.status(500).json({ message: err.message });
+    }
+  });
+
+  // GET /api/metrics/funnel — Conversion funnel drop-off metrics
+  app.get("/api/metrics/funnel", async (_req, res) => {
+    try {
+      const dbUrl = process.env.DATABASE_URL;
+      if (!dbUrl) return res.json({ steps: [], total: 0, period: "all_time" });
+      const { neon } = await import("@neondatabase/serverless");
+      const sql = neon(dbUrl);
+
+      // Count total prospects (exclude test phones)
+      const totalRows = await sql`
+        SELECT COUNT(*) as c FROM conversation_states
+        WHERE phone NOT LIKE '521999%'
+      ` as any[];
+      const total = parseInt(totalRows[0]?.c) || 0;
+
+      if (total === 0) return res.json({ steps: [], total: 0, period: "all_time" });
+
+      // Count how many reached each funnel stage via conversation_states
+      // States that indicate "reached this step or beyond":
+      const stateGroups = {
+        registro: null, // total = all in conversation_states
+        interes: [
+          'prospect_select_model', 'prospect_tank', 'prospect_tank_question',
+          'prospect_corrida', 'prospect_confirm', 'prospect_show_models',
+          'prospect_post_corrida', 'prospect_awaiting_name', 'prospect_cold',
+          'prospect_docs_capture', 'docs_capture', 'docs_pending',
+          'interview_ready', 'interview_q1', 'interview_q2', 'interview_q3',
+          'interview_q4', 'interview_q5', 'interview_q6', 'interview_q7',
+          'interview_q8', 'interview_complete', 'completed',
+        ],
+        corrida: [
+          'prospect_corrida', 'prospect_post_corrida', 'prospect_confirm',
+          'prospect_tank_question', 'prospect_awaiting_name', 'prospect_cold',
+          'prospect_docs_capture', 'docs_capture', 'docs_pending',
+          'interview_ready', 'interview_q1', 'interview_q2', 'interview_q3',
+          'interview_q4', 'interview_q5', 'interview_q6', 'interview_q7',
+          'interview_q8', 'interview_complete', 'completed',
+        ],
+        folio: [
+          'prospect_docs_capture', 'docs_capture', 'docs_pending',
+          'interview_ready', 'interview_q1', 'interview_q2', 'interview_q3',
+          'interview_q4', 'interview_q5', 'interview_q6', 'interview_q7',
+          'interview_q8', 'interview_complete', 'completed',
+        ],
+        entrevista: [
+          'interview_q1', 'interview_q2', 'interview_q3', 'interview_q4',
+          'interview_q5', 'interview_q6', 'interview_q7', 'interview_q8',
+          'interview_complete', 'completed',
+        ],
+        expediente: ['interview_complete', 'completed'],
+      };
+
+      // Single query: count per state
+      const stateCounts = await sql`
+        SELECT state, COUNT(*) as c FROM conversation_states
+        WHERE phone NOT LIKE '521999%'
+        GROUP BY state
+      ` as any[];
+      const countMap = new Map<string, number>();
+      for (const row of stateCounts) {
+        countMap.set(row.state, parseInt(row.c) || 0);
+      }
+
+      const sumStates = (states: string[]): number =>
+        states.reduce((acc, s) => acc + (countMap.get(s) || 0), 0);
+
+      // Docs-based steps: count from originations + documents
+      const docsStarted = await sql`
+        SELECT COUNT(DISTINCT o.id) as c
+        FROM originations o
+        JOIN documents d ON d.origination_id = o.id
+        WHERE o.otp_phone NOT LIKE '521999%' OR o.otp_phone IS NULL
+      ` as any[];
+      const docsStartedCount = parseInt(docsStarted[0]?.c) || 0;
+
+      const docsComplete = await sql`
+        SELECT COUNT(*) as c FROM (
+          SELECT o.id, COUNT(d.id) as dc
+          FROM originations o
+          JOIN documents d ON d.origination_id = o.id
+          WHERE o.otp_phone NOT LIKE '521999%' OR o.otp_phone IS NULL
+          GROUP BY o.id
+          HAVING COUNT(d.id) >= 14
+        ) sub
+      ` as any[];
+      const docsCompleteCount = parseInt(docsComplete[0]?.c) || 0;
+
+      const steps = [
+        { name: "Registro", count: total },
+        { name: "Interés", count: sumStates(stateGroups.interes) },
+        { name: "Corrida", count: sumStates(stateGroups.corrida) },
+        { name: "Folio creado", count: sumStates(stateGroups.folio) },
+        { name: "Docs iniciados", count: docsStartedCount },
+        { name: "Docs completos", count: docsCompleteCount },
+        { name: "Entrevista", count: sumStates(stateGroups.entrevista) },
+        { name: "Expediente completo", count: sumStates(stateGroups.expediente) },
+      ];
+
+      // Calculate pct and dropoff
+      const result = steps.map((step, i) => ({
+        name: step.name,
+        count: step.count,
+        pct: total > 0 ? Math.round((step.count / total) * 1000) / 10 : 0,
+        dropoff: i === 0 ? 0 : steps[i - 1].count - step.count,
+      }));
+
+      res.json({ steps: result, total, period: "all_time" });
+    } catch (e: any) {
+      console.error("[Funnel] Error:", e.message);
+      res.status(500).json({ error: e.message });
     }
   });
 

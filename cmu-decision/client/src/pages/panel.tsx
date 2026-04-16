@@ -38,6 +38,7 @@ import {
   FileWarning,
   ShieldAlert,
   RefreshCw,
+  BarChart3,
 } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 import { Link } from "wouter";
@@ -600,6 +601,9 @@ export default function PanelPage() {
         )}
       </div>
 
+      {/* Conversion Funnel */}
+      <FunnelMetrics />
+
       {/* Blocked Expedientes */}
       <BlockedExpedientes />
 
@@ -615,6 +619,125 @@ export default function PanelPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Funnel Metrics — conversion drop-off at each onboarding step
+// ═══════════════════════════════════════════════════════════════
+
+interface FunnelStep {
+  name: string;
+  count: number;
+  pct: number;
+  dropoff: number;
+}
+
+const FUNNEL_COLORS = [
+  "bg-emerald-500",
+  "bg-emerald-400",
+  "bg-teal-400",
+  "bg-cyan-400",
+  "bg-amber-400",
+  "bg-amber-500",
+  "bg-orange-500",
+  "bg-red-400",
+  "bg-red-500",
+];
+
+function FunnelMetrics() {
+  const [data, setData] = useState<{ steps: FunnelStep[]; total: number } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/metrics/funnel");
+        const json = await res.json();
+        if (mounted) setData(json);
+      } catch (e) {
+        console.error("Failed to fetch funnel metrics:", e);
+      }
+      if (mounted) setLoading(false);
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  if (loading) {
+    return (
+      <Card className="border-zinc-800 bg-zinc-900/50 mt-4">
+        <CardContent className="p-6 flex items-center justify-center gap-2 text-zinc-400">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          <span className="text-sm">Cargando embudo...</span>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!data || data.total === 0) return null;
+
+  const { steps, total } = data;
+  const maxCount = steps[0]?.count || 1;
+
+  return (
+    <Card className="border-zinc-800 bg-zinc-900/50 mt-4">
+      <CardContent className="p-4">
+        <div className="flex items-center gap-2 mb-4">
+          <BarChart3 className="w-5 h-5 text-emerald-400" />
+          <h3 className="font-semibold text-zinc-100">Embudo de Conversión</h3>
+          <span className="text-xs text-zinc-500 ml-auto">{total} prospectos totales</span>
+        </div>
+
+        <div className="space-y-1">
+          {steps.map((step, i) => {
+            const barWidth = maxCount > 0 ? (step.count / maxCount) * 100 : 0;
+            const color = FUNNEL_COLORS[Math.min(i, FUNNEL_COLORS.length - 1)];
+            const prevCount = i > 0 ? steps[i - 1].count : 0;
+            const dropoffPct = prevCount > 0
+              ? Math.round((step.dropoff / prevCount) * 1000) / 10
+              : 0;
+
+            return (
+              <div key={step.name}>
+                {/* Drop-off indicator between steps */}
+                {i > 0 && step.dropoff > 0 && (
+                  <div className="flex items-center gap-2 pl-[140px] py-0.5">
+                    <div className="h-px flex-1 bg-zinc-800" />
+                    <span className="text-[10px] text-red-400/70 whitespace-nowrap">
+                      −{step.dropoff} (−{dropoffPct}%)
+                    </span>
+                    <div className="h-px w-4 bg-zinc-800" />
+                  </div>
+                )}
+
+                {/* Funnel row */}
+                <div className="flex items-center gap-3 group">
+                  <span className="text-xs text-zinc-400 w-[130px] text-right shrink-0 truncate">
+                    {step.name}
+                  </span>
+                  <div className="flex-1 h-7 bg-zinc-800/50 rounded overflow-hidden relative">
+                    <div
+                      className={`h-full ${color} rounded transition-all duration-500 ease-out`}
+                      style={{ width: `${Math.max(barWidth, 1)}%` }}
+                    />
+                    {barWidth > 15 && (
+                      <span className="absolute inset-y-0 left-2 flex items-center text-[11px] font-medium text-zinc-900">
+                        {step.count}
+                      </span>
+                    )}
+                  </div>
+                  <div className="w-[80px] text-right shrink-0">
+                    <span className="text-sm font-medium text-zinc-200">{step.count}</span>
+                    <span className="text-[10px] text-zinc-500 ml-1">{step.pct}%</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
