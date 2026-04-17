@@ -2635,8 +2635,12 @@ Responde SOLO con JSON válido:
         body: new URLSearchParams(params).toString(),
       });
       const data = await res.json();
-      console.log(`[WhatsApp] Sent to ${to}: ${body.substring(0, 50)}...`, data.sid || data.message);
-      await logWaMessage("outbound", to.replace("whatsapp:", ""), body, undefined, mediaUrl, data.sid);
+      if (!data.sid) {
+        console.error(`[WhatsApp] SEND FAILED to ${to} (${body.length} chars): ${data.message || data.error_message || JSON.stringify(data).slice(0, 200)}`);
+      } else {
+        console.log(`[WhatsApp] Sent to ${to}: ${body.substring(0, 50)}... [${body.length} chars]`, data.sid);
+      }
+      await logWaMessage("outbound", to.replace("whatsapp:", "").replace("+", ""), body, undefined, mediaUrl, data.sid);
       return { success: !!data.sid, sid: data.sid, message: data.message };
     } catch (err: any) {
       console.error("[WhatsApp] Send error:", err.message);

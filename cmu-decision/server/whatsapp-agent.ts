@@ -2361,11 +2361,16 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
 
           if (gRows.length > 0) {
             lines.push(``, `📋 *${gRows.length} trámite${gRows.length > 1 ? "s" : ""} activo${gRows.length > 1 ? "s" : ""}:*`);
-            for (const r of gRows) {
+            const MAX_SHOWN = 5;
+            const toShow = gRows.slice(0, MAX_SHOWN);
+            for (const r of toShow) {
               const n2 = r.taxista_nombre || r.folio;
               const days = Math.floor((Date.now() - new Date(r.updated_at || r.created_at).getTime()) / (1000*60*60*24));
               const daysStr = days > 0 ? ` (${days}d)` : "";
               lines.push(`• *${n2}*${daysStr}: ${parseInt(r.docs_count) || 0}/14 docs`);
+            }
+            if (gRows.length > MAX_SHOWN) {
+              lines.push(`_... y ${gRows.length - MAX_SHOWN} más_`);
             }
           } else {
             lines.push(``, `No hay trámites activos.`);
@@ -2426,11 +2431,16 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
           const linesP: string[] = [`${timeGreet} ${name} 👋`];
           if (gRowsP.length > 0) {
             linesP.push(``, `📋 *${gRowsP.length} trámite${gRowsP.length > 1 ? "s" : ""} activo${gRowsP.length > 1 ? "s" : ""}:*`);
-            for (const r of gRowsP) {
+            const MAX_SHOWN_P = 5;
+            const toShowP = gRowsP.slice(0, MAX_SHOWN_P);
+            for (const r of toShowP) {
               const n2 = r.taxista_nombre || r.folio;
               const days = Math.floor((Date.now() - new Date(r.updated_at || r.created_at).getTime()) / (1000*60*60*24));
               const daysStr = days > 0 ? ` (${days}d)` : "";
               linesP.push(`• *${n2}*${daysStr}: ${parseInt(r.docs_count) || 0}/14 docs`);
+            }
+            if (gRowsP.length > MAX_SHOWN_P) {
+              linesP.push(`_... y ${gRowsP.length - MAX_SHOWN_P} más_`);
             }
           } else {
             linesP.push(``, `No hay trámites activos.`);
