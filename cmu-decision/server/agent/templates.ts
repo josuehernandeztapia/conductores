@@ -21,7 +21,7 @@ export interface ModelSummary {
 
 export function greeting(profileName: string): string {
   const hour = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Mexico_City" })).getHours();
-  const saludo = hour < 12 ? "Buenos días" : hour < 18 ? "Buenas tardes" : "Buenas noches";
+  const saludo = hour >= 5 && hour < 12 ? "Buenos días" : hour >= 12 && hour < 18 ? "Buenas tardes" : "Buenas noches";
   const name = profileName ? ` ${profileName}` : "";
   return `${saludo}${name}. Soy el asistente de *Conductores del Mundo*, un programa de renovación de taxis aquí en Aguascalientes.\n\nAntes de platicarte de qué se trata, ¿cómo te llamas?`;
 }
@@ -84,7 +84,7 @@ export function ask_tank(modelName: string, precio: number): string {
 // ═══════════════════════════════════════════════════════════════
 
 export function show_corrida(corridaResumen: string, kitLabel: string, firstName: string): string {
-  return `${corridaResumen}\n${kitLabel}\n\n${firstName}, si te interesa avanzar, el proceso es así:\n\n*1.* Me mandas *14 documentos* por foto (te voy guiando uno por uno)\n*2.* Hacemos una *entrevista rápida* de 8 preguntas por nota de voz (~5 min)\n*3.* Revisamos tu expediente y te damos respuesta\n\nLos docs y la entrevista los puedes hacer en el orden que quieras, no tiene que ser todo hoy.\n\n¿Le entramos?`;
+  return `${corridaResumen}\n${kitLabel}\n\n${firstName}, si te interesa avanzar, el proceso es así:\n\n*1.* Me mandas *15 documentos* por foto (te voy guiando uno por uno)\n*2.* Hacemos una *entrevista rápida* de 8 preguntas por nota de voz (~5 min)\n*3.* Revisamos tu expediente y te damos respuesta\n\nLos docs y la entrevista los puedes hacer en el orden que quieras, no tiene que ser todo hoy.\n\n¿Le entramos?`;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -94,7 +94,7 @@ export function show_corrida(corridaResumen: string, kitLabel: string, firstName
 export function folio_created(firstName: string, folio: string): string {
   return `Listo, ${firstName}. Tu folio es *${folio}*.
 
-Para armar tu expediente necesito 14 documentos + una entrevista de 8 preguntas. *No tiene que ser todo hoy* — mándame lo que tengas a la mano y los demás cuando puedas.
+Para armar tu expediente necesito 15 documentos + una entrevista de 8 preguntas. *No tiene que ser todo hoy* — mándame lo que tengas a la mano y los demás cuando puedas.
 
 Te voy guiando uno por uno:
 • Si no tienes alguno, escribe *siguiente*

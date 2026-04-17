@@ -20,7 +20,7 @@ export const DOC_ORDER: DocDefinition[] = [
     label: "INE Frente (credencial para votar — lado de la foto)",
     visualId: "Escudo nacional arriba, texto 'INSTITUTO NACIONAL ELECTORAL', texto 'CREDENCIAL PARA VOTAR', fotografía del titular, firma del titular",
     extract: "nombre, apellido_paterno, apellido_materno, curp (18 caracteres), clave_elector (18 caracteres), domicilio, fecha_nacimiento, seccion, vigencia (formato año-año), sexo, estado, municipio",
-    crossCheck: "ES FUENTE DE VERDAD para nombre completo. La vigencia NO debe estar vencida respecto a la fecha actual. El nombre extraído aquí se usará para validar TODOS los demás documentos. Si vigencia vencida → flag 'ine_vencida'.",
+    crossCheck: "ES FUENTE DE VERDAD para nombre completo. VIGENCIA INE: formato es AÑO_INICIO-AÑO_FIN (ej: 2025-2035 significa válida HASTA 2035). Compara AÑO_FIN con la fecha actual — solo es vencida si AÑO_FIN < año actual. Si vigencia vencida → flag 'ine_vencida'. Si vence este año o el siguiente → flag 'ine_proxima_vencer'. El nombre extraído aquí se usará para validar TODOS los demás documentos.",
   },
   {
     key: "ine_reverso",

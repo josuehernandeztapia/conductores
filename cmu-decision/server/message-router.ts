@@ -50,7 +50,7 @@ export async function routeMessage(
   const hour = new Date(
     new Date().toLocaleString("en-US", { timeZone: "America/Mexico_City" }),
   ).getHours();
-  const timeGreet = hour < 12 ? "Buenos días" : hour < 18 ? "Buenas tardes" : "Buenas noches";
+  const timeGreet = hour >= 5 && hour < 12 ? "Buenos días" : hour >= 12 && hour < 18 ? "Buenas tardes" : "Buenas noches";
 
   const effectiveName = role?.name || profileName || "";
 

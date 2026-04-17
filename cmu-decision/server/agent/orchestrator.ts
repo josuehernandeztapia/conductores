@@ -97,7 +97,7 @@ import { DIRECTOR, getPromotor } from "../team-config";
 const SOBREPRECIO_GNV = 11;    // $11/LEQ
 const BASE_LEQ = 400;          // base 400 LEQ/mes
 const KIT_NUEVO_COST = 9400;   // +$9,400 for new GNV kit
-const TOTAL_DOCS = DOC_ORDER.length; // 14
+const TOTAL_DOCS = DOC_ORDER.length; // 15 docs in DOC_ORDER
 
 // Gasolina to LEQ conversion:
 // Simplified: pesosMes / 11
@@ -606,7 +606,7 @@ async function handleTextMessage(
     const EARLY_STATES = ["prospect_fuel_type", "prospect_consumo", "prospect_select_model", "prospect_tank"];
     if (EARLY_STATES.includes(state) && !ctx.folio) {
       const hour = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Mexico_City" })).getHours();
-      const saludo = hour < 12 ? "Buenos días" : hour < 18 ? "Buenas tardes" : "Buenas noches";
+      const saludo = hour >= 5 && hour < 12 ? "Buenos días" : hour >= 12 && hour < 18 ? "Buenas tardes" : "Buenas noches";
       const welcomeMsg = firstName && firstName !== "amigo/a"
         ? `${saludo} ${firstName}. ¿En qué te puedo ayudar?\n\nPara darte los números de tu renovación, dime: ¿tu taxi usa *gas natural* o *gasolina*?`
         : greeting(ctx.profileName || "");
@@ -648,6 +648,77 @@ async function handleTextMessage(
       newState: state,
       contextUpdates: {},
     };
+  }
+
+  // ── UNIVERSAL COMMAND DETECTION ──
+  // Works in ANY state (docs, interview, corrida, etc.) — resolves the
+  // "no escape hatch" problem where users get stuck in sub-flows.
+  const FLOW_STATES = [
+    "docs_capture", "docs_pending",
+    "interview_ready", "interview_q1", "interview_q2", "interview_q3",
+    "interview_q4", "interview_q5", "interview_q6", "interview_q7", "interview_q8",
+    "interview_complete", "prospect_corrida", "prospect_confirm", "completed",
+  ];
+  if (FLOW_STATES.includes(state)) {
+    const trimLower = body.toLowerCase().trim();
+
+    // ---- EXIT FLOW: "ya no tengo más", "no tengo más documentos", "por hoy ya", "después" ----
+    const isExitDocs = (state === "docs_capture" || state === "docs_pending") && (
+      /ya no tengo|no tengo (ya )?m[aá]s|por hoy|despu[eé]s te|luego te|ma[nñ]ana|no tengo (nada|ning[uú]n)|ya no traigo|es todo|ya termin[eé]|ya acab[eé]|no cargo|no tra[ij]go/i.test(trimLower)
+    );
+    if (isExitDocs) {
+      const firstName = getFirstName(ctx);
+      const collected = ctx.docsCollected || [];
+      const interviewDone = (ctx.interviewState?.currentQuestion || 0) >= 8;
+      const pendingCount = TOTAL_DOCS - collected.length - (ctx.skippedDocs || []).length;
+      let nextStep = '';
+      if (!interviewDone) {
+        nextStep = '\n\nCuando quieras, puedes:\n• Escribir *entrevista* para hacer las 8 preguntas\n• Mandar más documentos por foto\n• Escribir *estado* para ver tu avance';
+      } else {
+        nextStep = '\n\nCuando tengas más documentos, mándalos por foto. Escribir *estado* para ver tu avance.';
+      }
+      return {
+        response: `Perfecto, ${firstName}. Llevas *${collected.length}/${TOTAL_DOCS} documentos*${pendingCount > 0 ? ` (faltan ${pendingCount})` : ''}. Los demás me los mandas cuando puedas, no hay prisa.${nextStep}`,
+        newState: "docs_pending" as ProspectState,
+        contextUpdates: {},
+      };
+    }
+
+    // ---- SKIP TO INTERVIEW from docs ----
+    const isSkipToInterview = (state === "docs_capture" || state === "docs_pending") && (
+      /\bentrevista\b|saltar a entrevista|ir a entrevista|hacer la entrevista|empezar entrevista|preguntas/i.test(trimLower)
+    );
+    if (isSkipToInterview) {
+      const interviewDone = (ctx.interviewState?.currentQuestion || 0) >= 8;
+      if (interviewDone) {
+        return {
+          response: 'La entrevista ya está completa. ¿Tienes más documentos para mandar?',
+          newState: state as ProspectState,
+          contextUpdates: {},
+        };
+      }
+      return {
+        response: interview_intro(),
+        newState: "interview_ready" as ProspectState,
+        contextUpdates: {},
+      };
+    }
+
+    // ---- EXIT INTERVIEW: "finalizar", "parar", "terminar", "ya no" ----
+    const isExitInterview = state.startsWith("interview_q") && (
+      /^(finalizar|parar|terminar|salir|ya no|cancelar|stop|dejarlo|basta)\s*[!.?]*$/i.test(trimLower) ||
+      /ya no quiero|despu[eé]s (la )?termin|otro d[ií]a|ma[nñ]ana (la )?(termino|sigo|continu)/i.test(trimLower)
+    );
+    if (isExitInterview) {
+      const firstName = getFirstName(ctx);
+      const currentQ = parseInt(state.replace('interview_q', '')) || 0;
+      const collected = ctx.docsCollected || [];
+      return {
+        response: `OK, ${firstName}, pausamos la entrevista en la pregunta ${currentQ}/8. Cuando quieras retomar, escribe *entrevista*.\n\n${collected.length > 0 ? `Llevas ${collected.length}/${TOTAL_DOCS} documentos.` : 'También puedes mandar documentos por foto.'}`,
+        newState: "docs_pending" as ProspectState,
+        contextUpdates: {},
+      };
+    }
   }
 
   // ── Check for off-flow questions (any state except idle/prospect_name) ──
@@ -1081,13 +1152,18 @@ async function processDocImage(
     }
   }
 
-  // ── INE frente: update prospect name from official document ──
+  // ── INE frente: store official name separately, keep conversational name ──
   if (detectedKey === 'ine_frente' && visionResult.extracted_data) {
     const ineNombre = visionResult.extracted_data.nombre || visionResult.extracted_data.nombre_completo;
     if (ineNombre && ineNombre.trim()) {
       const oldName = ctx.nombre || '';
       const newName = ineNombre.trim();
-      contextUp.nombre = newName;
+      // Store INE name for legal/expediente use, but DON'T overwrite conversational name
+      contextUp.nombreINE = newName;
+      // Only overwrite nombre if prospect didn't give a name yet
+      if (!oldName) {
+        contextUp.nombre = newName;
+      }
 
       if (ctx.folio) {
         try {
@@ -1202,16 +1278,27 @@ async function processDocImage(
     otpPrompt = "\n\n📱 Te mandé un *código de 6 dígitos* por SMS para verificar tu celular. Escríbelo aquí.";
   }
 
-  // Build response with extracted data summary — show ALL non-null fields
-  const extractedSummary = Object.entries(visionResult.extracted_data || {})
-    .filter(([k, v]) => v !== null && v !== undefined && v !== '' && v !== 'null' && !k.startsWith('_'))
-    .map(([k, v]) => {
-      const val = String(v);
-      // Truncate very long values
-      return `${k}: ${val.length > 40 ? val.slice(0, 40) + '...' : val}`;
-    })
-    .join(' | ');
-  const dataSummaryLine = extractedSummary ? `\n_Datos: ${extractedSummary}_` : '';
+  // Build concise response — only show key identifiers, not full data dump
+  const KEY_FIELDS: Record<string, string[]> = {
+    ine_frente: ['nombre', 'apellido_paterno'],
+    ine_reverso: ['curp_mrz'],
+    tarjeta_circulacion: ['placa', 'marca', 'linea'],
+    factura_vehiculo: ['niv'],
+    csf: ['rfc'],
+    comprobante_domicilio: ['direccion'],
+    concesion: ['numero_concesion'],
+    estado_cuenta: ['clabe', 'banco'],
+    selfie_biometrico: [],
+    licencia_conducir: ['numero_licencia'],
+  };
+  const keyFieldsForDoc = KEY_FIELDS[detectedKey] || [];
+  const extractedHighlights = keyFieldsForDoc.length > 0
+    ? Object.entries(visionResult.extracted_data || {})
+        .filter(([k, v]) => keyFieldsForDoc.includes(k) && v !== null && v !== undefined && v !== '' && v !== 'null')
+        .map(([k, v]) => `${k}: ${String(v).slice(0, 30)}`)
+        .join(' | ')
+    : '';
+  const dataSummaryLine = extractedHighlights ? `\n_${extractedHighlights}_` : '';
 
   // Import doc explanation for next doc
   const { doc_request_with_explanation } = await import('./templates');
