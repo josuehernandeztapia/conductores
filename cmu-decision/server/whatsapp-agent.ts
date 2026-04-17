@@ -2347,39 +2347,41 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         }
       }
       if (role === "promotora") {
-        const origs = await this.storage.listOriginations();
-        const activos = origs.filter((o: any) => !["RECHAZADO", "COMPLETADO", "CANCELADO"].includes(o.estado));
-        // Show stale folios (>3 days without update)
-        const stale = activos.filter((o: any) => {
-          const updated = new Date(o.updatedAt || o.createdAt).getTime();
-          return (Date.now() - updated) > 3 * 24 * 60 * 60 * 1000;
-        });
-        const totalActivos = activos.length;
-        const totalStale = stale.length;
-        let greeting = `${timeGreet} ${name}.`;
-        if (totalActivos > 0) {
-          greeting += ` Tienes *${totalActivos} trámites activos*`;
-          if (totalStale > 0) {
-            greeting += `, *${totalStale} sin avance*`;
+        // Unified menu (same structure as director)
+        try {
+          const { neon: neonProm } = await import("@neondatabase/serverless");
+          const sqlProm = neonProm(process.env.DATABASE_URL!);
+          const gRowsP = await sqlProm`
+            SELECT o.id, o.folio, o.estado, o.updated_at, o.created_at,
+              CONCAT(t.nombre, CASE WHEN t.apellido_paterno IS NOT NULL THEN ' ' || t.apellido_paterno ELSE '' END) as taxista_nombre,
+              COUNT(d.id) FILTER (WHERE d.image_data IS NOT NULL OR d.ocr_result IS NOT NULL) as docs_count
+            FROM originations o
+            LEFT JOIN taxistas t ON t.id = o.taxista_id
+            LEFT JOIN documents d ON d.origination_id = o.id
+            WHERE o.estado NOT IN ('RECHAZADO', 'COMPLETADO', 'CANCELADO')
+              AND (t.telefono IS NULL OR t.telefono NOT LIKE '521999%')
+            GROUP BY o.id, o.folio, o.estado, o.updated_at, o.created_at, t.nombre, t.apellido_paterno
+            ORDER BY o.updated_at ASC
+          ` as any[];
+
+          const linesP: string[] = [`${timeGreet} ${name} 👋`];
+          if (gRowsP.length > 0) {
+            linesP.push(``, `📋 *${gRowsP.length} trámite${gRowsP.length > 1 ? "s" : ""} activo${gRowsP.length > 1 ? "s" : ""}:*`);
+            for (const r of gRowsP) {
+              const n2 = r.taxista_nombre || r.folio;
+              const days = Math.floor((Date.now() - new Date(r.updated_at || r.created_at).getTime()) / (1000*60*60*24));
+              const daysStr = days > 0 ? ` (${days}d)` : "";
+              linesP.push(`• *${n2}*${daysStr}: ${parseInt(r.docs_count) || 0}/14 docs`);
+            }
+          } else {
+            linesP.push(``, `No hay trámites activos.`);
           }
-          greeting += ".";
+          linesP.push(``, `¿Qué necesitas?`, `1️⃣ Dudas del programa`, `2️⃣ Nuevo prospecto`, `3️⃣ Evaluar oportunidad`, `4️⃣ Ver inventario`);
+          return await respond(linesP.join("\n"));
+        } catch (e: any) {
+          console.error("[Promotora Greeting]", e.message);
+          return await respond(`${timeGreet} ${name}. ¿En qué te ayudo?`);
         }
-        // Build numbered shortlist of up to 5 most recent active folios
-        const recientes = activos
-          .sort((a: any, b: any) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime())
-          .slice(0, 5);
-        if (recientes.length > 0) {
-          greeting += `\n\n*Trámites recientes:*`;
-          recientes.forEach((o: any, i: number) => {
-            const nombre = o.taxistaName || o.folio;
-            greeting += `\n${i + 1}. ${nombre}`;
-          });
-          greeting += `\n\n*Nuevo prospecto:* escribe el nombre y teléfono`;
-          greeting += `\n*Retomar:* escribe el número o nombre de arriba`;
-        } else {
-          greeting += `\n\nNo hay trámites activos.\n*Nuevo prospecto:* escribe el nombre y teléfono del taxista.`;
-        }
-        return await respond(greeting);
       }
       if (role === "cliente") {
         // Multi-product greeting
@@ -3666,52 +3668,6 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
           }
         } catch (e: any) {
           return await respond(`Error al generar el reporte: ${e.message}`);
-        }
-      }
-
-      // ===== PROMOTOR GREETING WITH MENU + PENDING FOLIOS =====
-      const isGreeting = /^(?:hola|buenas?\s*(?:tardes?|d[ií]as?|noches?)|hey|qu[eé]\s*tal|buenos?\s*d[ií]as?|ola)\s*[!.?]*$/i.test(lo.trim());
-      if (isGreeting) {
-        try {
-          const { neon: neonImport } = await import("@neondatabase/serverless");
-          const sqlG = neonImport(process.env.DATABASE_URL!);
-          const gRows = await sqlG`
-            SELECT o.id, o.folio, o.estado, o.updated_at, o.created_at,
-              CONCAT(t.nombre, CASE WHEN t.apellido_paterno IS NOT NULL THEN ' ' || t.apellido_paterno ELSE '' END) as taxista_nombre,
-              COUNT(d.id) FILTER (WHERE d.image_data IS NOT NULL OR d.ocr_result IS NOT NULL) as docs_count
-            FROM originations o
-            LEFT JOIN taxistas t ON t.id = o.taxista_id
-            LEFT JOIN documents d ON d.origination_id = o.id
-            WHERE o.estado NOT IN ('RECHAZADO', 'COMPLETADO', 'CANCELADO')
-              AND (t.telefono IS NULL OR t.telefono NOT LIKE '521999%')
-            GROUP BY o.id, o.folio, o.estado, o.updated_at, o.created_at, t.nombre, t.apellido_paterno
-            ORDER BY o.updated_at ASC
-          ` as any[];
-
-          const hour = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Mexico_City" })).getHours();
-          const saludo = hour < 12 ? "Buenos d\u00edas" : hour < 18 ? "Buenas tardes" : "Buenas noches";
-
-          const lines: string[] = [`${saludo} \ud83d\udc4b`];
-
-          if (gRows.length > 0) {
-            lines.push(``, `\ud83d\udccb *${gRows.length} tr\u00e1mite${gRows.length > 1 ? "s" : ""} activo${gRows.length > 1 ? "s" : ""}:*`);
-            for (const r of gRows) {
-              const name2 = r.taxista_nombre || r.folio;
-              const days = Math.floor((Date.now() - new Date(r.updated_at || r.created_at).getTime()) / (1000*60*60*24));
-              const daysStr = days > 0 ? ` (${days}d)` : "";
-              const docsCount = parseInt(r.docs_count) || 0;
-              lines.push(`\u2022 *${name2}*${daysStr}: ${docsCount}/14 docs`);
-            }
-          } else {
-            lines.push(``, `No hay tr\u00e1mites activos por ahora.`);
-          }
-
-          lines.push(``, `\u00bfQu\u00e9 necesitas?`, `1\ufe0f\u20e3 Dudas del programa`, `2\ufe0f\u20e3 Nuevo prospecto`, `3\ufe0f\u20e3 Evaluar oportunidad`, `4\ufe0f\u20e3 Ver inventario`);
-
-          return await respond(lines.join("\n"));
-        } catch (e: any) {
-          console.error("[Promotor Greeting]", e.message);
-          // fall through to LLM
         }
       }
 
