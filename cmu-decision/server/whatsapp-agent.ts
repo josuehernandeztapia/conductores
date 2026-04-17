@@ -2367,7 +2367,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
               const n2 = r.taxista_nombre || r.folio;
               const days = Math.floor((Date.now() - new Date(r.updated_at || r.created_at).getTime()) / (1000*60*60*24));
               const daysStr = days > 0 ? ` (${days}d)` : "";
-              lines.push(`• *${n2}*${daysStr}: ${parseInt(r.docs_count) || 0}/14 docs`);
+              lines.push(`• *${n2}*${daysStr}: ${parseInt(r.docs_count) || 0}/15 docs`);
             }
             if (gRows.length > MAX_SHOWN) {
               lines.push(`_... y ${gRows.length - MAX_SHOWN} más_`);
@@ -2411,7 +2411,8 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         }
       }
       if (role === "promotora") {
-        // Unified menu (same structure as director)
+        // Clear folio state on greeting — promotora starts fresh each "Hola"
+        await this.updateState(phone, { state: "idle", folioId: null, context: {} });
         try {
           const { neon: neonProm } = await import("@neondatabase/serverless");
           const sqlProm = neonProm(process.env.DATABASE_URL!);
@@ -2437,7 +2438,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
               const n2 = r.taxista_nombre || r.folio;
               const days = Math.floor((Date.now() - new Date(r.updated_at || r.created_at).getTime()) / (1000*60*60*24));
               const daysStr = days > 0 ? ` (${days}d)` : "";
-              linesP.push(`• *${n2}*${daysStr}: ${parseInt(r.docs_count) || 0}/14 docs`);
+              linesP.push(`• *${n2}*${daysStr}: ${parseInt(r.docs_count) || 0}/15 docs`);
             }
             if (gRowsP.length > MAX_SHOWN_P) {
               linesP.push(`_... y ${gRowsP.length - MAX_SHOWN_P} más_`);
@@ -2445,7 +2446,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
           } else {
             linesP.push(``, `No hay trámites activos.`);
           }
-          linesP.push(``, `¿Qué necesitas?`, `1️⃣ Dudas del programa`, `2️⃣ Nuevo prospecto`, `3️⃣ Evaluar oportunidad`, `4️⃣ Ver inventario`);
+          linesP.push(``, `¿Qué necesitas?`, `1️⃣ Dudas del programa`, `2️⃣ Nuevo prospecto`, `3️⃣ Buscar prospecto`, `4️⃣ Ver inventario`);
           return await respond(linesP.join("\n"));
         } catch (e: any) {
           console.error("[Promotora Greeting]", e.message);
@@ -3241,6 +3242,11 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
 
       // Helper: send notification to Josué + promotor
       const notifyTeam = async (msg: string) => {
+        // Suppress notifications for test phones (521999*)
+        if (/521999/.test(msg) || /521999/.test(phone)) {
+          console.log('[Notify] SUPPRESSED (test phone):', msg.slice(0, 60));
+          return;
+        }
         const endpoints = [
           { to: `whatsapp:+${JOSUE_PHONE}` },  // Josué
           { to: `whatsapp:+${getPromotor()?.phone || ANGELES_PHONE}` },  // Promotor
@@ -3699,6 +3705,31 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         }
       }
 
+      // ── QUESTION DETECTION: if promotora asks a question while in doc capture, use RAG or status ──
+      if (originationId && /\?|est[aá]n\s+correct|datos|verific|checar|revisar|c[oó]mo\s+va|qu[eé]\s+falta|cu[aá]nto|cu[aá]les/i.test(lo)) {
+        // "Están correctos los datos?" / "cómo va?" / "qué falta?" → show folio status
+        try {
+          const pI = await this.getPendingInfo(originationId);
+          const tName = (convState?.context as any)?.folio?.taxistaName || "el taxista";
+          const folioStr = (convState?.context as any)?.folio?.folio || "";
+          const { neon: neonQ } = await import("@neondatabase/serverless");
+          const sqlQ = neonQ(process.env.DATABASE_URL!);
+          const docRows = await sqlQ`
+            SELECT tipo, ocr_result FROM documents
+            WHERE origination_id = ${originationId}
+            AND (image_data IS NOT NULL OR ocr_result IS NOT NULL)
+          ` as any[];
+          const capturedList = docRows.map((d: any) => {
+            const label = DOC_ORDER.find(o => o.key === d.tipo)?.label || d.tipo;
+            return `✅ ${label}`;
+          }).join('\n');
+          const pendingStr = pI.count > 0 ? `\n\nFaltan *${pI.count}*: ${pI.text}` : '\n\n✅ Documentos completos';
+          return await respond(`📋 *${tName}* — ${folioStr}\n\n${capturedList || 'Sin documentos aún'}${pendingStr}\n\n_Mándame foto del siguiente doc, o escribe *entrevista* / *cambiar folio*_`);
+        } catch (e: any) {
+          console.error('[PromoQuestion]', e.message);
+        }
+      }
+
       // ── FOLIO ACTIVE COMMANDS: docs / entrevista / cambiar folio ──
       if (originationId) {
         if (/^docs?$|^documentos?$|^papeles?$/i.test(lo)) {
@@ -3804,9 +3835,69 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         }
       }
 
-      // Option 3: Evaluar oportunidad
-      if (lo === "3" || /^evaluar$/i.test(lo)) {
-        return await respond(`Para evaluar, escribe el modelo con precio y reparaci\u00f3n:\n\n*march 120k rep 10k*\n*aveo 100k 0 rep*\n*vento 2020 150k rep 5k*\n\nTambi\u00e9n puedes pedir precios de mercado:\n*mercado march 2021*`);
+      // Option 3: Buscar prospecto (promotora) / Evaluar (director)
+      if (lo === "3" || /^(?:buscar|evaluar)$/i.test(lo) || /buscar\s+prospecto/i.test(lo)) {
+        if (role === "promotora") {
+          return await respond(`Escribe el *nombre* o *folio* del prospecto.\n\nEjemplo:\n• *Pedro López*\n• *CMU-SIN-260417-001*`);
+        }
+        // Director: eval instructions
+        return await respond(`Para evaluar, escribe el modelo con precio y reparación:\n\n*march 120k rep 10k*\n*aveo 100k 0 rep*\n*vento 2020 150k rep 5k*\n\nTambién puedes pedir precios de mercado:\n*mercado march 2021*`);
+      }
+
+      // ── BUSCAR PROSPECTO: match by name or folio (promotora) ──
+      if (role === "promotora" && !originationId && body.length >= 3 && body.length <= 60 && !/^\d{1,2}$/.test(lo)
+        && !/^(?:dudas|nuevo|inventario|evaluar|buscar|auditar|docs|entrevista|hola|menu|menú|cambiar|reporte|pendientes)$/i.test(lo)
+        && !wantsNewProspect && !wantsEmailReport
+        && convState?.state !== "waiting_folio_name" && convState?.state !== "waiting_folio_phone"
+        && !lo.startsWith("mercado") && !/\d+k/.test(lo)
+      ) {
+        try {
+          const { neon: neonSearch } = await import("@neondatabase/serverless");
+          const sqlS = neonSearch(process.env.DATABASE_URL!);
+          const isFolio = /^cmu-/i.test(lo);
+          let results: any[];
+          if (isFolio) {
+            results = await sqlS`
+              SELECT o.id, o.folio, o.estado,
+                CONCAT(t.nombre, ' ', COALESCE(t.apellido_paterno,'')) as nombre_completo,
+                COUNT(d.id) FILTER (WHERE d.image_data IS NOT NULL) as docs_count
+              FROM originations o
+              LEFT JOIN taxistas t ON t.id = o.taxista_id
+              LEFT JOIN documents d ON d.origination_id = o.id
+              WHERE UPPER(o.folio) = UPPER(${body.trim()})
+              GROUP BY o.id, o.folio, o.estado, t.nombre, t.apellido_paterno
+            ` as any[];
+          } else {
+            const searchTerm = `%${body.trim()}%`;
+            results = await sqlS`
+              SELECT o.id, o.folio, o.estado,
+                CONCAT(t.nombre, ' ', COALESCE(t.apellido_paterno,'')) as nombre_completo,
+                COUNT(d.id) FILTER (WHERE d.image_data IS NOT NULL) as docs_count
+              FROM originations o
+              LEFT JOIN taxistas t ON t.id = o.taxista_id
+              LEFT JOIN documents d ON d.origination_id = o.id
+              WHERE o.estado NOT IN ('RECHAZADO','CANCELADO')
+                AND (t.telefono IS NULL OR t.telefono NOT LIKE '521999%')
+                AND (CONCAT(t.nombre, ' ', COALESCE(t.apellido_paterno,''), ' ', COALESCE(t.apellido_materno,'')) ILIKE ${searchTerm}
+                  OR o.folio ILIKE ${searchTerm})
+              GROUP BY o.id, o.folio, o.estado, t.nombre, t.apellido_paterno
+              ORDER BY o.updated_at DESC LIMIT 5
+            ` as any[];
+          }
+          if (results.length === 1) {
+            const r = results[0];
+            await this.updateState(phone, { folioId: r.id, state: "capturing_docs", context: { folio: { id: r.id, folio: r.folio, taxistaName: r.nombre_completo } } });
+            originationId = r.id;
+            const pI = await this.getPendingInfo(r.id);
+            return await respond(`\ud83d\udccb *${r.nombre_completo?.trim() || r.folio}* \u2014 ${r.folio}\nEstado: ${r.estado} | Docs: ${r.docs_count}/15\n${pI.count > 0 ? `Faltan: *${pI.text}*` : '\u2705 Documentos completos'}\n\n_Mándame foto del siguiente doc, o escribe *entrevista* / *cambiar folio*_`);
+          } else if (results.length > 1) {
+            const list = results.map((r: any, i: number) => `${i+1}. *${r.nombre_completo?.trim() || '?'}* \u2014 ${r.folio} (${r.docs_count}/15 docs)`).join('\n');
+            return await respond(`Encontré ${results.length} resultados:\n\n${list}\n\nEscribe el *folio* para seleccionar.`);
+          }
+          // No results — don't intercept, let it fall through to LLM
+        } catch (e: any) {
+          console.error('[PromoSearch] Error:', e.message);
+        }
       }
 
       // Option 4: Ver inventario
