@@ -20,7 +20,7 @@ export interface ModelSummary {
 // ═══════════════════════════════════════════════════════════════
 
 export function greeting(profileName: string): string {
-  const hour = new Date().getHours();
+  const hour = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Mexico_City" })).getHours();
   const saludo = hour < 12 ? "Buenos días" : hour < 18 ? "Buenas tardes" : "Buenas noches";
   const name = profileName ? ` ${profileName}` : "";
   return `${saludo}${name}. Soy el asistente de *Conductores del Mundo*, un programa de renovación de taxis aquí en Aguascalientes.\n\nAntes de platicarte de qué se trata, ¿cómo te llamas?`;

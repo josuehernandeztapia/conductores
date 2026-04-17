@@ -585,10 +585,13 @@ async function handleTextMessage(
   const nlu = override || await extractIntent(body, state);
   console.log(`[Orchestrator] NLU: intent=${nlu.intent} confidence=${nlu.confidence} entities=${JSON.stringify(nlu.entities)} override=${!!override}`);
 
-  // ── CRITICAL: Greeting/fresh-start detection in advanced state → reset to idle ──
-  // A message that STARTS with "hola"/"buenos días"/etc while deep in the flow means fresh start
+  // ── CRITICAL: Greeting/fresh-start detection in any non-idle state → reset ──
+  // A message that STARTS with "hola"/"buenos días"/etc while in the flow means fresh start.
+  // Includes early states too — if prospect comes back days later saying "hola",
+  // we should welcome them back, not repeat the fuel type question.
   const ADVANCED_STATES: string[] = [
-    "prospect_corrida", "prospect_confirm",
+    "prospect_fuel_type", "prospect_consumo", "prospect_select_model",
+    "prospect_tank", "prospect_corrida", "prospect_confirm",
     "docs_capture", "docs_pending",
     "interview_ready", "interview_q1", "interview_q2", "interview_q3",
     "interview_q4", "interview_q5", "interview_q6", "interview_q7", "interview_q8",
@@ -596,8 +599,25 @@ async function handleTextMessage(
   ];
   const startsWithGreeting = /^\s*(hola|buenos?\s+(?:d[ií]as?|tardes?|noches?)|buenas|hey|qu[eé]\s+tal|que\s+tal|oye|oiga|buen\s+d[ií]a)/i.test(body);
   if ((nlu.intent === "greeting" || startsWithGreeting) && ADVANCED_STATES.includes(state)) {
-    console.log(`[Orchestrator] Greeting in advanced state ${state} → welcome_back`);
+    console.log(`[Orchestrator] Greeting in state ${state} → welcome_back`);
     const firstName = getFirstName(ctx);
+
+    // For early states (before docs), reset to idle if no folio yet
+    const EARLY_STATES = ["prospect_fuel_type", "prospect_consumo", "prospect_select_model", "prospect_tank"];
+    if (EARLY_STATES.includes(state) && !ctx.folio) {
+      const hour = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Mexico_City" })).getHours();
+      const saludo = hour < 12 ? "Buenos días" : hour < 18 ? "Buenas tardes" : "Buenas noches";
+      const welcomeMsg = firstName && firstName !== "amigo/a"
+        ? `${saludo} ${firstName}. ¿En qué te puedo ayudar?\n\nPara darte los números de tu renovación, dime: ¿tu taxi usa *gas natural* o *gasolina*?`
+        : greeting(ctx.profileName || "");
+      const resetState = firstName && firstName !== "amigo/a" ? "prospect_fuel_type" as ProspectState : "prospect_name" as ProspectState;
+      return {
+        response: welcomeMsg,
+        newState: resetState,
+        contextUpdates: {},
+      };
+    }
+
     const collectedDocs = ctx.docsCollected || [];
     const interviewDone = (ctx.interviewState?.currentQuestion || 0) >= 8;
     const nextDoc = getNextExpectedDoc([...collectedDocs, ...(ctx.skippedDocs || [])]);
@@ -612,9 +632,22 @@ async function handleTextMessage(
   }
 
   // ── Check for off-flow questions (any state except idle/prospect_name) ──
-  // Also catches imperatives like "dime los requisitos" that NLU doesn't classify as ask_question
+  // CRITICAL: Only intercept with RAG when NLU says "ask_question" or returns
+  // an unknown/greeting intent AND the body looks like a real question.
+  // State-relevant intents (fuel_gnv, fuel_gasolina, confirm, give_number, etc.)
+  // MUST reach the state handler — otherwise the flow never advances.
   const isExplicitQuestion = nlu.intent === "ask_question";
-  const ragCanAnswer = !isExplicitQuestion && state !== "idle" && state !== "prospect_name" && body.length > 4;
+  const STATE_FLOW_INTENTS = new Set([
+    "fuel_gnv", "fuel_gasolina", "give_name", "give_number", "give_consumo",
+    "consumo_number", "gasto_number",
+    "select_model", "confirm", "deny", "maybe_later", "affirm",
+    "skip_doc", "ask_progress", "start_interview", "answer_interview",
+    "want_register", "want_interview", "reuse_tank", "new_tank", "go_back",
+    "greeting",  // greetings handled by the greeting-reset block above
+  ]);
+  const isStateFlowIntent = STATE_FLOW_INTENTS.has(nlu.intent);
+  const ragCanAnswer = !isExplicitQuestion && !isStateFlowIntent
+    && state !== "idle" && state !== "prospect_name" && body.length > 8;
   let ragFallbackAnswer: string | null = null;
   if (ragCanAnswer) {
     // Pre-check RAG — if it has an answer, we'll use it as fallback after the state handler
