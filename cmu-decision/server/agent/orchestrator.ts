@@ -631,6 +631,25 @@ async function handleTextMessage(
     };
   }
 
+  // ── UNIVERSAL: "promotor" escalation works in ANY state (including interview) ──
+  const isPromoterRequest = /^\s*promotor[ae]?\s*[!.?]*$/i.test(body);
+  if (isPromoterRequest && state !== "idle" && state !== "prospect_name") {
+    const folio = ctx.folio || '?';
+    const nombre = ctx.nombre || phone;
+    try {
+      const stepMap: Record<string, string> = { idle: 'Inicio', prospect_name: 'Registro', prospect_fuel_type: 'Combustible', prospect_consumo: 'Consumo', prospect_select_model: 'Selección', prospect_tank: 'Tanque', prospect_corrida: 'Corrida', prospect_confirm: 'Confirmación', docs_capture: 'Docs', docs_pending: 'Docs pendientes', interview_ready: 'Pre-entrevista', interview_q1: 'Entrevista Q1', interview_q2: 'Entrevista Q2', interview_q3: 'Entrevista Q3', interview_q4: 'Entrevista Q4', interview_q5: 'Entrevista Q5', interview_q6: 'Entrevista Q6', interview_q7: 'Entrevista Q7', interview_q8: 'Entrevista Q8', completed: 'Completado' };
+      await notifyTeam(`📲 *Solicitud de ayuda*\n\n*Nombre:* ${nombre}\n*Tel:* ${phone}\n*Folio:* ${folio}\n*Paso:* ${stepMap[state] || state}\n\nEl prospecto pidió hablar con promotor.`);
+    } catch (e: any) {
+      console.error('[Orchestrator] notifyTeam (promotor universal) failed:', e.message);
+    }
+    const firstName = getFirstName(ctx);
+    return {
+      response: `Listo, ${firstName || 'amigo/a'}, le aviso a tu asesor(a) para que te contacte.\n\nMientras tanto, puedes seguir mandándome documentos o preguntas — yo los guardo en tu expediente.`,
+      newState: state,
+      contextUpdates: {},
+    };
+  }
+
   // ── Check for off-flow questions (any state except idle/prospect_name) ──
   // CRITICAL: Only intercept with RAG when NLU says "ask_question" or returns
   // an unknown/greeting intent AND the body looks like a real question.

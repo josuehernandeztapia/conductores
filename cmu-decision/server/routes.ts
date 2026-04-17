@@ -2836,29 +2836,22 @@ Responde SOLO con JSON válido:
         }
 
         // Route to modular agent v3 for prospectos
-        // If sending media: use same queue to avoid race conditions with simultaneous photos
+        // CRITICAL: ALL prospect messages (text, images, audio) go through the orchestrator.
+        // The orchestrator owns the prospect state (folio, docs, interview).
+        // Do NOT use enqueueAndProcessMedia — that routes through waAgent which
+        // doesn't know about the orchestrator's folio/state.
         const runProspectV3 = async () => {
           const reply = await handleProspectMessage(
             phone, body,
-            hasMedia ? mediaUrl : null, mediaType || null,
+            hasMedia ? mediaUrl : null, hasMedia ? (mediaType || "image/jpeg") : null,
             ProfileName || "", storage,
           );
           await sendWa(From, reply);
         };
-        if (hasMedia && mediaUrl) {
-          // Wrap in a role-like object for the queue
-          const prospectRole = { role: "prospecto", permissions: [], name: ProfileName || "" };
-          enqueueAndProcessMedia({
-            From, phone, body,
-            mediaUrl: mediaUrl!, mediaType: mediaType || "image/jpeg",
-            role: prospectRole, ProfileName: ProfileName || "",
-          }).catch(e => console.error("[MediaQueue/v3] Fatal:", e.message));
-        } else {
-          runProspectV3().catch(e => {
-            console.error(`[AgentV3] Error for ${phone}:`, e.message);
-            sendWa(From, `Ocurrió un error. Intenta de nuevo.`);
-          });
-        }
+        runProspectV3().catch(e => {
+          console.error(`[AgentV3] Error for ${phone}:`, e.message);
+          sendWa(From, `Ocurrió un error. Intenta de nuevo.`);
+        });
         return res.status(200).send("<Response></Response>");
       }
 
@@ -2908,14 +2901,21 @@ Responde SOLO con JSON válido:
 
       // === ROUTED AGENT MODE (message-router is single entry point) ===
       if (waAgent && OPENAI_API_KEY) {
-        // Media still goes through the queue to preserve OCR ordering for
-        // directors/promotoras that capture docs for prospects.
+        // Media handling: prospects go through orchestrator, privileged roles through queue
         if (hasMedia && mediaUrl) {
-          enqueueAndProcessMedia({
-            From, phone, body,
-            mediaUrl: mediaUrl!, mediaType: mediaType || "image/jpeg",
-            role, ProfileName: ProfileName || "",
-          }).catch(e => console.error("[MediaQueue] Fatal:", e.message));
+          if (role.role === "prospecto") {
+            // Prospects: orchestrator owns state (folio, docs, interview)
+            handleProspectMessage(phone, body, mediaUrl, mediaType || "image/jpeg", role.name || ProfileName || "", storage)
+              .then(reply => { if (reply) sendWa(From, reply); })
+              .catch(e => { console.error("[AgentV3/media] Error:", e.message); sendWa(From, "Ocurri\u00f3 un error. Intenta de nuevo."); });
+          } else {
+            // Director/promotora: queue preserves OCR ordering for doc capture
+            enqueueAndProcessMedia({
+              From, phone, body,
+              mediaUrl: mediaUrl!, mediaType: mediaType || "image/jpeg",
+              role, ProfileName: ProfileName || "",
+            }).catch(e => console.error("[MediaQueue] Fatal:", e.message));
+          }
           return res.status(200).send("<Response></Response>");
         }
 

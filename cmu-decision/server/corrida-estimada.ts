@@ -129,7 +129,7 @@ export function generarCorridaEstimada(
     `→ De tu bolsillo: *${fmtBol(m3.diferencial)}*`,
     ``,
     `*${mesGnvLabel}:* GNV cubre tu cuota completa → *$0 de tu bolsillo*`,
-    `*Mes 37:* Vehículo 100% tuyo`,
+    `*Mes 36:* Último pago — vehículo 100% tuyo`,
     ``,
     `_Cuota baja cada mes (amortización alemana). Números basados en tu consumo real._`,
   ].join("\n");
