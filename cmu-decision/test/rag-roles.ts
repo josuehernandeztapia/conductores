@@ -365,6 +365,7 @@ export async function runRAGRolesTests() {
 
 // Run if executed directly
 if (process.argv[1]?.includes("rag-roles")) {
-  const r = await runRAGRolesTests();
-  if (r.failed > 0) process.exit(1);
+  runRAGRolesTests().then(r => {
+    if (r.failed > 0) process.exit(1);
+  });
 }
