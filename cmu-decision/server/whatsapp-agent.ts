@@ -2694,6 +2694,25 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         /pago\s+(?:folio|efectivo|spei|transferencia)|confirmar\s+pago/i.test(lower) ||
         /alta|iniciar proceso|registrar cliente|nuevo cliente|proceso de alta/i.test(lower);
 
+      // ===== DIRECTOR: EVAL PARSER (same as promotora) =====
+      const dirEarlyParsed = this.parseEvalLine(cmd);
+      const dirEvalSignals = dirEarlyParsed.cost || dirEarlyParsed.repair || lower.startsWith("evalua") || lower.startsWith("eval\u00faa");
+      const dirIsConversational = /(?:conviene|vale la pena|crees|opinas|recomiendas|tomando en cuenta|considerando|los (?:dos|tres|ultimos)|ambos|comparando|que piensas|deber[i\u00ed]a|me sale|es buena|buena opci[o\u00f3]n|qu[e\u00e9] tal si)/i.test(lower);
+      if (dirEvalSignals && !dirIsConversational) {
+        let dModel: any;
+        if (dirEarlyParsed.modelQuery) dModel = await this.resolveModel(dirEarlyParsed.modelQuery, dirEarlyParsed.year);
+        if (dModel && dirEarlyParsed.cost) {
+          // Run eval directly
+          const mkt = await this.fetchMarketPrices(dModel.brand, dModel.model, dirEarlyParsed.year || dModel.year, dModel.variant);
+          const fuel = await this.getFuel();
+          const mData = { brand: dModel.brand, model: dModel.model, variant: dModel.variant, slug: dModel.slug, purchaseBenchmarkPct: dModel.purchaseBenchmarkPct || 0.60 };
+          const input = { modelId: dModel.id, modelSlug: dModel.slug, year: dirEarlyParsed.year || dModel.year, cmu: dModel.cmu, insurerPrice: dirEarlyParsed.cost, repairEstimate: dirEarlyParsed.repair || 0, conTanque: dirEarlyParsed.conTanque ?? true };
+          const rules = await this.getRules();
+          const result = evaluateOpportunity(input, mData, { gnvRevenue: fuel.gnvRevenueMes, marketAvgPrice: mkt.avg, marketP70: mkt.p70 });
+          return await respond(this.formatEvalResult(result, mkt, fuel.gnvRevenueMes, getThresholds(rules)));
+        }
+      }
+
       // ===== DIRECTOR MENU OPTIONS (same as promotora) =====
       if (lower === "1" || /^dudas?$/i.test(lower)) {
         return await respond(`*Temas frecuentes:*\n\n\u2022 *requisitos* \u2014 14 documentos + vigencias\n\u2022 *proceso* \u2014 paso a paso del tr\u00e1mite\n\u2022 *kit* \u2014 kit GNV incluido\n\u2022 *enganche* \u2014 anticipo y d\u00eda 56\n\u2022 *cuota* \u2014 c\u00f3mo funciona la amortizaci\u00f3n\n\u2022 *fondo de garant\u00eda* \u2014 FG y mora\n\u2022 *gas* \u2014 estaciones, ahorro, bicombustible\n\u2022 *seguro* \u2014 responsabilidad del taxista\n\u2022 *firma* \u2014 contrato digital o presencial\n\nEscribe cualquier tema o pregunta directa.`);
