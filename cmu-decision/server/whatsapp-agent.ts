@@ -1690,6 +1690,49 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
       await this.updateState(phone, { state: "idle", context: {} });
     }
 
+    // ===== CLIENT MENU HANDLERS =====
+    const convStateCheck = await this.getConvState(phone);
+    const isClientMenu = (convStateCheck as any).state === "client_menu";
+    if (isClientMenu) {
+      const clientCredit = (convStateCheck as any).context?.clientCredit;
+      if (clientCredit) {
+        const { clientEstadoCuenta, clientHacerPago, clientRecaudoGNV, clientGreeting } = await import("./client-menu");
+        
+        // Option 1: Estado de cuenta
+        if (lower === "1" || /estado.*cuenta|cu[aá]nto\s+debo|saldo|deuda/i.test(lower)) {
+          return await respond(await clientEstadoCuenta(clientCredit));
+        }
+        // Option 2: Hacer pago
+        if (lower === "2" || /pag(?:o|ar)|liga.*pago|c[oó]mo\s+pago|clabe/i.test(lower)) {
+          return await respond(clientHacerPago(clientCredit));
+        }
+        // Option 3: Recaudo GNV
+        if (lower === "3" || /recaudo|gnv|gas.*carg|mi\s+gas|litros/i.test(lower)) {
+          return await respond(await clientRecaudoGNV(clientCredit));
+        }
+        // Option 4: Promotor
+        if (lower === "4" || /promotor|asesor|persona|ayuda/i.test(lower)) {
+          try {
+            const { notifyTeam } = await import("./agent/notifications");
+            await notifyTeam(`📲 *Cliente solicita atención*\n\nNombre: ${clientCredit.nombre}\nTel: ${phone}\nFolio: ${clientCredit.folio}\nProducto: ${clientCredit.type}`);
+          } catch {}
+          return await respond(`Tu promotor te contactará en breve. Tu folio es *${clientCredit.folio}*.\n\n_Si es urgente, puedes llamar directamente._`);
+        }
+        
+        // RAG for FAQ questions
+        try {
+          const { answerQuestion } = await import("./agent/rag");
+          const ragAnswer = await answerQuestion(body);
+          if (ragAnswer) return await respond(ragAnswer);
+        } catch {}
+        
+        // Re-show menu for unrecognized input
+        const hour = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Mexico_City" })).getHours();
+        const tg = hour < 12 ? "Buenos días" : hour < 18 ? "Buenas tardes" : "Buenas noches";
+        return await respond(clientGreeting(clientCredit, tg));
+      }
+    }
+
     // ===== EVALUATION always runs first if there are eval signals, even in conversational text =====
     const earlyParsed = this.parseEvalLine(cmd);
     const earlyEvalSignals = earlyParsed.cost || earlyParsed.repair || lower.startsWith("evalua") || lower.startsWith("eval\u00faa");
@@ -2344,6 +2387,22 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         } catch (e: any) {
           console.error("[Director Greeting]", e.message);
           return await respond(`${timeGreet} ${name}. ¿En qué te ayudo?`);
+        }
+      }
+
+      // ===== CLIENT CHECK (taxista with active credit in Airtable) =====
+      if (role === "prospecto" || role === "unknown") {
+        try {
+          const { findClientByPhone, clientGreeting } = await import("./client-menu");
+          const credit = await findClientByPhone(phone);
+          if (credit) {
+            console.log(`[Client] Found ${credit.type} credit for ${phone}: ${credit.folio}`);
+            // Store client context for menu handlers
+            await this.updateState(phone, { state: "client_menu" as any, context: { clientCredit: credit } } as any);
+            return await respond(clientGreeting(credit, timeGreet));
+          }
+        } catch (e: any) {
+          console.error("[Client] Lookup failed:", e.message);
         }
       }
       if (role === "promotora") {

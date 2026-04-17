@@ -121,6 +121,56 @@ Buenos días Josué 👋
 
 ---
 
+## CLIENTE (taxista con crédito activo, sin PIN)
+
+**Trigger:** Escribe desde teléfono registrado en Airtable (Creditos, Joylong, o Kit)
+
+**Saludo Taxi Renovación:**
+```
+Buenos días Pedro 👋
+
+🚕 *Tu crédito CMU-VAL-260401:*
+Vehículo: Chevrolet Aveo 2022
+Mes 5/36 | Cuota: $7,200
+Saldo: $165,000 | FG: $18,000
+
+¿Qué necesitas?
+1️⃣ Estado de cuenta
+2️⃣ Hacer un pago
+3️⃣ Mi recaudo GNV
+4️⃣ Hablar con promotor
+```
+
+**Saludo Joylong Ahorro:**
+```
+Buenos días Héctor 👋
+
+🚌 *Tu ahorro Joylong CMU-AGS-004:*
+Ahorro: $18,473 de $799,000
+Avance: 2.3% | Gatillo: $399,500
+
+¿Qué necesitas?
+1️⃣ Estado de cuenta
+2️⃣ Hacer un pago
+3️⃣ Mi recaudo GNV
+4️⃣ Hablar con promotor
+```
+
+**Opciones:**
+| # | Comando | Acción |
+|---|---------|--------|
+| 1 | Estado de cuenta | Saldo, pagos, mes actual, últimos 3 pagos |
+| 2 | Hacer pago | Liga Conekta o CLABE + referencia |
+| 3 | Recaudo GNV | Placas registradas, acumulado, últimos recaudos |
+| 4 | Promotor | Notifica a promotora con datos del cliente |
+
+**También puede:**
+- Preguntar cualquier FAQ → RAG responde
+- Enviar comprobante de pago
+- Escribir "cuánto debo" / "ya pagué" / "mi recaudo" en lenguaje natural
+
+---
+
 ## PROVEEDOR (Lilia, PIN 000000)
 
 **Saludo:**
