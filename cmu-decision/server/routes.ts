@@ -17,6 +17,7 @@ import evaluacionRoutes from "./evaluacion-routes";
 import { logAudit, initAuditTable, getAuditLog } from "./audit-trail";
 import { detectCanal, upsertProspect, updateProspectStatus, getPipelineStats, getPipelineList, getCanales, getProspectsNeedingFollowup, markFollowupSent, generateWhatsAppLink } from "./pipeline-ventas";
 import { handleProspectMessage } from "./agent/orchestrator";
+import { routeMessage } from "./message-router";
 import { getPromotor, DIRECTOR, PROMOTOR_LABEL, JOSUE_PHONE, ANGELES_PHONE } from "./team-config";
 import { DOC_KEYS as VISION_DOC_KEYS, DOC_LABELS as VISION_DOC_LABELS_MAP } from "./agent/vision";
 
@@ -2901,10 +2902,10 @@ Responde SOLO con JSON válido:
         }
       }
 
-      // === AI AGENT MODE ===
+      // === ROUTED AGENT MODE (message-router is single entry point) ===
       if (waAgent && OPENAI_API_KEY) {
-        // All roles: queue media to process multiple simultaneous images sequentially
-        // Prevents race conditions when any user sends 4 photos at once from their gallery
+        // Media still goes through the queue to preserve OCR ordering for
+        // directors/promotoras that capture docs for prospects.
         if (hasMedia && mediaUrl) {
           enqueueAndProcessMedia({
             From, phone, body,
@@ -2914,19 +2915,20 @@ Responde SOLO con JSON válido:
           return res.status(200).send("<Response></Response>");
         }
 
-        const result = await waAgent.handleMessage(
-          phone, body, ProfileName || "",
-          hasMedia ? mediaUrl : null, mediaType, originationId,
-          role.role, role.name, role.permissions,
-        );
-        if (result.newOriginationId && result.newOriginationId !== originationId) {
-          waPhoneToOrigination.set(phone, result.newOriginationId);
-          const newOrig = await storage.getOrigination(result.newOriginationId);
-          if (newOrig) await associatePhoneFolio(phone, newOrig.folio, "agent_flexible");
-        }
-        await sendWa(From, result.reply);
-        if (result.documentSaved) {
-          console.log(`[WhatsApp][Agent] Doc ${result.documentSaved} saved for origination ${originationId || result.newOriginationId}`);
+        try {
+          const reply = await routeMessage(
+            phone,
+            body,
+            ProfileName || "",
+            null,
+            null,
+            { role: role.role, name: role.name || "", permissions: role.permissions || [] },
+            { waAgent, storage },
+          );
+          if (reply) await sendWa(From, reply);
+        } catch (e: any) {
+          console.error(`[Router] Error for ${phone}:`, e.message);
+          await sendWa(From, `Ocurrió un error. Intenta de nuevo.`);
         }
         return res.status(200).send("<Response></Response>");
       }

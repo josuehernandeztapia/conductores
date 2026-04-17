@@ -506,9 +506,12 @@ export function auditExpediente(allDocs: Record<string, Record<string, any>>): {
 
   // ── Helper: extract name from a doc ──
   function getName(doc: Record<string, any>): string | null {
-    return doc.nombre_completo || doc.nombre ||
-      [doc.nombre, doc.apellido_paterno, doc.apellido_materno].filter(Boolean).join(' ') ||
-      doc.propietario || doc.titular || doc.receptor_nombre || doc.nombre_miembro || null;
+    if (doc.nombre_completo) return doc.nombre_completo;
+    // If split fields exist, join them (INE format: nombre + apellido_paterno + apellido_materno)
+    if (doc.apellido_paterno || doc.apellido_materno) {
+      return [doc.nombre, doc.apellido_paterno, doc.apellido_materno].filter(Boolean).join(' ') || null;
+    }
+    return doc.nombre || doc.propietario || doc.titular || doc.receptor_nombre || doc.nombre_miembro || null;
   }
 
   // ── 1. NOMBRE consistency across all docs vs INE ──
