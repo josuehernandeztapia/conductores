@@ -2705,6 +2705,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         /alta|iniciar proceso|registrar cliente|nuevo cliente|proceso de alta/i.test(lower);
 
       // ===== DIRECTOR: EVAL PARSER (same as promotora) =====
+      const cmd = body.replace(/^josu[eé]\s*/i, "").trim();
       const dirEarlyParsed = this.parseEvalLine(cmd);
       const dirEvalSignals = dirEarlyParsed.cost || dirEarlyParsed.repair || lower.startsWith("evalua") || lower.startsWith("eval\u00faa");
       const dirIsConversational = /(?:conviene|vale la pena|crees|opinas|recomiendas|tomando en cuenta|considerando|los (?:dos|tres|ultimos)|ambos|comparando|que piensas|deber[i\u00ed]a|me sale|es buena|buena opci[o\u00f3]n|qu[e\u00e9] tal si)/i.test(lower);
