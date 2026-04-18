@@ -202,7 +202,7 @@ export default function ProspectFlowPage() {
   // State handlers
   const handleName = () => {
     const name = (document.getElementById("nombre") as HTMLInputElement)?.value;
-    const phone = (document.getElementById("telefono") as HTMLInputElement)?.value?.replace(/\D/g, "");
+    const phone = (document.getElementById("phone") as HTMLInputElement)?.value?.replace(/\D/g, "");
     if (!name) {
       toast({ title: "Ingresa el nombre", variant: "destructive" });
       return;
