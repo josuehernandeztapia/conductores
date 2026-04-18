@@ -253,7 +253,7 @@ function App() {
   useIdleTimeout(handleLogout, !!promoter);
 
   return (
-    <ErrorBoundary>
+    <ErrorBoundary resetKey={typeof window !== 'undefined' ? window.location.hash : ''}>
       <TooltipProvider>
         <Toaster />
         {!promoter ? (

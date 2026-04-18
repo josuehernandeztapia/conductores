@@ -165,13 +165,13 @@ function EvaluacionDetail({
             </div>
             <div className="space-y-0.5">
               <span className="text-muted-foreground">Ratio ingreso</span>
-              <p className={`font-bold ${(e.ratio_ingreso ?? 0) < 0.8 || (e.ratio_ingreso ?? 0) > 1.3 ? "text-red-600" : "text-emerald-600"}`}>
-                {(e.ratio_ingreso ?? 0).toFixed(2)}
+              <p className={`font-bold ${Number(e.ratio_ingreso || 0) < 0.8 || Number(e.ratio_ingreso || 0) > 1.3 ? "text-red-600" : "text-emerald-600"}`}>
+                {Number(e.ratio_ingreso || 0).toFixed(2)}
               </p>
             </div>
             <div className="space-y-0.5">
               <span className="text-muted-foreground">Km/día estimados</span>
-              <p className="font-bold">{(e.km_dia_estimados ?? 0).toFixed(0)} km</p>
+              <p className="font-bold">{Number(e.km_dia_estimados || 0).toFixed(0)} km</p>
             </div>
             <div className="space-y-0.5">
               <span className="text-muted-foreground">Ingreso real/mes</span>
@@ -263,8 +263,8 @@ function EvaluacionDetail({
             <div><span className="text-muted-foreground">Evasión</span><p className="font-bold">{e.total_evasion}</p></div>
             <div><span className="text-muted-foreground">Negación tajante</span><p className={`font-bold ${e.total_negacion_tajante >= 3 ? "text-red-600" : ""}`}>{e.total_negacion_tajante}</p></div>
             <div><span className="text-muted-foreground">Honestidad</span><p className="font-bold">{e.total_honestidad}</p></div>
-            <div><span className="text-muted-foreground">Disfluencia promedio</span><p className="font-bold">{e.avg_disfluency_rate.toFixed(1)}%</p></div>
-            <div><span className="text-muted-foreground">Score honestidad</span><p className="font-bold">{(e.avg_honesty_score * 100).toFixed(0)}%</p></div>
+            <div><span className="text-muted-foreground">Disfluencia promedio</span><p className="font-bold">{Number(e.avg_disfluency_rate || 0).toFixed(1)}%</p></div>
+            <div><span className="text-muted-foreground">Score honestidad</span><p className="font-bold">{(Number(e.avg_honesty_score || 0) * 100).toFixed(0)}%</p></div>
           </div>
 
           {e.voice_flags && e.voice_flags.length > 0 && (
@@ -443,7 +443,7 @@ export default function EvaluacionesPage() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium font-mono truncate">{e.folio_id}</p>
                     <p className="text-[10px] text-muted-foreground">
-                      Score {e.score_coherencia} · Flujo ${Math.round(e.flujo_libre_mes).toLocaleString()} · Cuota {(e.ratio_cuota * 100).toFixed(0)}%
+                      Score {e.score_coherencia} · Flujo ${Math.round(Number(e.flujo_libre_mes || 0)).toLocaleString()} · Cuota {(Number(e.ratio_cuota || 0) * 100).toFixed(0)}%
                       {e.banderas?.length > 0 && ` · ${e.banderas.length} bandera(s)`}
                     </p>
                   </div>

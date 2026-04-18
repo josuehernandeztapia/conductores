@@ -77,7 +77,8 @@ function calcularCorrida(
   const tasaAnual = 0.299;
   const tasaMensual = tasaAnual / 12;
   const meses = 36;
-  const gnvRevenue = fuelType === "gnv" ? consumoLeq * 11 : 0; // $11/LEQ sobreprecio GNV
+  // Both profiles get GNV savings — Perfil B converts to GNV with the new vehicle
+  const gnvRevenue = consumoLeq * 11; // $11/LEQ sobreprecio GNV
   const fondoGarantia = 334;
 
   // German amortization
@@ -311,16 +312,22 @@ export default function ProspectFlowPage() {
     setSaving(true);
     try {
       // Create origination with all the data
+      // Split name into parts (MX convention: nombre apellidoPaterno apellidoMaterno)
+      const nameParts = (context.nombre || "").trim().split(/\s+/);
+      const nombre = nameParts.length >= 3 ? nameParts.slice(0, -2).join(" ") : nameParts[0] || "";
+      const apellidoPaterno = nameParts.length >= 2 ? nameParts[nameParts.length - (nameParts.length >= 3 ? 2 : 1)] : "";
+      const apellidoMaterno = nameParts.length >= 3 ? nameParts[nameParts.length - 1] : "";
+
       const res = await apiFetch(`/api/originations`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           tipo: "compraventa",
           perfilTipo: context.fuelType === "gnv" ? "A" : "B",
-          folio: `CMU-PWA-${Date.now()}`,
           otpPhone: context.phone,
           taxista: {
-            nombre: context.nombre,
+            nombre,
+            apellidoPaterno: apellidoPaterno || nombre, // fallback to nombre if single word
+            apellidoMaterno,
             telefono: context.phone,
           },
         }),
