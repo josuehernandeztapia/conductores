@@ -240,13 +240,28 @@ export default function ProspectFlowPage() {
     }
 
     const value = parseInt(input);
+    if (isNaN(value) || value <= 0) {
+      toast({ title: "Ingresa un número válido", variant: "destructive" });
+      return;
+    }
+
     const newContext = { ...context };
 
     if (context.fuelType === "gnv") {
+      if (value < 400) {
+        toast({ title: "Mínimo 400 LEQ/mes para Perfil A", variant: "destructive" });
+        return;
+      }
       newContext.consumoLeq = value;
     } else {
+      if (value < 9600) {
+        toast({ title: "Mínimo $9,600/mes para Perfil B", variant: "destructive" });
+        return;
+      }
       newContext.gastoPesosMes = value;
-      newContext.consumoLeq = Math.round(value / 11); // Convert pesos to LEQ
+      // Gasolina: pesos → LEQ equivalente (pesos / precio_gasolina_litro)
+      // $9,600 / $24 = 400 litros ≈ 400 LEQ equivalente
+      newContext.consumoLeq = Math.round(value / 24);
     }
 
     saveState("prospect_show_models", newContext);
