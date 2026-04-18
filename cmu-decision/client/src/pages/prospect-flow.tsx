@@ -77,18 +77,22 @@ function calcularCorrida(
   const tasaAnual = 0.299;
   const tasaMensual = tasaAnual / 12;
   const meses = 36;
-  const gnvRevenue = fuelType === "gnv" ? consumoLeq * 10 : 0; // $10/LEQ
+  const gnvRevenue = fuelType === "gnv" ? consumoLeq * 11 : 0; // $11/LEQ sobreprecio GNV
   const fondoGarantia = 334;
 
   // German amortization
   const capitalMensual = pvFinal / meses;
   let saldo = pvFinal;
+  let fgAcum = 8000; // FG inicial
+  const FG_TECHO = 20000;
   const rows = [];
 
   for (let mes = 1; mes <= meses; mes++) {
     const interes = saldo * tasaMensual;
     const cuota = capitalMensual + interes;
-    const diferencial = cuota - gnvRevenue + fondoGarantia;
+    const fgEste = fgAcum < FG_TECHO ? fondoGarantia : 0;
+    fgAcum += fgEste;
+    const diferencial = Math.max(0, cuota - gnvRevenue) + fgEste;
 
     rows.push({
       mes,
