@@ -144,7 +144,7 @@ function DirectorApp({ promoter, onLogout, routerOverride }: {
                   <span className="hidden sm:inline">{isOnline ? "En línea" : "Sin conexión"}</span>
                 </div>
                 <span className="text-[10px] text-muted-foreground hidden sm:inline">
-                  {promoter.name} · Director
+                  {promoter.name} · {promoter.role === "dev" ? "Dev" : "Director"}
                 </span>
               </div>
             </header>

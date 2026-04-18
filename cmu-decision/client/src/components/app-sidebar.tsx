@@ -112,7 +112,7 @@ export function AppSidebar({ promoterName, role, onLogout }: { promoterName: str
               {promoterName}
             </span>
             <span className="text-[10px] text-muted-foreground">
-              {role === "director" ? "Director" : "Promotora"}
+              {role === "director" ? "Director" : role === "dev" ? "Dev" : "Promotora"}
             </span>
           </div>
           <button
