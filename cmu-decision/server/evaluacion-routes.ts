@@ -13,7 +13,7 @@
 
 import { Router, Request, Response } from "express";
 import { logAudit } from "./audit-trail";
-const multer = require("multer");
+import multer from "multer";
 import {
   PREGUNTAS_TAXI,
   calcularCoherencia,

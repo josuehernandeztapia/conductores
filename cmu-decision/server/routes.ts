@@ -18,6 +18,7 @@ import { logAudit, initAuditTable, getAuditLog } from "./audit-trail";
 import { detectCanal, upsertProspect, updateProspectStatus, getPipelineStats, getPipelineList, getCanales, getProspectsNeedingFollowup, markFollowupSent, generateWhatsAppLink } from "./pipeline-ventas";
 import { handleProspectMessage } from "./agent/orchestrator";
 import { routeMessage } from "./message-router";
+import { getSession, updateSession } from "./conversation-state";
 import { getPromotor, DIRECTOR, PROMOTOR_LABEL, JOSUE_PHONE, ANGELES_PHONE } from "./team-config";
 import { DOC_KEYS as VISION_DOC_KEYS, DOC_LABELS as VISION_DOC_LABELS_MAP } from "./agent/vision";
 
@@ -2535,6 +2536,92 @@ Responde SOLO con JSON válido:
     } catch (err: any) {
       console.error("PDF download error:", err);
       return res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ===== CONVERSATION STATE API (for PWA to sync with WhatsApp Agent) =====
+
+  // GET /api/conversation-state/:phone — Read current state and context
+  app.get("/api/conversation-state/:phone", async (req, res) => {
+    try {
+      const { phone } = req.params;
+      // Normalize phone (remove country code if present)
+      const normalizedPhone = phone.replace(/^\+?52/, "").replace(/\D/g, "");
+
+      const session = await getSession(normalizedPhone);
+
+      // Return the state and context (agentState for prospects)
+      return res.json({
+        phone: normalizedPhone,
+        state: (session.context as any)?.agentState || session.state,
+        context: (session.context as any)?.agentContext || session.context,
+        folioId: session.folioId,
+        lastActivity: session.lastActivity
+      });
+    } catch (error: any) {
+      console.error("[ConvState API] GET error:", error.message);
+      return res.status(500).json({ error: "Failed to get conversation state" });
+    }
+  });
+
+  // PATCH /api/conversation-state/:phone — Update state and context
+  app.patch("/api/conversation-state/:phone", async (req, res) => {
+    try {
+      const { phone } = req.params;
+      const { state, context } = req.body;
+
+      // Validate required fields
+      if (!state || !context) {
+        return res.status(400).json({ error: "state and context are required" });
+      }
+
+      // Normalize phone
+      const normalizedPhone = phone.replace(/^\+?52/, "").replace(/\D/g, "");
+
+      // Valid states for prospects
+      const VALID_STATES = [
+        "idle",
+        "prospect_name",
+        "prospect_fuel_type",
+        "prospect_consumo",
+        "prospect_show_models",
+        "prospect_select_model",
+        "prospect_tank",
+        "prospect_corrida",
+        "prospect_confirm",
+        "docs_capture",
+        "docs_pending",
+        "interview_ready",
+        "interview_q1", "interview_q2", "interview_q3", "interview_q4",
+        "interview_q5", "interview_q6", "interview_q7", "interview_q8",
+        "interview_complete",
+        "completed"
+      ];
+
+      if (!VALID_STATES.includes(state)) {
+        return res.status(400).json({ error: `Invalid state: ${state}` });
+      }
+
+      // Update session with prospect-compatible structure
+      await updateSession(normalizedPhone, {
+        state: state as any,
+        context: {
+          agentState: state,
+          agentContext: context
+        }
+      });
+
+      console.log(`[ConvState API] Updated ${normalizedPhone} → state: ${state}`);
+
+      return res.json({
+        success: true,
+        phone: normalizedPhone,
+        state,
+        context
+      });
+    } catch (error: any) {
+      console.error("[ConvState API] PATCH error:", error.message);
+      return res.status(500).json({ error: "Failed to update conversation state" });
     }
   });
 

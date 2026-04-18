@@ -165,13 +165,13 @@ function EvaluacionDetail({
             </div>
             <div className="space-y-0.5">
               <span className="text-muted-foreground">Ratio ingreso</span>
-              <p className={`font-bold ${e.ratio_ingreso < 0.8 || e.ratio_ingreso > 1.3 ? "text-red-600" : "text-emerald-600"}`}>
-                {e.ratio_ingreso.toFixed(2)}
+              <p className={`font-bold ${(e.ratio_ingreso ?? 0) < 0.8 || (e.ratio_ingreso ?? 0) > 1.3 ? "text-red-600" : "text-emerald-600"}`}>
+                {(e.ratio_ingreso ?? 0).toFixed(2)}
               </p>
             </div>
             <div className="space-y-0.5">
               <span className="text-muted-foreground">Km/día estimados</span>
-              <p className="font-bold">{e.km_dia_estimados.toFixed(0)} km</p>
+              <p className="font-bold">{(e.km_dia_estimados ?? 0).toFixed(0)} km</p>
             </div>
             <div className="space-y-0.5">
               <span className="text-muted-foreground">Ingreso real/mes</span>

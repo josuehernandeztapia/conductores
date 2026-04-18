@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Switch, Route, Router, Redirect } from "wouter";
+import { Switch, Route, Router, Redirect, useLocation } from "wouter";
 import { useHashLocation } from "wouter/use-hash-location";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -13,6 +13,7 @@ import CatalogPage from "./pages/catalog";
 import InventarioPage from "./pages/inventario";
 import OriginacionPage from "./pages/originacion";
 import OriginacionFlowPage from "./pages/originacion-flow";
+import ProspectFlowPage from "./pages/prospect-flow";
 import PanelPage from "./pages/panel";
 import EvaluacionesPage from "./pages/evaluaciones";
 import PipelinePage from "./pages/pipeline";
@@ -33,6 +34,7 @@ function DirectorRouter() {
       {/* Originación */}
       <Route path="/originacion" component={OriginacionPage} />
       <Route path="/originacion/:id" component={OriginacionFlowPage} />
+      <Route path="/prospect" component={ProspectFlowPage} />
       <Route path="/evaluaciones" component={EvaluacionesPage} />
       {/* Ventas */}
       <Route path="/pipeline" component={PipelinePage} />
@@ -58,6 +60,7 @@ function DevRouter() {
       <Route path="/inventario" component={InventarioPage} />
       <Route path="/originacion" component={OriginacionPage} />
       <Route path="/originacion/:id" component={OriginacionFlowPage} />
+      <Route path="/prospect" component={ProspectFlowPage} />
       <Route path="/evaluaciones" component={EvaluacionesPage} />
       <Route path="/pipeline" component={PipelinePage} />
       <Route path="/panel" component={PanelPage} />
@@ -106,6 +109,7 @@ function DirectorApp({ promoter, onLogout, routerOverride }: {
   routerOverride?: React.ReactNode;
 }) {
   const isOnline = useOnlineStatus();
+  const [location] = useLocation();
   const sidebarStyle = {
     "--sidebar-width": "15rem",
     "--sidebar-width-icon": "3.5rem",
@@ -141,7 +145,7 @@ function DirectorApp({ promoter, onLogout, routerOverride }: {
               </div>
             </header>
             <main className="flex-1 overflow-y-auto">
-              <ErrorBoundary>
+              <ErrorBoundary resetKey={location}>
                 {routerOverride || <DirectorRouter />}
               </ErrorBoundary>
             </main>
@@ -158,6 +162,7 @@ function PromotoraApp({ promoter, onLogout }: {
   onLogout: () => void;
 }) {
   const isOnline = useOnlineStatus();
+  const [location] = useLocation();
 
   return (
     <Router hook={useHashLocation}>
@@ -193,7 +198,7 @@ function PromotoraApp({ promoter, onLogout }: {
           </div>
         </header>
         <main className="flex-1 overflow-y-auto">
-          <ErrorBoundary>
+          <ErrorBoundary resetKey={location}>
             <PromotoraRouter />
           </ErrorBoundary>
         </main>

@@ -5,6 +5,7 @@ import { AlertTriangle, RefreshCw } from "lucide-react";
 interface Props {
   children: ReactNode;
   fallback?: ReactNode;
+  resetKey?: string;
 }
 
 interface State {
@@ -24,6 +25,13 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("[ErrorBoundary] Caught error:", error, errorInfo);
+  }
+
+  componentDidUpdate(prevProps: Props) {
+    // Reset error state when resetKey changes (e.g., route change)
+    if (prevProps.resetKey !== this.props.resetKey && this.state.hasError) {
+      this.setState({ hasError: false, error: null });
+    }
   }
 
   handleReset = () => {
