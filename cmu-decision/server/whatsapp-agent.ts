@@ -2550,7 +2550,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
             break;
           case "documentos":
           case "documento":
-            msg += `Flujo documentos (14 docs).\nEnvía una imagen — el agente la clasificará y validará en modo test.`;
+            msg += `Flujo documentos (15 docs).\nEnvía una imagen — el agente la clasificará y validará en modo test.`;
             break;
           case "cliente":
             msg += `Flujo cliente (folio activo).\nSimula: taxista con contrato activo consulta su status.`;
@@ -2727,7 +2727,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
 
       // ===== DIRECTOR MENU OPTIONS (same as promotora) =====
       if (lower === "1" || /^dudas?$/i.test(lower)) {
-        return await respond(`*Temas frecuentes:*\n\n\u2022 *requisitos* \u2014 14 documentos + vigencias\n\u2022 *proceso* \u2014 paso a paso del tr\u00e1mite\n\u2022 *kit* \u2014 kit GNV incluido\n\u2022 *enganche* \u2014 anticipo y d\u00eda 56\n\u2022 *cuota* \u2014 c\u00f3mo funciona la amortizaci\u00f3n\n\u2022 *fondo de garant\u00eda* \u2014 FG y mora\n\u2022 *gas* \u2014 estaciones, ahorro, bicombustible\n\u2022 *seguro* \u2014 responsabilidad del taxista\n\u2022 *firma* \u2014 contrato digital o presencial\n\nEscribe cualquier tema o pregunta directa.`);
+        return await respond(`*Temas frecuentes:*\n\n\u2022 *requisitos* \u2014 15 documentos + vigencias\n\u2022 *proceso* \u2014 paso a paso del tr\u00e1mite\n\u2022 *kit* \u2014 kit GNV incluido\n\u2022 *enganche* \u2014 anticipo y d\u00eda 56\n\u2022 *cuota* \u2014 c\u00f3mo funciona la amortizaci\u00f3n\n\u2022 *fondo de garant\u00eda* \u2014 FG y mora\n\u2022 *gas* \u2014 estaciones, ahorro, bicombustible\n\u2022 *seguro* \u2014 responsabilidad del taxista\n\u2022 *firma* \u2014 contrato digital o presencial\n\nEscribe cualquier tema o pregunta directa.`);
       }
       if (lower === "2" || /^nuevo$/i.test(lower)) {
         await this.updateState(phone, { state: "waiting_folio_name" as any, folio_id: null, context: {} });
@@ -2772,6 +2772,12 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
           const audit2 = auditExpediente(ctx2.existingData || {});
           return await respond(`${audit2.summary}\n\n_Folio: ${folios2[0].folio} \u2014 ${folios2[0].nombre}_`);
         } catch (e: any) { return await respond(`Error: ${e.message}`); }
+      }
+
+      // ===== DIRECTOR: deterministic command handlers (before RAG/LLM) =====
+      if (/^(?:documentos?|docs?|papeles?|cu[aá]les\s+(?:son\s+)?(?:los\s+)?doc|dame\s+(?:los\s+)?doc|lista\s+(?:de\s+)?doc|requisitos?\s+doc)/i.test(lower)) {
+        const docList = DOC_ORDER.map((d, i) => `${i + 1}. ${d.label}`).join('\n');
+        return await respond(`📋 *15 documentos requeridos:*\n\n${docList}\n\n+ Entrevista de 8 preguntas\n\n_Escribe *requisitos* para ver vigencias y detalles._`);
       }
 
       if (isCanalCDirect || isCsvOrExcelMedia || (!mediaUrl && !originationId)) {
@@ -3794,7 +3800,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
       // ===== PROMOTOR MENU RESPONSES =====
       // Option 1: Dudas del programa
       if (lo === "1" || /^dudas?$/i.test(lo)) {
-        return await respond(`*Temas frecuentes:*\n\n\u2022 *requisitos* \u2014 14 documentos + vigencias\n\u2022 *proceso* \u2014 paso a paso del tr\u00e1mite\n\u2022 *kit* \u2014 kit GNV incluido\n\u2022 *enganche* \u2014 anticipo y d\u00eda 56\n\u2022 *cuota* \u2014 c\u00f3mo funciona la amortizaci\u00f3n\n\u2022 *fondo de garant\u00eda* \u2014 FG y mora\n\u2022 *gas* \u2014 estaciones, ahorro, bicombustible\n\u2022 *seguro* \u2014 responsabilidad del taxista\n\u2022 *firma* \u2014 contrato digital o presencial\n\nEscribe cualquier tema o pregunta directa.`);
+        return await respond(`*Temas frecuentes:*\n\n\u2022 *requisitos* \u2014 15 documentos + vigencias\n\u2022 *proceso* \u2014 paso a paso del tr\u00e1mite\n\u2022 *kit* \u2014 kit GNV incluido\n\u2022 *enganche* \u2014 anticipo y d\u00eda 56\n\u2022 *cuota* \u2014 c\u00f3mo funciona la amortizaci\u00f3n\n\u2022 *fondo de garant\u00eda* \u2014 FG y mora\n\u2022 *gas* \u2014 estaciones, ahorro, bicombustible\n\u2022 *seguro* \u2014 responsabilidad del taxista\n\u2022 *firma* \u2014 contrato digital o presencial\n\nEscribe cualquier tema o pregunta directa.`);
       }
 
       // Option 2: Nuevo prospecto

@@ -12,7 +12,7 @@
 import type { DocDefinition, VisionResult } from "./types";
 import { chatCompletion } from "./openai-helper";
 
-// ─── Document Order (14 documents) ──────────────────────────────────────────
+// ─── Document Order (15 documents) ──────────────────────────────────────────
 
 export const DOC_ORDER: DocDefinition[] = [
   {

@@ -2792,6 +2792,29 @@ Responde SOLO con JSON válido:
         return res.status(200).send("<Response></Response>");
       }
 
+      // Dedup rapid-fire text messages from same phone (< 3s apart)
+      const TEXT_DEDUP_MS = 3000;
+      const textDedupKey = `${phone}:${body.toLowerCase().trim()}`;
+      const lastTextTime = (globalThis as any).__textDedup?.[textDedupKey] || 0;
+      const now = Date.now();
+      if (!body && !hasMedia) {
+        return res.status(200).send("<Response></Response>");
+      }
+      if (body && !hasMedia && (now - lastTextTime) < TEXT_DEDUP_MS) {
+        console.log(`[Dedup] Ignoring duplicate text from ${phone}: "${body.slice(0, 40)}"`);
+        return res.status(200).send("<Response></Response>");
+      }
+      if (body) {
+        (globalThis as any).__textDedup = (globalThis as any).__textDedup || {};
+        (globalThis as any).__textDedup[textDedupKey] = now;
+        // Cleanup old entries every 100 messages
+        const keys = Object.keys((globalThis as any).__textDedup);
+        if (keys.length > 200) {
+          const cutoff = now - 60000;
+          for (const k of keys) { if ((globalThis as any).__textDedup[k] < cutoff) delete (globalThis as any).__textDedup[k]; }
+        }
+      }
+
       // Multi-image: ask user to send one at a time
       if (numMedia > 1) {
         console.log(`[WhatsApp] Multi-image rejected: ${numMedia} images from ${phone}`);
