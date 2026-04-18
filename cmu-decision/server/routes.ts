@@ -2158,7 +2158,7 @@ Responde SOLO con JSON válido:
   // ===== INVENTORY (for PWA prospect flow) =====
   app.get("/api/inventory", async (req, res) => {
     try {
-      const inv = await sql`SELECT id, brand, model, variant, year, cmu, status FROM vehicles_inventory WHERE status = 'disponible' ORDER BY brand, model, year` as any[];
+      const inv = await sql`SELECT id, marca as brand, modelo as model, variante as variant, anio as year, cmu_valor as cmu, status FROM vehicles_inventory WHERE status = 'disponible' ORDER BY marca, modelo, anio` as any[];
       res.json(inv);
     } catch (e: any) {
       res.status(500).json({ error: e.message });
