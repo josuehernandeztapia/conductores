@@ -87,6 +87,7 @@ export async function processAnswer(
   transcript: string,
   audioDurationMs: number,
   llmCall: (messages: any[], maxTokens: number) => Promise<string>,
+  cuotaCmuOverride?: number,
 ): Promise<{
   newState: InterviewState;
   reply: string;
@@ -188,7 +189,7 @@ export async function processAnswer(
       mantenimiento_mes: Number(newAnswers.mantenimiento_mes) || 0,
       otros_gastos_vehiculo: Number(newAnswers.otros_gastos_vehiculo) || 0,
       otros_creditos_mes: Number(newAnswers.otros_creditos_mes) || 0,
-      cuota_cmu_mensual: 5500, // estimated
+      cuota_cmu_mensual: cuotaCmuOverride || 5500, // from selected model or estimated
     };
 
     const coherencia = calcularCoherencia(datos);

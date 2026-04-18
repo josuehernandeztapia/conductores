@@ -2429,26 +2429,24 @@ async function processInterviewStep(
   const firstName = getFirstName(ctx);
 
   try {
+    // Compute real cuota from selected model PV (German amortization month 1)
+    const pvCMU = ctx.pvCMU || ctx.selectedModelCMU || 0;
+    const TASA_M = 0.299 / 12;
+    const cuotaMes1 = pvCMU > 0 ? Math.round(pvCMU / 36 + pvCMU * TASA_M) : 0;
+
     const result = await processInterviewAnswer(
       interviewState,
       transcript,
       audioDurationMs,
       llmCall,
+      cuotaMes1 > 0 ? cuotaMes1 : undefined,
     );
 
     if (result.isComplete) {
-      // Save evaluation to DB
+      // Save evaluation to DB (via entrevista-whatsapp's guardarEvaluacion which maps fields correctly)
+      // flushInterviewToOrigination handles originations.interview_data
       if (result.evaluation) {
-        try {
-          const sql = getSQL();
-          await sql`
-            INSERT INTO evaluaciones_taxi (folio, phone, datos, coherencia, created_at)
-            VALUES (${ctx.folio || ''}, ${phone}, ${JSON.stringify(result.evaluation.datos)}, ${JSON.stringify(result.evaluation.coherencia)}, NOW())
-          `;
-          console.log(`[Orchestrator] Evaluation saved for ${phone}: coherencia=${JSON.stringify(result.evaluation.coherencia).slice(0, 60)}`);
-        } catch (error: any) {
-          console.error(`[Orchestrator] Save evaluation failed:`, error.message);
-        }
+        console.log(`[Orchestrator] Evaluation complete for ${phone}: eval_id=${result.evaluation.evalId}`);
 
         // Flush interview answers + coherencia → originations.interview_data
         flushInterviewToOrigination(

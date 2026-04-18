@@ -2775,6 +2775,83 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
       }
 
       // ===== DIRECTOR: deterministic command handlers (before RAG/LLM) =====
+
+      // --- Ver entrevista de un prospecto ---
+      const entrevistaMatch = lower.match(/^(?:entrevista|ver\s+entrevista|resultado)\s+(.+)/i);
+      if (entrevistaMatch) {
+        try {
+          const { neon: neonEnt } = await import("@neondatabase/serverless");
+          const sqlE = neonEnt(process.env.DATABASE_URL!);
+          const search = entrevistaMatch[1].trim();
+          const isFolio = /^cmu-/i.test(search);
+          let orig: any;
+          if (isFolio) {
+            const rows = await sqlE`SELECT o.id, o.folio, o.interview_data, CONCAT(t.nombre, ' ', COALESCE(t.apellido_paterno,'')) as nombre FROM originations o LEFT JOIN taxistas t ON t.id = o.taxista_id WHERE UPPER(o.folio) = UPPER(${search})` as any[];
+            orig = rows[0];
+          } else {
+            const rows = await sqlE`SELECT o.id, o.folio, o.interview_data, CONCAT(t.nombre, ' ', COALESCE(t.apellido_paterno,'')) as nombre FROM originations o LEFT JOIN taxistas t ON t.id = o.taxista_id WHERE CONCAT(t.nombre, ' ', COALESCE(t.apellido_paterno,''), ' ', COALESCE(t.apellido_materno,'')) ILIKE ${'%' + search + '%'} ORDER BY o.updated_at DESC LIMIT 1` as any[];
+            orig = rows[0];
+          }
+          if (!orig) return await respond(`No encontré folio/prospecto "${search}".`);
+          if (!orig.interview_data) {
+            // Try evaluaciones_taxi as fallback
+            const ev = await sqlE`SELECT * FROM evaluaciones_taxi WHERE folio_id = ${orig.folio} ORDER BY created_at DESC LIMIT 1` as any[];
+            if (!ev.length) return await respond(`*${orig.nombre?.trim() || orig.folio}* — entrevista no completada aún.`);
+            const e = ev[0];
+            const lines = [
+              `🎯 *Entrevista: ${orig.nombre?.trim() || orig.folio}*`,
+              `Folio: ${orig.folio}`,
+              ``,
+              `*Operación:*`,
+              `• ${e.horas_dia}h/día, ${e.dias_semana} días/sem`,
+              `• ${e.servicios_dia} servicios/día × $${Number(e.cobro_promedio_servicio).toLocaleString()}/servicio`,
+              `• Ingreso diario: $${Number(e.ingreso_dia).toLocaleString()}`,
+              e.tiene_chofer ? `• Chofer: sí ($${Number(e.cuenta_chofer).toLocaleString()}/día), ${e.num_taxis} taxi(s)` : `• Chofer: no`,
+              ``,
+              `*Gastos:*`,
+              `• Combustible: $${Number(e.gasto_combustible_dia).toLocaleString()}/día`,
+              `• Mantenimiento: $${Number(e.mantenimiento_mes).toLocaleString()}/mes`,
+              `• Otros créditos: $${Number(e.otros_creditos_mes).toLocaleString()}/mes`,
+              ``,
+              `*Evaluación:*`,
+              `• Decisión: *${e.decision || '?'}*`,
+              `• Score coherencia: ${Number(e.score_coherencia).toFixed(1)}`,
+              `• Flujo libre/mes: $${Number(e.flujo_libre_mes).toLocaleString()}`,
+              `• Ratio cuota: ${(Number(e.ratio_cuota) * 100).toFixed(0)}%`,
+              e.resumen ? `\n_${e.resumen}_` : '',
+            ];
+            return await respond(lines.filter(Boolean).join('\n'));
+          }
+          // Use interview_data from originations
+          const d = typeof orig.interview_data === 'string' ? JSON.parse(orig.interview_data) : orig.interview_data;
+          const datos = d.datos || d.answers || {};
+          const coh = d.coherencia || {};
+          const lines = [
+            `🎯 *Entrevista: ${orig.nombre?.trim() || orig.folio}*`,
+            `Folio: ${orig.folio}`,
+            ``,
+            `*Operación:*`,
+            `• ${datos.horas_dia || '?'}h/día, ${datos.dias_semana || '?'} días/sem`,
+            `• ${datos.servicios_dia || '?'} servicios × $${(datos.cobro_promedio_servicio || 0).toLocaleString()}`,
+            `• Ingreso: $${(datos.ingreso_dia || 0).toLocaleString()}/día`,
+            ``,
+            `*Gastos:*`,
+            `• Combustible: $${(datos.gasto_combustible_dia || 0).toLocaleString()}/día`,
+            `• Mantenimiento: $${(datos.mantenimiento_mes || 0).toLocaleString()}/mes`,
+            `• Otros créditos: $${(datos.otros_creditos_mes || 0).toLocaleString()}/mes`,
+            ``,
+            `*Evaluación:*`,
+            `• Decisión: *${coh.decision || '?'}*`,
+            `• Flujo libre: $${(coh.flujo_libre_mes || 0).toLocaleString()}/mes`,
+            `• Ratio cuota: ${coh.ratio_cuota ? (coh.ratio_cuota * 100).toFixed(0) + '%' : '?'}`,
+            coh.resumen ? `\n_${coh.resumen}_` : '',
+          ];
+          return await respond(lines.filter(Boolean).join('\n'));
+        } catch (e: any) {
+          return await respond(`Error al buscar entrevista: ${e.message}`);
+        }
+      }
+
       if (/^(?:documentos?|docs?|papeles?|cu[aá]les\s+(?:son\s+)?(?:los\s+)?doc|dame\s+(?:los\s+)?doc|lista\s+(?:de\s+)?doc|requisitos?\s+doc)/i.test(lower)) {
         const docList = DOC_ORDER.map((d, i) => `${i + 1}. ${d.label}`).join('\n');
         return await respond(`📋 *15 documentos requeridos:*\n\n${docList}\n\n+ Entrevista de 8 preguntas\n\n_Escribe *requisitos* para ver vigencias y detalles._`);
