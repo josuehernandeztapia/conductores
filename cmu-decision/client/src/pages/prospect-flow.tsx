@@ -15,6 +15,7 @@ import { Progress } from "@/components/ui/progress";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { apiFetch } from "@/lib/api";
 import {
   Car,
   Fuel,
@@ -31,7 +32,7 @@ import {
 } from "lucide-react";
 
 // API base
-const API_BASE = "";
+// Using apiFetch from lib/api.ts which auto-injects auth token
 
 // States mapping to orchestrator
 type ProspectState =
@@ -62,14 +63,8 @@ interface ProspectContext {
   folio?: string;
 }
 
-// Available models (from MODELOS_PROSPECTO)
-const MODELS = [
-  { marca: "Nissan", modelo: "March", anio: 2019, precio: 114000 },
-  { marca: "Chevrolet", modelo: "Aveo", anio: 2018, precio: 125000 },
-  { marca: "Renault", modelo: "Kwid", anio: 2024, precio: 186000 },
-  { marca: "MG", modelo: "MG5", anio: 2024, precio: 215000 },
-  { marca: "Chevrolet", modelo: "Beat", anio: 2019, precio: 110000 },
-];
+// Vehicle models — fetched from /api/inventory at runtime
+type VehicleModel = { id: number; marca: string; modelo: string; variante?: string; anio: number; precio: number };
 
 // Calculate corrida client-side (German amortization)
 function calcularCorrida(
@@ -129,10 +124,22 @@ export default function ProspectFlowPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [state, setState] = useState<ProspectState>("idle");
+  const [models, setModels] = useState<VehicleModel[]>([]);
   const [context, setContext] = useState<ProspectContext>({});
 
-  // Load existing state from conversation_states
+  // Load existing state + inventory
   useEffect(() => {
+    // Always fetch inventory
+    apiFetch('/api/inventory').then(async r => {
+      if (r.ok) {
+        const inv = await r.json();
+        setModels(inv.map((v: any) => ({
+          id: v.id, marca: v.brand, modelo: v.model,
+          variante: v.variant, anio: v.year, precio: Number(v.cmu),
+        })));
+      }
+    }).catch(() => {});
+
     if (!phoneFromUrl) {
       setState("prospect_name");
       setLoading(false);
@@ -141,7 +148,7 @@ export default function ProspectFlowPage() {
 
     async function loadState() {
       try {
-        const res = await fetch(`${API_BASE}/api/conversation-state/${phoneFromUrl}`);
+        const res = await apiFetch(`/api/conversation-state/${phoneFromUrl}`);
         if (res.ok) {
           const data = await res.json();
           setState(data.state || "prospect_name");
@@ -167,9 +174,8 @@ export default function ProspectFlowPage() {
 
     setSaving(true);
     try {
-      const res = await fetch(`${API_BASE}/api/conversation-state/${context.phone}`, {
+      const res = await apiFetch(`/api/conversation-state/${context.phone}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           state: newState,
           context: newContext,
@@ -196,12 +202,25 @@ export default function ProspectFlowPage() {
   // State handlers
   const handleName = () => {
     const name = (document.getElementById("nombre") as HTMLInputElement)?.value;
+    const phone = (document.getElementById("telefono") as HTMLInputElement)?.value?.replace(/\D/g, "");
     if (!name) {
-      toast({ title: "Por favor ingresa tu nombre", variant: "destructive" });
+      toast({ title: "Ingresa el nombre", variant: "destructive" });
       return;
     }
-    const newContext = { ...context, nombre: name };
-    saveState("prospect_fuel_type", newContext);
+    if (!phone || phone.length !== 10) {
+      toast({ title: "Teléfono de 10 dígitos", variant: "destructive" });
+      return;
+    }
+    const fullPhone = `521${phone}`; // MX mobile format
+    const newContext = { ...context, nombre: name, phone: fullPhone };
+    // Save locally first (phone wasn't set before)
+    setContext(newContext);
+    setState("prospect_fuel_type");
+    // Then persist async
+    apiFetch(`/api/conversation-state/${fullPhone}`, {
+      method: "PATCH",
+      body: JSON.stringify({ state: "prospect_fuel_type", context: newContext }),
+    }).catch(() => {});
   };
 
   const handleFuelType = (fuel: "gnv" | "gasolina") => {
@@ -229,7 +248,7 @@ export default function ProspectFlowPage() {
     saveState("prospect_show_models", newContext);
   };
 
-  const handleSelectModel = (model: typeof MODELS[0]) => {
+  const handleSelectModel = (model: VehicleModel) => {
     const newContext = {
       ...context,
       selectedModel: {
@@ -273,7 +292,7 @@ export default function ProspectFlowPage() {
     setSaving(true);
     try {
       // Create origination with all the data
-      const res = await fetch(`${API_BASE}/api/originations`, {
+      const res = await apiFetch(`/api/originations`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -444,7 +463,7 @@ export default function ProspectFlowPage() {
                 Selecciona tu vehículo seminuevo
               </h3>
               <div className="grid gap-3">
-                {MODELS.map((model) => (
+                {models.map((model) => (
                   <Card
                     key={`${model.marca}-${model.modelo}`}
                     className="cursor-pointer hover:border-primary transition-colors"

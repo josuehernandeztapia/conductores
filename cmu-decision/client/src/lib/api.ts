@@ -19,7 +19,7 @@ let backendAvailable: boolean | null = null; // null = unknown
 let lastBackendCheck = 0;
 const BACKEND_RETRY_MS = 30000; // retry after 30s
 
-async function apiFetch(path: string, options: RequestInit = {}): Promise<Response> {
+export async function apiFetch(path: string, options: RequestInit = {}): Promise<Response> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(options.headers as Record<string, string> || {}),
