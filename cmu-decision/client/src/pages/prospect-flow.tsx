@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useLocation, useRouter } from "wouter";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -117,13 +117,14 @@ function calcularCorrida(
 }
 
 export default function ProspectFlowPage() {
-  const [, params] = useLocation();
-  const [, navigate] = useRouter();
+  const [location, setLocation] = useLocation();
   const { toast } = useToast();
 
-  // Extract phone from URL params or query string
-  const urlParams = new URLSearchParams(params);
-  const phoneFromUrl = urlParams.get("phone") || "";
+  // Extract phone from URL query string
+  const phoneFromUrl = typeof window !== 'undefined'
+    ? new URLSearchParams(window.location.hash.split('?')[1] || '').get('phone') || ''
+    : '';
+  const navigate = (path: string) => setLocation(path);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
