@@ -2130,8 +2130,10 @@ Responde SOLO con JSON válido:
   // ===== CONVERSATION STATE (shared between WhatsApp + PWA) =====
   app.get("/api/conversation-state/:phone", async (req, res) => {
     try {
+      const { neon } = await import("@neondatabase/serverless");
+      const sqlCS = neon(process.env.DATABASE_URL!);
       const phone = req.params.phone.replace(/\D/g, "");
-      const rows = await sql`SELECT phone, state, context FROM conversation_states WHERE phone = ${phone}` as any[];
+      const rows = await sqlCS`SELECT phone, state, context FROM conversation_states WHERE phone = ${phone}` as any[];
       if (!rows.length) return res.json({ state: null, context: {} });
       const ctx = typeof rows[0].context === 'string' ? JSON.parse(rows[0].context) : rows[0].context;
       res.json({ state: rows[0].state, context: ctx });
@@ -2142,9 +2144,11 @@ Responde SOLO con JSON válido:
 
   app.patch("/api/conversation-state/:phone", async (req, res) => {
     try {
+      const { neon } = await import("@neondatabase/serverless");
+      const sqlCS = neon(process.env.DATABASE_URL!);
       const phone = req.params.phone.replace(/\D/g, "");
       const { state, context } = req.body;
-      await sql`
+      await sqlCS`
         INSERT INTO conversation_states (phone, state, context, updated_at)
         VALUES (${phone}, ${state || 'idle'}, ${JSON.stringify(context || {})}, NOW())
         ON CONFLICT (phone) DO UPDATE SET state = ${state || 'idle'}, context = ${JSON.stringify(context || {})}, updated_at = NOW()
@@ -2158,7 +2162,9 @@ Responde SOLO con JSON válido:
   // ===== INVENTORY (for PWA prospect flow) =====
   app.get("/api/inventory", async (req, res) => {
     try {
-      const inv = await sql`SELECT id, marca as brand, modelo as model, variante as variant, anio as year, cmu_valor as cmu, status FROM vehicles_inventory WHERE status = 'disponible' ORDER BY marca, modelo, anio` as any[];
+      const { neon } = await import("@neondatabase/serverless");
+      const sqlInv = neon(process.env.DATABASE_URL!);
+      const inv = await sqlInv`SELECT id, marca as brand, modelo as model, variante as variant, anio as year, cmu_valor as cmu, status FROM vehicles_inventory WHERE status = 'disponible' ORDER BY marca, modelo, anio` as any[];
       res.json(inv);
     } catch (e: any) {
       res.status(500).json({ error: e.message });
