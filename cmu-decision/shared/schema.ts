@@ -415,21 +415,19 @@ export const ORIGINATION_STEPS = [
 export const DOCUMENT_TYPES = {
   ine_frente: { label: "INE Frente", step: 2, required: true },
   ine_reverso: { label: "INE Reverso", step: 2, required: true },
+  tarjeta_circulacion: { label: "Tarjeta de Circulación", step: 2, required: true },
+  factura_vehiculo: { label: "Factura del Vehículo", step: 2, required: true },
   csf: { label: "Constancia de Situación Fiscal", step: 2, required: true },
   comprobante_domicilio: { label: "Comprobante de Domicilio", step: 2, required: true },
-  concesion: { label: "Concesión de Taxi", step: 3, required: true },
-  estado_cuenta: { label: "Estado de Cuenta Bancario", step: 3, required: true },
-  historial_gnv: { label: "Historial GNV", step: 3, required: false }, // only profile A
-  tickets_gasolina: { label: "Tickets de Gasolina", step: 3, required: false }, // only profile B
-  factura_vehiculo: { label: "Factura del Vehículo", step: 4, required: true },
-  carta_membresia: { label: "Carta de Membresía", step: 4, required: true },
-  ine_operador_1: { label: "INE Operador 1", step: 4, required: false },
-  ine_operador_2: { label: "INE Operador 2", step: 4, required: false },
-  selfie_ine: { label: "Selfie con INE", step: 5, required: true },
-  vehiculo_frente: { label: "Vehículo - Frente", step: 5, required: true },
-  vehiculo_lateral_izq: { label: "Vehículo - Lateral Izq", step: 5, required: true },
-  vehiculo_lateral_der: { label: "Vehículo - Lateral Der", step: 5, required: true },
-  vehiculo_trasera: { label: "Vehículo - Trasera", step: 5, required: true },
+  concesion: { label: "Concesión de Taxi", step: 2, required: true },
+  estado_cuenta: { label: "Estado de Cuenta Bancario", step: 2, required: true },
+  historial_gnv: { label: "Tickets/Historial GNV", step: 2, required: false }, // only profile A
+  tickets_gasolina: { label: "Tickets Gasolina", step: 2, required: false }, // only profile B
+  carta_membresia: { label: "Carta Gremial o de Ingreso", step: 2, required: true },
+  selfie_biometrico: { label: "Selfie con INE", step: 2, required: true },
+  ine_operador: { label: "INE del Operador", step: 2, required: false },
+  licencia_conducir: { label: "Licencia de Conducir", step: 2, required: true },
+  fotos_unidad: { label: "Fotos de la Unidad (4 fotos)", step: 2, required: true },
 } as const;
 
 export type DocumentType = keyof typeof DOCUMENT_TYPES;

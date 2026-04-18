@@ -2127,6 +2127,44 @@ Responde SOLO con JSON válido:
   });
 
   // ===== MIFIEL (Firma Electrónica — real when credentials present) =====
+  // ===== CONVERSATION STATE (shared between WhatsApp + PWA) =====
+  app.get("/api/conversation-state/:phone", async (req, res) => {
+    try {
+      const phone = req.params.phone.replace(/\D/g, "");
+      const rows = await sql`SELECT phone, state, context FROM conversation_states WHERE phone = ${phone}` as any[];
+      if (!rows.length) return res.json({ state: null, context: {} });
+      const ctx = typeof rows[0].context === 'string' ? JSON.parse(rows[0].context) : rows[0].context;
+      res.json({ state: rows[0].state, context: ctx });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.patch("/api/conversation-state/:phone", async (req, res) => {
+    try {
+      const phone = req.params.phone.replace(/\D/g, "");
+      const { state, context } = req.body;
+      await sql`
+        INSERT INTO conversation_states (phone, state, context, updated_at)
+        VALUES (${phone}, ${state || 'idle'}, ${JSON.stringify(context || {})}, NOW())
+        ON CONFLICT (phone) DO UPDATE SET state = ${state || 'idle'}, context = ${JSON.stringify(context || {})}, updated_at = NOW()
+      `;
+      res.json({ ok: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // ===== INVENTORY (for PWA prospect flow) =====
+  app.get("/api/inventory", async (req, res) => {
+    try {
+      const inv = await sql`SELECT id, brand, model, variant, year, cmu, status FROM vehicles_inventory WHERE status = 'disponible' ORDER BY brand, model, year` as any[];
+      res.json(inv);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   const MIFIEL_APP_ID = process.env.MIFIEL_APP_ID;
   const MIFIEL_APP_SECRET = process.env.MIFIEL_APP_SECRET;
   const MIFIEL_BASE = process.env.MIFIEL_BASE_URL || "https://app-sandbox.mifiel.com/api/v1";

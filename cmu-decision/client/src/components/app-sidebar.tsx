@@ -25,7 +25,8 @@ const navGroups = [
   {
     label: "Originación",
     items: [
-      { title: "Folios", url: "/originacion", icon: FileText, description: "Alta de taxistas" },
+      { title: "Nuevo Prospecto", url: "/prospect", icon: Users, description: "Registrar prospecto" },
+      { title: "Folios", url: "/originacion", icon: FileText, description: "Expedientes activos" },
       { title: "Evaluaciones", url: "/evaluaciones", icon: ClipboardCheck, description: "Scoring entrevistas" },
     ],
   },
