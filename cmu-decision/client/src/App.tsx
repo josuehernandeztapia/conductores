@@ -19,6 +19,7 @@ import EvaluacionesPage from "./pages/evaluaciones";
 import PipelinePage from "./pages/pipeline";
 import SandboxPage from "./pages/sandbox";
 import NotFound from "./pages/not-found";
+import ProspectFlowPage from "./pages/prospect-flow";
 
 // ===== Director Router (full access) =====
 function DirectorRouter() {
@@ -32,6 +33,7 @@ function DirectorRouter() {
       <Route path="/motor/catalog" component={CatalogPage} />
       <Route path="/inventario" component={InventarioPage} />
       {/* Originación */}
+      <Route path="/prospect" component={ProspectFlowPage} />
       <Route path="/originacion" component={OriginacionPage} />
       <Route path="/originacion/:id" component={OriginacionFlowPage} />
       <Route path="/prospect" component={ProspectFlowPage} />
@@ -58,6 +60,7 @@ function DevRouter() {
       <Route path="/motor" component={EvaluatePage} />
       <Route path="/motor/catalog" component={CatalogPage} />
       <Route path="/inventario" component={InventarioPage} />
+      <Route path="/prospect" component={ProspectFlowPage} />
       <Route path="/originacion" component={OriginacionPage} />
       <Route path="/originacion/:id" component={OriginacionFlowPage} />
       <Route path="/prospect" component={ProspectFlowPage} />
@@ -76,12 +79,13 @@ function PromotoraRouter() {
   return (
     <Switch>
       <Route path="/">
-        <Redirect to="/originacion" />
+        <Redirect to="/prospect" />
       </Route>
+      <Route path="/prospect" component={ProspectFlowPage} />
       <Route path="/originacion" component={OriginacionPage} />
       <Route path="/originacion/:id" component={OriginacionFlowPage} />
       <Route>
-        <Redirect to="/originacion" />
+        <Redirect to="/prospect" />
       </Route>
     </Switch>
   );

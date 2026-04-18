@@ -104,7 +104,7 @@ const DOC_ORDER = [
   { key: "concesion", label: "Concesión de Taxi", visualId: "CONCESIÓN, gobierno estatal", extract: "numero_concesion, titular, vigencia, municipio", crossCheck: "Titular=INE? Vigente? Ags?" },
   { key: "estado_cuenta", label: "Estado de Cuenta", visualId: "logo bancario, CLABE", extract: "titular, banco, clabe", crossCheck: "CLABE 18 dígitos. Titular=INE." },
   { key: "historial_gnv", label: "Tickets GNV", visualId: "voucher GNV, litros, NATGAS", extract: "litros, fecha, estacion, promedio_leq", crossCheck: "≥400LEQ?" },
-  { key: "carta_membresia", label: "Carta Membresía", visualId: "agrupación gremial, taxi", extract: "agrupacion, nombre, vigencia", crossCheck: "Nombre=INE." },
+  { key: "carta_membresia", label: "Carta Gremial o de Ingreso", visualId: "papel membretado organización taxistas, sello, firma líder", extract: "tipo_carta, agrupacion, nombre_concesionario, concesion, placa, ingreso_mensual, fecha, tiene_sello, tiene_membrete", crossCheck: "Nombre=INE. Sello+membrete+firma obligatorios." },
   { key: "selfie_biometrico", label: "Selfie con INE", visualId: "rostro + INE visible", extract: "rostro_visible, ine_visible", crossCheck: "Coincide con foto INE?" },
   // === Documentos adicionales (SSOT v1: "Adicionalmente") ===
   { key: "ine_operador", label: "INE del Operador", visualId: "CREDENCIAL PARA VOTAR, foto persona diferente al titular", extract: "nombre_completo, curp, vigencia", crossCheck: "Persona diferente al titular. Vigente?" },
@@ -279,7 +279,7 @@ CLASIFICACION — identifica el tipo EXACTO:
 
 9. historial_gnv: Tickets/vouchers de GNV, NATGAS. Tienen litros, fecha, estación.
 
-10. carta_membresia: Carta de agrupación gremial de taxistas.
+10. carta_membresia: Carta gremial o de ingreso (papel membretado, sello, firma del líder).
 
 11. selfie_biometrico: Foto de persona sosteniendo su INE junto al rostro.
 
@@ -2367,7 +2367,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
               const n2 = r.taxista_nombre || r.folio;
               const days = Math.floor((Date.now() - new Date(r.updated_at || r.created_at).getTime()) / (1000*60*60*24));
               const daysStr = days > 0 ? ` (${days}d)` : "";
-              lines.push(`• *${n2}*${daysStr}: ${parseInt(r.docs_count) || 0}/14 docs`);
+              lines.push(`• *${n2}*${daysStr}: ${parseInt(r.docs_count) || 0}/15 docs`);
             }
             if (gRows.length > MAX_SHOWN) {
               lines.push(`_... y ${gRows.length - MAX_SHOWN} más_`);
@@ -2411,7 +2411,8 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         }
       }
       if (role === "promotora") {
-        // Unified menu (same structure as director)
+        // Clear folio state on greeting — promotora starts fresh each "Hola"
+        await this.updateState(phone, { state: "idle", folioId: null, context: {} });
         try {
           const { neon: neonProm } = await import("@neondatabase/serverless");
           const sqlProm = neonProm(process.env.DATABASE_URL!);
@@ -2437,7 +2438,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
               const n2 = r.taxista_nombre || r.folio;
               const days = Math.floor((Date.now() - new Date(r.updated_at || r.created_at).getTime()) / (1000*60*60*24));
               const daysStr = days > 0 ? ` (${days}d)` : "";
-              linesP.push(`• *${n2}*${daysStr}: ${parseInt(r.docs_count) || 0}/14 docs`);
+              linesP.push(`• *${n2}*${daysStr}: ${parseInt(r.docs_count) || 0}/15 docs`);
             }
             if (gRowsP.length > MAX_SHOWN_P) {
               linesP.push(`_... y ${gRowsP.length - MAX_SHOWN_P} más_`);
@@ -2445,7 +2446,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
           } else {
             linesP.push(``, `No hay trámites activos.`);
           }
-          linesP.push(``, `¿Qué necesitas?`, `1️⃣ Dudas del programa`, `2️⃣ Nuevo prospecto`, `3️⃣ Evaluar oportunidad`, `4️⃣ Ver inventario`);
+          linesP.push(``, `¿Qué necesitas?`, `1️⃣ Dudas del programa`, `2️⃣ Nuevo prospecto`, `3️⃣ Buscar prospecto`, `4️⃣ Ver inventario`);
           return await respond(linesP.join("\n"));
         } catch (e: any) {
           console.error("[Promotora Greeting]", e.message);
@@ -2549,7 +2550,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
             break;
           case "documentos":
           case "documento":
-            msg += `Flujo documentos (14 docs).\nEnvía una imagen — el agente la clasificará y validará en modo test.`;
+            msg += `Flujo documentos (15 docs).\nEnvía una imagen — el agente la clasificará y validará en modo test.`;
             break;
           case "cliente":
             msg += `Flujo cliente (folio activo).\nSimula: taxista con contrato activo consulta su status.`;
@@ -2726,7 +2727,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
 
       // ===== DIRECTOR MENU OPTIONS (same as promotora) =====
       if (lower === "1" || /^dudas?$/i.test(lower)) {
-        return await respond(`*Temas frecuentes:*\n\n\u2022 *requisitos* \u2014 14 documentos + vigencias\n\u2022 *proceso* \u2014 paso a paso del tr\u00e1mite\n\u2022 *kit* \u2014 kit GNV incluido\n\u2022 *enganche* \u2014 anticipo y d\u00eda 56\n\u2022 *cuota* \u2014 c\u00f3mo funciona la amortizaci\u00f3n\n\u2022 *fondo de garant\u00eda* \u2014 FG y mora\n\u2022 *gas* \u2014 estaciones, ahorro, bicombustible\n\u2022 *seguro* \u2014 responsabilidad del taxista\n\u2022 *firma* \u2014 contrato digital o presencial\n\nEscribe cualquier tema o pregunta directa.`);
+        return await respond(`*Temas frecuentes:*\n\n\u2022 *requisitos* \u2014 15 documentos + vigencias\n\u2022 *proceso* \u2014 paso a paso del tr\u00e1mite\n\u2022 *kit* \u2014 kit GNV incluido\n\u2022 *enganche* \u2014 anticipo y d\u00eda 56\n\u2022 *cuota* \u2014 c\u00f3mo funciona la amortizaci\u00f3n\n\u2022 *fondo de garant\u00eda* \u2014 FG y mora\n\u2022 *gas* \u2014 estaciones, ahorro, bicombustible\n\u2022 *seguro* \u2014 responsabilidad del taxista\n\u2022 *firma* \u2014 contrato digital o presencial\n\nEscribe cualquier tema o pregunta directa.`);
       }
       if (lower === "2" || /^nuevo$/i.test(lower)) {
         await this.updateState(phone, { state: "waiting_folio_name" as any, folio_id: null, context: {} });
@@ -2771,6 +2772,89 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
           const audit2 = auditExpediente(ctx2.existingData || {});
           return await respond(`${audit2.summary}\n\n_Folio: ${folios2[0].folio} \u2014 ${folios2[0].nombre}_`);
         } catch (e: any) { return await respond(`Error: ${e.message}`); }
+      }
+
+      // ===== DIRECTOR: deterministic command handlers (before RAG/LLM) =====
+
+      // --- Ver entrevista de un prospecto ---
+      const entrevistaMatch = lower.match(/^(?:entrevista|ver\s+entrevista|resultado)\s+(.+)/i);
+      if (entrevistaMatch) {
+        try {
+          const { neon: neonEnt } = await import("@neondatabase/serverless");
+          const sqlE = neonEnt(process.env.DATABASE_URL!);
+          const search = entrevistaMatch[1].trim();
+          const isFolio = /^cmu-/i.test(search);
+          let orig: any;
+          if (isFolio) {
+            const rows = await sqlE`SELECT o.id, o.folio, o.interview_data, CONCAT(t.nombre, ' ', COALESCE(t.apellido_paterno,'')) as nombre FROM originations o LEFT JOIN taxistas t ON t.id = o.taxista_id WHERE UPPER(o.folio) = UPPER(${search})` as any[];
+            orig = rows[0];
+          } else {
+            const rows = await sqlE`SELECT o.id, o.folio, o.interview_data, CONCAT(t.nombre, ' ', COALESCE(t.apellido_paterno,'')) as nombre FROM originations o LEFT JOIN taxistas t ON t.id = o.taxista_id WHERE CONCAT(t.nombre, ' ', COALESCE(t.apellido_paterno,''), ' ', COALESCE(t.apellido_materno,'')) ILIKE ${'%' + search + '%'} ORDER BY o.updated_at DESC LIMIT 1` as any[];
+            orig = rows[0];
+          }
+          if (!orig) return await respond(`No encontré folio/prospecto "${search}".`);
+          if (!orig.interview_data) {
+            // Try evaluaciones_taxi as fallback
+            const ev = await sqlE`SELECT * FROM evaluaciones_taxi WHERE folio_id = ${orig.folio} ORDER BY created_at DESC LIMIT 1` as any[];
+            if (!ev.length) return await respond(`*${orig.nombre?.trim() || orig.folio}* — entrevista no completada aún.`);
+            const e = ev[0];
+            const lines = [
+              `🎯 *Entrevista: ${orig.nombre?.trim() || orig.folio}*`,
+              `Folio: ${orig.folio}`,
+              ``,
+              `*Operación:*`,
+              `• ${e.horas_dia}h/día, ${e.dias_semana} días/sem`,
+              `• ${e.servicios_dia} servicios/día × $${Number(e.cobro_promedio_servicio).toLocaleString()}/servicio`,
+              `• Ingreso diario: $${Number(e.ingreso_dia).toLocaleString()}`,
+              e.tiene_chofer ? `• Chofer: sí ($${Number(e.cuenta_chofer).toLocaleString()}/día), ${e.num_taxis} taxi(s)` : `• Chofer: no`,
+              ``,
+              `*Gastos:*`,
+              `• Combustible: $${Number(e.gasto_combustible_dia).toLocaleString()}/día`,
+              `• Mantenimiento: $${Number(e.mantenimiento_mes).toLocaleString()}/mes`,
+              `• Otros créditos: $${Number(e.otros_creditos_mes).toLocaleString()}/mes`,
+              ``,
+              `*Evaluación:*`,
+              `• Decisión: *${e.decision || '?'}*`,
+              `• Score coherencia: ${Number(e.score_coherencia).toFixed(1)}`,
+              `• Flujo libre/mes: $${Number(e.flujo_libre_mes).toLocaleString()}`,
+              `• Ratio cuota: ${(Number(e.ratio_cuota) * 100).toFixed(0)}%`,
+              e.resumen ? `\n_${e.resumen}_` : '',
+            ];
+            return await respond(lines.filter(Boolean).join('\n'));
+          }
+          // Use interview_data from originations
+          const d = typeof orig.interview_data === 'string' ? JSON.parse(orig.interview_data) : orig.interview_data;
+          const datos = d.datos || d.answers || {};
+          const coh = d.coherencia || {};
+          const lines = [
+            `🎯 *Entrevista: ${orig.nombre?.trim() || orig.folio}*`,
+            `Folio: ${orig.folio}`,
+            ``,
+            `*Operación:*`,
+            `• ${datos.horas_dia || '?'}h/día, ${datos.dias_semana || '?'} días/sem`,
+            `• ${datos.servicios_dia || '?'} servicios × $${(datos.cobro_promedio_servicio || 0).toLocaleString()}`,
+            `• Ingreso: $${(datos.ingreso_dia || 0).toLocaleString()}/día`,
+            ``,
+            `*Gastos:*`,
+            `• Combustible: $${(datos.gasto_combustible_dia || 0).toLocaleString()}/día`,
+            `• Mantenimiento: $${(datos.mantenimiento_mes || 0).toLocaleString()}/mes`,
+            `• Otros créditos: $${(datos.otros_creditos_mes || 0).toLocaleString()}/mes`,
+            ``,
+            `*Evaluación:*`,
+            `• Decisión: *${coh.decision || '?'}*`,
+            `• Flujo libre: $${(coh.flujo_libre_mes || 0).toLocaleString()}/mes`,
+            `• Ratio cuota: ${coh.ratio_cuota ? (coh.ratio_cuota * 100).toFixed(0) + '%' : '?'}`,
+            coh.resumen ? `\n_${coh.resumen}_` : '',
+          ];
+          return await respond(lines.filter(Boolean).join('\n'));
+        } catch (e: any) {
+          return await respond(`Error al buscar entrevista: ${e.message}`);
+        }
+      }
+
+      if (/^(?:documentos?|docs?|papeles?|cu[aá]les\s+(?:son\s+)?(?:los\s+)?doc|dame\s+(?:los\s+)?doc|lista\s+(?:de\s+)?doc|requisitos?\s+doc)/i.test(lower)) {
+        const docList = DOC_ORDER.map((d, i) => `${i + 1}. ${d.label}`).join('\n');
+        return await respond(`📋 *15 documentos requeridos:*\n\n${docList}\n\n+ Entrevista de 8 preguntas\n\n_Escribe *requisitos* para ver vigencias y detalles._`);
       }
 
       if (isCanalCDirect || isCsvOrExcelMedia || (!mediaUrl && !originationId)) {
@@ -3241,6 +3325,11 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
 
       // Helper: send notification to Josué + promotor
       const notifyTeam = async (msg: string) => {
+        // Suppress notifications for test phones (521999*)
+        if (/521999/.test(msg) || /521999/.test(phone)) {
+          console.log('[Notify] SUPPRESSED (test phone):', msg.slice(0, 60));
+          return;
+        }
         const endpoints = [
           { to: `whatsapp:+${JOSUE_PHONE}` },  // Josué
           { to: `whatsapp:+${getPromotor()?.phone || ANGELES_PHONE}` },  // Promotor
@@ -3699,6 +3788,31 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         }
       }
 
+      // ── QUESTION DETECTION: if promotora asks a question while in doc capture, use RAG or status ──
+      if (originationId && /\?|est[aá]n\s+correct|datos|verific|checar|revisar|c[oó]mo\s+va|qu[eé]\s+falta|cu[aá]nto|cu[aá]les/i.test(lo)) {
+        // "Están correctos los datos?" / "cómo va?" / "qué falta?" → show folio status
+        try {
+          const pI = await this.getPendingInfo(originationId);
+          const tName = (convState?.context as any)?.folio?.taxistaName || "el taxista";
+          const folioStr = (convState?.context as any)?.folio?.folio || "";
+          const { neon: neonQ } = await import("@neondatabase/serverless");
+          const sqlQ = neonQ(process.env.DATABASE_URL!);
+          const docRows = await sqlQ`
+            SELECT tipo, ocr_result FROM documents
+            WHERE origination_id = ${originationId}
+            AND (image_data IS NOT NULL OR ocr_result IS NOT NULL)
+          ` as any[];
+          const capturedList = docRows.map((d: any) => {
+            const label = DOC_ORDER.find(o => o.key === d.tipo)?.label || d.tipo;
+            return `✅ ${label}`;
+          }).join('\n');
+          const pendingStr = pI.count > 0 ? `\n\nFaltan *${pI.count}*: ${pI.text}` : '\n\n✅ Documentos completos';
+          return await respond(`📋 *${tName}* — ${folioStr}\n\n${capturedList || 'Sin documentos aún'}${pendingStr}\n\n_Mándame foto del siguiente doc, o escribe *entrevista* / *cambiar folio*_`);
+        } catch (e: any) {
+          console.error('[PromoQuestion]', e.message);
+        }
+      }
+
       // ── FOLIO ACTIVE COMMANDS: docs / entrevista / cambiar folio ──
       if (originationId) {
         if (/^docs?$|^documentos?$|^papeles?$/i.test(lo)) {
@@ -3763,7 +3877,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
       // ===== PROMOTOR MENU RESPONSES =====
       // Option 1: Dudas del programa
       if (lo === "1" || /^dudas?$/i.test(lo)) {
-        return await respond(`*Temas frecuentes:*\n\n\u2022 *requisitos* \u2014 14 documentos + vigencias\n\u2022 *proceso* \u2014 paso a paso del tr\u00e1mite\n\u2022 *kit* \u2014 kit GNV incluido\n\u2022 *enganche* \u2014 anticipo y d\u00eda 56\n\u2022 *cuota* \u2014 c\u00f3mo funciona la amortizaci\u00f3n\n\u2022 *fondo de garant\u00eda* \u2014 FG y mora\n\u2022 *gas* \u2014 estaciones, ahorro, bicombustible\n\u2022 *seguro* \u2014 responsabilidad del taxista\n\u2022 *firma* \u2014 contrato digital o presencial\n\nEscribe cualquier tema o pregunta directa.`);
+        return await respond(`*Temas frecuentes:*\n\n\u2022 *requisitos* \u2014 15 documentos + vigencias\n\u2022 *proceso* \u2014 paso a paso del tr\u00e1mite\n\u2022 *kit* \u2014 kit GNV incluido\n\u2022 *enganche* \u2014 anticipo y d\u00eda 56\n\u2022 *cuota* \u2014 c\u00f3mo funciona la amortizaci\u00f3n\n\u2022 *fondo de garant\u00eda* \u2014 FG y mora\n\u2022 *gas* \u2014 estaciones, ahorro, bicombustible\n\u2022 *seguro* \u2014 responsabilidad del taxista\n\u2022 *firma* \u2014 contrato digital o presencial\n\nEscribe cualquier tema o pregunta directa.`);
       }
 
       // Option 2: Nuevo prospecto
@@ -3804,9 +3918,69 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         }
       }
 
-      // Option 3: Evaluar oportunidad
-      if (lo === "3" || /^evaluar$/i.test(lo)) {
-        return await respond(`Para evaluar, escribe el modelo con precio y reparaci\u00f3n:\n\n*march 120k rep 10k*\n*aveo 100k 0 rep*\n*vento 2020 150k rep 5k*\n\nTambi\u00e9n puedes pedir precios de mercado:\n*mercado march 2021*`);
+      // Option 3: Buscar prospecto (promotora) / Evaluar (director)
+      if (lo === "3" || /^(?:buscar|evaluar)$/i.test(lo) || /buscar\s+prospecto/i.test(lo)) {
+        if (role === "promotora") {
+          return await respond(`Escribe el *nombre* o *folio* del prospecto.\n\nEjemplo:\n• *Pedro López*\n• *CMU-SIN-260417-001*`);
+        }
+        // Director: eval instructions
+        return await respond(`Para evaluar, escribe el modelo con precio y reparación:\n\n*march 120k rep 10k*\n*aveo 100k 0 rep*\n*vento 2020 150k rep 5k*\n\nTambién puedes pedir precios de mercado:\n*mercado march 2021*`);
+      }
+
+      // ── BUSCAR PROSPECTO: match by name or folio (promotora) ──
+      if (role === "promotora" && !originationId && body.length >= 3 && body.length <= 60 && !/^\d{1,2}$/.test(lo)
+        && !/^(?:dudas|nuevo|inventario|evaluar|buscar|auditar|docs|entrevista|hola|menu|menú|cambiar|reporte|pendientes)$/i.test(lo)
+        && !wantsNewProspect && !wantsEmailReport
+        && convState?.state !== "waiting_folio_name" && convState?.state !== "waiting_folio_phone"
+        && !lo.startsWith("mercado") && !/\d+k/.test(lo)
+      ) {
+        try {
+          const { neon: neonSearch } = await import("@neondatabase/serverless");
+          const sqlS = neonSearch(process.env.DATABASE_URL!);
+          const isFolio = /^cmu-/i.test(lo);
+          let results: any[];
+          if (isFolio) {
+            results = await sqlS`
+              SELECT o.id, o.folio, o.estado,
+                CONCAT(t.nombre, ' ', COALESCE(t.apellido_paterno,'')) as nombre_completo,
+                COUNT(d.id) FILTER (WHERE d.image_data IS NOT NULL) as docs_count
+              FROM originations o
+              LEFT JOIN taxistas t ON t.id = o.taxista_id
+              LEFT JOIN documents d ON d.origination_id = o.id
+              WHERE UPPER(o.folio) = UPPER(${body.trim()})
+              GROUP BY o.id, o.folio, o.estado, t.nombre, t.apellido_paterno
+            ` as any[];
+          } else {
+            const searchTerm = `%${body.trim()}%`;
+            results = await sqlS`
+              SELECT o.id, o.folio, o.estado,
+                CONCAT(t.nombre, ' ', COALESCE(t.apellido_paterno,'')) as nombre_completo,
+                COUNT(d.id) FILTER (WHERE d.image_data IS NOT NULL) as docs_count
+              FROM originations o
+              LEFT JOIN taxistas t ON t.id = o.taxista_id
+              LEFT JOIN documents d ON d.origination_id = o.id
+              WHERE o.estado NOT IN ('RECHAZADO','CANCELADO')
+                AND (t.telefono IS NULL OR t.telefono NOT LIKE '521999%')
+                AND (CONCAT(t.nombre, ' ', COALESCE(t.apellido_paterno,''), ' ', COALESCE(t.apellido_materno,'')) ILIKE ${searchTerm}
+                  OR o.folio ILIKE ${searchTerm})
+              GROUP BY o.id, o.folio, o.estado, t.nombre, t.apellido_paterno
+              ORDER BY o.updated_at DESC LIMIT 5
+            ` as any[];
+          }
+          if (results.length === 1) {
+            const r = results[0];
+            await this.updateState(phone, { folioId: r.id, state: "capturing_docs", context: { folio: { id: r.id, folio: r.folio, taxistaName: r.nombre_completo } } });
+            originationId = r.id;
+            const pI = await this.getPendingInfo(r.id);
+            return await respond(`\ud83d\udccb *${r.nombre_completo?.trim() || r.folio}* \u2014 ${r.folio}\nEstado: ${r.estado} | Docs: ${r.docs_count}/15\n${pI.count > 0 ? `Faltan: *${pI.text}*` : '\u2705 Documentos completos'}\n\n_Mándame foto del siguiente doc, o escribe *entrevista* / *cambiar folio*_`);
+          } else if (results.length > 1) {
+            const list = results.map((r: any, i: number) => `${i+1}. *${r.nombre_completo?.trim() || '?'}* \u2014 ${r.folio} (${r.docs_count}/15 docs)`).join('\n');
+            return await respond(`Encontré ${results.length} resultados:\n\n${list}\n\nEscribe el *folio* para seleccionar.`);
+          }
+          // No results — don't intercept, let it fall through to LLM
+        } catch (e: any) {
+          console.error('[PromoSearch] Error:', e.message);
+        }
       }
 
       // Option 4: Ver inventario

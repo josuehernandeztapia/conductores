@@ -34,7 +34,7 @@ const FAQ: FAQEntry[] = [
   },
   {
     patterns: [/proceso\s+completo/i, /paso\s+a\s+paso/i, /c[oó]mo\s+(?:es|funciona)\s+el\s+(?:tr[aá]mite|flujo)/i, /punta\s+a\s+punta/i],
-    answer: "El proceso completo es: 1) Registro por WhatsApp con tu nombre y datos. 2) Captura de 14 documentos (por foto aquí). 3) Entrevista rápida por WhatsApp. 4) Selección de vehículo. 5) Firma digital del contrato. 6) Entrega del vehículo con kit GNV instalado. Todo tarda aproximadamente 2 semanas.",
+    answer: "El proceso completo es: 1) Registro por WhatsApp con tu nombre y datos. 2) Captura de 15 documentos (por foto aquí). 3) Entrevista rápida por WhatsApp. 4) Selección de vehículo. 5) Firma digital del contrato. 6) Entrega del vehículo con kit GNV instalado. Todo tarda aproximadamente 2 semanas.",
   },
   {
     patterns: [/cu[aá]nto\s+tarda/i, /tiempo.*tr[aá]mite/i, /cu[aá]ndo.*(?:me|lo).*(?:dan|entrega)/i, /en\s+cu[aá]nto\s+tiempo/i],
@@ -106,7 +106,7 @@ const FAQ: FAQEntry[] = [
   // ═══════════════════════════════════════
   {
     patterns: [/requisitos/i, /qu[eé]\s+necesito/i, /qu[eé]\s+(?:me\s+)?pid(?:en|es)/i, /qu[eé]\s+(?:documentos|papeles)/i, /checklist/i, /\bdocumentos\b/i, /cu[aá]les.*documento/i, /dime.*(?:documento|papeles|requisit)/i],
-    answer: "Requisitos (14 documentos + entrevista + firma):\n\n*Documentos con vigencia:*\n1. INE vigente (frente y reverso)\n2. Comprobante de domicilio (max 3 meses)\n3. Constancia de Situación Fiscal SAT (max 3 meses)\n4. Estado de cuenta bancario (max 3 meses)\n5. Concesión de taxi vigente\n\n*Documentos sin vigencia:*\n6. Tarjeta de circulación\n7. Factura del taxi actual\n8. CURP\n9. Acta de nacimiento\n10. Carta de agrupación/gremial\n11. Historial de cargas (tickets gas o gasolina)\n12. Comprobante de ingresos\n13. Selfie con tu INE\n14. Fotos de tu unidad (4 fotos)\n\nDespués: entrevista por WhatsApp (10 min) + firma digital del contrato.\nTodo se manda por foto aquí. Si no tienes alguno, escribe *saltar*.",
+    answer: "Requisitos (15 documentos + entrevista + firma):\n\n*Documentos con vigencia:*\n1. INE vigente (frente y reverso)\n2. Comprobante de domicilio (max 3 meses)\n3. Constancia de Situación Fiscal SAT (max 3 meses)\n4. Estado de cuenta bancario (max 3 meses)\n5. Concesión de taxi vigente\n\n*Documentos sin vigencia:*\n6. Tarjeta de circulación\n7. Factura del taxi actual\n8. CURP\n9. Acta de nacimiento\n10. Carta gremial o de ingreso (la emite tu organización de taxistas)\n11. Historial de cargas (min 10 tickets del último mes)\n12. Selfie con tu INE\n13. Licencia de conducir\n14. INE del operador (si no es el titular)\n15. Fotos de tu unidad (4 fotos)\n\n*No se pide comprobante de ingresos, buró ni aval.*\nDespués: entrevista por WhatsApp (10 min) + firma digital del contrato.\nTodo se manda por foto aquí. Si no tienes alguno, escribe *saltar*.",
   },
   {
     patterns: [/concesi[oó]n/i, /vigente/i, /no\s+tengo\s+concesi/i, /concesi[oó]n.*vencid/i],
@@ -114,7 +114,7 @@ const FAQ: FAQEntry[] = [
   },
   {
     patterns: [/entrevista/i, /cu[aá]ndo.*entrevista/i, /qu[eé].*preguntan/i],
-    answer: "La entrevista se hace por WhatsApp después de completar los 14 documentos. Son 8 preguntas sobre tu experiencia como taxista, situación financiera y motivación. Dura unos 10 minutos.",
+    answer: "La entrevista se hace por WhatsApp después de completar los 15 documentos. Son 8 preguntas sobre tu experiencia como taxista, situación financiera y motivación. Dura unos 10 minutos.",
   },
   {
     patterns: [/firma/i, /contrato/i, /cu[aá]ndo\s+se\s+firma/i, /c[oó]mo\s+(?:se\s+)?firma/i],
@@ -187,6 +187,10 @@ const FAQ: FAQEntry[] = [
   {
     patterns: [/bur[oó]/i, /historial\s+credit/i, /checan.*bur/i, /revisan.*bur/i],
     answer: "No revisamos buró de crédito. CMU es venta a plazos, no crédito bancario. Evaluamos tu operación como taxista y tu consumo de combustible.",
+  },
+  {
+    patterns: [/carta.*ingreso/i, /comprobante.*ingreso/i, /comprobar.*ingreso/i, /recibo.*n[oó]mina/i, /n[oó]mina/i, /declaraci[oó]n.*jurada/i, /constancia.*ingreso/i, /ingreso.*compro/i],
+    answer: "No pedimos comprobante de ingresos bancario ni nómina. Lo que sí aceptamos es una *carta de ingreso* emitida por tu organización de taxistas (ACATAXI, CTM, etc.) — en papel membretado, con sello y firma del líder. Es el mismo formato que piden las cajas de ahorro. Puede incluir: nombre, concesión, placa, ingreso mensual estimado. También sirve la carta de membresía gremial si no tienes la de ingreso. Sin buró, sin aval, sin declaración jurada.",
   },
   {
     patterns: [/aguascalientes/i, /qu[eé]\s+(?:ciudad|estado|zona)/i, /d[oó]nde\s+(?:es|est[aá]n|operan)/i, /otra\s+ciudad/i, /fuera\s+de/i],

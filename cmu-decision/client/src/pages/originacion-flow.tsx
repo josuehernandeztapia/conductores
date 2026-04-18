@@ -85,8 +85,9 @@ interface CaptureDocDef {
   label: string;
   instructions: string;
   icon: typeof FileText;
-  profileFilter?: "A"; // if set, only show for this profile
+  profileFilter?: "A" | "B"; // if set, only show for this profile
   isBiometric?: boolean;
+  optional?: boolean; // if true, can be skipped
 }
 
 const CAPTURE_DOCUMENTS: CaptureDocDef[] = [
@@ -94,64 +95,95 @@ const CAPTURE_DOCUMENTS: CaptureDocDef[] = [
     key: "ine_frente",
     label: "INE Frente",
     icon: User,
-    instructions: "Coloca tu INE sobre una superficie plana con buena iluminación. Asegúrate de que los 4 bordes sean visibles.",
+    instructions: "Coloca la INE sobre una superficie plana con buena iluminación. Los 4 bordes visibles, foto y nombre legibles.",
   },
   {
     key: "ine_reverso",
     label: "INE Reverso",
     icon: User,
-    instructions: "Voltea la INE y captura el reverso. Verifica que el código de barras sea legible.",
+    instructions: "Voltea la INE. El código de barras y CURP deben ser legibles.",
   },
   {
-    key: "csf",
-    label: "Constancia de Situación Fiscal",
+    key: "tarjeta_circulacion",
+    label: "Tarjeta de Circulación",
     icon: FileText,
-    instructions: "Captura la Constancia de Situación Fiscal (CSF) del SAT. El RFC y régimen fiscal deben ser legibles.",
-  },
-  {
-    key: "comprobante_domicilio",
-    label: "Comprobante de Domicilio",
-    icon: FileText,
-    instructions: "Recibo de luz, agua o teléfono de los últimos 3 meses. La dirección completa debe ser visible.",
-  },
-  {
-    key: "concesion",
-    label: "Concesión de Taxi",
-    icon: FileText,
-    instructions: "Fotografía la concesión de taxi vigente. El número de concesión y titular deben ser claros.",
-  },
-  {
-    key: "estado_cuenta",
-    label: "Estado de Cuenta Bancario",
-    icon: FileText,
-    instructions: "Estado de cuenta bancario reciente. La CLABE interbancaria y nombre del titular deben ser visibles.",
-  },
-  {
-    key: "historial_gnv",
-    label: "Historial de Consumo GNV",
-    icon: FileText,
-    instructions: "Comprobante de consumo de gas natural vehicular. Debe mostrar el promedio mensual en LEQ.",
-    profileFilter: "A",
+    instructions: "Tarjeta de circulación del taxi actual. Placa, marca, modelo y propietario visibles.",
   },
   {
     key: "factura_vehiculo",
     label: "Factura del Vehículo",
     icon: FileText,
-    instructions: "Factura original del vehículo. Marca, modelo, año, número de serie y NIV deben ser legibles.",
+    instructions: "Factura original (CFDI). Marca, modelo, año, NIV y nombre del propietario legibles.",
   },
   {
-    key: "carta_membresia",
-    label: "Carta de Membresía",
+    key: "csf",
+    label: "Constancia de Situación Fiscal",
     icon: FileText,
-    instructions: "Carta de membresía de la central de taxistas. Número de membresía y vigencia visibles.",
+    instructions: "CSF del SAT (max 3 meses de antigüedad). RFC y régimen fiscal legibles.",
+  },
+  {
+    key: "comprobante_domicilio",
+    label: "Comprobante de Domicilio",
+    icon: FileText,
+    instructions: "Recibo de luz, agua o teléfono (max 3 meses). Dirección completa visible.",
+  },
+  {
+    key: "concesion",
+    label: "Concesión de Taxi",
+    icon: FileText,
+    instructions: "Concesión de taxi vigente en Aguascalientes. Número de concesión y titular claros.",
+  },
+  {
+    key: "estado_cuenta",
+    label: "Estado de Cuenta Bancario",
+    icon: FileText,
+    instructions: "Carátula de cuenta bancaria. CLABE de 18 dígitos y nombre del titular visibles.",
+  },
+  {
+    key: "historial_gnv",
+    label: "Tickets/Historial GNV",
+    icon: FileText,
+    instructions: "Min 10 tickets de carga de gas natural del último mes. LEQ y fecha visibles.",
     profileFilter: "A",
   },
   {
+    key: "tickets_gasolina",
+    label: "Tickets Gasolina",
+    icon: FileText,
+    instructions: "Min 10 tickets de gasolina del último mes. Litros y monto visibles.",
+    profileFilter: "B",
+  },
+  {
+    key: "carta_membresia",
+    label: "Carta Gremial o de Ingreso",
+    icon: FileText,
+    instructions: "Carta de tu organización de taxistas (ACATAXI, CTM, etc.). Papel membretado, sello y firma del líder. Puede ser carta de membresía o de ingreso.",
+  },
+  {
     key: "selfie_biometrico",
-    label: "Selfie Biométrico",
+    label: "Selfie con INE",
     icon: ScanFace,
-    instructions: "Toma una selfie con la cámara frontal. Centra tu rostro dentro del óvalo. Buena iluminación, sin lentes ni gorras.",
+    instructions: "Selfie sosteniendo tu INE junto al rostro. Buena iluminación, sin lentes ni gorras.",
     isBiometric: true,
+  },
+  {
+    key: "ine_operador",
+    label: "INE del Operador",
+    icon: User,
+    instructions: "Si alguien más maneja tu taxi, necesitamos su INE. Si no tienes operador, salta este paso.",
+    optional: true,
+  },
+  {
+    key: "licencia_conducir",
+    label: "Licencia de Conducir",
+    icon: FileText,
+    instructions: "Licencia de conducir vigente. Número de licencia, categoría y vigencia visibles.",
+  },
+  {
+    key: "fotos_unidad",
+    label: "Fotos de la Unidad (4 fotos)",
+    icon: FileText,
+    instructions: "4 fotos del taxi: frente, trasera, lateral izquierdo y lateral derecho. Que se vea la placa.",
   },
 ];
 
