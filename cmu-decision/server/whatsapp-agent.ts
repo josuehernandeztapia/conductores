@@ -104,7 +104,7 @@ const DOC_ORDER = [
   { key: "concesion", label: "Concesión de Taxi", visualId: "CONCESIÓN, gobierno estatal", extract: "numero_concesion, titular, vigencia, municipio", crossCheck: "Titular=INE? Vigente? Ags?" },
   { key: "estado_cuenta", label: "Estado de Cuenta", visualId: "logo bancario, CLABE", extract: "titular, banco, clabe", crossCheck: "CLABE 18 dígitos. Titular=INE." },
   { key: "historial_gnv", label: "Tickets GNV", visualId: "voucher GNV, litros, NATGAS", extract: "litros, fecha, estacion, promedio_leq", crossCheck: "≥400LEQ?" },
-  { key: "carta_membresia", label: "Carta Membresía", visualId: "agrupación gremial, taxi", extract: "agrupacion, nombre, vigencia", crossCheck: "Nombre=INE." },
+  { key: "carta_membresia", label: "Carta Gremial o de Ingreso", visualId: "papel membretado organización taxistas, sello, firma líder", extract: "tipo_carta, agrupacion, nombre_concesionario, concesion, placa, ingreso_mensual, fecha, tiene_sello, tiene_membrete", crossCheck: "Nombre=INE. Sello+membrete+firma obligatorios." },
   { key: "selfie_biometrico", label: "Selfie con INE", visualId: "rostro + INE visible", extract: "rostro_visible, ine_visible", crossCheck: "Coincide con foto INE?" },
   // === Documentos adicionales (SSOT v1: "Adicionalmente") ===
   { key: "ine_operador", label: "INE del Operador", visualId: "CREDENCIAL PARA VOTAR, foto persona diferente al titular", extract: "nombre_completo, curp, vigencia", crossCheck: "Persona diferente al titular. Vigente?" },
@@ -279,7 +279,7 @@ CLASIFICACION — identifica el tipo EXACTO:
 
 9. historial_gnv: Tickets/vouchers de GNV, NATGAS. Tienen litros, fecha, estación.
 
-10. carta_membresia: Carta de agrupación gremial de taxistas.
+10. carta_membresia: Carta gremial o de ingreso (papel membretado, sello, firma del líder).
 
 11. selfie_biometrico: Foto de persona sosteniendo su INE junto al rostro.
 

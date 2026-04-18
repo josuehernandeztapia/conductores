@@ -200,7 +200,7 @@ export const DOC_EXPLANATIONS: Record<string, string> = {
   estado_cuenta: "Tu *estado de cuenta bancario (carátula)* — donde se vea tu nombre, CLABE a 18 dígitos, y dirección. La dirección debe coincidir con tu INE.",
   historial_gnv: "Tu *historial de consumo GNV* — necesito 3 o 4 comprobantes recientes de carga de gas. Puede ser el ticket físico o captura de pantalla del historial. Si los tienes en el tablero del carro, con una foto está bien.",
   tickets_gasolina: "Tus *tickets de gasolina* — 3 o 4 recientes. Pueden ser de Magna o Premium.",
-  carta_membresia: "Tu *Carta de Membresía Gremial* — la carta de tu agrupación de taxis (ACATAXI, CTM, etc.) que confirma que eres miembro activo.",
+  carta_membresia: "Tu *Carta Gremial o de Ingreso* — la emite tu organización de taxistas (ACATAXI, CTM, etc.). Puede ser carta de membresía o carta de ingreso. En papel membretado, con sello y firma del líder.",
   selfie_biometrico: "Una *selfie tuya sosteniendo tu INE* — tómala con buena luz, que se vea tu cara y la INE legible.",
   ine_operador: "La *INE del operador* — si alguien más maneja tu taxi, necesito la credencial de esa persona. Si no tienes operador, escribe *siguiente*.",
   licencia_conducir: "La *licencia de conducir del operador* — vigente. Si no tienes operador, escribe *siguiente*.",
@@ -247,7 +247,7 @@ export function welcome_back(
       tarjeta_circulacion: 'Tarjeta Circulación', factura_vehiculo: 'Factura Vehículo',
       csf: 'CSF (SAT)', comprobante_domicilio: 'Comp. Domicilio',
       concesion: 'Concesión', estado_cuenta: 'Estado de Cuenta',
-      historial_gnv: 'Tickets GNV/Gasolina', carta_membresia: 'Carta Membresía',
+      historial_gnv: 'Tickets GNV/Gasolina', carta_membresia: 'Carta Gremial/Ingreso',
       selfie: 'Selfie con INE', curp_doc: 'CURP', acta_nacimiento: 'Acta Nacimiento',
       fotos_unidad: 'Fotos Unidad',
     };

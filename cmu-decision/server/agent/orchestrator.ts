@@ -1288,6 +1288,7 @@ async function processDocImage(
     comprobante_domicilio: ['direccion'],
     concesion: ['numero_concesion'],
     estado_cuenta: ['clabe', 'banco'],
+    carta_membresia: ['tipo_carta', 'agrupacion', 'nombre_concesionario'],
     selfie_biometrico: [],
     licencia_conducir: ['numero_licencia'],
   };

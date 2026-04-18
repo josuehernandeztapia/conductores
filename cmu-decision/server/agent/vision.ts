@@ -87,10 +87,10 @@ export const DOC_ORDER: DocDefinition[] = [
   },
   {
     key: "carta_membresia",
-    label: "Carta Membresía Gremial",
-    visualId: "Membrete de agrupación gremial (ACATAXI, CTM, etc.), datos del miembro",
-    extract: "agrupacion (nombre de la agrupación: ACATAXI, CTM, etc.), nombre_miembro (nombre completo del miembro), vigencia",
-    crossCheck: "El campo 'nombre_miembro' DEBE coincidir con el nombre de la INE frente. Si no → flag 'nombre_mismatch'.",
+    label: "Carta Gremial o de Ingreso",
+    visualId: "Papel membretado de agrupación/organización de taxistas (ACATAXI, CTM, etc.), puede ser carta de membresía O carta de ingreso. Buscar: logo/membrete, sello, firma del líder",
+    extract: "tipo_carta ('membresia' o 'ingreso'), agrupacion (nombre: ACATAXI, CTM, etc.), nombre_concesionario, concesion (número), numero_economico, placa, ingreso_mensual (si es carta de ingreso), fecha, tiene_sello (true/false), tiene_membrete (true/false), tiene_firma (true/false)",
+    crossCheck: "El campo 'nombre_concesionario' DEBE coincidir con el nombre de la INE frente. Si no → flag 'nombre_mismatch'. Si es carta de ingreso: verificar que tenga sello, membrete y firma. Si falta alguno → flag 'carta_incompleta'. Cualquiera de las dos (membresía o ingreso) es válida.",
   },
   {
     key: "selfie_biometrico",
