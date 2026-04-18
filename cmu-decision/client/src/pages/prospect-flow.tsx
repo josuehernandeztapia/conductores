@@ -333,7 +333,10 @@ export default function ProspectFlowPage() {
         }),
       });
 
-      if (!res.ok) throw new Error("Failed to create origination");
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.message || `Error ${res.status}`);
+      }
 
       const data = await res.json();
       const folio = data.folio;
@@ -387,8 +390,16 @@ export default function ProspectFlowPage() {
             <Car className="h-5 w-5" />
             Renovación de Taxi con GNV
           </CardTitle>
-          <CardDescription>
-            Programa de Conductores del Mundo — Aguascalientes
+          <CardDescription className="flex items-center justify-between">
+            <span>Programa de Conductores del Mundo — Aguascalientes</span>
+            {state !== "prospect_name" && state !== "idle" && (
+              <button
+                onClick={() => { setState("prospect_name"); setContext({}); }}
+                className="text-xs text-teal-500 hover:underline"
+              >
+                Nuevo prospecto
+              </button>
+            )}
           </CardDescription>
           <Progress value={progress} className="mt-4" />
         </CardHeader>

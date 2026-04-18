@@ -258,6 +258,14 @@ function App() {
         <Toaster />
         {!promoter ? (
           <PinLogin onLogin={handleLogin} />
+        ) : promoter.role === "proveedor" ? (
+          <div className="flex items-center justify-center min-h-screen">
+            <div className="text-center space-y-3">
+              <p className="text-lg font-semibold">Acceso no disponible</p>
+              <p className="text-sm text-muted-foreground">El perfil de proveedor no tiene acceso a la PWA.</p>
+              <button onClick={handleLogout} className="text-sm text-teal-500 underline">Cerrar sesión</button>
+            </div>
+          </div>
         ) : promoter.role === "dev" ? (
           <DirectorApp promoter={promoter} onLogout={handleLogout} routerOverride={<DevRouter />} />
         ) : promoter.role === "director" ? (
