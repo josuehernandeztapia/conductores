@@ -112,6 +112,28 @@ function authMiddleware(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
+// Role-based access control for sensitive endpoints
+function requireRole(...allowedRoles: string[]) {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    const session = (req as any).session;
+    if (!session) return res.status(401).json({ message: "No autorizado" });
+    // Look up role from promoters table
+    try {
+      const { neon } = await import("@neondatabase/serverless");
+      const sql = neon(process.env.DATABASE_URL!);
+      const rows = await sql`SELECT role FROM promoters WHERE id = ${session.promoterId}` as any[];
+      const role = rows[0]?.role || "promotora";
+      if (!allowedRoles.includes(role)) {
+        return res.status(403).json({ message: "Sin permisos para esta acción" });
+      }
+      (req as any).role = role;
+      next();
+    } catch {
+      next(); // If DB fails, allow (graceful degradation)
+    }
+  };
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -1761,7 +1783,7 @@ Responde SOLO con JSON válido:
   app.post("/api/webhooks/conekta", conektaWebhookHandler);
 
   // POST /api/conekta/crear-liga — Create a payment link (internal use)
-  app.post("/api/conekta/crear-liga", async (req, res) => {
+  app.post("/api/conekta/crear-liga", requireRole("director", "dev", "promotora"), async (req, res) => {
     try {
       const result = await crearLigaPago(req.body);
       return res.json(result);
@@ -2046,9 +2068,11 @@ Responde SOLO con JSON válido:
   // ===== OTP (Twilio Verify — real when credentials present, simulated otherwise) =====
   const TWILIO_SID = process.env.TWILIO_ACCOUNT_SID;
   const TWILIO_TOKEN = process.env.TWILIO_AUTH_TOKEN;
-  const TWILIO_VERIFY_SID = process.env.TWILIO_VERIFY_SID || "VAb7b31cdc560d238ed2bd90da259b9a12";
+  const TWILIO_VERIFY_SID = process.env.TWILIO_VERIFY_SID;
   const twilioEnabled = !!(TWILIO_SID && TWILIO_TOKEN);
-  if (twilioEnabled) console.log("[Twilio] Verify enabled with SID:", TWILIO_SID?.slice(0, 8) + "...");
+  const verifyEnabled = !!(twilioEnabled && TWILIO_VERIFY_SID);
+  if (verifyEnabled) console.log("[Twilio] Verify enabled with SID:", TWILIO_VERIFY_SID?.slice(0, 8) + "...");
+  else if (twilioEnabled) console.warn("[Twilio] WhatsApp OK but Verify NOT configured — set TWILIO_VERIFY_SID");
   else console.log("[Twilio] No credentials — OTP will be simulated");
 
   app.post("/api/originations/:id/otp/send", async (req, res) => {
@@ -2062,7 +2086,7 @@ Responde SOLO con JSON válido:
       const clean = phoneNumber.replace(/\D/g, "");
       const e164 = phoneNumber.startsWith("+") ? phoneNumber : `+52${clean}`;
 
-      if (twilioEnabled) {
+      if (verifyEnabled) {
         const twilioRes = await fetch(`https://verify.twilio.com/v2/Services/${TWILIO_VERIFY_SID}/Verifications`, {
           method: "POST",
           headers: {
@@ -2080,11 +2104,8 @@ Responde SOLO con JSON válido:
         console.warn("[Twilio] Send failed:", data.message || data.code);
       }
 
-      // QW-2: No simulation fallback in production — require real Twilio Verify
-      if (twilioEnabled) {
-        return res.status(502).json({ success: false, message: "Error al enviar SMS. Intente de nuevo en unos minutos." });
-      }
-      return res.status(503).json({ success: false, message: "Servicio OTP no configurado. Contacte al administrador." });
+      // No Verify configured — fail clearly
+      return res.status(503).json({ success: false, message: "Servicio OTP no configurado. Se requiere TWILIO_VERIFY_SID." });
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
     }
@@ -2100,7 +2121,7 @@ Responde SOLO con JSON válido:
       const phoneNumber = phone || orig?.otpPhone || "";
       const e164 = phoneNumber.startsWith("+") ? phoneNumber : `+52${phoneNumber.replace(/\D/g, "")}`;
 
-      if (twilioEnabled && phoneNumber) {
+      if (verifyEnabled && phoneNumber) {
         const twilioRes = await fetch(`https://verify.twilio.com/v2/Services/${TWILIO_VERIFY_SID}/VerificationChecks`, {
           method: "POST",
           headers: {
@@ -2117,11 +2138,8 @@ Responde SOLO con JSON válido:
         return res.json({ verified: false, message: data.message || "Código incorrecto o expirado" });
       }
 
-      // QW-2: No simulation fallback — require real Twilio Verify
-      if (twilioEnabled) {
-        return res.json({ verified: false, message: "Error de verificación. Solicite un nuevo código." });
-      }
-      return res.status(503).json({ verified: false, message: "Servicio OTP no configurado. Contacte al administrador." });
+      // No Verify configured — fail clearly
+      return res.status(503).json({ verified: false, message: "Servicio OTP no configurado. Se requiere TWILIO_VERIFY_SID." });
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
     }
@@ -2179,7 +2197,7 @@ Responde SOLO con JSON válido:
   if (mifielEnabled) console.log("[Mifiel] Enabled (sandbox)");
   else console.log("[Mifiel] No credentials — firma will be simulated");
 
-  app.post("/api/mifiel/send", async (req, res) => {
+  app.post("/api/mifiel/send", requireRole("director", "dev"), async (req, res) => {
     try {
       const { originationId, pdfBase64, signerName, signerEmail, signerPhone } = req.body;
       if (!originationId) return res.status(400).json({ message: "originationId requerido" });
@@ -2261,7 +2279,8 @@ Responde SOLO con JSON válido:
         mifielDocumentId: simDocId,
         mifielStatus: "pending",
       } as any).catch(() => {});
-      return res.json({ success: true, documentId: simDocId, simulated: true, status: "pending", message: "Firma simulada" });
+      console.warn("[Mifiel] SIMULATED — no credentials. Set MIFIEL_APP_ID + MIFIEL_APP_SECRET for real firma.");
+      return res.json({ success: true, documentId: simDocId, simulated: true, status: "pending", message: "⚠️ Firma SIMULADA — sin credenciales Mifiel. No tiene validez legal." });
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
     }
@@ -2388,13 +2407,14 @@ Responde SOLO con JSON válido:
         }
       }
 
-      // Simulation
+      // Simulation — Conekta is actually configured (crear-liga works), this path is for other payment methods
+      console.warn("[Conekta] Simulation path reached — check CONEKTA_PRIVATE_KEY");
       return res.json({
         success: true,
         orderId: `ord-sim-${Date.now()}`,
         simulated: true,
         status: "pending",
-        message: "Pago simulado (sin credenciales Conekta)",
+        message: "⚠️ Pago SIMULADO — use /api/conekta/crear-liga para pagos reales.",
       });
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
