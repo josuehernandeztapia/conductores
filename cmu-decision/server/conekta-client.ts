@@ -99,7 +99,7 @@ export async function crearLigaPago(params: PaymentLinkParams): Promise<PaymentL
 
   // Create checkout (Payment Link)
   const checkout = await conektaFetch("/checkouts", "POST", {
-    name: `CMU ${folio} Mes ${mes}`,
+    name: `${folio} — Mes ${mes}`,
     type: "PaymentLink",
     recurrent: false,
     expires_at: expiresAt,
