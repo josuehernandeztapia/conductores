@@ -83,7 +83,7 @@ export const DOC_ORDER: DocDefinition[] = [
     label: "Tickets Gasolina (Perfil B)",
     visualId: "Ticket/voucher de estación de gasolina, litros, monto en pesos",
     extract: "litros, monto (pesos), fecha, estacion (nombre de la estación)",
-    crossCheck: "El monto mensual acumulado debe ser >= $6,000 MXN. Si es menor → flag 'gasto_bajo_gasolina'.",
+    crossCheck: "El monto mensual acumulado (promedio ticket × 26 días laborales) debe ser >= $9,600 MXN. Si es menor → flag 'gasto_bajo_gasolina'. Regla de producto: se requiere un mínimo de 10 tickets del último mes para inferir consumo (muestreo operativo en PWA puede requerir menos).",
   },
   {
     key: "carta_membresia",

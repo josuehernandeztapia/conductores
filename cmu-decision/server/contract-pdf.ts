@@ -144,7 +144,7 @@ export function generateConvenioValidacion(
     );
 
     addClause(doc, "SEGUNDA", "DATOS DEL OPERADOR",
-      `Nombre completo: ${nombre}\nCURP: ${curp}\nRFC: ${rfc}\nTeléfono: ${telefono}\nDomicilio: ${domicilio}\nNúmero de concesión: ${concesion}\nPerfil de consumo: ${orig.perfilTipo === "A" ? "A (GNV, ≥400 LEQ/mes)" : "B (Gasolina, tickets ≥$6,000/mes)"}`
+      `Nombre completo: ${nombre}\nCURP: ${curp}\nRFC: ${rfc}\nTeléfono: ${telefono}\nDomicilio: ${domicilio}\nNúmero de concesión: ${concesion}\nPerfil de consumo: ${orig.perfilTipo === "A" ? "A (GNV, ≥400 LEQ/mes)" : "B (Gasolina, tickets ≥$9,600/mes y mínimo 10 tickets del último mes)"}`
     );
 
     addClause(doc, "TERCERA", "VEHÍCULO EN VALIDACIÓN",
