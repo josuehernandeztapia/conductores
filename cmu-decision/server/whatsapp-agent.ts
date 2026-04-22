@@ -2713,8 +2713,14 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
       if (dirEvalSignals && !dirIsConversational) {
         let dModel: any;
         if (dirEarlyParsed.modelQuery) dModel = await this.resolveModel(dirEarlyParsed.modelQuery, dirEarlyParsed.year);
+
+        // No cost specified — prompt for it
+        if (dirEarlyParsed.modelQuery && !dirEarlyParsed.cost) {
+          return await respond(`Falta el precio del vehículo. Escribe por ejemplo:\n*${dirEarlyParsed.modelQuery} ${dirEarlyParsed.year || "2021"} 150k rep 10k*`);
+        }
+
+        // Model found — run eval
         if (dModel && dirEarlyParsed.cost) {
-          // Run eval directly
           const mkt = await this.fetchMarketPrices(dModel.brand, dModel.model, dirEarlyParsed.year || dModel.year, dModel.variant);
           const fuel = await this.getFuel();
           const mData = { brand: dModel.brand, model: dModel.model, variant: dModel.variant, slug: dModel.slug, purchaseBenchmarkPct: dModel.purchaseBenchmarkPct || 0.60 };
@@ -2722,6 +2728,34 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
           const rules = await this.getRules();
           const result = evaluateOpportunity(input, mData, { gnvRevenue: fuel.gnvRevenueMes, marketAvgPrice: mkt.avg, marketP70: mkt.p70 });
           return await respond(this.formatEvalResult(result, mkt, fuel.gnvRevenueMes, getThresholds(rules)));
+        }
+
+        // Model not in catalog (name OR year mismatch) — try market + auto-insert
+        if (dirEarlyParsed.modelQuery && dirEarlyParsed.cost && !dModel) {
+          try {
+            // Try to find closest match by name only (any year)
+            const nameOnly = await this.resolveModel(dirEarlyParsed.modelQuery);
+            if (nameOnly && dirEarlyParsed.year) {
+              // Fetch market data for the requested year
+              const mkt = await this.fetchMarketPrices(nameOnly.brand, nameOnly.model, dirEarlyParsed.year, nameOnly.variant);
+              if (mkt.avg && mkt.avg > 0) {
+                const pvCMU = Math.round(mkt.p70 || mkt.avg);
+                // Auto-insert new year into catalog
+                await this.autoInsertCatalogModel(nameOnly.brand, nameOnly.model, nameOnly.variant, dirEarlyParsed.year, pvCMU);
+                // Run eval with the new entry
+                const fuel = await this.getFuel();
+                const mData = { brand: nameOnly.brand, model: nameOnly.model, variant: nameOnly.variant, slug: `${nameOnly.slug}-${dirEarlyParsed.year}`, purchaseBenchmarkPct: 0.60 };
+                const input = { modelId: -1, modelSlug: mData.slug, year: dirEarlyParsed.year, cmu: pvCMU, insurerPrice: dirEarlyParsed.cost, repairEstimate: dirEarlyParsed.repair || 0, conTanque: dirEarlyParsed.conTanque ?? true };
+                const rules = await this.getRules();
+                const result = evaluateOpportunity(input, mData, { gnvRevenue: fuel.gnvRevenueMes, marketAvgPrice: mkt.avg, marketP70: mkt.p70 });
+                return await respond(`⚠️ *${nameOnly.brand} ${nameOnly.model} ${dirEarlyParsed.year}* no estaba en catálogo. Consulté mercado y lo agregué con CMU estimado $${pvCMU.toLocaleString()}.\n\n${this.formatEvalResult(result, mkt, fuel.gnvRevenueMes, getThresholds(rules))}`);
+              }
+              return await respond(`No encontré *${nameOnly.brand} ${nameOnly.model} ${dirEarlyParsed.year}* en catálogo ni en mercado. Años disponibles: ${(await this.storage.getModels()).filter((m: any) => m.model === nameOnly.model).map((m: any) => m.year).join(", ")}.`);
+            }
+            return await respond(`No encontré el modelo *${dirEarlyParsed.modelQuery}* en catálogo. Verifica el nombre o escribe *inventario* para ver los modelos disponibles.`);
+          } catch (e: any) {
+            return await respond(`Error al evaluar: ${e.message}`);
+          }
         }
       }
 
