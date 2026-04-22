@@ -284,9 +284,13 @@ export async function avisoRecaudoDia25(
       if (alreadySent) continue;
 
       // ===== SANITY CHECK Kit Conversion =====
+      // Kit Conv no tiene campo 'Ahorro Acumulado'. El aportado se calcula como
+      // Precio Kit - Saldo Pendiente (modelo de saldo, no de acumulado).
+      const precioKit = Number(k["Precio Kit"] || 0);
+      const aportadoCalculado = Math.max(0, precioKit - saldoPendiente);
       const targetCheck = sanityCheckTarget({ nombre: cliente, telefono, folio });
       const amtCheck = sanityCheckAmount(cuotaMensual, { expectPositive: true, maxReasonable: 20000, label: `Cuota mensual ${folio}` });
-      const consCheck = await sanityCheckAhorroConsistency(folio, (k["Aportado"] || k["Ahorro Acumulado"] || 0));
+      const consCheck = await sanityCheckAhorroConsistency(folio, aportadoCalculado);
       const actCheck = await sanityCheckRecentActivity(folio, 30);
       const combined: SanityIssue[] = [...targetCheck.issues, ...amtCheck.issues, ...consCheck.issues, ...actCheck.issues];
       const hasErrors = combined.some((i) => i.level === "error");
