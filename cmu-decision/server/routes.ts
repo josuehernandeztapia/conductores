@@ -468,11 +468,15 @@ export async function registerRoutes(
       if (!promoter) {
         return res.status(401).json({ success: false, message: "PIN incorrecto" });
       }
-      const token = createSessionToken(promoter.id, promoter.name);
+      const roleLogin2 = (promoter as any).role || "promotora";
+      const displayName2 = roleLogin2 === "promotora"
+        ? (getPromotorBy({ dbId: promoter.id })?.label || "Promotor")
+        : promoter.name;
+      const token = createSessionToken(promoter.id, displayName2);
       return res.json({
         success: true,
         token,
-        promoter: { id: promoter.id, name: promoter.name, role: (promoter as any).role || "promotora" },
+        promoter: { id: promoter.id, name: displayName2, role: roleLogin2 },
       });
     } catch (err: any) {
       return res.status(500).json({ success: false, message: err.message });
