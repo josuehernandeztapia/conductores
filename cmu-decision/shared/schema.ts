@@ -148,6 +148,12 @@ export const originations = pgTable("originations", {
   // Notes
   notes: text("notes"),
   rejectionReason: text("rejection_reason"),
+  // Fondo de Garantia inicial (cobrado post-firma via Conekta)
+  fgInicialStatus: text("fg_inicial_status"), // null | 'pendiente' | 'pagado' | 'vencido'
+  fgInicialAmount: integer("fg_inicial_amount"), // $8,000 por default
+  fgInicialConektaUrl: text("fg_inicial_conekta_url"),
+  fgInicialConektaId: text("fg_inicial_conekta_id"), // checkout id de Conekta
+  fgInicialPaidAt: text("fg_inicial_paid_at"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });

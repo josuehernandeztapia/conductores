@@ -362,37 +362,44 @@ export async function aplicarFGDia6(): Promise<FGResult> {
 
   const result: FGResult = { procesados: 0, fgAplicados: 0, moraActivada: 0, detalle: [] };
 
+  // fg-engine es la fuente de verdad del saldo FG (tabla fg_ledger en Neon).
+  // Airtable `Saldo FG` se mantiene como espejo informativo.
+  const { getSaldoFG, aplicarFG } = await import("./fg-engine");
+
   for (const cierre of pendientes) {
     const folio = cierre.Folio;
     const diferencial = cierre.Diferencial || 0;
 
-    // Get credit for FG balance
+    // Get credit for client info (telefono, taxista)
     const creditos = await atFetch(TABLE_CREDITOS, {
       filterByFormula: `{Folio}="${folio}"`,
       maxRecords: "1",
     });
     if (creditos.length === 0) continue;
     const credito = creditos[0];
-    const saldoFG = credito["Saldo FG"] || 0;
     const telefono = credito.Telefono || "";
     const taxista = credito.Taxista || "?";
 
+    // Saldo real del FG: fg_ledger (no Airtable)
+    const saldoFG = await getSaldoFG(folio);
+    const mesRef = `${new Date().toISOString().slice(0,7)}-mes${cierre.Mes || 0}`;
+
     if (saldoFG >= diferencial) {
-      // FG covers everything
-      const nuevoFG = saldoFG - diferencial;
+      // FG covers everything — descontar del ledger
+      const fgOp = await aplicarFG(folio, diferencial, mesRef);
+      const nuevoFG = fgOp.saldoDespues;
       await atUpdate(TABLE_CIERRES, cierre._id, {
         "Estatus": "FG Aplicado",
         "FG Aplicado": diferencial,
         "Metodo Pago": "FG",
         "Fecha Pago": new Date().toISOString().slice(0, 10),
       });
-      const nuevoMesFG = Math.max(credito["Mes Actual"] || 0, cierre.Mes || 0); // advance on FG cover
+      const nuevoMesFG = Math.max(credito["Mes Actual"] || 0, cierre.Mes || 0);
       await atUpdate(TABLE_CREDITOS, credito._id, {
         "Mes Actual": nuevoMesFG,
-        "Saldo FG": nuevoFG,
+        "Saldo FG": nuevoFG, // espejo informativo
         "Dias Atraso": 0,
       });
-      // WhatsApp: FG covered everything
       if (telefono) await sendTemplate(telefono, "fg_aplicado", {
         "1": diferencial.toLocaleString(),
         "2": nuevoFG.toLocaleString(),
@@ -401,8 +408,12 @@ export async function aplicarFGDia6(): Promise<FGResult> {
       result.fgAplicados++;
       result.detalle.push({ folio, taxista, telefono, diferencial, fgDisponible: saldoFG, fgAplicado: diferencial, deudaRestante: 0, accion: `FG cubrió $${diferencial}. Saldo FG: $${nuevoFG}` });
     } else {
-      // FG partial or zero — MORA
-      const fgAplicado = saldoFG; // use whatever is left
+      // FG partial or zero — aplicar lo que haya y mandar resto a mora
+      let fgAplicado = 0;
+      if (saldoFG > 0) {
+        const fgOp = await aplicarFG(folio, saldoFG, mesRef);
+        fgAplicado = fgOp.aplicado;
+      }
       const deudaRestante = diferencial - fgAplicado;
       await atUpdate(TABLE_CIERRES, cierre._id, {
         "Estatus": "Mora",

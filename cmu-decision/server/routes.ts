@@ -104,6 +104,10 @@ const PUBLIC_PATHS = [
   "/api/conekta/cancelar-liga-admin", // PIN-gated payment link cancellation
   "/api/sanity/check", // on-demand sanity audit (read-only, safe)
   "/api/pipeline/cleanup-invalid", // PIN-gated cleanup of invalid prospects
+  "/api/fg/saldo", // FG balance (read-only)
+  "/api/fg/movimientos", // FG movement history (read-only)
+  "/api/fg/ajuste", // PIN-gated manual adjustment
+  "/api/fg/devolver", // PIN-gated completion refund
 ];
 
 function authMiddleware(req: Request, res: Response, next: NextFunction) {
@@ -1803,10 +1807,64 @@ Responde SOLO con JSON válido:
 
       // Accept both order.paid (tarjeta) and charge.paid (SPEI/efectivo confirmed)
       const isPaidEvent = event.type === "order.paid" || event.type === "charge.paid";
+
+      // ===== FG INICIAL (mes === 0) =====
+      // El webhook del FG inicial llega con metadata.mes === 0 (set en crearLigaPago del post-firma).
+      if (isPaidEvent && event.folio && event.mes === 0) {
+        try {
+          const { registrarFGInicial } = await import("./fg-engine");
+          const fgResult = await registrarFGInicial(event.folio, event.monto, event.orderId);
+          console.log(`[FG Inicial] Registrado para ${event.folio}: ${fgResult.success ? "OK" : fgResult.error}`);
+
+          // Actualizar origination: fg_inicial_status -> pagado
+          const origs = await storage.listOriginations();
+          const origFG = origs.find((o: any) => o.folio === event.folio);
+          if (origFG) {
+            await storage.updateOrigination(origFG.id, {
+              fgInicialStatus: "pagado",
+              fgInicialPaidAt: new Date().toISOString(),
+            } as any);
+            // Notificar al taxista + director + promotor
+            const taxista = origFG.taxistaId ? await storage.getTaxista(origFG.taxistaId) : null;
+            const nombre = taxista ? `${taxista.nombre} ${taxista.apellidoPaterno || ""}`.trim() : "";
+            const telefono = (taxista?.telefono || "").replace(/[^0-9]/g, "");
+            if (telefono) {
+              await sendWa(`whatsapp:+${telefono}`,
+                `✅ Hola ${nombre}, recibimos tu pago de *$${event.monto.toLocaleString()}* del Fondo de Garantía inicial.\n\nFolio: ${event.folio}\n\nTu promotor te contactará para agendar la entrega del vehículo.`,
+              ).catch((e: any) => console.error(`[FG Inicial WA taxista]: ${e.message}`));
+            }
+            await sendWa(`whatsapp:+${JOSUE_PHONE}`,
+              `🔐 *FG Inicial pagado* — ${event.folio}\nCliente: ${nombre}\nMonto: $${event.monto.toLocaleString()}\nMétodo: ${event.metodoPago}\n\n✅ Ya se puede agendar entrega del vehículo.`,
+            ).catch(() => {});
+            await sendWa(`whatsapp:+${ANGELES_PHONE}`,
+              `🔓 *Listo para entrega* — ${event.folio} (${nombre})\nFG inicial $${event.monto.toLocaleString()} recibido. Puedes coordinar entrega.`,
+            ).catch(() => {});
+          }
+        } catch (e: any) {
+          console.error(`[FG Inicial] Error: ${e.message}`);
+        }
+        return res.json({ received: true, processed: "fg_inicial" });
+      }
+
       if (isPaidEvent && event.folio && event.mes > 0) {
         // Register the payment
         const result = await registrarPago(event.folio, event.mes, event.monto, event.metodoPago);
         console.log(`[Conekta Webhook] Payment registered: ${result.message}`);
+
+        // ===== FG ACUMULACION MENSUAL (Capa 3) =====
+        // Por cada cuota pagada con exito, acumular $334 al FG (hasta $20k).
+        if (result.success) {
+          try {
+            const { acumularFGMensual } = await import("./fg-engine");
+            const mesRef = new Date().toISOString().slice(0, 7); // YYYY-MM
+            const fgAcum = await acumularFGMensual(event.folio, mesRef, `Cuota mes ${event.mes} pagada`);
+            if (fgAcum.success && fgAcum.acumulado > 0) {
+              console.log(`[FG Mensual] +$${fgAcum.acumulado} acumulado a ${event.folio}. Saldo: $${fgAcum.saldoDespues}`);
+            }
+          } catch (e: any) {
+            console.error(`[FG Mensual] Error acumulando: ${e.message}`);
+          }
+        }
 
         // Notify: taxista (confirmation) + director (always) + promotora (if was in mora)
         try {
@@ -2556,6 +2614,40 @@ Responde SOLO con JSON válido:
             const vehicle = orig.vehicleInventoryId ? await storage.getVehicle(orig.vehicleInventoryId) : null;
             const nombre = taxista ? `${taxista.nombre} ${taxista.apellidoPaterno || ""}`.trim() : ((orig as any).taxistaNombre || "");
             const telefono = taxista?.telefono || (orig as any).otpPhone || (orig as any).taxistaTelefono || "";
+
+            // ===== COBRO FG INICIAL =====
+            // Al marcarse FIRMADO, genera liga Conekta por $8,000.
+            // El taxista NO puede agendar entrega hasta pagarlo.
+            let fgLinkUrl = "";
+            try {
+              const { crearLigaPago } = await import("./conekta-client");
+              const { FG_INICIAL } = await import("./fg-engine");
+              const ligaFG = await crearLigaPago({
+                folio: orig.folio,
+                mes: 0, // 0 = inicial (pre-cuota)
+                taxista: nombre || "Cliente CMU",
+                telefono: telefono.replace(/^\+/, ""),
+                email: undefined,
+                diferencial: 0,
+                cobroFG: FG_INICIAL,
+                vigenciaDias: 7,
+                descripcion: `Fondo de Garantia Inicial — ${orig.folio}`,
+              });
+              if (ligaFG.success && ligaFG.url) {
+                fgLinkUrl = ligaFG.url;
+                await storage.updateOrigination(orig.id, {
+                  fgInicialStatus: "pendiente",
+                  fgInicialAmount: FG_INICIAL,
+                  fgInicialConektaUrl: ligaFG.url,
+                  fgInicialConektaId: (ligaFG as any).checkoutId || null,
+                } as any);
+                console.log(`[FG Inicial] Liga generada para ${orig.folio}: ${ligaFG.url}`);
+              } else {
+                console.error(`[FG Inicial] Liga FALLO para ${orig.folio}: ${ligaFG.error || "sin error"}`);
+              }
+            } catch (e: any) {
+              console.error(`[FG Inicial] Error generando liga: ${e.message}`);
+            }
             let cuotaMensual = 0;
             let precioTotal = 0;
             try {
@@ -2575,6 +2667,7 @@ Responde SOLO con JSON válido:
               cuotaMensual,
               precioTotal,
               fechaFirma: orig.contractGeneratedAt || new Date().toISOString(),
+              fgLinkUrl, // <-- nueva prop: si existe, se incluye en el mensaje al taxista
             }, sendWaForNotify, JOSUE_PHONE, ANGELES_PHONE);
           } catch (e: any) {
             console.error(`[Mifiel Webhook] notificarPostFirma falló: ${e.message}`);
@@ -4089,6 +4182,83 @@ Responde SOLO con JSON válido:
   });
 
   // ===== PIPELINE FOLLOWUP =====
+  // ===== FONDO DE GARANTIA (FG) =====
+
+  // GET /api/fg/saldo?folio=XXX — Saldo actual del FG para un folio (read-only)
+  app.get("/api/fg/saldo", async (req, res) => {
+    try {
+      const folio = String(req.query.folio || "");
+      if (!folio) return res.status(400).json({ error: "folio requerido" });
+      const { getSaldoFG, FG_INICIAL, FG_MENSUAL, FG_TECHO } = await import("./fg-engine");
+      const saldo = await getSaldoFG(folio);
+      return res.json({ folio, saldo, techo: FG_TECHO, inicial: FG_INICIAL, mensual: FG_MENSUAL });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/fg/movimientos?folio=XXX — Historial completo de movimientos FG
+  app.get("/api/fg/movimientos", async (req, res) => {
+    try {
+      const folio = String(req.query.folio || "");
+      if (!folio) return res.status(400).json({ error: "folio requerido" });
+      const { getHistorialFG, getSaldoFG } = await import("./fg-engine");
+      const [historial, saldo] = await Promise.all([getHistorialFG(folio), getSaldoFG(folio)]);
+      return res.json({ folio, saldo, movimientos: historial });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/fg/ajuste — Ajuste manual PIN-gated (para reconciliación retroactiva)
+  app.post("/api/fg/ajuste", async (req, res) => {
+    try {
+      const { pin, folio, monto, concepto } = req.body || {};
+      if (pin !== "654321") return res.status(403).json({ message: "PIN incorrecto" });
+      if (!folio || !monto || !concepto) return res.status(400).json({ error: "folio, monto y concepto requeridos" });
+      const { ajusteManualFG } = await import("./fg-engine");
+      const result = await ajusteManualFG(folio, Number(monto), String(concepto));
+      return res.json(result);
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/fg/devolver — Devolución al completar crédito (Capa 5)
+  // Marca el FG completo como devuelto al cliente.
+  app.post("/api/fg/devolver", async (req, res) => {
+    try {
+      const { pin, folio, concepto } = req.body || {};
+      if (pin !== "654321") return res.status(403).json({ message: "PIN incorrecto" });
+      if (!folio) return res.status(400).json({ error: "folio requerido" });
+      const { registrarDevolucionFG } = await import("./fg-engine");
+      const result = await registrarDevolucionFG(folio, concepto);
+      if (result.success && result.devuelto > 0) {
+        // Notificar al cliente + director
+        try {
+          const origs = await storage.listOriginations();
+          const orig = origs.find((o: any) => o.folio === folio);
+          if (orig?.taxistaId) {
+            const taxista = await storage.getTaxista(orig.taxistaId);
+            const tel = (taxista?.telefono || "").replace(/[^0-9]/g, "");
+            const nombre = taxista ? `${taxista.nombre} ${taxista.apellidoPaterno || ""}`.trim() : "";
+            if (tel) {
+              await sendWa(`whatsapp:+${tel}`,
+                `🎉 Hola ${nombre}, terminaste tu crédito CMU con éxito.\n\n💰 Devolvemos tu Fondo de Garantía: *$${result.devuelto.toLocaleString()}*\n\nNuestro equipo te contactará para coordinar la transferencia. Gracias por confiar en nosotros.`,
+              ).catch(() => {});
+            }
+          }
+          await sendWa(`whatsapp:+${JOSUE_PHONE}`,
+            `🎉 *FG Devuelto* — ${folio}\nMonto: $${result.devuelto.toLocaleString()}\n\nProcesar transferencia al cliente.`,
+          ).catch(() => {});
+        } catch { /* no-op */ }
+      }
+      return res.json(result);
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
   // POST /api/pipeline/cleanup-invalid — marca como 'invalido' todos los prospectos
   // con datos basura (nombre con basura, teléfono = nombre, números test 521999*).
   // dryRun por default; ?confirm=true para aplicar.

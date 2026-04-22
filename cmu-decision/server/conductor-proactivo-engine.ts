@@ -375,6 +375,7 @@ export interface PostFirmaContext {
   cuotaMensual: number;
   precioTotal: number;
   fechaFirma: string; // ISO
+  fgLinkUrl?: string; // Liga Conekta del FG inicial $8,000 (si el webhook ya la genero)
 }
 
 export async function notificarPostFirma(
@@ -393,7 +394,10 @@ export async function notificarPostFirma(
     const key = `post_firma_taxista_${ctx.folio}`;
     const alreadySent = await wasSentRecently(cleanPhone, key, 24 * 7);
     if (!alreadySent) {
-      const msg = `🎉 Hola ${ctx.nombreTaxista}, bienvenido a CMU:\n\n*Tu contrato ${ctx.folio} está firmado.*\n\n🚕 Vehículo: ${vehiculo}\n💵 Precio total: $${ctx.precioTotal.toLocaleString()}\n📅 Cuota mensual: *$${ctx.cuotaMensual.toLocaleString()}*\n✍️ Firmado: ${fecha}\n\nRecuerda:\n• Anticipo a capital de *$50,000* al día 56 (semana 8).\n• Tu pago mensual se cubre con cada carga de gas (sobreprecio por LEQ).\n• Tu Fondo de Garantía te protege si un mes cargas poco.\n\nCualquier duda, escribe por aquí. Tu promotora te contactará para coordinar la entrega del vehículo.`;
+      const fgBlock = ctx.fgLinkUrl
+        ? `\n\n🔐 *Fondo de Garantía inicial: $8,000*\nPaga aquí (vence en 7 días): ${ctx.fgLinkUrl}\n⚠️ La entrega del vehículo se agenda *después* de este pago.`
+        : "";
+      const msg = `🎉 Hola ${ctx.nombreTaxista}, bienvenido a CMU:\n\n*Tu contrato ${ctx.folio} está firmado.*\n\n🚕 Vehículo: ${vehiculo}\n💵 Precio total: $${ctx.precioTotal.toLocaleString()}\n📅 Cuota mensual: *$${ctx.cuotaMensual.toLocaleString()}*\n✍️ Firmado: ${fecha}${fgBlock}\n\nRecuerda:\n• Anticipo a capital de *$50,000* al día 56 (semana 8).\n• Tu pago mensual se cubre con cada carga de gas (sobreprecio por LEQ).\n• Tu Fondo de Garantía crece $334 cada mes hasta $20,000 y te protege si un mes cargas poco.\n\nCualquier duda, escribe por aquí. Tu promotor te contactará para coordinar la entrega del vehículo.`;
       try {
         await sendWa(`whatsapp:+${cleanPhone}`, msg);
         await logMessage(cleanPhone, key, ctx.folio, msg);
@@ -408,7 +412,7 @@ export async function notificarPostFirma(
   const keyDir = `post_firma_director_${ctx.folio}`;
   const alreadyDir = await wasSentRecently(directorPhone, keyDir, 24 * 7);
   if (!alreadyDir) {
-    const msgDir = `✅ *Contrato firmado — ${ctx.folio}*\n\nTaxista: ${ctx.nombreTaxista}\nVehículo: ${vehiculo}\nPrecio total: $${ctx.precioTotal.toLocaleString()}\nCuota: $${ctx.cuotaMensual.toLocaleString()}/mes\nFirma: ${fecha}\n\nEsperando: anticipo \$50k día 56 + entrega vehículo.`;
+    const msgDir = `✅ *Contrato firmado — ${ctx.folio}*\n\nTaxista: ${ctx.nombreTaxista}\nVehículo: ${vehiculo}\nPrecio total: $${ctx.precioTotal.toLocaleString()}\nCuota: $${ctx.cuotaMensual.toLocaleString()}/mes\nFirma: ${fecha}${ctx.fgLinkUrl ? `\n\n🔐 Liga FG \$8,000 generada (vence 7 días).` : "\n\n⚠️ Liga FG inicial NO se generó — revisar logs."}\n\nPendiente: pago FG \$8k + anticipo \$50k día 56 + entrega.`;
     try {
       await sendWa(`whatsapp:+${directorPhone}`, msgDir);
       await logMessage(directorPhone, keyDir, ctx.folio, msgDir);
@@ -422,7 +426,7 @@ export async function notificarPostFirma(
   const keyProm = `post_firma_promotor_${ctx.folio}`;
   const alreadyProm = await wasSentRecently(promotorPhone, keyProm, 24 * 7);
   if (!alreadyProm) {
-    const msgProm = `📋 Contrato firmado: *${ctx.folio}*\n${ctx.nombreTaxista}\n${vehiculo}\nCuota $${ctx.cuotaMensual.toLocaleString()}/mes\nFirma: ${fecha}\n\nCoordinar entrega del vehículo con el taxista.`;
+    const msgProm = `📋 Contrato firmado: *${ctx.folio}*\n${ctx.nombreTaxista}\n${vehiculo}\nCuota $${ctx.cuotaMensual.toLocaleString()}/mes\nFirma: ${fecha}\n\n⚠️ *NO agendar entrega* hasta que el taxista pague FG inicial \$8,000 (liga ya enviada).\nVerifica en el folio antes de coordinar.`;
     try {
       await sendWa(`whatsapp:+${promotorPhone}`, msgProm);
       await logMessage(promotorPhone, keyProm, ctx.folio, msgProm);
