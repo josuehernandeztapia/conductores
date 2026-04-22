@@ -15,6 +15,14 @@ import { crearLigaPago, cancelarLiga, parseConektaWebhook, isConektaEnabled } fr
 import { cierreMensual, processNatgasCsv, processNatgasMultiProduct, parseNatgasExcel, parseNatgasCsv as parseNatgasCsvRows, formatRecaudoSummary, formatCierreReport, isDuplicateFile, markFileProcessed } from "./recaudo-engine";
 import evaluacionRoutes from "./evaluacion-routes";
 import { logAudit, initAuditTable, getAuditLog } from "./audit-trail";
+import {
+  initAvpTable,
+  recordAcceptance,
+  getLatestAcceptance,
+  revokeAcceptance,
+} from "./avp-engine";
+import { AVP_CURRENT_VERSION, AVP_VIGENTE_DESDE } from "@shared/schema";
+import { checkOTP } from "./twilio-verify";
 import { detectCanal, upsertProspect, updateProspectStatus, getPipelineStats, getPipelineList, getCanales, getProspectsNeedingFollowup, markFollowupSent, generateWhatsAppLink } from "./pipeline-ventas";
 import { handleProspectMessage } from "./agent/orchestrator";
 import { routeMessage } from "./message-router";
@@ -3792,6 +3800,123 @@ Responde SOLO con JSON válido:
 
   // ===== AUDIT TRAIL =====
   initAuditTable().catch((e) => console.error("[Audit] Init failed:", e.message));
+
+  // ===== AVISO DE PRIVACIDAD (LFPDPPP) =====
+  initAvpTable().catch((e) => console.error("[AVP] Init failed:", e.message));
+
+  // GET: devuelve la versión vigente y si el teléfono ya tiene aceptación al día.
+  // Se usa al primer login en la PWA para decidir si mostrar el modal de aviso.
+  app.get("/api/aviso-privacidad", async (req, res) => {
+    try {
+      const phone = String(req.query.phone || "").trim();
+      const currentVersion = AVP_CURRENT_VERSION;
+      const vigenteDesde = AVP_VIGENTE_DESDE;
+      if (!phone) {
+        return res.json({ currentVersion, vigenteDesde, accepted: false, needsAcceptance: true });
+      }
+      const latest = await getLatestAcceptance(phone);
+      if (!latest) {
+        return res.json({ currentVersion, vigenteDesde, accepted: false, needsAcceptance: true });
+      }
+      return res.json({
+        currentVersion,
+        vigenteDesde,
+        accepted: true,
+        needsAcceptance: !latest.isCurrent,
+        acceptedVersion: latest.record.version,
+        acceptedAt: latest.record.accepted_at,
+        folio: latest.record.folio,
+        consentSecundarias: latest.record.consent_secundarias === 1,
+      });
+    } catch (e: any) {
+      console.error("[AVP] GET failed:", e.message);
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  // POST: registra una aceptación del AVP.
+  // Requiere verificación previa de OTP vía Twilio Verify (otp_code vigente).
+  // Guarda IP, User Agent, sello OTP y pdf_base64 del documento congelado.
+  app.post("/api/aviso-privacidad/accept", async (req, res) => {
+    try {
+      const {
+        phone,
+        otpCode,
+        operadorNombre,
+        operadorIne,
+        operadorCurp,
+        folioVal,
+        originationId,
+        consentSecundarias,
+      } = req.body || {};
+
+      if (!phone) return res.status(400).json({ message: "phone es obligatorio" });
+      if (!otpCode) return res.status(400).json({ message: "otpCode es obligatorio" });
+
+      // Verificar OTP con Twilio Verify (fail-loud si credenciales presentes)
+      const otpResult = await checkOTP(String(phone), String(otpCode));
+      if (!otpResult.valid) {
+        return res.status(401).json({ message: "OTP inv\u00e1lido o vencido", otpStatus: otpResult.status });
+      }
+
+      const ip = String(req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").split(",")[0].trim() || null;
+      const userAgent = String(req.headers["user-agent"] || "") || null;
+
+      const result = await recordAcceptance({
+        phone: String(phone),
+        operadorNombre: operadorNombre || null,
+        operadorIne: operadorIne || null,
+        operadorCurp: operadorCurp || null,
+        folioVal: folioVal || null,
+        originationId: originationId ? parseInt(String(originationId), 10) : null,
+        consentSecundarias: !!consentSecundarias,
+        otpSid: otpResult.status || null, // Twilio Verify returns status as proof, no SID on check
+        ipAceptacion: ip,
+        userAgent,
+      });
+
+      await logAudit({
+        action: "avp_accepted",
+        actor: phone,
+        role: "operador",
+        target_type: "avp",
+        target_id: result.folio,
+        details: JSON.stringify({ version: result.version, consentSecundarias: !!consentSecundarias }),
+        ip: ip || undefined,
+      });
+
+      res.json({
+        ok: true,
+        folio: result.folio,
+        version: result.version,
+        acceptedAt: result.acceptedAt,
+        pdfBase64: result.pdfBase64,
+      });
+    } catch (e: any) {
+      console.error("[AVP] POST accept failed:", e.message);
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  // POST: revoca el consentimiento (derecho ARCO - cancelación).
+  app.post("/api/aviso-privacidad/revoke", async (req, res) => {
+    try {
+      const { phone } = req.body || {};
+      if (!phone) return res.status(400).json({ message: "phone es obligatorio" });
+      await revokeAcceptance(String(phone));
+      await logAudit({
+        action: "avp_revoked",
+        actor: String(phone),
+        role: "operador",
+        target_type: "avp",
+        target_id: String(phone),
+      });
+      res.json({ ok: true });
+    } catch (e: any) {
+      console.error("[AVP] revoke failed:", e.message);
+      res.status(500).json({ message: e.message });
+    }
+  });
 
   app.get("/api/audit", async (req, res) => {
     try {

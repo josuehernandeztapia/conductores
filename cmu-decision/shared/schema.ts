@@ -431,3 +431,35 @@ export const DOCUMENT_TYPES = {
 } as const;
 
 export type DocumentType = keyof typeof DOCUMENT_TYPES;
+
+// ===== AVP (Aviso de Privacidad) aceptaciones =====
+// LFPDPPP art. 16 + NOM-151: registro de aceptaciones del Aviso de Privacidad
+// Integral por parte del Operador, con sello de tiempo, OTP Twilio, IP y User Agent.
+export const avpAcceptances = pgTable("avp_acceptances", {
+  id: serial("id").primaryKey(),
+  folio: text("folio").notNull(), // CMU-AVP-YYYYMMDD-NNN
+  version: text("version").notNull(), // e.g. 'v2' · 21-abr-2026
+  phone: text("phone").notNull(), // WhatsApp normalized (E.164)
+  operadorNombre: text("operador_nombre"),
+  operadorIne: text("operador_ine"),
+  operadorCurp: text("operador_curp"),
+  folioVal: text("folio_val"), // link to CMU-VAL if already assigned
+  originationId: integer("origination_id"),
+  consentSecundarias: integer("consent_secundarias").notNull().default(0), // 0/1
+  otpSid: text("otp_sid"), // Twilio Verify verification SID
+  ipAceptacion: text("ip_aceptacion"),
+  userAgent: text("user_agent"),
+  pdfBase64: text("pdf_base64"), // frozen PDF proof of the accepted version
+  acceptedAt: text("accepted_at").notNull(), // ISO8601
+  revokedAt: text("revoked_at"), // null unless revoked
+});
+
+export type AvpAcceptance = typeof avpAcceptances.$inferSelect;
+export const insertAvpAcceptanceSchema = createInsertSchema(avpAcceptances).omit({ id: true });
+export type InsertAvpAcceptance = z.infer<typeof insertAvpAcceptanceSchema>;
+
+// Current active AVP version — bump whenever we publish a materially different Aviso.
+// Material changes require re-acceptance from all active holders (art. 16 LFPDPPP + X
+// of the Aviso itself).
+export const AVP_CURRENT_VERSION = "v2";
+export const AVP_VIGENTE_DESDE = "2026-04-21";

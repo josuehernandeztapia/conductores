@@ -386,6 +386,40 @@ export async function generateADDPRO(orig: any, taxista: any): Promise<Buffer> {
 }
 
 /** CMU-VAL: Convenio de Validación Operativa */
+/**
+ * CMU-AVP — Aviso de Privacidad Integral.
+ *
+ * Produces a DOCX with the full v2 Aviso text plus a frozen acceptance
+ * constancy (fecha, OTP SID, IP, User Agent). Used as legal proof of
+ * consent at the moment of aceptación. Extra fields allow the caller
+ * (avp-engine.ts) to stamp metadata that isn’t part of the standard
+ * origination record.
+ */
+export async function generateAVP(
+  orig: any,
+  taxista: any,
+  extra: Record<string, any> = {},
+): Promise<Buffer> {
+  const data = {
+    folio_avp: extra.folio_avp || orig?.folio || "CMU-AVP-______",
+    version: extra.version || "v2",
+    vigente_desde: extra.vigente_desde || "2026-04-21",
+    folio_val: extra.folio_val || orig?.folio_val || orig?.folio || "CMU-VAL-______",
+    operador_nombre: fullName(taxista),
+    operador_ine: safe(taxista?.ine_numero || safeJson(orig?.datos_ine || orig?.datosIne, "clave_elector")),
+    operador_curp: safe(taxista?.curp || safeJson(orig?.datos_ine || orig?.datosIne, "curp")),
+    operador_telefono: safe(taxista?.telefono || orig?.otpPhone || orig?.otp_phone),
+    fecha_aceptacion: extra.fecha_aceptacion || new Date().toISOString(),
+    otp_sid: extra.otp_sid || "N/A",
+    ip_aceptacion: extra.ip_aceptacion || "N/A",
+    user_agent: extra.user_agent || "N/A",
+    consent_secundarias: extra.consent_secundarias
+      ?? "(capturado al momento de la aceptaci\u00f3n)",
+  };
+
+  return fillTemplate("CMU-AVP.docx", data);
+}
+
 export async function generateVAL(orig: any, taxista: any): Promise<Buffer> {
   const data = {
     folio: orig?.folio?.replace("SIN", "VAL") || "CMU-VAL-______",
@@ -408,5 +442,5 @@ export async function generateVAL(orig: any, taxista: any): Promise<Buffer> {
 
 /** Get list of available template types */
 export function getAvailableTemplates(): string[] {
-  return ["TSR", "PAG", "CER", "CTK", "REST", "RES", "LIQ", "ADD-PRO", "VAL"];
+  return ["TSR", "PAG", "CER", "CTK", "REST", "RES", "LIQ", "ADD-PRO", "VAL", "AVP"];
 }
