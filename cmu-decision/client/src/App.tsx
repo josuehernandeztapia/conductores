@@ -14,12 +14,12 @@ import InventarioPage from "./pages/inventario";
 import OriginacionPage from "./pages/originacion";
 import OriginacionFlowPage from "./pages/originacion-flow";
 import ProspectFlowPage from "./pages/prospect-flow";
+import PromotorDashboardPage from "./pages/promotor-dashboard";
 import PanelPage from "./pages/panel";
 import EvaluacionesPage from "./pages/evaluaciones";
 import PipelinePage from "./pages/pipeline";
 import SandboxPage from "./pages/sandbox";
 import NotFound from "./pages/not-found";
-import ProspectFlowPage from "./pages/prospect-flow";
 
 // ===== Director Router (full access) =====
 function DirectorRouter() {
@@ -75,17 +75,20 @@ function DevRouter() {
 }
 
 // ===== Promotora Router (originación only) =====
+// Arranca en /dashboard — panel de trabajo con folios pendientes + alertas.
+// FAB "Nuevo Prospecto" en el dashboard lleva a /prospect.
 function PromotoraRouter() {
   return (
     <Switch>
       <Route path="/">
-        <Redirect to="/prospect" />
+        <Redirect to="/dashboard" />
       </Route>
+      <Route path="/dashboard" component={PromotorDashboardPage} />
       <Route path="/prospect" component={ProspectFlowPage} />
       <Route path="/originacion" component={OriginacionPage} />
       <Route path="/originacion/:id" component={OriginacionFlowPage} />
       <Route>
-        <Redirect to="/prospect" />
+        <Redirect to="/dashboard" />
       </Route>
     </Switch>
   );

@@ -1947,6 +1947,36 @@ Responde SOLO con JSON válido:
     }
   });
 
+  // ===== PROMOTOR DASHBOARD =====
+
+  // GET /api/promotor/dashboard — Panel de trabajo del promotor.
+  // Devuelve sus folios agrupados por estado + alertas + KPIs.
+  // Multi-promotor: usa promoterId del session o query.
+  app.get("/api/promotor/dashboard", requireRole("promotora", "director", "dev"), async (req, res) => {
+    try {
+      const session = (req as any).session;
+      // Promoter id por session (default) o override por query (director viendo de otro promotor)
+      const overrideId = req.query.promoterId ? parseInt(req.query.promoterId as string) : null;
+      const promoterDbId = overrideId || session?.promoterId || 1;
+
+      const { getPromotorBy } = await import("./team-config");
+      const p = getPromotorBy({ dbId: promoterDbId });
+      const promotorId = p?.id || `promotor_${promoterDbId}`;
+
+      const { buildPromotorDashboard } = await import("./promotor-dashboard");
+      const dashboard = await buildPromotorDashboard({
+        listOriginations: (f) => storage.listOriginations(f),
+        getTaxista: (id) => storage.getTaxista(id),
+        promoterDbId,
+        promotorId,
+      });
+      return res.json(dashboard);
+    } catch (err: any) {
+      console.error("[Dashboard] Error:", err);
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
   // ===== ORIGINATIONS =====
 
   app.get("/api/originations", async (req, res) => {
@@ -3951,7 +3981,7 @@ Responde SOLO con JSON válido:
       const roleMap: Record<string, { role: string; name: string | null }> = {
         prospecto: { role: "prospecto", name: null },
         cliente: { role: "cliente", name: "Cliente Test" },
-        promotora: { role: "promotora", name: getPromotor()?.nombre || "Promotor CMU" },
+        promotora: { role: "promotora", name: getPromotor()?.label || "Promotor CMU" },
         director: { role: "director", name: DIRECTOR.nombre },
       };
       const simRole = roleMap[role] || roleMap.prospecto;

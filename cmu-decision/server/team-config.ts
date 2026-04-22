@@ -12,16 +12,30 @@ export const DIRECTOR = {
   role: "director" as const,
 };
 
+// NOTA: el sistema es multi-promotor.
+// - `id` es el identificador genérico (promotor_uno, promotor_dos, ...) — NUNCA usar nombres en UI/copy/docs.
+// - `nombreInterno` queda para referencia interna (debug, logs) pero NO se muestra al cliente ni al promotor.
+// - `label` es lo que se muestra en la UI ("Promotor", "Promotor 2", etc.).
 export const PROMOTORES = [
   {
-    id: "promotor_1",
-    nombre: "Ángeles Mireles",
+    id: "promotor_uno",
+    label: "Promotor",
+    nombreInterno: "Ángeles Mireles",
     phone: "5214493845228",
     pin: "123456",
     role: "promotora" as const,
     activo: true,
+    dbPromoterId: 1, // FK a tabla promoters (para filtrar originations)
   },
 ];
+
+/** Lookup por id genérico o numérico. */
+export function getPromotorBy(opts: { id?: string; phone?: string; dbId?: number }) {
+  if (opts.id) return PROMOTORES.find(p => p.id === opts.id);
+  if (opts.phone) return PROMOTORES.find(p => p.phone === opts.phone);
+  if (opts.dbId !== undefined) return PROMOTORES.find(p => p.dbPromoterId === opts.dbId);
+  return null;
+}
 
 export const DEVS = [
   {
@@ -57,6 +71,12 @@ export const PROVEEDORES = [
 export function getPromotor(id?: string) {
   if (id) return PROMOTORES.find(p => p.id === id);
   return PROMOTORES.find(p => p.activo) || PROMOTORES[0];
+}
+
+/** Label público de un promotor (para UI/mensajes al cliente). */
+export function getPromotorLabel(id?: string): string {
+  const p = getPromotor(id);
+  return p?.label || "tu asesor(a) CMU";
 }
 
 // Helper: get all phones to notify (director + active promotores)
