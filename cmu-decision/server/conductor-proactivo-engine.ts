@@ -21,6 +21,15 @@
 
 import { neon } from "@neondatabase/serverless";
 import { getAllCredits } from "./airtable-client";
+import {
+  sanityCheckJoylongAviso,
+  sanityCheckTarget,
+  sanityCheckAmount,
+  sanityCheckAhorroConsistency,
+  sanityCheckRecentActivity,
+  formatSanityFailureForDirector,
+  type SanityIssue,
+} from "./sanity";
 
 type SendWaFn = (to: string, body: string) => Promise<any>;
 
@@ -97,11 +106,18 @@ export interface AvisoDia25Result {
  * Para Joylong Ahorro y Kit Conversión NO aplica diferencial — pero se
  * envía un resumen del ahorro acumulado en el mes igual.
  */
-export async function avisoRecaudoDia25(sendWa: SendWaFn, opts: { dryRun?: boolean } = {}): Promise<AvisoDia25Result> {
-  const result: AvisoDia25Result = { enviados: 0, errores: [], detalle: [] };
+export async function avisoRecaudoDia25(
+  sendWa: SendWaFn,
+  opts: { dryRun?: boolean; directorPhone?: string; expectedWeeks?: string[] } = {},
+): Promise<AvisoDia25Result & { sanitySkipped?: number; sanityIssues?: any[] }> {
+  const result: AvisoDia25Result & { sanitySkipped?: number; sanityIssues?: any[] } = {
+    enviados: 0, errores: [], detalle: [], sanitySkipped: 0, sanityIssues: [],
+  };
   const now = new Date();
   const mesEnCurso = now.toISOString().slice(0, 7); // YYYY-MM
   const dryRun = !!opts.dryRun;
+  const directorPhone = opts.directorPhone || "";
+  const expectedWeeks = opts.expectedWeeks || [];
 
   // ===== Taxi Renovación (TSR) — con cuota + diferencial =====
   try {
@@ -187,6 +203,22 @@ export async function avisoRecaudoDia25(sendWa: SendWaFn, opts: { dryRun?: boole
       const alreadySent = await wasSentRecently(telefono, key, 24 * 30);
       if (alreadySent) continue;
 
+      // ===== SANITY CHECK =====
+      const sanity = await sanityCheckJoylongAviso({
+        folio, cliente, telefono,
+        acumuladoAirtable: acumulado,
+        expectedWeeks,
+      });
+      if (!sanity.ok) {
+        result.sanitySkipped!++;
+        result.sanityIssues!.push({ folio, cliente, issues: sanity.issues });
+        if (directorPhone) {
+          const report = formatSanityFailureForDirector("avisoRecaudoDia25 (Joylong)", sanity.issues, { folio, cliente });
+          try { await sendWa(`whatsapp:+${directorPhone}`, report); } catch { /* no-op */ }
+        }
+        continue; // NO enviar al cliente
+      }
+
       let msg: string;
       if (acumulado >= gatillo) {
         msg = `🎉 Hola ${cliente}, buenas noticias:\n\nTu ahorro acumulado: *$${acumulado.toLocaleString()}*\nGatillo alcanzado: ✅ *$${gatillo.toLocaleString()}*\n\n*Ya tienes el 50% del vehículo ahorrado.* Contacta a tu promotor para conocer los siguientes pasos.`;
@@ -250,6 +282,23 @@ export async function avisoRecaudoDia25(sendWa: SendWaFn, opts: { dryRun?: boole
       const key = `aviso_dia25_${folio}_${mesEnCurso}`;
       const alreadySent = await wasSentRecently(telefono, key, 24 * 30);
       if (alreadySent) continue;
+
+      // ===== SANITY CHECK Kit Conversion =====
+      const targetCheck = sanityCheckTarget({ nombre: cliente, telefono, folio });
+      const amtCheck = sanityCheckAmount(cuotaMensual, { expectPositive: true, maxReasonable: 20000, label: `Cuota mensual ${folio}` });
+      const consCheck = await sanityCheckAhorroConsistency(folio, (k["Aportado"] || k["Ahorro Acumulado"] || 0));
+      const actCheck = await sanityCheckRecentActivity(folio, 30);
+      const combined: SanityIssue[] = [...targetCheck.issues, ...amtCheck.issues, ...consCheck.issues, ...actCheck.issues];
+      const hasErrors = combined.some((i) => i.level === "error");
+      if (hasErrors) {
+        result.sanitySkipped!++;
+        result.sanityIssues!.push({ folio, cliente, issues: combined });
+        if (directorPhone) {
+          const report = formatSanityFailureForDirector("avisoRecaudoDia25 (Kit Conv)", combined, { folio, cliente });
+          try { await sendWa(`whatsapp:+${directorPhone}`, report); } catch { /* no-op */ }
+        }
+        continue;
+      }
 
       let msg: string;
       if (status === "cubierta") {

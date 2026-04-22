@@ -102,6 +102,7 @@ const PUBLIC_PATHS = [
   "/api/originations/admin", // PIN-gated admin ops (cancel/delete test folios)
   "/api/conekta/crear-liga-admin", // PIN-gated payment link creation
   "/api/conekta/cancelar-liga-admin", // PIN-gated payment link cancellation
+  "/api/sanity/check", // on-demand sanity audit (read-only, safe)
 ];
 
 function authMiddleware(req: Request, res: Response, next: NextFunction) {
@@ -1315,11 +1316,22 @@ Responde SOLO con JSON válido:
   // ===== CIERRE MENSUAL / COBRANZA (COB-01 to COB-05) =====
 
   // POST /api/cierre/ejecutar — Run monthly close (day 1 cron)
-  app.post("/api/cierre/ejecutar", async (_req, res) => {
+  // SAFETY HELPER: dryRun default. Solo ejecuta si confirm=true.
+  const isConfirmed = (req: Request) =>
+    req.query.confirm === "true" || (req.body && req.body.confirm === true);
+  const dryRunResp = (endpoint: string) => ({
+    success: true,
+    dryRun: true,
+    note: `DRY RUN. Este endpoint NO envía a clientes por default. Para envió real: POST ${endpoint}?confirm=true`,
+    timestamp: new Date().toISOString(),
+  });
+
+  app.post("/api/cierre/ejecutar", async (req, res) => {
     try {
+      if (!isConfirmed(req)) return res.json(dryRunResp("/api/cierre/ejecutar"));
       const result = await ejecutarCierreMensual();
       const formatted = formatCierreResumenDirector(result);
-      return res.json({ success: true, result, formatted });
+      return res.json({ success: true, confirm: true, result, formatted });
     } catch (err: any) {
       console.error("[Cierre API] Error:", err);
       return res.status(500).json({ message: err.message });
@@ -1327,31 +1339,34 @@ Responde SOLO con JSON válido:
   });
 
   // POST /api/cierre/recordatorio3 — Day 3 reminder
-  app.post("/api/cierre/recordatorio3", async (_req, res) => {
+  app.post("/api/cierre/recordatorio3", async (req, res) => {
     try {
+      if (!isConfirmed(req)) return res.json(dryRunResp("/api/cierre/recordatorio3"));
       const msgs = await recordatorioDia3();
-      return res.json({ success: true, sent: msgs.length, msgs });
+      return res.json({ success: true, confirm: true, sent: msgs.length, msgs });
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
     }
   });
 
   // POST /api/cierre/recordatorio5 — Day 5 last warning before FG
-  app.post("/api/cierre/recordatorio5", async (_req, res) => {
+  app.post("/api/cierre/recordatorio5", async (req, res) => {
     try {
+      if (!isConfirmed(req)) return res.json(dryRunResp("/api/cierre/recordatorio5"));
       const msgs = await recordatorioDia5();
-      return res.json({ success: true, sent: msgs.length, msgs });
+      return res.json({ success: true, confirm: true, sent: msgs.length, msgs });
     } catch (err: any) {
       return res.status(500).json({ message: err.message });
     }
   });
 
   // POST /api/cierre/fg — Apply FG for unpaid (day 6 cron)
-  app.post("/api/cierre/fg", async (_req, res) => {
+  app.post("/api/cierre/fg", async (req, res) => {
     try {
+      if (!isConfirmed(req)) return res.json(dryRunResp("/api/cierre/fg"));
       const result = await aplicarFGDia6();
       const formatted = formatFGResumen(result);
-      return res.json({ success: true, result, formatted });
+      return res.json({ success: true, confirm: true, result, formatted });
     } catch (err: any) {
       console.error("[FG API] Error:", err);
       return res.status(500).json({ message: err.message });
@@ -1359,11 +1374,12 @@ Responde SOLO con JSON válido:
   });
 
   // POST /api/cierre/mora — Daily mora check
-  app.post("/api/cierre/mora", async (_req, res) => {
+  app.post("/api/cierre/mora", async (req, res) => {
     try {
+      if (!isConfirmed(req)) return res.json(dryRunResp("/api/cierre/mora"));
       const result = await revisarMoraDiaria();
       const formatted = formatMoraResumen(result);
-      return res.json({ success: true, result, formatted });
+      return res.json({ success: true, confirm: true, result, formatted });
     } catch (err: any) {
       console.error("[Mora API] Error:", err);
       return res.status(500).json({ message: err.message });
@@ -1841,6 +1857,59 @@ Responde SOLO con JSON válido:
       return res.json(result);
     } catch (err: any) {
       return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // GET /api/sanity/check — Auditoría bajo demanda.
+  // Corre todos los sanity checks contra los clientes activos y regresa un reporte.
+  // Read-only, no manda mensajes, no modifica Airtable.
+  app.get("/api/sanity/check", async (req, res) => {
+    try {
+      const target = typeof req.query.target === "string" ? req.query.target : "all";
+      const expectedWeeks = (typeof req.query.weeks === "string" ? req.query.weeks.split(",") : ["S12","S13","S14A","S14B","S15","S16"]);
+      const { sanityCheckJoylongAviso, sanityCheckRecaudoCompleteness, sanityResultToJson } = await import("./sanity");
+      const atFetch = async (table: string, params: Record<string,string> = {}) => {
+        const token = process.env.AIRTABLE_PAT || "";
+        const qs = new URLSearchParams(params).toString();
+        const url = `https://api.airtable.com/v0/appXxbjjGzXFiX7gk/${table}${qs?"?"+qs:""}`;
+        const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+        const j = await r.json();
+        return (j.records || []).map((x: any) => ({ _id: x.id, ...x.fields }));
+      };
+
+      const reports: any[] = [];
+
+      // 1) Completitud global de archivos
+      const completeness = await sanityCheckRecaudoCompleteness(expectedWeeks);
+      reports.push(sanityResultToJson("recaudo_completeness", completeness, { expectedWeeks }));
+
+      // 2) Por cliente Joylong activo
+      if (target === "all" || target === "joylong") {
+        const joylongs = await atFetch("tblUjkOQ2rWvBRRmw", {
+          filterByFormula: `OR({Estatus}="Ahorrando",{Estatus}="Gatillo Alcanzado")`,
+        });
+        for (const j of joylongs) {
+          const r = await sanityCheckJoylongAviso({
+            folio: j.Folio || "",
+            cliente: j.Cliente || "",
+            telefono: (j.Telefono || "").replace(/[^0-9]/g, ""),
+            acumuladoAirtable: Math.round(j["Ahorro Acumulado"] || 0),
+            expectedWeeks,
+          });
+          reports.push(sanityResultToJson("joylong_aviso", r, { folio: j.Folio, cliente: j.Cliente }));
+        }
+      }
+
+      const totalErrors = reports.reduce((a, r) => a + (r.errorCount || 0), 0);
+      const totalWarnings = reports.reduce((a, r) => a + (r.warningCount || 0), 0);
+      return res.json({
+        ok: totalErrors === 0,
+        totalErrors,
+        totalWarnings,
+        reports,
+      });
+    } catch (err: any) {
+      return res.status(500).json({ ok: false, error: err.message });
     }
   });
 
@@ -3540,13 +3609,32 @@ Responde SOLO con JSON válido:
       }
       const { avisoRecaudoDia25 } = await import("./conductor-proactivo-engine");
       const sendWaForCron = async (to: string, body: string) => sendWa(to, body);
-      const dryRun = req.query.dryRun === "true" || req.body?.dryRun === true;
-      const result = await avisoRecaudoDia25(sendWaForCron, { dryRun });
+
+      // SAFETY: dryRun ES EL DEFAULT. Enviar real requiere confirm=true explícito.
+      // Esto evita el disastre de ayer (smoke test POST enviando a clientes reales).
+      const confirmParam = req.query.confirm === "true" || req.body?.confirm === true;
+      const dryRun = !confirmParam;
+
+      // expectedWeeks: el agente debería saber qué semanas esperar para el mes en curso.
+      // Si no se pasa, usamos un default razonable (las últimas 5-6 semanas del mes).
+      const expectedWeeks = (req.body?.expectedWeeks as string[]) || ["S12","S13","S14A","S14B","S15","S16"];
+
+      const result = await avisoRecaudoDia25(sendWaForCron, {
+        dryRun,
+        directorPhone: JOSUE_PHONE,
+        expectedWeeks,
+      });
       return res.json({
         success: true,
         dryRun,
+        confirm: confirmParam,
+        note: dryRun
+          ? "DRY RUN - no se envió nada. Para envío real: POST ?confirm=true"
+          : "ENVÍO REAL realizado.",
         timestamp: new Date().toISOString(),
         enviados: result.enviados,
+        sanitySkipped: result.sanitySkipped,
+        sanityIssues: result.sanityIssues,
         errores: result.errores,
         detalle: result.detalle,
       });
