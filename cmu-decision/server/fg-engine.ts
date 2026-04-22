@@ -71,6 +71,7 @@ export async function ensureFGTable(): Promise<void> {
 
 /** Saldo actual del FG para un folio. 0 si no hay movimientos. */
 export async function getSaldoFG(folio: string): Promise<number> {
+  await ensureFGTable();
   const sql = getSQL();
   const rows = (await sql`
     SELECT saldo_despues FROM fg_ledger
@@ -83,6 +84,7 @@ export async function getSaldoFG(folio: string): Promise<number> {
 
 /** Historial completo. */
 export async function getHistorialFG(folio: string): Promise<FGMovement[]> {
+  await ensureFGTable();
   const sql = getSQL();
   const rows = (await sql`
     SELECT * FROM fg_ledger WHERE folio = ${folio} ORDER BY created_at ASC, id ASC
