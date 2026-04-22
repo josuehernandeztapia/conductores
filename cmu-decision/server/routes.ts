@@ -94,6 +94,7 @@ const PUBLIC_PATHS = [
   "/api/test/",                    // ALL test endpoints
   "/api/market-prices/bulk-update", // Daily bulk price update (cron)
   "/api/metrics/funnel",
+  "/api/aviso-privacidad", // LFPDPPP: operator accepts via phone + OTP, not PWA PIN
 ];
 
 function authMiddleware(req: Request, res: Response, next: NextFunction) {
