@@ -100,6 +100,7 @@ const PUBLIC_PATHS = [
   "/api/cron/abandono", // plate abandonment detection cron (new)
   "/api/cron/aviso-dia25", // day 25 proactive status to conductor
   "/api/originations/admin", // PIN-gated admin ops (cancel/delete test folios)
+  "/api/conekta/crear-liga-admin", // PIN-gated payment link creation
 ];
 
 function authMiddleware(req: Request, res: Response, next: NextFunction) {
@@ -1806,6 +1807,18 @@ Responde SOLO con JSON válido:
     }
   });
 
+  // POST /api/conekta/crear-liga-admin — PIN-gated link creation (no session required)
+  app.post("/api/conekta/crear-liga-admin", async (req, res) => {
+    try {
+      const { pin, ...params } = req.body || {};
+      if (pin !== "654321") return res.status(403).json({ message: "PIN incorrecto" });
+      const result = await crearLigaPago(params);
+      return res.json(result);
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
   // ===== ORIGINATIONS =====
 
   app.get("/api/originations", async (req, res) => {
@@ -2373,21 +2386,36 @@ Responde SOLO con JSON válido:
             estado: "FIRMADO",
           } as any);
           console.log(`[Mifiel Webhook] Origination ${orig.id} marked as FIRMADO`);
-          
-          // Notify taxista + director via WhatsApp
-          const taxistaPhone = (orig as any).taxistaTelefono || (orig as any).taxista_telefono;
-          const taxistaNombre = (orig as any).taxistaNombre || (orig as any).taxista_nombre || "";
-          const folio = (orig as any).folio || "";
-          if (taxistaPhone) {
-            fetch("http://localhost:5000/api/whatsapp/send-outbound", {
-              method: "POST", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ to: taxistaPhone, body: `Tu contrato ha sido firmado exitosamente.\nFolio: ${folio}\n\nTu asesora Angeles te contactara para los siguientes pasos.` }),
-            }).catch(() => {});
+
+          // Consolidated post-firma notification (taxista + director + promotora)
+          try {
+            const taxista = orig.taxistaId ? await storage.getTaxista(orig.taxistaId) : null;
+            const vehicle = orig.vehicleInventoryId ? await storage.getVehicle(orig.vehicleInventoryId) : null;
+            const nombre = taxista ? `${taxista.nombre} ${taxista.apellidoPaterno || ""}`.trim() : ((orig as any).taxistaNombre || "");
+            const telefono = taxista?.telefono || (orig as any).otpPhone || (orig as any).taxistaTelefono || "";
+            let cuotaMensual = 0;
+            let precioTotal = 0;
+            try {
+              const meta = orig.notes ? JSON.parse(orig.notes) : null;
+              if (meta?.cuota) cuotaMensual = Number(meta.cuota);
+              if (meta?.pv) precioTotal = Number(meta.pv);
+            } catch { /* nada */ }
+            const { notificarPostFirma } = await import("./conductor-proactivo-engine");
+            const sendWaForNotify = async (to: string, body: string) => { await sendWa(to, body); };
+            await notificarPostFirma({
+              folio: orig.folio,
+              nombreTaxista: nombre,
+              telefonoTaxista: telefono,
+              marca: vehicle?.marca,
+              modelo: vehicle?.modelo,
+              anio: vehicle?.anio,
+              cuotaMensual,
+              precioTotal,
+              fechaFirma: orig.contractGeneratedAt || new Date().toISOString(),
+            }, sendWaForNotify, JOSUE_PHONE, ANGELES_PHONE);
+          } catch (e: any) {
+            console.error(`[Mifiel Webhook] notificarPostFirma falló: ${e.message}`);
           }
-          fetch("http://localhost:5000/api/whatsapp/send-outbound", {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ to: JOSUE_PHONE, body: `[Mifiel] *Contrato firmado*\nFolio: ${folio}\nCliente: ${taxistaNombre}\nEstado: FIRMADO` }),
-          }).catch(() => {});
         }
       }
 
