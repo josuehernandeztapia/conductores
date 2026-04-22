@@ -139,17 +139,20 @@ export async function ejecutarCierreMensual(): Promise<CierreResult> {
   const fechaCierre = `${anioActual}-${String(mesActualCalendario + 1).padStart(2, "0")}-01`;
   const fechaLimite = `${anioActual}-${String(mesActualCalendario + 1).padStart(2, "0")}-05`;
 
+  // Fase 1: Cierre de Taxi Seminuevo Renovacion (TSR) — tabla Creditos
+  // Fase 2: Cierre de Kit Conversion (Elvira y similares) — tabla Kit Conversion
+  const result: CierreResult = { creditosProcesados: 0, detalle: [] };
+  await cerrarKitConversionMensual(result, anioActual, mesActualCalendario);
+
   // 1. Get all active taxi credits
   const creditos = await atFetch(TABLE_CREDITOS, {
     filterByFormula: `OR({Estatus}="Activo",{Estatus}="Mora Leve")`,
   });
 
   if (creditos.length === 0) {
-    console.log("[Cierre] No active taxi credits found");
-    return { creditosProcesados: 0, detalle: [] };
+    console.log("[Cierre] No active taxi credits found (TSR)");
+    return result;
   }
-
-  const result: CierreResult = { creditosProcesados: 0, detalle: [] };
 
   for (const credito of creditos) {
     const folio = credito.Folio;
@@ -765,6 +768,116 @@ export async function generarReporteSemanal(): Promise<string> {
   // TODO: add inventory summary from Neon
 
   return lines.join("\n");
+}
+
+// ===== CIERRE MENSUAL KIT CONVERSION =====
+/**
+ * Cierra el mes de cada Kit Conversion activo:
+ *  1. Suma recaudo GNV del mes (por folio)
+ *  2. Compara contra cuota mensual (\$4,625 para Elvira)
+ *  3. Si recaudo >= cuota: acumula excedente al FG (hasta \$375 tope mensual, techo \$4,500)
+ *  4. Si recaudo < cuota: aplica FG para cubrir deficit; si FG insuficiente, genera liga
+ *  5. Actualiza Saldo Pendiente, Mes Actual, Meses Pagados, Fondo Garantia (espejo)
+ *
+ * Idempotente: si ya se procesó el mes para un folio, lo saltea.
+ */
+async function cerrarKitConversionMensual(
+  result: CierreResult,
+  anio: number,
+  mesIdx: number, // 0-indexed
+): Promise<void> {
+  const TABLE_KIT = "tbletXmlYRwisBcaO";
+  const kits = await atFetch(TABLE_KIT, {
+    filterByFormula: `{Estatus}="Activo"`,
+  });
+  if (kits.length === 0) return;
+
+  const { acumularFGMensual, aplicarFG, getSaldoFG } = await import("./fg-engine");
+
+  // Rango del mes en curso (YYYY-MM-01 a YYYY-MM-ultimoDia)
+  const mesStart = `${anio}-${String(mesIdx + 1).padStart(2, "0")}-01`;
+  const ultimoDia = new Date(anio, mesIdx + 1, 0).getDate();
+  const mesEnd = `${anio}-${String(mesIdx + 1).padStart(2, "0")}-${String(ultimoDia).padStart(2, "0")}`;
+  const mesYYYYMM = `${anio}-${String(mesIdx + 1).padStart(2, "0")}`;
+
+  for (const kit of kits) {
+    const folio = kit.Folio;
+    const cliente = kit.Cliente || "";
+    const telefono = (kit.Telefono || "").replace(/[^0-9]/g, "");
+    const cuotaMensual = Number(kit["Cuota Mensual"] || 4625);
+    const saldoPendiente = Number(kit["Saldo Pendiente"] || 0);
+    const mesActual = Number(kit["Mes Actual"] || 0);
+    const mesesPagados = Number(kit["Meses Pagados"] || 0);
+    const parcialidades = Number(kit.Parcialidades || 12);
+    const proximoMes = mesActual; // "Mes Actual" representa el mes que se esta cerrando ahora
+
+    if (proximoMes > parcialidades) {
+      console.log(`[Cierre KIT] ${folio} ya pago todas las parcialidades`);
+      continue;
+    }
+
+    // 1. Sumar pagos del mes en curso para este folio
+    const pagosDelMes = await atFetch("tbl5RiGyVgeE4EVfE", {
+      filterByFormula: `AND({Folio}="${folio}",IS_AFTER({Fecha Pago},"${mesStart}"),IS_BEFORE({Fecha Pago},"${mesEnd} 23:59"))`,
+    });
+    const recaudoMes = pagosDelMes.reduce((acc: number, p: any) => acc + Number(p.Monto || 0), 0);
+
+    console.log(`[Cierre KIT] ${folio} (${cliente}): mes ${proximoMes}, recaudo $${recaudoMes}, cuota $${cuotaMensual}`);
+
+    let accion = "";
+    let fgAplicadoMes = 0;
+    let fgAcumuladoMes = 0;
+
+    if (recaudoMes >= cuotaMensual) {
+      // Cuota cubierta. Acumular excedente al FG.
+      const excedente = recaudoMes - cuotaMensual;
+      const acum = await acumularFGMensual(folio, mesYYYYMM, `Excedente recaudo ${mesYYYYMM}`, excedente);
+      fgAcumuladoMes = acum.acumulado;
+      accion = `Cuota cubierta con recaudo (\$${recaudoMes}). Excedente al FG: \$${fgAcumuladoMes}.`;
+    } else {
+      // Recaudo insuficiente. Aplicar FG.
+      const deficit = cuotaMensual - recaudoMes;
+      const saldoFGActual = await getSaldoFG(folio);
+      if (saldoFGActual >= deficit) {
+        const fgOp = await aplicarFG(folio, deficit, `${mesYYYYMM}-mes${proximoMes}`);
+        fgAplicadoMes = fgOp.aplicado;
+        accion = `Recaudo \$${recaudoMes} + FG \$${fgAplicadoMes} = cuota cubierta.`;
+      } else if (saldoFGActual > 0) {
+        const fgOp = await aplicarFG(folio, saldoFGActual, `${mesYYYYMM}-mes${proximoMes}`);
+        fgAplicadoMes = fgOp.aplicado;
+        const restante = deficit - fgAplicadoMes;
+        accion = `Recaudo \$${recaudoMes} + FG \$${fgAplicadoMes}. Falta \$${restante} — generar liga.`;
+      } else {
+        accion = `Recaudo \$${recaudoMes}, sin FG. Falta \$${deficit} — generar liga.`;
+      }
+    }
+
+    // 2. Actualizar registro Kit
+    const nuevoSaldo = Math.max(0, saldoPendiente - cuotaMensual);
+    const saldoFGNuevo = await getSaldoFG(folio);
+    try {
+      await atUpdate(TABLE_KIT, kit._id, {
+        "Saldo Pendiente": nuevoSaldo,
+        "Mes Actual": proximoMes + 1,
+        "Meses Pagados": mesesPagados + 1,
+        "Fondo Garantia": saldoFGNuevo,
+      });
+    } catch (e: any) {
+      console.error(`[Cierre KIT] update ${folio}: ${e.message}`);
+    }
+
+    result.creditosProcesados++;
+    result.detalle.push({
+      folio, taxista: cliente, telefono,
+      mesCredito: proximoMes,
+      cuota: cuotaMensual,
+      recaudo: recaudoMes,
+      diferencial: Math.max(0, cuotaMensual - recaudoMes),
+      fgAplicado: fgAplicadoMes,
+      estatus: recaudoMes >= cuotaMensual ? "Cubierto" : (fgAplicadoMes > 0 ? "FG Aplicado" : "Pendiente Pago"),
+      accion: accion + (fgAcumuladoMes > 0 ? ` FG acumulado mes: $${fgAcumuladoMes}.` : ""),
+    } as any);
+  }
 }
 
 export function formatMoraResumen(result: MoraCheckResult): string {

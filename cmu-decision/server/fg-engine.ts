@@ -17,9 +17,65 @@
 
 import { neon } from "@neondatabase/serverless";
 
-export const FG_INICIAL = 8000;
-export const FG_MENSUAL = 334;
-export const FG_TECHO = 20000;
+/**
+ * Config de FG por producto. Cada producto tiene reglas distintas:
+ *  - TSR (Taxi Renovacion): FG inicial \$8k + \$334/mes, techo \$20k. Cargo extra al cliente.
+ *  - KIT (Kit Conversion):  FG \$0 inicial, \$375/mes (excedente de recaudo), techo \$4,500. NO cobro extra.
+ *  - JOYLONG (Ahorro):      No aplica mientras el cliente está en fase ahorro.
+ *
+ * Al detectar el producto de un folio, el motor usa la config correspondiente.
+ */
+export type ProductoFG = "TSR" | "KIT" | "JOYLONG";
+
+export interface FGConfig {
+  inicial: number;  // monto del cobro inicial post-firma
+  mensual: number;  // acumulacion por mes al pagar cuota
+  techo: number;    // saldo maximo antes de dejar de acumular
+  origen: "cargo_extra" | "excedente_recaudo" | "ninguno";
+  mesDevolucion: number; // mes post-credito para devolver (ej: 13 para Kit, 37 para TSR)
+}
+
+export const FG_CONFIGS: Record<ProductoFG, FGConfig> = {
+  TSR: {
+    inicial: 8000,
+    mensual: 334,
+    techo: 20000,
+    origen: "cargo_extra",
+    mesDevolucion: 37, // 36 cuotas + 1
+  },
+  KIT: {
+    inicial: 0,
+    mensual: 375,
+    techo: 4500,
+    origen: "excedente_recaudo",
+    mesDevolucion: 13, // 12 cuotas + 1
+  },
+  JOYLONG: {
+    inicial: 0,
+    mensual: 0,
+    techo: 0,
+    origen: "ninguno",
+    mesDevolucion: 0,
+  },
+};
+
+/** Default para compat hacia atras: config TSR. */
+export const FG_INICIAL = FG_CONFIGS.TSR.inicial;
+export const FG_MENSUAL = FG_CONFIGS.TSR.mensual;
+export const FG_TECHO = FG_CONFIGS.TSR.techo;
+
+/** Detecta producto por el prefijo del folio. */
+export function detectarProducto(folio: string): ProductoFG {
+  const f = (folio || "").toUpperCase();
+  if (f.startsWith("CMU-CONV")) return "KIT";
+  if (f.startsWith("CMU-AGS")) return "JOYLONG"; // ahorro
+  // TSR: CMU-TSR o cualquier otro default
+  return "TSR";
+}
+
+export function getFGConfig(folio: string): FGConfig {
+  return FG_CONFIGS[detectarProducto(folio)];
+}
 
 export type FGMovementType = "inicial" | "mensual" | "aplicado" | "devuelto" | "ajuste";
 
@@ -157,32 +213,65 @@ export async function registrarFGInicial(folio: string, monto: number, conektaCh
 // ===== CAPA 3: Acumulación mensual =====
 
 /**
- * Suma $334 al FG por cuota pagada, hasta el techo de $20,000.
- * Idempotente por (folio, mes YYYY-MM). Si ya se acumuló ese mes, no duplica.
- * Devuelve monto efectivamente acumulado (puede ser <334 si se tope el techo).
+ * Acumula el FG del mes segun el producto del folio.
+ *  - TSR: monto fijo \$334 (se suma al pagar cuota)
+ *  - KIT: monto = min(excedenteRecaudo, \$375). Si el excedente es menor,
+ *         se acumula lo que sobro (Elvira: recaudo \$5,768 - cuota \$4,625 = \$1,143, tope \$375).
+ *  - JOYLONG: no acumula
+ *
+ * Idempotente por (folio, mes YYYY-MM).
+ * `excedenteRecaudo` solo se usa para KIT. Ignorado en TSR.
  */
-export async function acumularFGMensual(folio: string, mes: string, concepto = ""): Promise<{ success: boolean; acumulado: number; saldoDespues: number; error?: string }> {
+export async function acumularFGMensual(
+  folio: string,
+  mes: string,
+  concepto = "",
+  excedenteRecaudo?: number,
+): Promise<{ success: boolean; acumulado: number; saldoDespues: number; producto: ProductoFG; error?: string }> {
   try {
     await ensureFGTable();
-    const saldoActual = await getSaldoFG(folio);
-    if (saldoActual >= FG_TECHO) {
-      return { success: true, acumulado: 0, saldoDespues: saldoActual };
+    const cfg = getFGConfig(folio);
+    const producto = detectarProducto(folio);
+
+    if (cfg.origen === "ninguno" || cfg.mensual === 0) {
+      const saldo = await getSaldoFG(folio);
+      return { success: true, acumulado: 0, saldoDespues: saldo, producto, error: "Producto sin FG" };
     }
-    const espacioDisponible = FG_TECHO - saldoActual;
-    const aAcumular = Math.min(FG_MENSUAL, espacioDisponible);
+
+    const saldoActual = await getSaldoFG(folio);
+    if (saldoActual >= cfg.techo) {
+      return { success: true, acumulado: 0, saldoDespues: saldoActual, producto, error: "Techo alcanzado" };
+    }
+    const espacioDisponible = cfg.techo - saldoActual;
+
+    let aAcumular: number;
+    if (cfg.origen === "cargo_extra") {
+      // TSR: monto fijo
+      aAcumular = Math.min(cfg.mensual, espacioDisponible);
+    } else {
+      // KIT: excedente real de recaudo, tope mensual
+      if (excedenteRecaudo === undefined || excedenteRecaudo <= 0) {
+        return { success: true, acumulado: 0, saldoDespues: saldoActual, producto, error: "Sin excedente" };
+      }
+      aAcumular = Math.min(excedenteRecaudo, cfg.mensual, espacioDisponible);
+    }
+
+    if (aAcumular <= 0) {
+      return { success: true, acumulado: 0, saldoDespues: saldoActual, producto };
+    }
+
     const mov = await insertMovement({
       folio, tipo: "mensual", monto: aAcumular,
-      concepto: concepto || `Acumulacion FG mensual ${mes}`,
+      concepto: concepto || `Acumulacion FG ${producto} mensual ${mes}`,
       refExterna: mes,
     });
-    return { success: true, acumulado: aAcumular, saldoDespues: mov.saldoDespues };
+    return { success: true, acumulado: aAcumular, saldoDespues: mov.saldoDespues, producto };
   } catch (e: any) {
     if (String(e.message).includes("idx_fg_ledger_mensual_unique")) {
-      // Ya se acumuló ese mes
       const saldo = await getSaldoFG(folio);
-      return { success: true, acumulado: 0, saldoDespues: saldo, error: "Ya acumulado este mes" };
+      return { success: true, acumulado: 0, saldoDespues: saldo, producto: detectarProducto(folio), error: "Ya acumulado este mes" };
     }
-    return { success: false, acumulado: 0, saldoDespues: 0, error: e.message };
+    return { success: false, acumulado: 0, saldoDespues: 0, producto: detectarProducto(folio), error: e.message };
   }
 }
 
