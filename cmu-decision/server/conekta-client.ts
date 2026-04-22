@@ -110,7 +110,7 @@ export async function crearLigaPago(params: PaymentLinkParams): Promise<PaymentL
       customer_info: {
         name: taxista,
         phone: telefono.replace(/\+/g, ""),
-        ...(email ? { email } : { email: "cobranza@conductores.lat" }),
+        ...(email ? { email } : { email: "contacto@conductores.lat" }),
       },
       line_items: lineItems,
       metadata: {
