@@ -104,11 +104,28 @@ function addFooter(doc: InstanceType<typeof PDFDocument>, folio: string) {
   doc.fillColor("#000000");
 }
 
+// Informational promoter line. Does NOT constitute a signature — firma electrónica
+// avanzada conforme a NOM-151 y art. 89 del Código de Comercio es suficiente sin testigos.
+function addPromoterLine(doc: InstanceType<typeof PDFDocument>, promoterName?: string | null, promoterFolio?: string | null) {
+  if (!promoterName && !promoterFolio) return;
+  doc.moveDown(1.5);
+  const name = promoterName || "____________________";
+  const folio = promoterFolio || "____________";
+  doc.fontSize(8).font("Helvetica").fillColor("#555555")
+    .text(`Promotor que acompañó el proceso: ${name}  │  Folio promotor: ${folio}`,
+      { align: "center" });
+  doc.fontSize(7).font("Helvetica-Oblique").fillColor("#888888")
+    .text("(informativo — no constituye firma; firma electrónica avanzada conforme a NOM-151 y art. 89 Código de Comercio)",
+      { align: "center" });
+  doc.fillColor("#000000");
+}
+
 // ===== CONVENIO DE VALIDACIÓN =====
 export function generateConvenioValidacion(
   orig: Origination,
   taxista: Taxista | null,
   vehicle: VehicleInventory | null,
+  promoter?: { name?: string | null; folio?: string | null } | null,
 ): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: "LETTER", margins: { top: 50, bottom: 50, left: 60, right: 60 } });
@@ -182,6 +199,8 @@ export function generateConvenioValidacion(
       { label: "CMU", name: EMPRESA.representante },
     ]);
 
+    addPromoterLine(doc, promoter?.name, promoter?.folio);
+
     addFooter(doc, orig.folio);
     doc.end();
   });
@@ -192,6 +211,7 @@ export function generateContratoCompraventa(
   orig: Origination,
   taxista: Taxista | null,
   vehicle: VehicleInventory | null,
+  promoter?: { name?: string | null; folio?: string | null } | null,
 ): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: "LETTER", margins: { top: 50, bottom: 50, left: 60, right: 60 } });
@@ -312,6 +332,8 @@ export function generateContratoCompraventa(
       { label: "EL VENDEDOR", name: EMPRESA.representante },
     ]);
 
+    addPromoterLine(doc, promoter?.name, promoter?.folio);
+
     addFooter(doc, orig.folio);
 
     // PAGE 2: PAGARÉ
@@ -400,6 +422,8 @@ export function generateContratoCompraventa(
       { label: "RECIBE", name: nombre },
       { label: "ENTREGA", name: EMPRESA.representante },
     ]);
+
+    addPromoterLine(doc, promoter?.name, promoter?.folio);
 
     addFooter(doc, orig.folio);
     doc.end();

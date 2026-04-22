@@ -2465,14 +2465,16 @@ Responde SOLO con JSON válido:
       const isValidacion = orig.tipo === "validacion";
       const contractType = isValidacion ? "convenio_validacion" : "contrato_compraventa";
 
-      // Get taxista and vehicle data
+      // Get taxista, vehicle and promoter data
       const taxista = orig.taxistaId ? await storage.getTaxista(orig.taxistaId) : null;
       const vehicle = orig.vehicleInventoryId ? await storage.getVehicle(orig.vehicleInventoryId) : null;
+      const promoterRec = orig.promoterId ? await storage.getPromoterById(orig.promoterId) : null;
+      const promoter = promoterRec ? { name: promoterRec.name, folio: `PR-${String(promoterRec.id).padStart(3, '0')}` } : null;
 
       // Generate primary PDF (TSR for compraventa, VAL for validacion)
       const pdfBuffer = isValidacion
-        ? await generateConvenioValidacion(orig, taxista, vehicle)
-        : await generateContratoCompraventa(orig, taxista, vehicle);
+        ? await generateConvenioValidacion(orig, taxista, vehicle, promoter)
+        : await generateContratoCompraventa(orig, taxista, vehicle, promoter);
 
       // For compraventa: ALSO generate PAG (Pagaré de Anticipo)
       let pagPdfBuffer: Buffer | null = null;
@@ -2681,11 +2683,13 @@ Responde SOLO con JSON válido:
 
         const taxista = orig.taxistaId ? await storage.getTaxista(orig.taxistaId) : null;
         const vehicle = orig.vehicleInventoryId ? await storage.getVehicle(orig.vehicleInventoryId) : null;
+        const promoterRec = orig.promoterId ? await storage.getPromoterById(orig.promoterId) : null;
+        const promoter = promoterRec ? { name: promoterRec.name, folio: `PR-${String(promoterRec.id).padStart(3, '0')}` } : null;
         const contractType = orig.tipo === "validacion" ? "convenio_validacion" : "contrato_compraventa";
 
         const pdfBuffer = contractType === "convenio_validacion"
-          ? await generateConvenioValidacion(orig, taxista, vehicle)
-          : await generateContratoCompraventa(orig, taxista, vehicle);
+          ? await generateConvenioValidacion(orig, taxista, vehicle, promoter)
+          : await generateContratoCompraventa(orig, taxista, vehicle, promoter);
 
         cached = { buffer: pdfBuffer, folio: orig.folio, type: contractType };
         pdfCache.set(id, cached);

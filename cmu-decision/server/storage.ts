@@ -22,6 +22,7 @@ export interface IStorage {
   // Promoters
   getPromoters(): Promise<Promoter[]>;
   getPromoterByPin(pin: string): Promise<Promoter | undefined>;
+  getPromoterById(id: number): Promise<Promoter | undefined>;
 
   // Taxistas
   createTaxista(data: InsertTaxista): Promise<Taxista>;
@@ -303,6 +304,10 @@ export class MemStorage implements IStorage {
     return Array.from(this.promotersMap.values()).find((p) => p.pin === pin && p.active === 1);
   }
 
+  async getPromoterById(id: number): Promise<Promoter | undefined> {
+    return this.promotersMap.get(id);
+  }
+
   // ===== Taxistas =====
   async createTaxista(data: InsertTaxista): Promise<Taxista> {
     const id = this.taxistaSeq++;
@@ -566,6 +571,10 @@ class NeonStorage implements IStorage {
   async getPromoters() { return this.sql`SELECT * FROM promoters` as any; }
   async getPromoterByPin(pin: string) {
     const rows = await this.sql`SELECT * FROM promoters WHERE pin = ${pin} AND active = 1 LIMIT 1`;
+    return rows[0] as Promoter | undefined;
+  }
+  async getPromoterById(id: number) {
+    const rows = await this.sql`SELECT * FROM promoters WHERE id = ${id} LIMIT 1`;
     return rows[0] as Promoter | undefined;
   }
   async createTaxista(data: InsertTaxista) {
