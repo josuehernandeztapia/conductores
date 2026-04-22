@@ -2768,7 +2768,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         return await respond("Nombre del taxista y tel\u00e9fono:\nEjemplo: *Pedro L\u00f3pez 4491234567*");
       }
       if (lower === "3" || /^evaluar$/i.test(lower)) {
-        return await respond(`Para evaluar, escribe el modelo con precio y reparaci\u00f3n:\n\n*march 120k rep 10k*\n*aveo 100k 0 rep*\n*vento 2020 150k rep 5k*\n\nTambi\u00e9n puedes pedir precios de mercado:\n*mercado march 2021*`);
+        return await respond(`Para evaluar, escribe *modelo a\u00f1o precio rep X*:\n\n*march 2021 120k rep 10k*\n*aveo 2022 100k 0 rep*\n*vento 2020 150k rep 5k*\n*kwid 2024 130k rep 15k*\n\nTambi\u00e9n puedes pedir precios de mercado:\n*mercado march 2021*`);
       }
       if (lower === "4" || /(?:inventario|veh[i\u00ed]culos?\s+(?:disponibles?|tenemos)|carros?\s+(?:disponibles?|tenemos)|qu[e\u00e9]\s+(?:hay|tienen))/i.test(lower)) {
         try {
@@ -3958,7 +3958,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
           return await respond(`Escribe el *nombre* o *folio* del prospecto.\n\nEjemplo:\n• *Pedro López*\n• *CMU-SIN-260417-001*`);
         }
         // Director: eval instructions
-        return await respond(`Para evaluar, escribe el modelo con precio y reparación:\n\n*march 120k rep 10k*\n*aveo 100k 0 rep*\n*vento 2020 150k rep 5k*\n\nTambién puedes pedir precios de mercado:\n*mercado march 2021*`);
+        return await respond(`Para evaluar, escribe *modelo año precio rep X*:\n\n*march 2021 120k rep 10k*\n*aveo 2022 100k 0 rep*\n*vento 2020 150k rep 5k*\n*kwid 2024 130k rep 15k*\n\nTambién puedes pedir precios de mercado:\n*mercado march 2021*`);
       }
 
       // ── BUSCAR PROSPECTO: match by name or folio (promotora) ──
