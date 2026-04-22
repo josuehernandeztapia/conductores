@@ -316,7 +316,7 @@ function buildGuardrails(
       passed: tirBase >= 0.299,
     },
     {
-      label: "TIR c/Amex",
+      label: "TIR c/Anticipo",
       value: `${(tirCompleta * 100).toFixed(1)}%`,
       threshold: "≥60%",
       passed: tirCompleta >= 0.60,
