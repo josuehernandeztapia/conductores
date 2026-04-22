@@ -110,6 +110,21 @@ export async function upsertProspect(data: {
   folio_id?: string;
 }): Promise<any> {
   const sql = getSQL();
+
+  // Sanitize nombre antes de guardar. Si el "nombre" recibido parece basura
+  // (saludo, mensaje con puntuación, teléfono, demasiado largo/corto), lo descartamos
+  // en lugar de persistirlo. El prospecto se crea/actualiza sin nombre — se puede
+  // capturar después en el flujo correcto (prospect_awaiting_name).
+  if (data.nombre) {
+    // Valido solo las reglas de nombre (usamos un teléfono dummy válido
+    // para que la validación solo falle por problemas del nombre).
+    const nameCheck = isValidProspectForFollowup({ nombre: data.nombre, phone: "5544332211" });
+    if (!nameCheck.ok && nameCheck.reason?.startsWith("NAME_")) {
+      console.warn(`[Pipeline] upsertProspect nombre rechazado para ${data.phone}: "${data.nombre}" (${nameCheck.reason})`);
+      delete data.nombre; // descartar, no persistir basura
+    }
+  }
+
   const existing = await sql`SELECT * FROM prospects_pipeline WHERE phone = ${data.phone}`;
   
   if (existing.length > 0) {
