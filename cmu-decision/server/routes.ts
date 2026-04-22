@@ -101,6 +101,7 @@ const PUBLIC_PATHS = [
   "/api/cron/aviso-dia25", // day 25 proactive status to conductor
   "/api/originations/admin", // PIN-gated admin ops (cancel/delete test folios)
   "/api/conekta/crear-liga-admin", // PIN-gated payment link creation
+  "/api/conekta/cancelar-liga-admin", // PIN-gated payment link cancellation
 ];
 
 function authMiddleware(req: Request, res: Response, next: NextFunction) {
@@ -1838,6 +1839,28 @@ Responde SOLO con JSON válido:
     try {
       const result = await crearLigaPago(req.body);
       return res.json(result);
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // POST /api/conekta/cancelar-liga-admin — PIN-gated link cancellation by slug or checkout id
+  app.post("/api/conekta/cancelar-liga-admin", async (req, res) => {
+    try {
+      const { pin, slug, checkoutId } = req.body || {};
+      if (pin !== "654321") return res.status(403).json({ message: "PIN incorrecto" });
+      const { cancelarLiga, conektaFetch } = await import("./conekta-client");
+      let id = checkoutId;
+      if (!id && slug) {
+        // Find checkout by slug — list recent checkouts and match URL
+        const list: any = await conektaFetch(`/checkouts?limit=50`, "GET");
+        const found = (list?.data || []).find((c: any) => c.url?.endsWith(slug) || c.slug === slug);
+        if (!found) return res.status(404).json({ success: false, error: "Checkout no encontrado por slug" });
+        id = found.id;
+      }
+      if (!id) return res.status(400).json({ success: false, error: "Falta slug o checkoutId" });
+      const ok = await cancelarLiga(id);
+      return res.json({ success: ok, checkoutId: id });
     } catch (err: any) {
       return res.status(500).json({ success: false, error: err.message });
     }

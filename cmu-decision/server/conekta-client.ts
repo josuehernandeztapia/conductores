@@ -14,7 +14,7 @@ const CONEKTA_VERSION = "application/vnd.conekta-v2.2.0+json";
 
 // ===== API HELPERS =====
 
-async function conektaFetch(path: string, method: string = "GET", body?: any): Promise<any> {
+export async function conektaFetch(path: string, method: string = "GET", body?: any): Promise<any> {
   const key = CONEKTA_PRIVATE_KEY();
   if (!key) {
     console.warn("[Conekta] No API key configured (set CONEKTA_PRIVATE_KEY)");
