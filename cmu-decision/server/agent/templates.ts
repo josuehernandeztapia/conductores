@@ -198,8 +198,8 @@ export const DOC_EXPLANATIONS: Record<string, string> = {
   comprobante_domicilio: "Un *comprobante de domicilio* reciente — recibo de luz (CFE), agua, teléfono o banco. Máximo 3 meses. Puede estar a nombre de tu esposa o familiar, lo importante es que la *dirección coincida con tu INE*.",
   concesion: "Tu *concesión de taxi vigente* — el documento que te autoriza a operar como taxi en Aguascalientes.",
   estado_cuenta: "Tu *estado de cuenta bancario (carátula)* — donde se vea tu nombre, CLABE a 18 dígitos, y dirección. La dirección debe coincidir con tu INE.",
-  historial_gnv: "Tu *historial de consumo GNV* — necesito 3 o 4 comprobantes recientes de carga de gas. Puede ser el ticket físico o captura de pantalla del historial. Si los tienes en el tablero del carro, con una foto está bien.",
-  tickets_gasolina: "Tus *tickets de gasolina* — 3 o 4 recientes. Pueden ser de Magna o Premium.",
+  historial_gnv: "Tu *historial de consumo GNV* — necesito *10 tickets del último mes* de carga de gas. Puede ser el ticket físico o captura de pantalla del historial. Si los tienes en el tablero del carro, con una foto está bien.",
+  tickets_gasolina: "Tus *tickets de gasolina* — *10 tickets del último mes*. Pueden ser de Magna o Premium.",
   carta_membresia: "Tu *Carta Gremial o de Ingreso* — la emite tu organización de taxistas (ACATAXI, CTM, etc.). Puede ser carta de membresía o carta de ingreso. En papel membretado, con sello y firma del líder.",
   selfie_biometrico: "Una *selfie tuya sosteniendo tu INE* — tómala con buena luz, que se vea tu cara y la INE legible.",
   ine_operador: "La *INE del operador* — si alguien más maneja tu taxi, necesito la credencial de esa persona. Si no tienes operador, escribe *siguiente*.",
@@ -209,11 +209,11 @@ export const DOC_EXPLANATIONS: Record<string, string> = {
 
 export const DOC_FAQ: Record<string, Record<string, string>> = {
   historial_gnv: {
-    'cuantos': 'Mándame 3 o 4 tickets recientes de carga de GNV. Los del último mes están bien.',
+    'cuantos': 'Mándame *10 tickets* del último mes de carga de GNV.',
     'donde': 'El ticket de carga o comprobante de la estación donde cargas GNV. Si los tienes en el tablero del carro, con foto está bien.',
   },
   tickets_gasolina: {
-    'cuantos': 'Mándame 3 o 4 tickets recientes de gasolina.',
+    'cuantos': 'Mándame *10 tickets* de gasolina del último mes.',
   },
   fotos_unidad: {
     'cuantas': 'Necesito 4 fotos: frente, trasera, lateral izquierdo y lateral derecho.',

@@ -1031,10 +1031,10 @@ async function processDocImage(
   const detectedKey = visionResult.detected_type;
   const detectedLabel = DOC_LABELS[detectedKey] || detectedKey;
 
-  // ── Multi-ticket accumulation for GNV / gasolina (up to 3 tickets) ──
+  // ── Multi-ticket accumulation for GNV / gasolina (10 tickets del último mes) ──
   const isTicketDoc = detectedKey === 'historial_gnv' || detectedKey === 'tickets_gasolina';
   const ticketField = detectedKey === 'historial_gnv' ? 'gnvTickets' : 'gasolinaTickets';
-  const MIN_TICKETS = 3;
+  const MIN_TICKETS = 10;
 
   if (isTicketDoc) {
     const existing = (ctx[ticketField as keyof typeof ctx] as Array<any>) || [];
@@ -1062,13 +1062,13 @@ async function processDocImage(
       // Need more tickets
       const remaining = MIN_TICKETS - ticketCount;
       return {
-        response: `*${detectedLabel2} #${ticketCount}* recibido \u2713\n\nNecesito *${remaining} ticket${remaining > 1 ? 's' : ''} m\u00e1s* (3 en total). Manda el siguiente. \uD83D\uDCF7`,
+        response: `*${detectedLabel2} #${ticketCount}* recibido \u2713\n\nNecesito *${remaining} ticket${remaining > 1 ? 's' : ''} m\u00e1s* (10 en total del \u00faltimo mes). Manda el siguiente. \uD83D\uDCF7`,
         newState: state,
         contextUpdates: contextUpTicket,
       };
     }
 
-    // Have 3+ tickets — compute monthly estimate (avg/ticket × 26 working days)
+    // Have 10+ tickets — compute monthly estimate (avg/ticket × 26 working days)
     const newCollectedTicket = [...collectedDocs];
     if (!newCollectedTicket.includes(detectedKey)) newCollectedTicket.push(detectedKey);
 
@@ -1105,7 +1105,7 @@ async function processDocImage(
     }).catch(() => {});
 
     return {
-      response: `*${detectedLabel2} #${ticketCount}* recibido \u2713 — Tengo los *3 tickets*.\n\n${prospectMsg}\n\n${
+      response: `*${detectedLabel2} #${ticketCount}* recibido \u2713 — Tengo los *10 tickets* del \u00faltimo mes.\n\n${prospectMsg}\n\n${
         nextDocTicket ? `Manda tu *${nextDocTicket.label}* \uD83D\uDCF7` : 'Todos los documentos listos.'
       }`,
       newState: nextDocTicket ? state : ('interview_ready' as ProspectState),
