@@ -63,7 +63,7 @@ export type Config = typeof config.$inferSelect;
 
 // ===== ORIGINACIÓN MODULE =====
 
-// Promotoras (only Ángeles Mireles for now)
+// Promotoras (solo promotor_uno activo por ahora; el sistema es multi-promotor)
 export const promoters = pgTable("promoters", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),

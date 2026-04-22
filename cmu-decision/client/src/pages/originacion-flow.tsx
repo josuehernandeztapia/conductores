@@ -2391,7 +2391,7 @@ function MifielSigningPanel({
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-medium">CONDUCTORES DEL MUNDO, S.A.P.I. DE C.V.</p>
-              <p className="text-[10px] text-muted-foreground">Vendedor / Ángeles Mireles</p>
+              <p className="text-[10px] text-muted-foreground">Vendedor / Promotor</p>
             </div>
             <Badge variant="outline" className={`text-[9px] ${
               signingStatus === "signed"

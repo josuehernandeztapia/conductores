@@ -1,8 +1,8 @@
 /**
- * Evaluación Rápida Taxi — Wizard de entrevista (Vista Ángeles)
+ * Evaluación Rápida Taxi — Wizard de entrevista (Vista Promotor)
  * 
  * 8 preguntas, una por pantalla. Graba audio, captura números.
- * Ángeles NO ve score, decisión, ni banderas.
+ * El promotor NO ve score, decisión, ni banderas.
  * 
  * Flujo: MicCheck → 8 preguntas → "Evaluación enviada"
  */

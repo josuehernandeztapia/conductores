@@ -16,7 +16,7 @@ const EMPRESA = {
   rfc: "CMU201119DD6",
   domicilio: "Lago de Chapultepec 6-40, Cañadas del Lago, Corregidora, Querétaro",
   ciudad: "Aguascalientes, Ags.",
-  representante: "Ángeles Mireles",
+  representante: "Representante CMU",
 };
 
 const PLAZOS = {

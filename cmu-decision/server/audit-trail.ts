@@ -35,7 +35,7 @@ export type AuditAction =
 
 export interface AuditEntry {
   action: AuditAction;
-  actor: string;         // "Ángeles Mireles" or "Josué Hernández" or "system" or IP
+  actor: string;         // "Promotor", "Director", "system" or IP
   role: string;          // "promotora" | "director" | "system" | "cron"
   target_type?: string;  // "folio" | "vehicle" | "evaluacion" | "config"
   target_id?: string;    // folio ID, vehicle ID, etc

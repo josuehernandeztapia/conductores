@@ -3,7 +3,7 @@
  * 
  * Lista de evaluaciones pendientes con semáforo + detalle completo.
  * Aprobar / Rechazar con motivo.
- * Ángeles NO tiene acceso a esta vista.
+ * Los promotores NO tienen acceso a esta vista.
  */
 
 import { useState, useEffect } from "react";
@@ -422,7 +422,7 @@ export default function EvaluacionesPage() {
           <CardContent className="p-8 text-center text-muted-foreground">
             <FileText className="w-10 h-10 mx-auto mb-3 opacity-30" />
             <p className="text-sm">No hay evaluaciones aún.</p>
-            <p className="text-xs mt-1">Aparecerán aquí cuando Ángeles complete una entrevista.</p>
+            <p className="text-xs mt-1">Aparecerán aquí cuando un promotor complete una entrevista.</p>
           </CardContent>
         </Card>
       ) : (

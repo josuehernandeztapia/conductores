@@ -7,7 +7,7 @@
  * GET  /api/evaluacion/:folioId       — Consulta evaluación guardada
  * GET  /api/evaluacion/preguntas      — Devuelve las 8 preguntas
  * POST /api/evaluacion/init-db        — Crear tabla (una vez)
- * PATCH /api/evaluacion/:folioId/override — Ángeles/Josué cambia decisión manualmente
+ * PATCH /api/evaluacion/:folioId/override — Promotor o director cambia decisión manualmente
  * PATCH /api/evaluacion/:folioId/resultado — Registrar resultado de pago (para calibración)
  */
 

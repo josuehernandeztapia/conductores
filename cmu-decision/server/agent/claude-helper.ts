@@ -69,7 +69,7 @@ COBRANZA:
 
 OPERACIÓN:
 - Solo Aguascalientes, México.
-- Una promotora: Ángeles Mireles (60 años, no técnica).
+- Un promotor asignado (perfil senior, no técnico).
 - NATGAS = proveedor de gas, uso INTERNO. En mensajes públicos: "estaciones con convenio CMU".
 - Vehículos: March Sense, March Advance, Aveo, Kwid, i10 (seminuevos con GNV instalado).
 - El flujo es 100% asistido por la promotora. El taxista NO opera el sistema.

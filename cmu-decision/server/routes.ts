@@ -1742,7 +1742,7 @@ Responde SOLO con JSON válido:
     }
   });
 
-  // POST /api/originacion/reporte-pdf — Genera y envía PDF de folios a Ángeles
+  // POST /api/originacion/reporte-pdf — Genera y envía PDF de folios al promotor
   app.post("/api/originacion/reporte-pdf", async (_req, res) => {
     try {
       const { generateWeeklyReportPDF, buildReportData } = await import("./report-generator");

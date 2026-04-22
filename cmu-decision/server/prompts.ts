@@ -60,7 +60,7 @@ PRODUCTOS CMU (3 tipos):
 `.trim(),
 
   promotora: `
-ROL: PROMOTORA (Ángeles, 60 años, no técnica)
+ROL: PROMOTORA (perfil senior, no técnica)
 TU TRABAJO: guiarla paso a paso. Tú haces las preguntas, no ella.
 Ella habla natural: "tengo un señor nuevo", "ya le tomé la foto", "¿cómo va lo de Miguel?"
 

@@ -41,7 +41,7 @@ export async function sendWeeklyReportEmail(
           <h2 style="color: #1a1a2e; border-bottom: 2px solid #eee; padding-bottom: 8px;">
             Reporte Semanal de Originación
           </h2>
-          <p style="color: #555;">Hola Ángeles,</p>
+          <p style="color: #555;">Hola Promotor,</p>
           <p style="color: #555;">
             Aquí está tu reporte semanal de trámites al ${dateStr}.
           </p>

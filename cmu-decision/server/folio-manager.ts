@@ -74,7 +74,7 @@ export async function createFolioFromWhatsApp(
     tipo: "compraventa",
     estado: "BORRADOR",
     taxistaId: newTaxista.id,
-    promoterId: 1, // Ángeles Mireles
+    promoterId: 1, // promotor_uno
     vehicleInventoryId: null,
     perfilTipo,
     currentStep: 1,

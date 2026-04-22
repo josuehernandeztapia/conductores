@@ -114,7 +114,7 @@ function seedAll() {
   const pId1 = promoterSeq++;
   promoters.set(pId1, {
     id: pId1,
-    name: "Ángeles Mireles",
+    name: "Promotor",
     pin: "123456",
     phone: "+524491234567",
     role: "promotora",

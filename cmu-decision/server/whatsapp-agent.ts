@@ -3141,7 +3141,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         originationId = null;
         return await respond("Nombre del taxista y teléfono:\nEjemplo: *Pedro López 4491234567*");
       }
-      // Estado waiting_folio_phone: Ángeles ya dio el nombre, ahora da el teléfono
+      // Estado waiting_folio_phone: el promotor ya dio el nombre, ahora da el teléfono
       if (convState?.state === "waiting_folio_phone" && body) {
         const phoneMatchP = body.match(/(\d{10,13})/);
         const taxistaPhoneP = phoneMatchP ? phoneMatchP[1] : "";
@@ -3892,7 +3892,7 @@ JSON SIN markdown: {"classifiedAs":"key","confidence":"alta/media/baja","quality
         return await respond("¿Cómo se llama?");
       }
 
-      // Ángeles pide que se envíe el reporte PDF por email
+      // El promotor pide que se envíe el reporte PDF por email
       const wantsEmailReport = /env[ií]a?(?:le)?\s+el\s+reporte|manda\s+el\s+reporte|reporte\s+por\s+(?:correo|email|mail)|env[ií]a?(?:lo)?\s+al\s+correo|mandar\s+(?:el\s+)?reporte/i.test(lo);
       if (wantsEmailReport) {
         try {

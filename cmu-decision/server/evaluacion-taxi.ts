@@ -5,7 +5,7 @@
  * El scoring financiero DECIDE (GO/REVIEW/NO-GO).
  * El voice pattern se REGISTRA pero no decide (aún).
  * 
- * Flujo: Ángeles hace 8 preguntas por voz → audio se transcribe → 
+ * Flujo: El promotor hace 8 preguntas por voz → audio se transcribe → 
  *        números se extraen/confirman → motor de coherencia corre → decisión.
  */
 
@@ -600,7 +600,7 @@ export async function crearTablaEvaluaciones(): Promise<void> {
       
       -- Meta
       evaluador TEXT DEFAULT 'angeles',
-      override_decision TEXT,        -- si Ángeles o Josué cambian la decisión
+      override_decision TEXT,        -- si promotor o director cambian la decisión
       override_motivo TEXT,
       created_at TIMESTAMPTZ DEFAULT NOW(),
       updated_at TIMESTAMPTZ DEFAULT NOW()

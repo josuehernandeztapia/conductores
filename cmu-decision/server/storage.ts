@@ -165,7 +165,7 @@ export class MemStorage implements IStorage {
     const id1 = this.promoterSeq++;
     this.promotersMap.set(id1, {
       id: id1,
-      name: "Ángeles Mireles",
+      name: "Promotor",
       pin: "123456",
       phone: "+524491234567",
       role: "promotora",
