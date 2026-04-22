@@ -458,8 +458,34 @@ export type AvpAcceptance = typeof avpAcceptances.$inferSelect;
 export const insertAvpAcceptanceSchema = createInsertSchema(avpAcceptances).omit({ id: true });
 export type InsertAvpAcceptance = z.infer<typeof insertAvpAcceptanceSchema>;
 
+// ===== OCR Processing Log (AVP v3 Cláusula V bis inciso c) =====
+// Trazabilidad interna del procesamiento OCR por proveedor API.
+// CMU declara en el Aviso que mantiene un registro con el proveedor específico
+// que procesó cada documento, la versión vigente del Aviso al momento del
+// procesamiento, y la marca temporal. Esta tabla implementa ese compromiso.
+export const ocrProcessingLog = pgTable("ocr_processing_log", {
+  id: serial("id").primaryKey(),
+  phone: text("phone"), // WhatsApp del operador (E.164), si se conoce
+  originationId: integer("origination_id"),
+  documentType: text("document_type"), // e.g. 'ine_frente', 'csf', 'tickets_gasolina'
+  provider: text("provider").notNull(), // 'openai' | 'anthropic'
+  providerModel: text("provider_model"), // e.g. 'gpt-4o', 'claude-sonnet-4'
+  avpVersionAtProcessing: text("avp_version_at_processing").notNull(),
+  status: text("status").notNull(), // 'success' | 'error' | 'fallback_used'
+  errorMessage: text("error_message"),
+  processedAt: text("processed_at").notNull(), // ISO8601
+});
+
+export type OcrProcessingEntry = typeof ocrProcessingLog.$inferSelect;
+export const insertOcrProcessingSchema = createInsertSchema(ocrProcessingLog).omit({ id: true });
+export type InsertOcrProcessingEntry = z.infer<typeof insertOcrProcessingSchema>;
+
 // Current active AVP version — bump whenever we publish a materially different Aviso.
 // Material changes require re-acceptance from all active holders (art. 16 LFPDPPP + X
 // of the Aviso itself).
-export const AVP_CURRENT_VERSION = "v2";
-export const AVP_VIGENTE_DESDE = "2026-04-21";
+//
+// v3 (22-abr-2026): agregada Cláusula V bis — salvaguardas de no-retención y
+// no-entrenamiento por proveedores API internacionales (OpenAI, Anthropic, Twilio)
+// + compromiso de trazabilidad interna del procesamiento OCR.
+export const AVP_CURRENT_VERSION = "v3";
+export const AVP_VIGENTE_DESDE = "2026-04-22";

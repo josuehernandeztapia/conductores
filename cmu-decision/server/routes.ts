@@ -21,6 +21,7 @@ import {
   getLatestAcceptance,
   revokeAcceptance,
 } from "./avp-engine";
+import { initOcrProvenanceTable, getOcrHistoryForPhone } from "./ocr-provenance";
 import { AVP_CURRENT_VERSION, AVP_VIGENTE_DESDE } from "@shared/schema";
 import { checkOTP } from "./twilio-verify";
 import { detectCanal, upsertProspect, updateProspectStatus, getPipelineStats, getPipelineList, getCanales, getProspectsNeedingFollowup, markFollowupSent, generateWhatsAppLink } from "./pipeline-ventas";
@@ -3804,6 +3805,22 @@ Responde SOLO con JSON válido:
 
   // ===== AVISO DE PRIVACIDAD (LFPDPPP) =====
   initAvpTable().catch((e) => console.error("[AVP] Init failed:", e.message));
+
+  // ===== OCR PROVENANCE (AVP v3 Cláusula V bis inciso c) =====
+  initOcrProvenanceTable().catch((e) => console.error("[OcrProvenance] Init failed:", e.message));
+
+  // ARCO-acceso: el Titular puede consultar qué proveedores han procesado sus docs.
+  app.get("/api/aviso-privacidad/ocr-history", async (req, res) => {
+    try {
+      const phone = String(req.query.phone || "").trim();
+      if (!phone) return res.status(400).json({ message: "phone es obligatorio" });
+      const rows = await getOcrHistoryForPhone(phone);
+      res.json({ phone, entries: rows });
+    } catch (e: any) {
+      console.error("[AVP] OCR history failed:", e.message);
+      res.status(500).json({ message: e.message });
+    }
+  });
 
   // GET: devuelve la versión vigente y si el teléfono ya tiene aceptación al día.
   // Se usa al primer login en la PWA para decidir si mostrar el modal de aviso.

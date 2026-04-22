@@ -402,8 +402,8 @@ export async function generateAVP(
 ): Promise<Buffer> {
   const data = {
     folio_avp: extra.folio_avp || orig?.folio || "CMU-AVP-______",
-    version: extra.version || "v2",
-    vigente_desde: extra.vigente_desde || "2026-04-21",
+    version: extra.version || "v3",
+    vigente_desde: extra.vigente_desde || "2026-04-22",
     folio_val: extra.folio_val || orig?.folio_val || orig?.folio || "CMU-VAL-______",
     operador_nombre: fullName(taxista),
     operador_ine: safe(taxista?.ine_numero || safeJson(orig?.datos_ine || orig?.datosIne, "clave_elector")),

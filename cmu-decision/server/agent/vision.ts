@@ -11,6 +11,7 @@
 
 import type { DocDefinition, VisionResult } from "./types";
 import { chatCompletion } from "./openai-helper";
+import { logOcrCall } from "../ocr-provenance";
 
 // ─── Document Order (15 documents) ──────────────────────────────────────────
 
@@ -285,14 +286,27 @@ REGLAS FINALES:
  * @param existingData - Data extracted from previous docs (for cross-reference)
  * @returns VisionResult with classification, validation, and extracted data
  */
+export interface OcrContext {
+  phone?: string | null;
+  originationId?: number | null;
+}
+
 export async function classifyAndValidateDoc(
   imageBase64: string,
   expectedType: string,
   docOrder: DocDefinition[] = DOC_ORDER,
   existingData: Record<string, any> = {},
+  context: OcrContext = {},
 ): Promise<VisionResult> {
 
   const prompt = buildVisionPrompt(expectedType, docOrder, existingData);
+  const provenanceBase = {
+    phone: context.phone || null,
+    originationId: context.originationId || null,
+    documentType: expectedType,
+    provider: "openai" as const,
+    providerModel: "gpt-4o",
+  };
 
   try {
     const response = await chatCompletion(
@@ -321,6 +335,9 @@ export async function classifyAndValidateDoc(
         ? parsed.detected_type
         : "unknown";
 
+      // AVP v3 Cláusula V bis inciso c): registro de trazabilidad interna.
+      logOcrCall({ ...provenanceBase, status: "success" }).catch(() => { /* non-blocking */ });
+
       return {
         detected_type: detectedType,
         matches_expected: detectedType === expectedType,
@@ -333,9 +350,19 @@ export async function classifyAndValidateDoc(
     }
 
     console.error("[Vision] Could not parse GPT-4V response as JSON:", text.slice(0, 200));
+    logOcrCall({
+      ...provenanceBase,
+      status: "error",
+      errorMessage: "Non-JSON response",
+    }).catch(() => { /* non-blocking */ });
     return makeErrorResult("No se pudo analizar la imagen. Intenta de nuevo.");
   } catch (error: any) {
     console.error("[Vision] GPT-4V call failed:", error.message);
+    logOcrCall({
+      ...provenanceBase,
+      status: "error",
+      errorMessage: error.message || "unknown error",
+    }).catch(() => { /* non-blocking */ });
     return makeErrorResult("Error procesando la imagen. Intenta de nuevo.");
   }
 }
