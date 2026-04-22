@@ -98,6 +98,7 @@ const PUBLIC_PATHS = [
   "/api/aviso-privacidad", // LFPDPPP: operator accepts via phone + OTP, not PWA PIN
   "/api/cron/proactive", // proactive reminders cron (has x-cron-secret)
   "/api/cron/abandono", // plate abandonment detection cron (new)
+  "/api/cron/aviso-dia25", // day 25 proactive status to conductor
 ];
 
 function authMiddleware(req: Request, res: Response, next: NextFunction) {
@@ -3433,6 +3434,77 @@ Responde SOLO con JSON válido:
       });
     } catch (err: any) {
       console.error("[Cron] Proactive check error:", err);
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  // POST /api/cron/aviso-dia25 — Estado de cuenta proactivo al conductor el día 25.
+  // Para TSR: recaudo del mes + cuota + diferencial estimado + ETA liga.
+  // Para Joylong: acumulado + gatillo + % avance.
+  app.post("/api/cron/aviso-dia25", async (req, res) => {
+    try {
+      const cronSecret = process.env.CRON_SECRET;
+      if (cronSecret) {
+        const provided = req.headers["x-cron-secret"] || req.query.secret;
+        if (provided !== cronSecret) {
+          return res.status(401).json({ message: "Invalid cron secret" });
+        }
+      }
+      const { avisoRecaudoDia25 } = await import("./conductor-proactivo-engine");
+      const sendWaForCron = async (to: string, body: string) => sendWa(to, body);
+      const result = await avisoRecaudoDia25(sendWaForCron);
+      return res.json({
+        success: true,
+        timestamp: new Date().toISOString(),
+        enviados: result.enviados,
+        errores: result.errores,
+        detalle: result.detalle,
+      });
+    } catch (err: any) {
+      console.error("[Cron] Aviso dia25 error:", err);
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  // POST /api/originations/:id/notify-post-firma — Notificación consolidada al firmar.
+  // Llamable manualmente o desde el flujo de Mifiel webhook cuando el status cambia a 'signed'.
+  app.post("/api/originations/:id/notify-post-firma", requireRole("director", "dev", "promotora"), async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const orig = await storage.getOrigination(id);
+      if (!orig) return res.status(404).json({ message: "Folio no encontrado" });
+      const taxista = orig.taxistaId ? await storage.getTaxista(orig.taxistaId) : null;
+      const vehicle = orig.vehicleInventoryId ? await storage.getVehicle(orig.vehicleInventoryId) : null;
+
+      const { notificarPostFirma } = await import("./conductor-proactivo-engine");
+      const nombre = taxista ? `${taxista.nombre} ${taxista.apellidoPaterno || ""}`.trim() : "";
+      const telefono = taxista?.telefono || orig.otpPhone || "";
+
+      // Cuota estimada: si hay PV en orig.notes o calcular desde motor
+      let cuotaMensual = 0;
+      let precioTotal = 0;
+      try {
+        const meta = orig.notes ? JSON.parse(orig.notes) : null;
+        if (meta?.cuota) cuotaMensual = Number(meta.cuota);
+        if (meta?.pv) precioTotal = Number(meta.pv);
+      } catch { /* nada */ }
+
+      const sendWaForNotify = async (to: string, body: string) => sendWa(to, body);
+      const result = await notificarPostFirma({
+        folio: orig.folio,
+        nombreTaxista: nombre,
+        telefonoTaxista: telefono,
+        marca: vehicle?.marca,
+        modelo: vehicle?.modelo,
+        anio: vehicle?.anio,
+        cuotaMensual,
+        precioTotal,
+        fechaFirma: orig.contractGeneratedAt || new Date().toISOString(),
+      }, sendWaForNotify, JOSUE_PHONE, ANGELES_PHONE);
+
+      return res.json({ success: true, folio: orig.folio, result });
+    } catch (err: any) {
+      console.error("[PostFirma] failed:", err);
       return res.status(500).json({ message: err.message });
     }
   });

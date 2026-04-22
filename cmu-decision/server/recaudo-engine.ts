@@ -642,7 +642,24 @@ export async function cierreMensual(sendWa?: (to: string, body: string) => Promi
       result.gnvCubrio++;
 
       if (sendWa && telefono) {
-        await sendWa(telefono, `*Cierre mes ${mesActual}*\nTu recaudo GNV ($${recaudoTotal.toLocaleString()}) cubrio tu cuota completa ($${cuota.toLocaleString()}).\nSolo pagas: $334 (Fondo de Garantia).\nFG acumulado: $${nuevoSaldoFG.toLocaleString()}/20,000.`);
+        // Mensaje cálido de cuota cubierta + aplicación al FG. Dedup 45d por folio.
+        try {
+          const { notificarCuotaCubierta } = await import("./conductor-proactivo-engine");
+          const excedente = Math.max(0, recaudoTotal - cuota);
+          await notificarCuotaCubierta(
+            telefono,
+            credito.Taxista || "",
+            folio,
+            mesActual,
+            recaudoTotal,
+            cuota,
+            excedente,
+            sendWa as any,
+          );
+        } catch {
+          // Fallback al mensaje original si el engine falla
+          await sendWa(telefono, `*Cierre mes ${mesActual}*\nTu recaudo GNV ($${recaudoTotal.toLocaleString()}) cubrio tu cuota completa ($${cuota.toLocaleString()}).\nSolo pagas: $334 (Fondo de Garantia).\nFG acumulado: $${nuevoSaldoFG.toLocaleString()}/20,000.`);
+        }
       }
     } else if (saldoFG > 0) {
       diferencial = cuota - recaudoTotal;
