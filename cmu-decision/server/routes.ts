@@ -1784,8 +1784,42 @@ Responde SOLO con JSON válido:
         const result = await registrarPago(event.folio, event.mes, event.monto, event.metodoPago);
         console.log(`[Conekta Webhook] Payment registered: ${result.message}`);
 
-        // TODO: Send WhatsApp confirmation to taxista
-        // TODO: Notify Josué if was in mora
+        // Notify: taxista (confirmation) + director (always) + promotora (if was in mora)
+        try {
+          const { findCreditByFolio } = await import("./airtable-client");
+          const credito: any = await findCreditByFolio(event.folio);
+          const clienteNombre = credito?.Taxista || credito?.Cliente || "";
+          const telefonoRaw = (credito?.Telefono || "").replace(/[^0-9]/g, "");
+          const telefono = telefonoRaw.startsWith("52") ? telefonoRaw : `52${telefonoRaw}`;
+          const enMora = (credito?.Estatus || "").toLowerCase().includes("mora") || (credito?.["Mora Dias"] || 0) > 0;
+
+          const msgTaxista =
+            `✅ Hola ${clienteNombre || ""}, recibimos tu pago de *$${event.monto.toLocaleString()}* por CMU vía ${event.metodoPago}.\n` +
+            `Folio: ${event.folio} — Mes ${event.mes} cubierto.\n\nGracias.`;
+          const msgDirector =
+            `[Pago Conekta] ✅ *$${event.monto.toLocaleString()}* registrado\n` +
+            `Folio: ${event.folio} — Mes ${event.mes}\n` +
+            `Cliente: ${clienteNombre || "(no encontrado)"}\n` +
+            `Método: ${event.metodoPago}\n` +
+            `Registro: ${result.success ? "OK" : "FAIL — " + result.message}`;
+
+          if (telefono && clienteNombre) {
+            await sendWa(`whatsapp:+${telefono}`, msgTaxista).catch((e) =>
+              console.error(`[Conekta Webhook] WA taxista falló: ${e.message}`),
+            );
+          }
+          await sendWa(`whatsapp:+${JOSUE_PHONE}`, msgDirector).catch((e) =>
+            console.error(`[Conekta Webhook] WA director falló: ${e.message}`),
+          );
+          if (enMora) {
+            await sendWa(
+              `whatsapp:+${ANGELES_PHONE}`,
+              `[Cobranza] Cliente ${clienteNombre} (${event.folio}) salió de mora — pagó $${event.monto.toLocaleString()} mes ${event.mes}.`,
+            ).catch((e) => console.error(`[Conekta Webhook] WA promotora falló: ${e.message}`));
+          }
+        } catch (e: any) {
+          console.error(`[Conekta Webhook] Notificaciones fallaron: ${e.message}`);
+        }
       }
 
       return res.json({ received: true, processed: event.type });
