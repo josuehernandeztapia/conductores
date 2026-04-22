@@ -2259,13 +2259,45 @@ Responde SOLO con JSON válido:
             body: JSON.stringify({ to: JOSUE_PHONE, body: `[Mifiel] Contrato enviado para firma.\nFolio: ${originationId}\nFirmante: ${signerName}\n${signingUrl ? `Link: ${signingUrl}` : ""}` }),
           }).catch(() => {});
 
+          // Send PAG as second document if compraventa
+          let pagDocId: string | null = null;
+          let pagSigningUrl: string | null = null;
+          if (pagPdfBase64) {
+            try {
+              const pagFormData = new URLSearchParams();
+              pagFormData.append("file_base64", pagPdfBase64);
+              pagFormData.append("signatories[0][name]", signerName || "Operador");
+              pagFormData.append("signatories[0][email]", signerEmail || "operador@cmu.mx");
+              pagFormData.append("signatories[0][tax_id]", "");
+              if (signerPhone) pagFormData.append("signatories[0][phone]", signerPhone);
+              pagFormData.append("send_invites", "true");
+              pagFormData.append("signatories[0][allowed_signature_methods]", "FESCV");
+              const pagRes = await fetch(`${MIFIEL_BASE}/documents`, {
+                method: "POST",
+                headers: { "Authorization": `Basic ${mifielAuth}`, "Content-Type": "application/x-www-form-urlencoded" },
+                body: pagFormData.toString(),
+              });
+              const pagData = await pagRes.json();
+              if (pagData.id) {
+                pagDocId = pagData.id;
+                const pagWidget = pagData.signatories?.[0]?.widget_id || pagData.widget_id;
+                pagSigningUrl = pagWidget ? `${MIFIEL_BASE.replace('/api/v1', '')}/sign/${pagWidget}` : null;
+                console.log(`[Mifiel] PAG sent, docId=${pagDocId}`);
+              }
+            } catch (e: any) {
+              console.error("[Mifiel] PAG send failed:", e.message);
+            }
+          }
+
           return res.json({
             success: true,
             documentId: docId,
             widgetId,
             signingUrl,
+            pagDocumentId: pagDocId,
+            pagSigningUrl,
             status: "pending",
-            message: "Contrato enviado para firma" + (signingUrl ? " — link enviado por WhatsApp" : ""),
+            message: "Contrato" + (pagDocId ? " + Pagaré" : "") + " enviado para firma" + (signingUrl ? " — link enviado por WhatsApp" : ""),
           });
         } else {
           console.error("[Mifiel] Create failed:", mifielData);
@@ -2430,16 +2462,29 @@ Responde SOLO con JSON válido:
       if (!orig) return res.status(404).json({ message: "Folio no encontrado" });
 
       const now = new Date().toISOString();
-      const contractType = orig.tipo === "validacion" ? "convenio_validacion" : "contrato_compraventa";
+      const isValidacion = orig.tipo === "validacion";
+      const contractType = isValidacion ? "convenio_validacion" : "contrato_compraventa";
 
       // Get taxista and vehicle data
       const taxista = orig.taxistaId ? await storage.getTaxista(orig.taxistaId) : null;
       const vehicle = orig.vehicleInventoryId ? await storage.getVehicle(orig.vehicleInventoryId) : null;
 
-      // Generate real PDF
-      const pdfBuffer = contractType === "convenio_validacion"
+      // Generate primary PDF (TSR for compraventa, VAL for validacion)
+      const pdfBuffer = isValidacion
         ? await generateConvenioValidacion(orig, taxista, vehicle)
         : await generateContratoCompraventa(orig, taxista, vehicle);
+
+      // For compraventa: ALSO generate PAG (Pagaré de Anticipo)
+      let pagPdfBuffer: Buffer | null = null;
+      let pagContract: any = null;
+      if (!isValidacion) {
+        try {
+          const pagDocx = await contractEngine.generatePAG(orig, taxista, vehicle);
+          pagPdfBuffer = await contractEngine.docxToPdf(pagDocx);
+        } catch (e: any) {
+          console.error("[PAG] Generation failed:", e.message);
+        }
+      }
 
       // Build contract data from origination
       const contractData = {
@@ -2485,6 +2530,30 @@ Responde SOLO con JSON válido:
       // Store PDF buffer in memory cache for download (in production, this would go to S3)
       pdfCache.set(id, { buffer: pdfBuffer, folio: orig.folio, type: contractType });
 
+      // Persist PAG if generated
+      if (pagPdfBuffer) {
+        try {
+          pagContract = await storage.createContract({
+            originationId: id,
+            tipo: "pagare_anticipo",
+            folio: orig.folio?.replace("SIN", "PAG")?.replace("CPV", "PAG") || orig.folio,
+            contractData: JSON.stringify({ ...contractData, tipo: "pagare_anticipo", parent: contract.id }),
+            pdfUrl: `/api/originations/${id}/contract/pdf?type=PAG`,
+            pdfGeneratedAt: now,
+            status: "generated",
+            createdAt: now,
+            mifielDocumentId: null,
+            signedAt: null,
+            signedByTaxista: 0,
+            signedByPromotora: 0,
+            signedByCmu: 0,
+          });
+          pdfCache.set(id * 1000 + 1, { buffer: pagPdfBuffer, folio: pagContract.folio, type: "pagare_anticipo" });
+        } catch (e: any) {
+          console.error("[PAG] Save failed:", e.message);
+        }
+      }
+
       // Update origination
       await storage.updateOrigination(id, {
         contractType,
@@ -2493,7 +2562,13 @@ Responde SOLO con JSON válido:
         estado: "GENERADO",
       } as any);
 
-      return res.json({ contract, message: "Contrato generado", pdfSize: pdfBuffer.length });
+      return res.json({
+        contract,
+        pagContract,
+        message: isValidacion ? "Convenio generado" : `Contrato${pagPdfBuffer ? " + Pagar\u00e9" : ""} generado`,
+        pdfSize: pdfBuffer.length,
+        pagPdfSize: pagPdfBuffer?.length || 0,
+      });
     } catch (err: any) {
       console.error("Contract generation error:", err);
       return res.status(500).json({ message: err.message });
@@ -2571,7 +2646,31 @@ Responde SOLO con JSON válido:
   app.get("/api/originations/:id/contract/pdf", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      
+      const requestedType = (req.query.type as string || "").toUpperCase();
+
+      // Serve PAG if requested
+      if (requestedType === "PAG") {
+        const pagCached = pdfCache.get(id * 1000 + 1);
+        if (pagCached) {
+          res.setHeader("Content-Type", "application/pdf");
+          res.setHeader("Content-Disposition", `inline; filename="${pagCached.folio}-pagare.pdf"`);
+          res.setHeader("Content-Length", pagCached.buffer.length);
+          return res.send(pagCached.buffer);
+        }
+        // Regenerate PAG on the fly
+        const orig = await storage.getOrigination(id);
+        if (!orig) return res.status(404).json({ message: "Folio no encontrado" });
+        const taxista = orig.taxistaId ? await storage.getTaxista(orig.taxistaId) : null;
+        const vehicle = orig.vehicleInventoryId ? await storage.getVehicle(orig.vehicleInventoryId) : null;
+        const pagDocx = await contractEngine.generatePAG(orig, taxista, vehicle);
+        const pagPdf = await contractEngine.docxToPdf(pagDocx);
+        pdfCache.set(id * 1000 + 1, { buffer: pagPdf, folio: orig.folio, type: "pagare_anticipo" });
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader("Content-Disposition", `inline; filename="${orig.folio}-pagare.pdf"`);
+        res.setHeader("Content-Length", pagPdf.length);
+        return res.send(pagPdf);
+      }
+
       // Check cache first
       let cached = pdfCache.get(id);
       
