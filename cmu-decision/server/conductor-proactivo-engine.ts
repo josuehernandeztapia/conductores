@@ -97,10 +97,11 @@ export interface AvisoDia25Result {
  * Para Joylong Ahorro y Kit Conversión NO aplica diferencial — pero se
  * envía un resumen del ahorro acumulado en el mes igual.
  */
-export async function avisoRecaudoDia25(sendWa: SendWaFn): Promise<AvisoDia25Result> {
+export async function avisoRecaudoDia25(sendWa: SendWaFn, opts: { dryRun?: boolean } = {}): Promise<AvisoDia25Result> {
   const result: AvisoDia25Result = { enviados: 0, errores: [], detalle: [] };
   const now = new Date();
   const mesEnCurso = now.toISOString().slice(0, 7); // YYYY-MM
+  const dryRun = !!opts.dryRun;
 
   // ===== Taxi Renovación (TSR) — con cuota + diferencial =====
   try {
@@ -152,8 +153,10 @@ export async function avisoRecaudoDia25(sendWa: SendWaFn): Promise<AvisoDia25Res
       }
 
       try {
-        await sendWa(`whatsapp:+${telefono}`, msg);
-        await logMessage(telefono, key, folio, msg);
+        if (!dryRun) {
+          await sendWa(`whatsapp:+${telefono}`, msg);
+          await logMessage(telefono, key, folio, msg);
+        }
         result.enviados++;
       } catch (e: any) {
         result.errores.push(`TSR ${folio}: ${e.message}`);
@@ -192,8 +195,10 @@ export async function avisoRecaudoDia25(sendWa: SendWaFn): Promise<AvisoDia25Res
       }
 
       try {
-        await sendWa(`whatsapp:+${telefono}`, msg);
-        await logMessage(telefono, key, folio, msg);
+        if (!dryRun) {
+          await sendWa(`whatsapp:+${telefono}`, msg);
+          await logMessage(telefono, key, folio, msg);
+        }
         result.enviados++;
       } catch (e: any) {
         result.errores.push(`Joylong ${folio}: ${e.message}`);
@@ -201,6 +206,72 @@ export async function avisoRecaudoDia25(sendWa: SendWaFn): Promise<AvisoDia25Res
     }
   } catch (e: any) {
     result.errores.push(`Joylong query: ${e.message}`);
+  }
+
+  // ===== Kit Conversión — cuota mensual fija, resumen de aportes GNV =====
+  try {
+    const kits = await airtableFetch(TABLE_KIT_CONVERSION, {
+      filterByFormula: `{Estatus}="Activo"`,
+    });
+    for (const k of kits) {
+      const folio = k.Folio || "";
+      const cliente = k.Cliente || "";
+      const telefono = (k.Telefono || "").replace(/[^0-9]/g, "");
+      if (!folio || !telefono) continue;
+
+      const cuotaMensual = Math.round(k["Cuota Mensual"] || 0);
+      const saldoPendiente = Math.round(k["Saldo Pendiente"] || 0);
+      const mesActual = k["Mes Actual"] || 1;
+      const mesesPagados = k["Meses Pagados"] || 0;
+      const parcialidades = k["Parcialidades"] || 12;
+
+      // Recaudo del mes en curso desde placas recaudo (si existe)
+      let recaudoMes = 0;
+      try {
+        const recaudoRows = await airtableFetch(TABLE_RECAUDO, {
+          filterByFormula: `AND({Folio}="${folio}",{Mes}=${mesActual})`,
+          maxRecords: "1",
+        });
+        if (recaudoRows.length > 0) recaudoMes = Math.round(recaudoRows[0].Recaudo || 0);
+      } catch {
+        /* seguir con 0 */
+      }
+
+      const diferencial = Math.max(0, cuotaMensual - recaudoMes);
+      const status: "cubierta" | "parcial" | "sin_recaudo" =
+        recaudoMes >= cuotaMensual ? "cubierta" :
+        recaudoMes > 0 ? "parcial" : "sin_recaudo";
+
+      result.detalle.push({
+        folio, cliente, telefono,
+        recaudo: recaudoMes, cuota: cuotaMensual, diferencial, status,
+      });
+
+      const key = `aviso_dia25_${folio}_${mesEnCurso}`;
+      const alreadySent = await wasSentRecently(telefono, key, 24 * 30);
+      if (alreadySent) continue;
+
+      let msg: string;
+      if (status === "cubierta") {
+        msg = `💚 Hola ${cliente}, tu recaudo GNV del mes: *$${recaudoMes.toLocaleString()}* — cuota Kit Conversión: *$${cuotaMensual.toLocaleString()}*.\n\n✅ *Ya cubriste la cuota del mes ${mesActual}/${parcialidades}.*\nSaldo pendiente del kit: *$${saldoPendiente.toLocaleString()}*.\n\nEl día 1 del próximo mes te llega el estado de cuenta.`;
+      } else if (status === "parcial") {
+        msg = `📊 Hola ${cliente}, estado de tu Kit Conversión:\n\nRecaudo GNV este mes: *$${recaudoMes.toLocaleString()}*\nCuota mensual ${mesActual}/${parcialidades}: *$${cuotaMensual.toLocaleString()}*\nFalta cubrir: *$${diferencial.toLocaleString()}*\nSaldo pendiente del kit: *$${saldoPendiente.toLocaleString()}*\n\n⏰ El *día 1 del próximo mes* te llegará la liga de pago por el diferencial (si el recaudo no alcanza antes).`;
+      } else {
+        msg = `⚠️ Hola ${cliente}, este mes no hemos registrado cargas de gas.\n\nCuota Kit Conversión ${mesActual}/${parcialidades}: *$${cuotaMensual.toLocaleString()}*\nSaldo pendiente: *$${saldoPendiente.toLocaleString()}*\n\nSi no hay recaudo, el día 1 te llega liga de pago por el total. ¿Está todo bien con la unidad?`;
+      }
+
+      try {
+        if (!dryRun) {
+          await sendWa(`whatsapp:+${telefono}`, msg);
+          await logMessage(telefono, key, folio, msg);
+        }
+        result.enviados++;
+      } catch (e: any) {
+        result.errores.push(`Kit ${folio}: ${e.message}`);
+      }
+    }
+  } catch (e: any) {
+    result.errores.push(`Kit query: ${e.message}`);
   }
 
   return result;

@@ -99,6 +99,7 @@ const PUBLIC_PATHS = [
   "/api/cron/proactive", // proactive reminders cron (has x-cron-secret)
   "/api/cron/abandono", // plate abandonment detection cron (new)
   "/api/cron/aviso-dia25", // day 25 proactive status to conductor
+  "/api/originations/admin", // PIN-gated admin ops (cancel/delete test folios)
 ];
 
 function authMiddleware(req: Request, res: Response, next: NextFunction) {
@@ -3452,9 +3453,11 @@ Responde SOLO con JSON válido:
       }
       const { avisoRecaudoDia25 } = await import("./conductor-proactivo-engine");
       const sendWaForCron = async (to: string, body: string) => sendWa(to, body);
-      const result = await avisoRecaudoDia25(sendWaForCron);
+      const dryRun = req.query.dryRun === "true" || req.body?.dryRun === true;
+      const result = await avisoRecaudoDia25(sendWaForCron, { dryRun });
       return res.json({
         success: true,
+        dryRun,
         timestamp: new Date().toISOString(),
         enviados: result.enviados,
         errores: result.errores,
@@ -3684,6 +3687,35 @@ Responde SOLO con JSON válido:
   });
 
   // POST /api/recaudo/admin — Generic Airtable admin operations (director PIN required)
+  // PIN-gated admin ops for originations (cancel/delete test folios without UI auth).
+  app.post("/api/originations/admin", async (req, res) => {
+    try {
+      const { pin, action, folio, id, estado, notes } = req.body || {};
+      if (pin !== "654321") return res.status(403).json({ message: "PIN incorrecto" });
+      let orig: any = null;
+      if (id) orig = await storage.getOrigination(parseInt(id));
+      else if (folio) orig = await storage.getOriginationByFolio(folio);
+      if (!orig) return res.status(404).json({ message: "Folio no encontrado" });
+      if (action === "cancel") {
+        const updated = await storage.updateOrigination(orig.id, {
+          estado: estado || "CANCELADO",
+          notes: notes || (orig.notes ? orig.notes + " | " : "") + `Cancelado admin ${new Date().toISOString().slice(0,10)}`,
+          updatedAt: new Date().toISOString(),
+        } as any);
+        return res.json({ success: true, origination: updated });
+      }
+      if (action === "delete") {
+        const sql = (storage as any).sql;
+        if (!sql) return res.status(500).json({ message: "DB not available" });
+        await sql`DELETE FROM originations WHERE id = ${orig.id}`;
+        return res.json({ success: true, deletedId: orig.id, folio: orig.folio });
+      }
+      return res.status(400).json({ message: "action must be cancel|delete" });
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
   app.post("/api/recaudo/admin", async (req, res) => {
     try {
       const { pin, action, table, fields, recordId, formula } = req.body;
