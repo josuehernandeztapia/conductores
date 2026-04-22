@@ -1771,7 +1771,7 @@ Responde SOLO con JSON válido:
   // (Both paths supported: /api/conekta/webhook is internal, /api/webhooks/conekta is configured in Conekta panel)
   const conektaWebhookHandler = async (req: any, res: any) => {
     try {
-      const event = parseConektaWebhook(req.body);
+      const event = await parseConektaWebhook(req.body);
       if (!event) {
         console.log("[Conekta Webhook] Unrecognized event");
         return res.json({ received: true });
@@ -1779,7 +1779,9 @@ Responde SOLO con JSON válido:
 
       console.log(`[Conekta Webhook] ${event.type} | folio=${event.folio} mes=${event.mes} | $${event.monto} via ${event.metodoPago}`);
 
-      if (event.type === "order.paid" && event.folio && event.mes > 0) {
+      // Accept both order.paid (tarjeta) and charge.paid (SPEI/efectivo confirmed)
+      const isPaidEvent = event.type === "order.paid" || event.type === "charge.paid";
+      if (isPaidEvent && event.folio && event.mes > 0) {
         // Register the payment
         const result = await registrarPago(event.folio, event.mes, event.monto, event.metodoPago);
         console.log(`[Conekta Webhook] Payment registered: ${result.message}`);

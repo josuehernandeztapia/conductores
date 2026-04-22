@@ -75,6 +75,13 @@ export async function crearLigaPago(params: PaymentLinkParams): Promise<PaymentL
   const { folio, mes, taxista, telefono, email, diferencial, cobroFG, vigenciaDias, descripcion } = params;
   const totalCentavos = (diferencial + cobroFG) * 100; // Conekta uses centavos
 
+  // Sanitize customer name — Conekta rejects parentheses, quotes, and many special chars in name.
+  // Allow letters, spaces, hyphens, apostrophes, periods. Collapse whitespace. Enforce 3–50 chars.
+  const nombreRaw = (taxista || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  let nombreSanitized = nombreRaw.replace(/[^A-Za-z\u00c0-\u024f' .\-]/g, " ").replace(/\s+/g, " ").trim();
+  if (nombreSanitized.length < 3) nombreSanitized = "Cliente CMU";
+  if (nombreSanitized.length > 50) nombreSanitized = nombreSanitized.slice(0, 50).trim();
+
   // Build line items
   const lineItems: any[] = [];
   if (diferencial > 0) {
@@ -108,7 +115,7 @@ export async function crearLigaPago(params: PaymentLinkParams): Promise<PaymentL
     order_template: {
       currency: "MXN",
       customer_info: {
-        name: taxista,
+        name: nombreSanitized,
         phone: telefono.replace(/\+/g, ""),
         ...(email ? { email } : { email: "contacto@conductores.lat" }),
       },
@@ -163,33 +170,48 @@ export type ConektaWebhookEvent = {
  * Parse a Conekta webhook event.
  * Returns structured data or null if not a payment event we care about.
  */
-export function parseConektaWebhook(body: any): ConektaWebhookEvent | null {
+export async function parseConektaWebhook(body: any): Promise<ConektaWebhookEvent | null> {
   try {
     const eventType = body?.type;
     if (!eventType) return null;
 
-    const order = body?.data?.object;
-    if (!order) return null;
+    const obj = body?.data?.object;
+    if (!obj) return null;
 
-    const orderId = order.id || "";
+    // Two shapes possible: Order (order.paid, order.expired) or Charge (charge.paid, charge.created, etc.)
+    // Charges don't carry metadata/line_items — fetch parent order if necessary.
+    let order: any = obj;
+    let charge: any = null;
+    if (obj.object === "charge" || obj.order_id) {
+      charge = obj;
+      // Fetch parent order to get metadata (folio, mes)
+      try {
+        order = await conektaFetch(`/orders/${obj.order_id}`, "GET");
+      } catch (e: any) {
+        console.error(`[Conekta] Could not fetch order ${obj.order_id}: ${e.message}`);
+        order = {};
+      }
+    }
+
+    const orderId = order.id || charge?.order_id || "";
     const metadata = order.metadata || {};
     const folio = metadata.folio || "";
     const mes = parseInt(metadata.mes || "0");
-    const monto = (order.amount || 0) / 100; // centavos to pesos
+    const monto = ((charge?.amount ?? order.amount) || 0) / 100; // centavos to pesos
 
     // Determine payment method
     let metodoPago = "desconocido";
-    const charges = order.charges?.data || [];
-    if (charges.length > 0) {
-      const pm = charges[0]?.payment_method;
-      if (pm?.type === "card" || pm?.type === "credit") metodoPago = "Conekta Tarjeta";
-      else if (pm?.type === "cash") metodoPago = "Conekta Efectivo";
-      else if (pm?.type === "spei" || pm?.type === "bank_transfer") metodoPago = "Conekta SPEI";
-      else metodoPago = `Conekta ${pm?.type || "?"}`;
+    const pm = charge?.payment_method || order.charges?.data?.[0]?.payment_method;
+    if (pm) {
+      if (pm.type === "card" || pm.type === "credit") metodoPago = "Conekta Tarjeta";
+      else if (pm.type === "cash") metodoPago = "Conekta Efectivo";
+      else if (pm.type === "spei" || pm.type === "bank_transfer") metodoPago = "Conekta SPEI";
+      else metodoPago = `Conekta ${pm.type || "?"}`;
     }
 
-    const paidAt = charges[0]?.paid_at
-      ? new Date(charges[0].paid_at * 1000).toISOString().slice(0, 10)
+    const paidAtUnix = charge?.paid_at ?? order.charges?.data?.[0]?.paid_at;
+    const paidAt = paidAtUnix
+      ? new Date(paidAtUnix * 1000).toISOString().slice(0, 10)
       : new Date().toISOString().slice(0, 10);
 
     return { type: eventType, orderId, folio, mes, monto, metodoPago, paidAt };
