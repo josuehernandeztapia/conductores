@@ -96,6 +96,8 @@ const PUBLIC_PATHS = [
   "/api/market-prices/bulk-update", // Daily bulk price update (cron)
   "/api/metrics/funnel",
   "/api/aviso-privacidad", // LFPDPPP: operator accepts via phone + OTP, not PWA PIN
+  "/api/cron/proactive", // proactive reminders cron (has x-cron-secret)
+  "/api/cron/abandono", // plate abandonment detection cron (new)
 ];
 
 function authMiddleware(req: Request, res: Response, next: NextFunction) {
@@ -3431,6 +3433,52 @@ Responde SOLO con JSON válido:
       });
     } catch (err: any) {
       console.error("[Cron] Proactive check error:", err);
+      return res.status(500).json({ message: err.message });
+    }
+  });
+
+  // POST /api/cron/abandono — Detecta placas sin cargas de GNV por 3+ días.
+  // Escalera: 3d log, 5d WhatsApp al conductor, 7d escalar a director + promotor.
+  app.post("/api/cron/abandono", async (req, res) => {
+    try {
+      const cronSecret = process.env.CRON_SECRET;
+      if (cronSecret) {
+        const provided = req.headers["x-cron-secret"] || req.query.secret;
+        if (provided !== cronSecret) {
+          return res.status(401).json({ message: "Invalid cron secret" });
+        }
+      }
+
+      const { detectarAbandonoPorPlaca, notificarAbandono } = await import("./abandono-engine");
+
+      const entries = await detectarAbandonoPorPlaca();
+      const sendWaForCron = async (to: string, body: string) => {
+        return sendWa(to, body);
+      };
+
+      const result = await notificarAbandono(
+        entries,
+        sendWaForCron,
+        JOSUE_PHONE,
+        ANGELES_PHONE,
+      );
+
+      return res.json({
+        success: true,
+        timestamp: new Date().toISOString(),
+        totalDetectadas: entries.length,
+        porSeveridad: {
+          warning: entries.filter(e => e.severidad === "warning").length,
+          alert: entries.filter(e => e.severidad === "alert").length,
+          critical: entries.filter(e => e.severidad === "critical").length,
+        },
+        notificados: result.notificados,
+        escalados: result.escalados,
+        errores: result.errores,
+        detalle: entries,
+      });
+    } catch (err: any) {
+      console.error("[Cron] Abandono check error:", err);
       return res.status(500).json({ message: err.message });
     }
   });
