@@ -1859,8 +1859,8 @@ Responde SOLO con JSON válido:
         id = found.id;
       }
       if (!id) return res.status(400).json({ success: false, error: "Falta slug o checkoutId" });
-      const ok = await cancelarLiga(id);
-      return res.json({ success: ok, checkoutId: id });
+      const raw = await conektaFetch(`/checkouts/${id}/cancel`, "PUT");
+      return res.json({ success: !raw?.error, checkoutId: id, raw });
     } catch (err: any) {
       return res.status(500).json({ success: false, error: err.message });
     }
