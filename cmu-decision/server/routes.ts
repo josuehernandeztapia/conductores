@@ -103,6 +103,7 @@ const PUBLIC_PATHS = [
   "/api/conekta/crear-liga-admin", // PIN-gated payment link creation
   "/api/conekta/cancelar-liga-admin", // PIN-gated payment link cancellation
   "/api/sanity/check", // on-demand sanity audit (read-only, safe)
+  "/api/pipeline/cleanup-invalid", // PIN-gated cleanup of invalid prospects
 ];
 
 function authMiddleware(req: Request, res: Response, next: NextFunction) {
@@ -4088,6 +4089,22 @@ Responde SOLO con JSON válido:
   });
 
   // ===== PIPELINE FOLLOWUP =====
+  // POST /api/pipeline/cleanup-invalid — marca como 'invalido' todos los prospectos
+  // con datos basura (nombre con basura, teléfono = nombre, números test 521999*).
+  // dryRun por default; ?confirm=true para aplicar.
+  app.post("/api/pipeline/cleanup-invalid", async (req, res) => {
+    try {
+      const { pin } = req.body || {};
+      if (pin !== "654321") return res.status(403).json({ message: "PIN incorrecto" });
+      const confirm = req.query.confirm === "true" || req.body?.confirm === true;
+      const { markInvalidProspects } = await import("./pipeline-ventas");
+      const result = await markInvalidProspects({ dryRun: !confirm });
+      return res.json({ success: true, dryRun: !confirm, ...result });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
   app.post("/api/pipeline/run-followup", async (_req, res) => {
     try {
       const followups = await getProspectsNeedingFollowup();

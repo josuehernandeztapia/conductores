@@ -29,6 +29,73 @@ export function detectCanal(message: string): string {
   return "ORGANICO";
 }
 
+// ===== VALIDACIÓN DE DATOS DE PROSPECTO =====
+
+/**
+ * Decide si un registro de prospecto tiene datos "contactables" para follow-up.
+ * Reglas del agente:
+ *  - nombre existe y tiene al menos 2 chars alfabéticos consecutivos
+ *  - nombre tiene entre 2 y 5 palabras (nombres normales: "Pedro", "Pedro López", "María José Sánchez")
+ *  - nombre no es igual al teléfono
+ *  - nombre no contiene signos de puntuación de oración (coma, ¿, ?, !, punto final extraño)
+ *  - nombre no empieza con un número
+ *  - teléfono válido (10-13 dígitos, no un número de prueba 521999*)
+ */
+export function isValidProspectForFollowup(p: { nombre?: string | null; phone?: string | null }): { ok: boolean; reason?: string } {
+  const nombre = (p.nombre || "").trim();
+  const phoneDigits = (p.phone || "").replace(/\D/g, "");
+
+  if (!phoneDigits || phoneDigits.length < 10 || phoneDigits.length > 13) return { ok: false, reason: "PHONE_INVALID" };
+  if (phoneDigits.startsWith("521999")) return { ok: false, reason: "PHONE_TEST" };
+
+  if (!nombre) return { ok: false, reason: "NAME_EMPTY" };
+  if (/^\d/.test(nombre)) return { ok: false, reason: "NAME_STARTS_WITH_DIGIT" };
+  if (nombre.replace(/\D/g, "") === phoneDigits) return { ok: false, reason: "NAME_IS_PHONE" };
+
+  const words = nombre.split(/\s+/).filter(w => w.length > 0);
+  if (words.length < 1 || words.length > 5) return { ok: false, reason: "NAME_WORD_COUNT" };
+  if (/[,¿?¡!]/.test(nombre)) return { ok: false, reason: "NAME_HAS_PUNCTUATION" };
+  // Debe haber al menos 2 letras consecutivas en el nombre
+  if (!/[A-Za-zÀ-ÿ]{2,}/.test(nombre)) return { ok: false, reason: "NAME_NO_LETTERS" };
+  // Longitud total razonable (nombre real: 3-50 chars)
+  if (nombre.length < 3 || nombre.length > 50) return { ok: false, reason: "NAME_LENGTH" };
+
+  return { ok: true };
+}
+
+/**
+ * Marca como 'invalido' los prospectos con datos basura. No se borran (para auditoría),
+ * pero el cron los ignora. Devuelve el número de marcados + detalle.
+ */
+export async function markInvalidProspects(opts: { dryRun?: boolean } = {}): Promise<{
+  total: number;
+  marcados: number;
+  detalle: Array<{ phone: string; nombre: string | null; reason: string }>;
+}> {
+  const sql = getSQL();
+  const rows = await sql`
+    SELECT phone, nombre, status FROM prospects_pipeline
+    WHERE status NOT IN ('invalido', 'firmado', 'rechazado', 'descartado')
+  ` as any[];
+
+  const detalle: Array<{ phone: string; nombre: string | null; reason: string }> = [];
+  for (const r of rows) {
+    const check = isValidProspectForFollowup({ nombre: r.nombre, phone: r.phone });
+    if (!check.ok) {
+      detalle.push({ phone: r.phone, nombre: r.nombre, reason: check.reason || "UNKNOWN" });
+      if (!opts.dryRun) {
+        await sql`
+          UPDATE prospects_pipeline
+          SET status = 'invalido', notas = COALESCE(notas, '') || ${`[auto-marcado invalido: ${check.reason} @ ${new Date().toISOString().slice(0,10)}] `}
+          WHERE phone = ${r.phone}
+        `;
+      }
+    }
+  }
+
+  return { total: rows.length, marcados: detalle.length, detalle };
+}
+
 // ===== PROSPECT CRUD =====
 
 export async function upsertProspect(data: {
@@ -190,8 +257,16 @@ export async function getProspectsNeedingFollowup(): Promise<{
     AND (ultimo_seguimiento IS NULL OR ultimo_seguimiento < ${d7})
     ORDER BY ultimo_contacto ASC LIMIT 20
   `;
-  
-  return { frios_3d, sin_docs_5d, incompletos_7d };
+
+  // Filtro de sanity: solo prospectos con nombre/teléfono válidos son contactables.
+  // Los inválidos se mantienen en DB pero no se les manda follow-up.
+  const filter = (rows: any[]) => rows.filter((r: any) => isValidProspectForFollowup({ nombre: r.nombre, phone: r.phone }).ok);
+
+  return {
+    frios_3d: filter(frios_3d as any[]),
+    sin_docs_5d: filter(sin_docs_5d as any[]),
+    incompletos_7d: filter(incompletos_7d as any[]),
+  };
 }
 
 export async function markFollowupSent(phone: string): Promise<void> {
