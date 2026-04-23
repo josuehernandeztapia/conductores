@@ -551,7 +551,7 @@ async function handleTextMessage(
       const TWILIO_TOKEN = process.env.TWILIO_AUTH_TOKEN || "";
       const otpPhone = phone.startsWith("+") ? phone : `+${phone}`;
       const authHeader = "Basic " + Buffer.from(`${TWILIO_SID}:${TWILIO_TOKEN}`).toString("base64");
-      const resp = await fetch(`https://verify.twilio.com/v2/Services/${TWILIO_VERIFY_SID}/VerificationCheck`, {
+      const resp = await fetch(`https://verify.twilio.com/v2/Services/${TWILIO_VERIFY_SID}/VerificationChecks`, {
         method: "POST",
         headers: { "Authorization": authHeader, "Content-Type": "application/x-www-form-urlencoded" },
         body: `To=${encodeURIComponent(otpPhone)}&Code=${code}`,
