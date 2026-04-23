@@ -4237,13 +4237,23 @@ Responde SOLO con JSON válido:
 
       if (action === "verify") {
         if (!code) return res.status(400).json({ error: "code requerido para verify" });
-        const twilioRes = await fetch(`https://verify.twilio.com/v2/Services/${TWILIO_VERIFY_SID}/VerificationChecks`, {
+        // Intento 1: /VerificationChecks (formato recomendado)
+        const checkUrl = `https://verify.twilio.com/v2/Services/${TWILIO_VERIFY_SID}/VerificationChecks`;
+        const twilioRes = await fetch(checkUrl, {
           method: "POST",
           headers: { "Content-Type": "application/x-www-form-urlencoded", Authorization: authHeader },
           body: new URLSearchParams({ To: to, Code: code }).toString(),
         });
         const data = await twilioRes.json();
-        return res.json({ success: twilioRes.ok && data.status === "approved", status: data.status, raw: data });
+        // Si 404, info extra para diagnosticar
+        return res.json({
+          success: twilioRes.ok && data.status === "approved",
+          http_status: twilioRes.status,
+          status: data.status,
+          url_used: checkUrl,
+          service_sid: TWILIO_VERIFY_SID,
+          raw: data,
+        });
       }
 
       return res.status(400).json({ error: "action debe ser 'send' o 'verify'" });
