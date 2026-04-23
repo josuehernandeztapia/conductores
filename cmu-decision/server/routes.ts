@@ -108,6 +108,7 @@ const PUBLIC_PATHS = [
   "/api/fg/movimientos", // FG movement history (read-only)
   "/api/fg/ajuste", // PIN-gated manual adjustment
   "/api/fg/devolver", // PIN-gated completion refund
+  "/api/otp/test", // PIN-gated OTP end-to-end test
 ];
 
 function authMiddleware(req: Request, res: Response, next: NextFunction) {
@@ -4182,6 +4183,59 @@ Responde SOLO con JSON válido:
   });
 
   // ===== PIPELINE FOLLOWUP =====
+  // ===== OTP TEST (admin) =====
+  // POST /api/otp/test body: { pin, phone, action: 'send' | 'verify', code? }
+  // Permite probar end-to-end sin tocar la PWA. Usa los mismos endpoints de Twilio Verify.
+  app.post("/api/otp/test", async (req, res) => {
+    try {
+      const { pin, phone, action, code } = req.body || {};
+      if (pin !== "654321") return res.status(403).json({ message: "PIN incorrecto" });
+      if (!phone) return res.status(400).json({ error: "phone requerido" });
+
+      const TWILIO_VERIFY_SID = process.env.TWILIO_VERIFY_SID;
+      const twilioSid = process.env.TWILIO_ACCOUNT_SID;
+      const twilioAuth = process.env.TWILIO_AUTH_TOKEN;
+
+      if (!TWILIO_VERIFY_SID || !twilioSid || !twilioAuth) {
+        return res.status(503).json({
+          success: false,
+          error: "Twilio Verify no configurado",
+          has_verify_sid: !!TWILIO_VERIFY_SID,
+          has_account_sid: !!twilioSid,
+          has_auth_token: !!twilioAuth,
+        });
+      }
+
+      const authHeader = "Basic " + Buffer.from(`${twilioSid}:${twilioAuth}`).toString("base64");
+      const to = phone.startsWith("+") ? phone : `+${phone}`;
+
+      if (action === "send") {
+        const twilioRes = await fetch(`https://verify.twilio.com/v2/Services/${TWILIO_VERIFY_SID}/Verifications`, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded", Authorization: authHeader },
+          body: new URLSearchParams({ To: to, Channel: "sms" }).toString(),
+        });
+        const data = await twilioRes.json();
+        return res.json({ success: twilioRes.ok, status: data.status, sid: data.sid, channel: data.channel, raw: data });
+      }
+
+      if (action === "verify") {
+        if (!code) return res.status(400).json({ error: "code requerido para verify" });
+        const twilioRes = await fetch(`https://verify.twilio.com/v2/Services/${TWILIO_VERIFY_SID}/VerificationChecks`, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded", Authorization: authHeader },
+          body: new URLSearchParams({ To: to, Code: code }).toString(),
+        });
+        const data = await twilioRes.json();
+        return res.json({ success: twilioRes.ok && data.status === "approved", status: data.status, raw: data });
+      }
+
+      return res.status(400).json({ error: "action debe ser 'send' o 'verify'" });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
   // ===== FONDO DE GARANTIA (FG) =====
 
   // GET /api/fg/saldo?folio=XXX — Saldo actual del FG para un folio (read-only)
