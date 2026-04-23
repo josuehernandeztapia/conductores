@@ -2336,10 +2336,10 @@ Responde SOLO con JSON válido:
       const e164 = phoneNumber.startsWith("+") ? phoneNumber : `+52${clean}`;
 
       if (verifyEnabled) {
-        // Canal por defecto: WhatsApp (el flujo CMU es 100% por WA con el bot).
-        // Permite override vía body.channel = 'sms' | 'whatsapp' si la UI lo pide.
-        const requestedChannel = (req.body?.channel || "whatsapp").toLowerCase();
-        const channel = requestedChannel === "sms" ? "sms" : "whatsapp";
+        // Canal por defecto: SMS (universal, sin dependencia de WA).
+        // Permite override vía body.channel = 'whatsapp' si algún flujo específico lo requiere.
+        const requestedChannel = (req.body?.channel || "sms").toLowerCase();
+        const channel = requestedChannel === "whatsapp" ? "whatsapp" : "sms";
         const twilioRes = await fetch(`https://verify.twilio.com/v2/Services/${TWILIO_VERIFY_SID}/Verifications`, {
           method: "POST",
           headers: {
@@ -4206,7 +4206,7 @@ Responde SOLO con JSON válido:
       const { pin, phone, action, code, channel: reqChannel } = req.body || {};
       if (pin !== "654321") return res.status(403).json({ message: "PIN incorrecto" });
       if (!phone) return res.status(400).json({ error: "phone requerido" });
-      const channel = (reqChannel === "sms" ? "sms" : "whatsapp");
+      const channel = (reqChannel === "whatsapp" ? "whatsapp" : "sms");
 
       const TWILIO_VERIFY_SID = process.env.TWILIO_VERIFY_SID;
       const twilioSid = process.env.TWILIO_ACCOUNT_SID;
