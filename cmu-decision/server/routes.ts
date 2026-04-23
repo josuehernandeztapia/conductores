@@ -2336,21 +2336,36 @@ Responde SOLO con JSON válido:
       const e164 = phoneNumber.startsWith("+") ? phoneNumber : `+52${clean}`;
 
       if (verifyEnabled) {
+        // Canal por defecto: WhatsApp (el flujo CMU es 100% por WA con el bot).
+        // Permite override vía body.channel = 'sms' | 'whatsapp' si la UI lo pide.
+        const requestedChannel = (req.body?.channel || "whatsapp").toLowerCase();
+        const channel = requestedChannel === "sms" ? "sms" : "whatsapp";
         const twilioRes = await fetch(`https://verify.twilio.com/v2/Services/${TWILIO_VERIFY_SID}/Verifications`, {
           method: "POST",
           headers: {
             "Content-Type": "application/x-www-form-urlencoded",
             "Authorization": "Basic " + Buffer.from(`${TWILIO_SID}:${TWILIO_TOKEN}`).toString("base64"),
           },
-          body: `To=${encodeURIComponent(e164)}&Channel=sms`,
+          body: `To=${encodeURIComponent(e164)}&Channel=${channel}`,
         });
         const data = await twilioRes.json();
         if (data.status === "pending") {
           await storage.updateOrigination(id, { otpPhone: phoneNumber } as any).catch(() => {});
-          return res.json({ success: true, status: "pending", message: "SMS enviado vía Twilio Verify" });
+          return res.json({
+            success: true,
+            status: "pending",
+            channel,
+            message: channel === "whatsapp" ? "Código enviado por WhatsApp" : "Código enviado por SMS",
+          });
         }
-        // Twilio failed (trial restrictions, etc.) — fall through to simulation
-        console.warn("[Twilio] Send failed:", data.message || data.code);
+        // Twilio failed (trial restrictions, etc.) — log and surface error
+        console.warn(`[Twilio Verify ${channel}] Send failed:`, data.message || data.code);
+        return res.status(502).json({
+          success: false,
+          channel,
+          error: data.message || data.code || "Twilio Verify error",
+          twilio_raw: data,
+        });
       }
 
       // No Verify configured — fail clearly
@@ -4188,9 +4203,10 @@ Responde SOLO con JSON válido:
   // Permite probar end-to-end sin tocar la PWA. Usa los mismos endpoints de Twilio Verify.
   app.post("/api/otp/test", async (req, res) => {
     try {
-      const { pin, phone, action, code } = req.body || {};
+      const { pin, phone, action, code, channel: reqChannel } = req.body || {};
       if (pin !== "654321") return res.status(403).json({ message: "PIN incorrecto" });
       if (!phone) return res.status(400).json({ error: "phone requerido" });
+      const channel = (reqChannel === "sms" ? "sms" : "whatsapp");
 
       const TWILIO_VERIFY_SID = process.env.TWILIO_VERIFY_SID;
       const twilioSid = process.env.TWILIO_ACCOUNT_SID;
@@ -4213,7 +4229,7 @@ Responde SOLO con JSON válido:
         const twilioRes = await fetch(`https://verify.twilio.com/v2/Services/${TWILIO_VERIFY_SID}/Verifications`, {
           method: "POST",
           headers: { "Content-Type": "application/x-www-form-urlencoded", Authorization: authHeader },
-          body: new URLSearchParams({ To: to, Channel: "sms" }).toString(),
+          body: new URLSearchParams({ To: to, Channel: channel }).toString(),
         });
         const data = await twilioRes.json();
         return res.json({ success: twilioRes.ok, status: data.status, sid: data.sid, channel: data.channel, raw: data });
