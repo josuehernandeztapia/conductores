@@ -4237,23 +4237,26 @@ Responde SOLO con JSON válido:
 
       if (action === "verify") {
         if (!code) return res.status(400).json({ error: "code requerido para verify" });
-        // Intento 1: /VerificationChecks (formato recomendado)
-        const checkUrl = `https://verify.twilio.com/v2/Services/${TWILIO_VERIFY_SID}/VerificationChecks`;
-        const twilioRes = await fetch(checkUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded", Authorization: authHeader },
-          body: new URLSearchParams({ To: to, Code: code }).toString(),
-        });
-        const data = await twilioRes.json();
-        // Si 404, info extra para diagnosticar
-        return res.json({
-          success: twilioRes.ok && data.status === "approved",
-          http_status: twilioRes.status,
-          status: data.status,
-          url_used: checkUrl,
-          service_sid: TWILIO_VERIFY_SID,
-          raw: data,
-        });
+        // Intento multiples variaciones para aislar el issue:
+        const variants = [
+          { name: "To+Code plural", url: `https://verify.twilio.com/v2/Services/${TWILIO_VERIFY_SID}/VerificationChecks`, body: new URLSearchParams({ To: to, Code: code }).toString() },
+          { name: "VerificationSid plural", url: `https://verify.twilio.com/v2/Services/${TWILIO_VERIFY_SID}/VerificationChecks`, body: new URLSearchParams({ VerificationSid: req.body?.verificationSid || "", Code: code }).toString() },
+          { name: "To+Code singular", url: `https://verify.twilio.com/v2/Services/${TWILIO_VERIFY_SID}/VerificationCheck`, body: new URLSearchParams({ To: to, Code: code }).toString() },
+        ];
+        const results: any[] = [];
+        for (const v of variants) {
+          const r = await fetch(v.url, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded", Authorization: authHeader },
+            body: v.body,
+          });
+          const data = await r.json();
+          results.push({ variant: v.name, http: r.status, status: data.status, error: data.message, code: data.code });
+          if (r.ok && data.status === "approved") {
+            return res.json({ success: true, workedWith: v.name, raw: data, tried: results });
+          }
+        }
+        return res.json({ success: false, tried: results });
       }
 
       return res.status(400).json({ error: "action debe ser 'send' o 'verify'" });
