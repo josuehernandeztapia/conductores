@@ -2386,8 +2386,6 @@ Responde SOLO con JSON válido:
       const e164 = phoneNumber.startsWith("+") ? phoneNumber : `+52${phoneNumber.replace(/\D/g, "")}`;
 
       if (verifyEnabled && phoneNumber) {
-        // Nota: aunque la doc Twilio dice /VerificationChecks (plural),
-        // este Service acepta /VerificationCheck (singular). Confirmado 22-abr-2026.
         const twilioRes = await fetch(`https://verify.twilio.com/v2/Services/${TWILIO_VERIFY_SID}/VerificationCheck`, {
           method: "POST",
           headers: {
